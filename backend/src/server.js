@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import rawBody from 'fastify-raw-body';
 import pg from 'pg';
 import jwt from 'jsonwebtoken';
 import Razorpay from 'razorpay';
@@ -12,10 +13,12 @@ const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env
 const JWT_SECRET = process.env.JWT_SECRET;
 const DELIVERY_FEE_PAISE = Number(process.env.DELIVERY_FEE_PAISE || 0);
 const PLATFORM_FEE_BPS = Number(process.env.PLATFORM_FEE_BPS || 0);
+const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 const razorpay = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET ? new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET }) : null;
 
 await app.register(helmet);
 await app.register(cors, { origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true });
+await app.register(rawBody, { field: 'rawBody', global: false, encoding: 'utf8', runFirst: true });
 
 const requireAuth = async (request, reply) => {
   if (!JWT_SECRET) return reply.code(503).send({ error: 'AUTH_NOT_CONFIGURED' });
@@ -25,17 +28,13 @@ const requireAuth = async (request, reply) => {
   catch { return reply.code(401).send({ error: 'INVALID_TOKEN' }); }
 };
 const hashPassword = (password) => { const salt = randomBytes(16).toString('hex'); return `${salt}:${scryptSync(password, salt, 64).toString('hex')}`; };
-const verifyPassword = (password, stored) => {
-  const [salt, expected] = String(stored || '').split(':');
-  if (!salt || !expected) return false;
-  const actual = scryptSync(password, salt, 64), expectedBuffer = Buffer.from(expected, 'hex');
-  return expectedBuffer.length === actual.length && timingSafeEqual(actual, expectedBuffer);
-};
+const verifyPassword = (password, stored) => { const [salt, expected] = String(stored || '').split(':'); if (!salt || !expected) return false; const actual = scryptSync(password, salt, 64), expectedBuffer = Buffer.from(expected, 'hex'); return expectedBuffer.length === actual.length && timingSafeEqual(actual, expectedBuffer); };
 const issueToken = (user) => jwt.sign({ sub: user.id, role: user.role, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
 const badAddress = (a) => !a || !a.fullName || !a.phone || !a.line1 || !a.city || !a.state || !a.postalCode || !a.country;
 const httpError = (statusCode, message) => Object.assign(new Error(message), { statusCode, publicMessage: message });
+const safeSignatureEqual = (expected, received) => { const a = Buffer.from(String(expected), 'utf8'), b = Buffer.from(String(received), 'utf8'); return a.length === b.length && timingSafeEqual(a, b); };
 
-app.get('/health', async () => ({ service: 'aarvo-api', status: 'ok', database: Boolean(pool), auth: Boolean(JWT_SECRET), payments: Boolean(razorpay) }));
+app.get('/health', async () => ({ service: 'aarvo-api', status: 'ok', database: Boolean(pool), auth: Boolean(JWT_SECRET), payments: Boolean(razorpay), webhooks: Boolean(RAZORPAY_WEBHOOK_SECRET) }));
 
 app.post('/v1/auth/register', async (request, reply) => {
   if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
@@ -140,14 +139,13 @@ app.post('/v1/payments/verify', { preHandler: requireAuth }, async (request, rep
     const order = result.rows[0];
     if (order.gateway_order_id !== razorpayOrderId) throw httpError(400, 'PAYMENT_ORDER_MISMATCH');
     const expected = createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(`${order.gateway_order_id}|${razorpayPaymentId}`).digest('hex');
-    const signatureBuffer = Buffer.from(String(razorpaySignature));
-    if (expected.length !== signatureBuffer.length || !timingSafeEqual(Buffer.from(expected), signatureBuffer)) throw httpError(400, 'INVALID_PAYMENT_SIGNATURE');
+    if (!safeSignatureEqual(expected, razorpaySignature)) throw httpError(400, 'INVALID_PAYMENT_SIGNATURE');
     if (order.payment_status === 'CAPTURED') { await client.query('COMMIT'); return { orderId, paymentStatus: 'CAPTURED', status: order.status }; }
     const payment = await razorpay.payments.fetch(razorpayPaymentId);
     if (payment.order_id !== order.gateway_order_id || Number(payment.amount) !== Number(order.total_paise)) throw httpError(400, 'PAYMENT_DETAILS_MISMATCH');
     if (!['authorized', 'captured'].includes(payment.status)) throw httpError(400, 'PAYMENT_NOT_SUCCESSFUL');
     await client.query('UPDATE orders SET payment_status=$1,status=$2,gateway_payment_id=$3,updated_at=now() WHERE id=$4', ['CAPTURED','PAID',razorpayPaymentId,orderId]);
-    await client.query('INSERT INTO seller_ledger(seller_id,order_id,amount_paise,type) SELECT seller_id,order_id,seller_amount_paise,\'SALE\' FROM order_lines WHERE order_id=$1', [orderId]);
+    await client.query('INSERT INTO seller_ledger(seller_id,order_id,amount_paise,type) SELECT seller_id,order_id,seller_amount_paise,\'SALE\' FROM order_lines WHERE order_id=$1 AND NOT EXISTS (SELECT 1 FROM seller_ledger sl WHERE sl.order_id=order_lines.order_id AND sl.seller_id=order_lines.seller_id AND sl.type=\'SALE\')', [orderId]);
     await client.query('COMMIT');
     return { orderId, paymentStatus: 'CAPTURED', status: 'PAID' };
   } catch (error) { await client.query('ROLLBACK'); throw error; }
@@ -168,6 +166,38 @@ app.post('/v1/orders/:id/cancel', { preHandler: requireAuth }, async (request, r
     await client.query('UPDATE orders SET status=$1,payment_status=$2,updated_at=now() WHERE id=$3', ['CANCELLED','FAILED',request.params.id]);
     await client.query('COMMIT');
     return { orderId: request.params.id, status: 'CANCELLED', paymentStatus: 'FAILED' };
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+  finally { client.release(); }
+});
+
+app.post('/v1/webhooks/razorpay', { config: { rawBody: true } }, async (request, reply) => {
+  if (!pool || !RAZORPAY_WEBHOOK_SECRET) return reply.code(503).send({ error: 'WEBHOOK_NOT_CONFIGURED' });
+  const signature = request.headers['x-razorpay-signature'];
+  const eventId = request.headers['x-razorpay-event-id'];
+  if (!signature || !eventId) return reply.code(400).send({ error: 'WEBHOOK_HEADERS_REQUIRED' });
+  const raw = request.rawBody || '';
+  const expected = createHmac('sha256', RAZORPAY_WEBHOOK_SECRET).update(raw).digest('hex');
+  if (!safeSignatureEqual(expected, signature)) return reply.code(400).send({ error: 'INVALID_WEBHOOK_SIGNATURE' });
+  const payload = request.body || {}, event = String(payload.event || '');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const inserted = await client.query('INSERT INTO payment_events(event_id,order_id,event_type,payload) VALUES($1,NULL,$2,$3) ON CONFLICT (event_id) DO NOTHING RETURNING event_id', [String(eventId), event, JSON.stringify(payload)]);
+    if (!inserted.rowCount) { await client.query('COMMIT'); return { received: true, duplicate: true }; }
+    const paymentEntity = payload?.payload?.payment?.entity;
+    const orderEntity = payload?.payload?.order?.entity;
+    const gatewayOrderId = paymentEntity?.order_id || orderEntity?.id;
+    const paymentId = paymentEntity?.id;
+    const captured = event === 'payment.captured' || event === 'order.paid' || paymentEntity?.status === 'captured' || orderEntity?.status === 'paid';
+    if (captured && gatewayOrderId && paymentId) {
+      const order = await client.query('SELECT id,total_paise,payment_status FROM orders WHERE gateway_order_id=$1 FOR UPDATE', [gatewayOrderId]);
+      if (order.rowCount && order.rows[0].payment_status !== 'CAPTURED' && Number(paymentEntity.amount) === Number(order.rows[0].total_paise)) {
+        await client.query('UPDATE orders SET payment_status=\'CAPTURED\',status=\'PAID\',gateway_payment_id=$1,updated_at=now() WHERE id=$2', [paymentId, order.rows[0].id]);
+        await client.query('INSERT INTO seller_ledger(seller_id,order_id,amount_paise,type) SELECT seller_id,order_id,seller_amount_paise,\'SALE\' FROM order_lines WHERE order_id=$1 AND NOT EXISTS (SELECT 1 FROM seller_ledger sl WHERE sl.order_id=order_lines.order_id AND sl.seller_id=order_lines.seller_id AND sl.type=\'SALE\')', [order.rows[0].id]);
+      }
+    }
+    await client.query('COMMIT');
+    return { received: true };
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
 });
