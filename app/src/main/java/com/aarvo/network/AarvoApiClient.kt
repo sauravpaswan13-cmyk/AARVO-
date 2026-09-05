@@ -55,6 +55,8 @@ class AarvoApiClient(
 
     suspend fun product(productId: Int): JSONObject = getObject("/v1/products/$productId")
 
+    suspend fun productReviews(productId: Int): JSONArray = get("/v1/products/$productId/reviews")
+
     suspend fun createOrder(
         items: JSONArray,
         address: JSONObject,
@@ -74,28 +76,21 @@ class AarvoApiClient(
 
     suspend fun order(orderId: String): JSONObject = getObject("/v1/orders/$orderId")
 
-    suspend fun sellerOrders(): JSONArray = get("/v1/seller/orders")
+    suspend fun orderTracking(orderId: String): JSONArray = get("/v1/orders/$orderId/tracking")
 
-    suspend fun updateOrderTracking(
-        orderId: String,
-        status: String,
-        trackingCode: String = "",
-        carrier: String = "",
-        note: String = ""
-    ): JSONObject = post(
-        "/v1/orders/$orderId/tracking",
-        JSONObject().put("status", status)
-            .put("trackingCode", trackingCode.trim())
-            .put("carrier", carrier.trim())
-            .put("note", note.trim())
+    suspend fun cancelOrder(orderId: String, reason: String = "BUYER_CANCELLED"): JSONObject = post(
+        "/v1/orders/$orderId/cancel", JSONObject().put("reason", reason.trim())
     )
 
-    suspend fun submitReview(orderId: String, productId: Int, rating: Int, reviewText: String = ""): JSONObject = post(
+    suspend fun submitReview(
+        orderId: String,
+        productId: Int,
+        rating: Int,
+        reviewText: String = ""
+    ): JSONObject = post(
         "/v1/orders/$orderId/reviews",
         JSONObject().put("productId", productId).put("rating", rating).put("reviewText", reviewText.trim())
     )
-
-    suspend fun productReviews(productId: Int): JSONArray = get("/v1/products/$productId/reviews")
 
     suspend fun openDispute(orderId: String, reason: String, details: String = ""): JSONObject = post(
         "/v1/orders/$orderId/disputes",
@@ -113,10 +108,6 @@ class AarvoApiClient(
             .put("razorpayOrderId", razorpayOrderId)
             .put("razorpayPaymentId", paymentId)
             .put("razorpaySignature", signature)
-    )
-
-    suspend fun cancelOrder(orderId: String): JSONObject = post(
-        "/v1/orders/$orderId/cancel", JSONObject()
     )
 
     suspend fun sellerProfile(): JSONObject = getObject("/v1/seller/profile")
@@ -140,6 +131,22 @@ class AarvoApiClient(
     suspend fun updateInventory(productId: Int, stockQuantity: Int): JSONObject = post(
         "/v1/seller/products/$productId/inventory",
         JSONObject().put("stockQuantity", stockQuantity)
+    )
+
+    suspend fun sellerOrders(): JSONArray = get("/v1/seller/orders")
+
+    suspend fun updateOrderTracking(
+        orderId: String,
+        status: String,
+        trackingCode: String = "",
+        carrier: String = "",
+        note: String = ""
+    ): JSONObject = post(
+        "/v1/orders/$orderId/tracking",
+        JSONObject().put("status", status)
+            .put("trackingCode", trackingCode.trim())
+            .put("carrier", carrier.trim())
+            .put("note", note.trim())
     )
 
     private suspend fun get(path: String): JSONArray = withContext(Dispatchers.IO) {
