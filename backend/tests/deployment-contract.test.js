@@ -15,13 +15,19 @@ test('production compose requires external secrets and persists PostgreSQL data'
   assert.match(compose, /condition: service_healthy/);
 });
 
+test('production API has a container health check for the HTTP health endpoint', () => {
+  assert.match(compose, /healthcheck:/);
+  assert.match(compose, /127\.0\.0\.1:8080\/health/);
+  assert.match(compose, /start_period: 10s/);
+});
+
 test('production container applies schema and numbered migrations before starting API', () => {
   assert.match(dockerfile, /COPY schema\.sql \.\/schema\.sql/);
   assert.match(dockerfile, /COPY migrations \.\/migrations/);
   assert.match(compose, /node src\/migrate\.js && node src\/server\.js/);
   assert.match(migrate, /schema\.sql/);
   assert.match(migrate, /\.filter\(/);
-  assert.match(migrate, /\/\^\\d\+_\.\*\\\.sql\$/);
+  assert.match(migrate, /\/\^\\d+_\.\*\\.sql\$/);
   assert.match(migrate, /\.sort\(\)/);
   assert.match(migrate, /BEGIN/);
   assert.match(migrate, /COMMIT/);
