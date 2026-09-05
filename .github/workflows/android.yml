@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
 jobs:
   backend-check:
     runs-on: ubuntu-latest
@@ -71,6 +76,14 @@ jobs:
         run: gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true
       - name: Build release AAB (unsigned)
         run: gradle :app:bundleRelease --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true
+      - name: Attest debug APK provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: 'app/build/outputs/apk/debug/*.apk'
+      - name: Attest release AAB provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: 'app/build/outputs/bundle/release/*.aab'
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
