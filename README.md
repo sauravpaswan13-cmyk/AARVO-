@@ -41,6 +41,10 @@ AARVO is being developed as a **real two-sided marketplace**: customers buy genu
 9. **Admin control plane** — moderation, commissions, payouts, fraud/risk controls, support and analytics.
 10. **Production launch** — security hardening, tests, monitoring, crash reporting, release signing, policies and Play Store release.
 
+## Release signing preparation
+
+`app/build.gradle.kts` now supports an optional `production` signing configuration. The repository contains `keystore.properties.example` as a template only; real keystore files and passwords must remain outside Git and should be supplied through a secure local/CI secret mechanism. If signing properties are not supplied, CI can still build an unsigned release AAB for verification.
+
 ## Important launch gate
 
 The Android UI alone cannot make AARVO a real marketplace. Before accepting real customer money, the production backend, payment/payout account, seller verification, shipping integration, security configuration and legal policies must be connected and tested end-to-end. Until that gate is passed, no build should be marketed as a live shopping service.
