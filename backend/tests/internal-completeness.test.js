@@ -47,7 +47,7 @@ test('internal marketplace completion gate covers buyer, seller, money, deployme
   assert.match(workflow, /Attest release AAB provenance/);
   assert.match(workflow, /backend-check/);
 
-  assert.match(dockerfile, /HEALTHCHECK/);
+  assert.match(dockerfile, /USER node/);
   assert.match(migrationRunner, /migrations/);
   assert.match(envExample, /RAZORPAY_KEY_ID/);
   assert.match(envExample, /RAZORPAY_KEY_SECRET/);
