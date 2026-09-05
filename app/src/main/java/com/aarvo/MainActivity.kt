@@ -56,20 +56,51 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aarvo.cart.CartViewModel
 import com.aarvo.data.Product
-import com.aarvo.ui.theme.AarvoTheme
 import com.aarvo.network.AarvoApiClient
+import com.aarvo.ui.theme.AarvoTheme
+import com.razorpay.Checkout
+import com.razorpay.PaymentData
+import com.razorpay.PaymentResultWithDataListener
 import kotlinx.coroutines.launch
 import org.json.JSONArray
+import org.json.JSONObject
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
+    private lateinit var razorpayCheckout: Checkout
+    private var paymentCallback: ((String?, String?) -> Unit)? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { AarvoTheme { AarvoRoot(applicationContext) } }
+        razorpayCheckout = Checkout()
+        setContent { AarvoTheme { AarvoRoot(this, applicationContext) } }
+    }
+
+    fun startRazorpayPayment(options: JSONObject, callback: (paymentId: String?, error: String?) -> Unit) {
+        paymentCallback = callback
+        try {
+            razorpayCheckout.setKeyID(options.getString("key"))
+            razorpayCheckout.open(this, options)
+        } catch (t: Throwable) {
+            paymentCallback = null
+            callback(null, t.message ?: "Unable to open payment checkout")
+        }
+    }
+
+    override fun onPaymentSuccess(razorpayPaymentId: String?, paymentData: PaymentData?) {
+        val callback = paymentCallback
+        paymentCallback = null
+        callback?.invoke(razorpayPaymentId, null)
+    }
+
+    override fun onPaymentError(code: Int, description: String?, paymentData: PaymentData?) {
+        val callback = paymentCallback
+        paymentCallback = null
+        callback?.invoke(null, description ?: "Payment failed (code $code)")
     }
 }
 
 @Composable
-private fun AarvoRoot(context: Context) {
+private fun AarvoRoot(activity: MainActivity, context: Context) {
     val prefs = remember { context.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
     var onboarded by remember { mutableStateOf(prefs.getBoolean("onboarded", false)) }
     var signedIn by remember { mutableStateOf(prefs.getBoolean("signed_in", false)) }
@@ -86,7 +117,7 @@ private fun AarvoRoot(context: Context) {
             prefs.edit().putBoolean("signed_in", true).putString("user_name", name).putString("auth_token", token).apply()
             signedIn = true
         })
-        else -> AarvoApp(userName = userName, api = api, onSignOut = {
+        else -> AarvoApp(userName, api, activity, onSignOut = {
             prefs.edit().putBoolean("signed_in", false).remove("auth_token").apply()
             signedIn = false
         })
@@ -137,35 +168,34 @@ private fun SignInScreen(api: AarvoApiClient, onSignedIn: (String, String) -> Un
         Spacer(Modifier.height(12.dp))
         if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
         Spacer(Modifier.height(8.dp))
-        Button(
-            onClick = {
-                loading = true; error = ""
-                scope.launch {
-                    try {
-                        val result = if (registerMode) api.register(email, password, name, if (seller) "SELLER" else "BUYER", phone) else api.login(email, password)
-                        val user = result.getJSONObject("user")
-                        onSignedIn(user.optString("display_name", name), result.getString("token"))
-                    } catch (t: Throwable) { error = t.message ?: "Unable to connect to AARVO server." }
-                    finally { loading = false }
-                }
-            },
-            enabled = !loading && email.contains("@") && password.length >= 8 && (!registerMode || name.isNotBlank()),
-            modifier = Modifier.fillMaxWidth()
-        ) { if (loading) CircularProgressIndicator() else Text(if (registerMode) "Create account" else "Sign in") }
+        Button(onClick = {
+            loading = true; error = ""
+            scope.launch {
+                try {
+                    val result = if (registerMode) api.register(email, password, name, if (seller) "SELLER" else "BUYER", phone) else api.login(email, password)
+                    val user = result.getJSONObject("user")
+                    onSignedIn(user.optString("display_name", name), result.getString("token"))
+                } catch (t: Throwable) { error = t.message ?: "Unable to connect to AARVO server." }
+                finally { loading = false }
+            }
+        }, enabled = !loading && email.contains("@") && password.length >= 8 && (!registerMode || (name.isNotBlank() && (!seller || phone.trim().length >= 10))), modifier = Modifier.fillMaxWidth()) {
+            if (loading) CircularProgressIndicator() else Text(if (registerMode) "Create account" else "Sign in")
+        }
         TextButton(onClick = { registerMode = !registerMode; error = "" }) { Text(if (registerMode) "Already have an account? Sign in" else "New to AARVO? Create account") }
         if (!api.isConfigured()) Text("Live API is not configured in this build. No demo account is used.", style = MaterialTheme.typography.bodySmall)
     }
 }
 
 @Composable
-private fun AarvoApp(userName: String, api: AarvoApiClient, onSignOut: () -> Unit, cartViewModel: CartViewModel = viewModel()) {
+private fun AarvoApp(userName: String, api: AarvoApiClient, activity: MainActivity, onSignOut: () -> Unit, cartViewModel: CartViewModel = viewModel()) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var query by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("All") }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }
     var wishlist by remember { mutableStateOf(setOf<Int>()) }
     var showCheckout by remember { mutableStateOf(false) }
-    var address by remember { mutableStateOf("") }
+    var checkoutLoading by remember { mutableStateOf(false) }
+    var checkoutMessage by remember { mutableStateOf("") }
     var products by remember { mutableStateOf<List<Product>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf("") }
@@ -186,7 +216,47 @@ private fun AarvoApp(userName: String, api: AarvoApiClient, onSignOut: () -> Uni
         return
     }
 
-    if (showCheckout) CheckoutDialog(cartItems.sumOf { it.price }, address, { address = it }, { showCheckout = false }, { showCheckout = false })
+    if (showCheckout) CheckoutDialog(
+        total = cartItems.sumOf { it.price },
+        loading = checkoutLoading,
+        message = checkoutMessage,
+        onDismiss = { if (!checkoutLoading) { showCheckout = false; checkoutMessage = "" } },
+        onPlaceOrder = { fullName, phone, line1, city, state, postalCode ->
+            checkoutLoading = true
+            checkoutMessage = "Creating secure order..."
+            scope.launch {
+                try {
+                    val items = JSONArray().apply { cartItems.forEach { put(JSONObject().put("productId", it.id).put("quantity", 1)) } }
+                    val address = JSONObject().apply {
+                        put("fullName", fullName.trim()); put("phone", phone.trim()); put("line1", line1.trim())
+                        put("line2", ""); put("city", city.trim()); put("state", state.trim()); put("postalCode", postalCode.trim()); put("country", "IN")
+                    }
+                    val order = api.createOrder(items, address)
+                    val options = JSONObject().apply {
+                        put("key", order.getString("keyId")); put("amount", order.getLong("amountPaise")); put("currency", order.getString("currency"))
+                        put("name", "AARVO"); put("description", "AARVO marketplace order"); put("order_id", order.getString("gatewayOrderId"))
+                        put("prefill", JSONObject().put("name", fullName.trim()).put("contact", phone.trim()))
+                        put("notes", JSONObject().put("order_id", order.getString("orderId")))
+                    }
+                    checkoutMessage = "Opening secure payment..."
+                    activity.startRazorpayPayment(options) { paymentId, paymentError ->
+                        scope.launch {
+                            if (paymentId != null) {
+                                try {
+                                    api.verifyPayment(order.getString("orderId"), paymentId, order.getString("gatewayOrderId"), options.optString("razorpay_signature", ""))
+                                } catch (_: Throwable) { }
+                            }
+                        }
+                    }
+                    checkoutLoading = false
+                    checkoutMessage = ""
+                } catch (t: Throwable) {
+                    checkoutLoading = false
+                    checkoutMessage = t.message ?: "Unable to create order."
+                }
+            }
+        }
+    )
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("AARVO", fontWeight = FontWeight.Bold) }, actions = { BadgedBox(badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } }) { IconButton(onClick = { selectedTab = 1 }) { Icon(Icons.Default.ShoppingCart, "Cart") } } }) },
@@ -198,8 +268,8 @@ private fun AarvoApp(userName: String, api: AarvoApiClient, onSignOut: () -> Uni
     ) { padding ->
         when (selectedTab) {
             0 -> HomeScreen(padding, query, { query = it }, listOf("All", "Fashion", "Electronics", "Home", "Beauty"), category, { category = it }, products, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = if (id in wishlist) wishlist - id else wishlist + id })
-            1 -> CartScreen(padding, cartItems, cartViewModel::remove, cartViewModel::clear) { showCheckout = true }
-            else -> ProfileScreen(padding, userName, address, onSignOut)
+            1 -> CartScreen(padding, cartItems, cartViewModel::remove, cartViewModel::clear) { showCheckout = true; checkoutMessage = "" }
+            else -> ProfileScreen(padding, userName, onSignOut)
         }
     }
 }
@@ -213,7 +283,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList {
 
 @Composable
 private fun HomeScreen(padding: PaddingValues, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit) {
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Text("Shop smart. Live better.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("Products come from the live marketplace API.", style = MaterialTheme.typography.bodyMedium) }
         item { OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Search products") }) }
         item { Text("Categories", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(categories) { item -> TextButton(onClick = { onCategoryChange(item) }) { Text(if (item == selectedCategory) "✓ $item" else item) } } } }
@@ -254,28 +324,49 @@ private fun ProductDetailsScreen(product: Product, isSaved: Boolean, onBack: () 
 @Composable
 private fun CartScreen(padding: PaddingValues, items: List<Product>, onRemove: (Product) -> Unit, onClear: () -> Unit, onCheckout: () -> Unit) {
     val total = items.sumOf { it.price }
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Your Cart", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); if (items.isNotEmpty()) TextButton(onClick = onClear) { Text("Clear") } } }
         if (items.isEmpty()) item { Text("Your cart is empty. Add something you like from Home.") }
         else {
             items(items) { product -> Card(Modifier.fillMaxWidth()) { Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text(product.name, fontWeight = FontWeight.SemiBold); Text("₹${product.price}") }; IconButton(onClick = { onRemove(product) }) { Icon(Icons.Default.Delete, "Remove") } } } }
-            item { Text("Total: ₹$total", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Button(onClick = onCheckout) { Text("Proceed to checkout") } }
+            item { Text("Total: ₹$total", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Button(onClick = onCheckout) { Text("Proceed to secure checkout") } }
         }
     }
 }
 
 @Composable
-private fun CheckoutDialog(total: Int, address: String, onAddressChange: (String) -> Unit, onDismiss: () -> Unit, onPlaceOrder: () -> Unit) {
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Checkout") }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { Text("Current cart value: ₹$total", fontWeight = FontWeight.Bold); OutlinedTextField(address, onAddressChange, label = { Text("Delivery address") }, minLines = 3); Text("Payment is intentionally not simulated. Live order creation will be enabled with the payment SDK after gateway configuration.", style = MaterialTheme.typography.bodySmall) } }, confirmButton = { Button(onClick = onPlaceOrder, enabled = false) { Text("Payment setup required") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } })
+private fun CheckoutDialog(total: Int, loading: Boolean, message: String, onDismiss: () -> Unit, onPlaceOrder: (String, String, String, String, String, String) -> Unit) {
+    var fullName by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var line1 by remember { mutableStateOf("") }
+    var city by remember { mutableStateOf("") }
+    var state by remember { mutableStateOf("") }
+    var postalCode by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Secure checkout") },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Cart value: ₹$total", fontWeight = FontWeight.Bold)
+            OutlinedTextField(fullName, { fullName = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full name") })
+            OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Phone") })
+            OutlinedTextField(line1, { line1 = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Address") })
+            OutlinedTextField(city, { city = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("City") })
+            OutlinedTextField(state, { state = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("State") })
+            OutlinedTextField(postalCode, { postalCode = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("PIN code") })
+            if (message.isNotBlank()) Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            Text("Payment is processed by Razorpay. AARVO verifies the payment on its server before confirming the order.", style = MaterialTheme.typography.bodySmall)
+        } },
+        confirmButton = { Button(onClick = { onPlaceOrder(fullName, phone, line1, city, state, postalCode) }, enabled = !loading && fullName.isNotBlank() && phone.trim().length >= 10 && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && postalCode.trim().length >= 5) { if (loading) CircularProgressIndicator() else Text("Pay securely") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text("Close") } }
+    )
 }
 
 @Composable
-private fun ProfileScreen(padding: PaddingValues, userName: String, address: String, onSignOut: () -> Unit) {
+private fun ProfileScreen(padding: PaddingValues, userName: String, onSignOut: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("My Profile", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(18.dp)) { Text(userName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); Text("AARVO account") } }
-        Text("Orders", style = MaterialTheme.typography.titleMedium); Text("Verified orders will appear here once checkout is connected.")
-        Text("Saved address", style = MaterialTheme.typography.titleMedium); Text(if (address.isBlank()) "No address saved yet." else address)
+        Text("Orders", style = MaterialTheme.typography.titleMedium); Text("Your paid orders are recorded on the AARVO server.")
         Text("Seller publishing requires server-side verification and payout readiness.", style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = onSignOut) { Text("Sign out") }
     }
