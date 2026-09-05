@@ -23,6 +23,15 @@ jobs:
         run: npm install --ignore-scripts
       - name: Check backend syntax
         run: npm run check
+      - name: Validate production files
+        run: |
+          test -f Dockerfile
+          test -f .dockerignore
+          test -f .env.example
+          test -f migrations/001_production_integrity.sql
+          grep -q "CREATE UNIQUE INDEX" migrations/001_production_integrity.sql
+      - name: Build backend container
+        run: docker build --pull -t aarvo-api:ci .
 
   android-build:
     runs-on: ubuntu-latest
