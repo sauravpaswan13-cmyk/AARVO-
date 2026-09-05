@@ -30,6 +30,10 @@ jobs:
           test -f Dockerfile
           test -f .dockerignore
           test -f .env.example
+          test -f .env.production.example
+          test -f docker-compose.production.yml
+          test -f src/migrate.js
+          test -f schema.sql
           test -f migrations/001_production_integrity.sql
           test -f migrations/002_marketplace_operations.sql
           test -f migrations/003_reviews_delivery.sql
@@ -45,6 +49,7 @@ jobs:
           grep -q "orders_payment_status_chk" migrations/004_marketplace_hardening.sql
           grep -q "orders_money_nonnegative_chk" migrations/004_marketplace_hardening.sql
           grep -q "orders_created_at_idx" migrations/005_operational_indexes.sql
+          grep -q "node src/migrate.js" docker-compose.production.yml
       - name: Build backend container
         run: docker build --pull -t aarvo-api:ci .
 
