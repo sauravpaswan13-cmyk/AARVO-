@@ -29,6 +29,16 @@ test('final API client regression contracts remain HTTPS-only and idempotent', (
   assert.ok(apiClient.includes('/v1/payments/verify'));
 });
 
+test('buyer review and dispute UI is wired to authenticated API actions', () => {
+  assert.match(androidMain, /if \(status == "DELIVERED"\).*Review/s);
+  assert.match(androidMain, /ReviewDialog\(api, id/);
+  assert.match(androidMain, /api\.submitReview\(orderId, productId, rating, text\)/);
+  assert.match(androidMain, /DisputeDialog\(api, id/);
+  assert.match(androidMain, /api\.openDispute\(orderId, reason, details\)/);
+  assert.match(androidMain, /Unable to submit review/);
+  assert.match(androidMain, /Unable to open dispute/);
+});
+
 test('final money regression keeps exact integer paise representation', () => {
   assert.match(productModel, /val pricePaise: Long/);
   assert.match(productModel, /pricePaise \/ 100/);
@@ -44,4 +54,6 @@ test('final CI regression still builds both installable/debug and release artifa
   assert.match(workflow, /Upload debug APK/);
   assert.match(workflow, /Upload release AAB/);
   assert.match(workflow, /backend-check/);
+  assert.match(workflow, /Attest debug APK provenance/);
+  assert.match(workflow, /Attest release AAB provenance/);
 });
