@@ -1,46 +1,46 @@
-# AARVO
+# AARVO — Real Shopping Marketplace
 
-AARVO is a modern Android shopping app starter built with Kotlin and Jetpack Compose.
+AARVO is being developed as a **real two-sided marketplace**: customers buy genuine products and independent sellers list, sell, fulfill orders and receive payouts. It is not intended to be a demo storefront.
 
-## Phase 1 — 10-step foundation
+## Product vision
 
-1. **Project foundation** — Android `app` module, Kotlin and Jetpack Compose.
-2. **Theme/UI** — Material 3 with light/dark theme support.
-3. **Onboarding** — Get Started flow with local completion state.
-4. **Demo sign-in** — Name/email validation with local account state.
-5. **Product discovery** — Search and category filtering over the sample catalog.
-6. **Product experience** — Product cards, ratings, descriptions and a details screen.
-7. **Wishlist** — Save/remove products from the wishlist during the session.
-8. **Cart** — Add, remove and clear cart items with a live total and cart badge.
-9. **Checkout** — Delivery-address validation and Cash on Delivery demo order confirmation.
-10. **Delivery pipeline** — GitHub Actions CI uses JDK 17 + Gradle 9.7.1, builds the debug APK and uploads it as `aarvo-debug-apk`.
+**Buyer:** discover → compare → product details → cart → secure checkout → payment → delivery tracking → verified review.
 
-## Current architecture
+**Seller:** onboarding/KYC → store profile → add products → pricing/inventory → receive orders → pack/ship → track earnings → payout.
 
-- `data/Product.kt` — product model and sample catalog
-- `data/ProductRepository.kt` — product filtering/category access
-- `cart/CartViewModel.kt` — cart state
-- `MainActivity.kt` — app navigation and current UI flows
-- `.github/workflows/android.yml` — Android CI and debug APK artifact
+**Admin:** seller approval → catalog moderation → commission rules → orders/payments → refunds/disputes → fraud/risk → analytics → audit logs.
 
-## Open in Android Studio
+## Production principles
 
-1. Open this repository as an Android project.
-2. Use JDK 17.
-3. Sync Gradle and let Android Studio install any missing SDK components.
-4. Run the `app` configuration on an Android 7.0+ device/emulator.
+- The backend is the source of truth for price, inventory, order state and seller earnings.
+- Payment success is accepted only from a verified payment-provider response/webhook.
+- Seller payouts are calculated from recorded transactions, not from Android-client values.
+- Buyer/seller/admin permissions are enforced by the backend, not only hidden in the UI.
+- Sensitive payment credentials are never stored in the Android app or AARVO database.
+- Every order supports cancellation/refund/dispute paths and auditable state transitions.
 
-The project uses Android Gradle Plugin 9.4.0, Gradle 9.7.1 in CI, Kotlin 2.3.21 and compile/target SDK 37.
+## Current repository foundation
 
-## Next production phases
+- Kotlin + Jetpack Compose Android application.
+- Marketplace domain models for buyers, sellers, orders, payments, delivery addresses and order states.
+- `MarketplaceApi` boundary for replacing the development catalog with a live HTTPS backend.
+- Inventory-aware product model with seller ownership and publication state.
+- Android CI with JDK 17 + Gradle 9.7.1 and debug APK artifact.
+- `backend/README.md` documenting the production API/payment/security requirements.
 
-1. Replace demo authentication with a secure backend identity service.
-2. Add real product images/catalog API.
-3. Persist cart and wishlist with a local database.
-4. Add full address management.
-5. Integrate a production payment gateway.
-6. Persist orders and add order tracking.
-7. Add seller/admin dashboards and authorization.
-8. Connect backend API and database.
-9. Expand automated tests, release signing and release CI.
-10. Production security, analytics, crash reporting and Play Store release preparation.
+## 10 production milestones
+
+1. **Backend + database** — users, sellers, products, inventory, orders, payments, payouts and audit events.
+2. **Real authentication** — OTP/email login, secure sessions and buyer/seller/admin roles.
+3. **Seller onboarding** — store creation, KYC, bank/payout onboarding and seller approval.
+4. **Live catalog** — product images, categories, search, filters, variants and server-side inventory.
+5. **Real cart/checkout** — persistent cart, addresses, shipping calculation and server-side totals.
+6. **Real payments** — Indian payment gateway, webhook verification, idempotency, refunds and payment reconciliation.
+7. **Seller operations** — listing management, stock, order acceptance, packing/shipping and earnings.
+8. **Delivery + trust** — tracking, notifications, returns, reviews, ratings and disputes.
+9. **Admin control plane** — moderation, commissions, payouts, fraud/risk controls, support and analytics.
+10. **Production launch** — security hardening, tests, monitoring, crash reporting, release signing, policies and Play Store release.
+
+## Important launch gate
+
+The Android UI alone cannot make AARVO a real marketplace. Before accepting real customer money, the production backend, payment/payout account, seller verification, shipping integration, security configuration and legal policies must be connected and tested end-to-end. Until that gate is passed, no build should be marketed as a live shopping service.
