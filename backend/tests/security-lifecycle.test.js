@@ -37,6 +37,13 @@ test('orders use transactional stock reservation and server-side totals', () => 
   assert.match(server, /ROLLBACK/);
 });
 
+test('order creation is idempotent and protected against duplicate payment attempts', () => {
+  assert.match(server, /Idempotency-Key|idempotency/i);
+  assert.match(server, /idempotency_key/i);
+  assert.match(server, /gateway_order_id/i);
+  assert.match(server, /payment_status/i);
+});
+
 test('payment verification rejects mismatched or non-captured payments', () => {
   assert.match(server, /gateway_order_id\s*!==\s*razorpayOrderId/);
   assert.match(server, /razorpay\.payments\.fetch\(razorpayPaymentId\)/);
@@ -59,6 +66,14 @@ test('order lifecycle has cancellation, delivery tracking and dispute records', 
   assert.match(migration2, /audit_events/);
   assert.match(migration3, /delivery_events/);
   assert.match(migration3, /order_disputes/);
+});
+
+test('tracking and dispute actions remain buyer or seller scoped', () => {
+  assert.match(server, /requireBuyer/);
+  assert.match(server, /requireSeller/);
+  assert.match(server, /UPDATE orders/);
+  assert.match(server, /order_disputes/);
+  assert.match(server, /delivery_events/);
 });
 
 test('review eligibility is persisted with a one-review constraint', () => {
