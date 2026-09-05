@@ -26,7 +26,7 @@ AARVO is being built as a two-sided marketplace, not a demo storefront.
 7. Razorpay webhooks are accepted at `POST /v1/webhooks/razorpay`, verified against the raw request body, and deduplicated using `x-razorpay-event-id`.
 8. If the customer cancels before payment, `POST /v1/orders/:id/cancel` releases the reserved stock.
 
-Razorpay recommends server-side signature verification and webhooks for asynchronous payment state reconciliation. urlRazorpay payment verification documentationhttps://razorpay.com/docs/payments/payment-gateway/web-integration/standard/integration-steps/
+Razorpay recommends server-side signature verification and webhooks for asynchronous payment state reconciliation. See the [Razorpay payment verification documentation](https://razorpay.com/docs/payments/payment-gateway/web-integration/standard/integration-steps/).
 
 ## Production environment
 
@@ -41,17 +41,18 @@ Required variables are documented in `.env.example`. Never commit real values. I
 - `DELIVERY_FEE_PAISE`
 - `PLATFORM_FEE_BPS`
 
-The Android app only needs the public HTTPS API base URL. Razorpay's Android SDK documentation also recommends keeping sensitive API secrets out of the Android app. urlRazorpay Android integrationhttps://razorpay.com/docs/payments/magic-checkout/android-integration/
+The Android app only needs the public HTTPS API base URL. Razorpay's [Android integration documentation](https://razorpay.com/docs/payments/magic-checkout/android-integration/) also recommends keeping sensitive API secrets out of the Android app.
 
 ## Database setup
 
 1. Create the PostgreSQL database.
 2. Apply `schema.sql`.
 3. Apply `migrations/001_production_integrity.sql`.
-4. Run migrations before accepting traffic.
-5. Keep regular encrypted database backups and test restoration before launch.
+4. Apply `migrations/002_marketplace_operations.sql`.
+5. Run migrations before accepting traffic.
+6. Keep regular encrypted database backups and test restoration before launch.
 
-The integrity migration adds seller/order/payment lookup indexes and uniqueness protections for gateway order/payment identifiers.
+The integrity migrations add seller/order/payment lookup indexes, uniqueness protections, payment reservation expiry support, delivery tracking fields, idempotency support and audit-event storage.
 
 ## Container deployment
 
@@ -78,7 +79,7 @@ Before AARVO is advertised for real purchases:
 
 1. Production API is hosted behind HTTPS.
 2. PostgreSQL production database and backups are configured.
-3. `schema.sql` and the integrity migration are applied.
+3. `schema.sql` and both integrity/operations migrations are applied.
 4. JWT secret is random, long and server-only.
 5. Razorpay Live keys are configured server-side after account/KYC approval.
 6. Razorpay webhook is configured on HTTPS with the same webhook secret.
@@ -89,6 +90,6 @@ Before AARVO is advertised for real purchases:
 11. Monitoring, logs, backups and alerting are enabled.
 12. A real-money test is performed only after the provider's production approval and go-live checklist are complete.
 
-Razorpay distinguishes Test Mode from Live Mode; real customer payments require the live setup and account verification. urlRazorpay Quickstarthttps://razorpay.com/docs/payments/quickstart/?preferred-country=IN
+Razorpay distinguishes Test Mode from Live Mode; real customer payments require the live setup and account verification. See the [Razorpay Quickstart](https://razorpay.com/docs/payments/quickstart/?preferred-country=IN).
 
 Until those production services and credentials are configured, the repository is development software and must not be presented as accepting real customer money.
