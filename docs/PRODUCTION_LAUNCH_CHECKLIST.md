@@ -8,7 +8,7 @@ This checklist is the final operational gate for a real-money marketplace releas
 - [ ] Configure `NODE_ENV=production` and `PORT`.
 - [ ] Configure `DATABASE_URL` and `DATABASE_SSL=true`.
 - [ ] Apply `schema.sql` and migrations `001` through `005` in order.
-- [ ] Confirm `/health` returns `{"ok":true}` from the deployed API.
+- [ ] Confirm `/health` returns `{"service":"aarvo-api","status":"ok"}` from the deployed API.
 - [ ] Configure `CORS_ORIGIN` to the exact production Android/web origin(s).
 - [ ] Set a random production `JWT_SECRET` (32+ bytes recommended).
 - [ ] Set `DELIVERY_FEE_PAISE` and `PLATFORM_FEE_BPS` intentionally; never rely on undocumented defaults.
@@ -18,7 +18,7 @@ This checklist is the final operational gate for a real-money marketplace releas
 - [ ] Activate the production Razorpay account.
 - [ ] Put live `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in the hosting provider's secret store.
 - [ ] Configure `RAZORPAY_WEBHOOK_SECRET` in the same secret store.
-- [ ] Point the Razorpay webhook to the deployed `/v1/payments/webhook` endpoint.
+- [ ] Point the Razorpay webhook to the deployed `/v1/webhooks/razorpay` endpoint.
 - [ ] Verify webhook signature delivery and idempotent event handling.
 - [ ] Perform a controlled live payment and verify that the order is confirmed only after server-side verification.
 - [ ] Verify failed, cancelled, expired, and already-processed payment cases.
