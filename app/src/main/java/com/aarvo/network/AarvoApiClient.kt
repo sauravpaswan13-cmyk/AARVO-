@@ -47,6 +47,10 @@ class AarvoApiClient(
             .put("razorpaySignature", signature)
     )
 
+    suspend fun cancelOrder(orderId: String): JSONObject = post(
+        "/v1/orders/$orderId/cancel", JSONObject()
+    )
+
     private suspend fun get(path: String): JSONArray = withContext(Dispatchers.IO) {
         require(isConfigured()) { "AARVO_API_BASE_URL is not configured with HTTPS" }
         val request = Request.Builder().url(baseUrl + path).applyAuth().get().build()
