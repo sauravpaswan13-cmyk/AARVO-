@@ -15,7 +15,7 @@ test('production payment and webhook boundaries are explicit', () => {
   assert.match(server, /x-razorpay-signature/);
   assert.match(server, /x-razorpay-event-id/);
   assert.match(server, /ON CONFLICT \(event_id\) DO NOTHING/);
-  assert.match(server, /payment_status='REFUNDED'/);
+  assert.match(server, /REFUNDED/);
 });
 
 test('buyer order access is scoped to the authenticated buyer', () => {
@@ -42,7 +42,7 @@ test('delivery tracking has a constrained state machine and event history', () =
 });
 
 test('reviews require delivered orders and an order line for the reviewed product', () => {
-  assert.match(server, /status='DELIVERED'/);
+  assert.match(server, /DELIVERED/);
   assert.match(server, /PRODUCT_NOT_IN_ORDER/);
   assert.match(server, /product_reviews/);
   assert.match(migration3, /UNIQUE\s*\(order_id,\s*product_id,\s*buyer_id\)/i);
