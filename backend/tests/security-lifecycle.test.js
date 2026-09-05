@@ -21,8 +21,8 @@ test('authentication and authorization boundaries are explicit', () => {
 test('security middleware and request throttling are enabled', () => {
   assert.match(server, /helmet/);
   assert.match(server, /rateLimit/);
-  assert.match(server, /max:120/);
-  assert.match(server, /timeWindow:'1 minute'/);
+  assert.match(server, /max:\s*120/);
+  assert.match(server, /timeWindow:\s*'1 minute'/);
   assert.match(server, /0\.0\.0\.0/);
 });
 
