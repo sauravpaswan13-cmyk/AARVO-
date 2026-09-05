@@ -55,10 +55,6 @@ class AarvoApiClient(
 
     suspend fun product(productId: Int): JSONObject = getObject("/v1/products/$productId")
 
-    /**
-     * Creates an order with a caller-owned idempotency key. The caller can safely
-     * reuse the same key after a timeout/retry so the server cannot create a second order.
-     */
     suspend fun createOrder(
         items: JSONArray,
         address: JSONObject,
@@ -77,6 +73,34 @@ class AarvoApiClient(
     suspend fun orders(): JSONArray = get("/v1/orders")
 
     suspend fun order(orderId: String): JSONObject = getObject("/v1/orders/$orderId")
+
+    suspend fun sellerOrders(): JSONArray = get("/v1/seller/orders")
+
+    suspend fun updateOrderTracking(
+        orderId: String,
+        status: String,
+        trackingCode: String = "",
+        carrier: String = "",
+        note: String = ""
+    ): JSONObject = post(
+        "/v1/orders/$orderId/tracking",
+        JSONObject().put("status", status)
+            .put("trackingCode", trackingCode.trim())
+            .put("carrier", carrier.trim())
+            .put("note", note.trim())
+    )
+
+    suspend fun submitReview(orderId: String, productId: Int, rating: Int, reviewText: String = ""): JSONObject = post(
+        "/v1/orders/$orderId/reviews",
+        JSONObject().put("productId", productId).put("rating", rating).put("reviewText", reviewText.trim())
+    )
+
+    suspend fun productReviews(productId: Int): JSONArray = get("/v1/products/$productId/reviews")
+
+    suspend fun openDispute(orderId: String, reason: String, details: String = ""): JSONObject = post(
+        "/v1/orders/$orderId/disputes",
+        JSONObject().put("reason", reason.trim()).put("details", details.trim())
+    )
 
     suspend fun verifyPayment(
         orderId: String,
