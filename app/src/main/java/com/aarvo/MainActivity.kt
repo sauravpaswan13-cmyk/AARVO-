@@ -195,7 +195,7 @@ private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activi
         return
     }
 
-    if (showCheckout) CheckoutDialog(cartItems.sumOf { it.price }, checkoutLoading, checkoutMessage, { if (!checkoutLoading) showCheckout = false }) { fullName, phone, line1, city, state, postalCode ->
+    if (showCheckout) CheckoutDialog(cartItems.sumOf { it.pricePaise }, checkoutLoading, checkoutMessage, { if (!checkoutLoading) showCheckout = false }) { fullName, phone, line1, city, state, postalCode ->
         checkoutLoading = true; checkoutMessage = "Creating secure order..."
         scope.launch {
             try {
@@ -217,7 +217,7 @@ private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activi
                             } else checkoutMessage = "Payment completed but verification data was missing. Order remains unconfirmed."
                         } else {
                             checkoutMessage = paymentError ?: "Payment cancelled or failed."
-                            try { api.cancelOrder(order.getString("orderId")) } catch (_: Throwable) { }
+                            try { api.cancelOrder(order.getString("orderId"), "BUYER_PAYMENT_CANCELLED") } catch (_: Throwable) { }
                         }
                         checkoutLoading = false; PaymentBridge.clear()
                     }
@@ -237,7 +237,7 @@ private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activi
     } }
 }
 
-private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 until length()) { val o = getJSONObject(i); add(Product(o.getLong("id").toInt(), o.getString("seller_id"), o.getString("seller_name"), o.getString("name"), o.getString("category"), o.getLong("price_paise").toInt() / 100, o.optDouble("rating", 0.0), "🛍️", o.getString("description"), o.getInt("stock_quantity"), o.optBoolean("is_published", true))) } }
+private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 until length()) { val o = getJSONObject(i); val pricePaise = o.getLong("price_paise"); add(Product(o.getLong("id").toInt(), o.getString("seller_id"), o.getString("seller_name"), o.getString("name"), o.getString("category"), (pricePaise / 100L).toInt(), o.optDouble("rating", 0.0), "🛍️", o.getString("description"), o.getInt("stock_quantity"), o.optBoolean("is_published", true), pricePaise)) } }
 
 @Composable
 private fun HomeScreen(padding: PaddingValues, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit) {
@@ -256,7 +256,7 @@ private fun HomeScreen(padding: PaddingValues, query: String, onQueryChange: (St
 private fun ProductCard(product: Product, isSaved: Boolean, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, onToggleWishlist: (Int) -> Unit) {
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("${product.emoji}  ${product.name}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)); IconButton(onClick = { onToggleWishlist(product.id) }) { Icon(if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Wishlist") } }
-        Text(product.category, style = MaterialTheme.typography.bodySmall); Text("₹${product.price}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description)
+        Text(product.category, style = MaterialTheme.typography.bodySmall); Text(product.displayPrice, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = { onOpen(product) }) { Text("View details") }; TextButton(onClick = { onAdd(product) }) { Text("Add to cart") } }
     } }
 }
@@ -264,25 +264,25 @@ private fun ProductCard(product: Product, isSaved: Boolean, onAdd: (Product) -> 
 @Composable
 private fun ProductDetailsScreen(product: Product, isSaved: Boolean, onBack: () -> Unit, onToggleWishlist: () -> Unit, onAdd: (Product) -> Unit) {
     Scaffold(topBar = { TopAppBar(title = { Text("Product details") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { padding -> Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("${product.emoji}  ${product.name}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(product.category); Text("₹${product.price}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description); Text("Stock available: ${product.stockQuantity}")
+        Text("${product.emoji}  ${product.name}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(product.category); Text(product.displayPrice, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description); Text("Stock available: ${product.stockQuantity}")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { onAdd(product) }) { Text("Add to cart") }; TextButton(onClick = onToggleWishlist) { Text(if (isSaved) "Remove from wishlist" else "Save to wishlist") } }
     } }
 }
 
 @Composable
 private fun CartScreen(padding: PaddingValues, items: List<Product>, onRemove: (Product) -> Unit, onClear: () -> Unit, onCheckout: () -> Unit) {
-    val total = items.sumOf { it.price }
+    val totalPaise = items.sumOf { it.pricePaise }
     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Your Cart", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); if (items.isNotEmpty()) TextButton(onClick = onClear) { Text("Clear") } } }
         if (items.isEmpty()) item { Text("Your cart is empty. Add something you like from Home.") }
-        else { items(items) { product -> Card(Modifier.fillMaxWidth()) { Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text(product.name, fontWeight = FontWeight.SemiBold); Text("₹${product.price}") }; IconButton(onClick = { onRemove(product) }) { Icon(Icons.Default.Delete, "Remove") } } } }; item { Text("Total: ₹$total", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Button(onClick = onCheckout) { Text("Proceed to secure checkout") } } }
+        else { items(items) { product -> Card(Modifier.fillMaxWidth()) { Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text(product.name, fontWeight = FontWeight.SemiBold); Text(product.displayPrice) }; IconButton(onClick = { onRemove(product) }) { Icon(Icons.Default.Delete, "Remove") } } } }; item { Text("Total: ${formatPaise(totalPaise)}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Button(onClick = onCheckout) { Text("Proceed to secure checkout") } } }
     }
 }
 
 @Composable
-private fun CheckoutDialog(total: Int, loading: Boolean, message: String, onDismiss: () -> Unit, onPlaceOrder: (String, String, String, String, String, String) -> Unit) {
+private fun CheckoutDialog(totalPaise: Long, loading: Boolean, message: String, onDismiss: () -> Unit, onPlaceOrder: (String, String, String, String, String, String) -> Unit) {
     var fullName by remember { mutableStateOf("") }; var phone by remember { mutableStateOf("") }; var line1 by remember { mutableStateOf("") }; var city by remember { mutableStateOf("") }; var state by remember { mutableStateOf("") }; var postalCode by remember { mutableStateOf("") }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Secure checkout") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Cart value: ₹$total", fontWeight = FontWeight.Bold); OutlinedTextField(fullName, { fullName = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full name") }); OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Phone") }); OutlinedTextField(line1, { line1 = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Address") }); OutlinedTextField(city, { city = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("City") }); OutlinedTextField(state, { state = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("State") }); OutlinedTextField(postalCode, { postalCode = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("PIN code") }); if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary); Text("Payment is processed by Razorpay. AARVO verifies it on the server before confirming the order.", style = MaterialTheme.typography.bodySmall) } }, confirmButton = { Button(onClick = { onPlaceOrder(fullName, phone, line1, city, state, postalCode) }, enabled = !loading && fullName.isNotBlank() && phone.trim().length >= 10 && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && postalCode.trim().length >= 5) { if (loading) CircularProgressIndicator() else Text("Pay securely") } }, dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text("Close") } })
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Secure checkout") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Cart value: ${formatPaise(totalPaise)}", fontWeight = FontWeight.Bold); OutlinedTextField(fullName, { fullName = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full name") }); OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Phone") }); OutlinedTextField(line1, { line1 = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Address") }); OutlinedTextField(city, { city = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("City") }); OutlinedTextField(state, { state = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("State") }); OutlinedTextField(postalCode, { postalCode = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("PIN code") }); if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary); Text("Payment is processed by Razorpay. AARVO verifies it on the server before confirming the order.", style = MaterialTheme.typography.bodySmall) } }, confirmButton = { Button(onClick = { onPlaceOrder(fullName, phone, line1, city, state, postalCode) }, enabled = !loading && fullName.isNotBlank() && phone.trim().length >= 10 && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && postalCode.trim().length >= 5) { if (loading) CircularProgressIndicator() else Text("Pay securely") } }, dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text("Close") } })
 }
 
 @Composable
@@ -319,7 +319,7 @@ private fun OrderCard(order: JSONObject, api: AarvoApiClient, reload: () -> Unit
     var busy by remember { mutableStateOf(false) }; var detail by remember { mutableStateOf<JSONObject?>(null) }; val scope = rememberCoroutineScope()
     val status = order.optString("status", "PENDING"); val payment = order.optString("payment_status", "PENDING"); val id = order.optString("id")
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Order #$id", fontWeight = FontWeight.Bold); Text("₹${order.optLong("total_paise", 0L) / 100}", style = MaterialTheme.typography.titleLarge); Text("Payment: $payment"); Text("Status: $status")
+        Text("Order #$id", fontWeight = FontWeight.Bold); Text(formatPaise(order.optLong("total_paise", 0L)), style = MaterialTheme.typography.titleLarge); Text("Payment: $payment"); Text("Status: $status")
         order.optJSONObject("tracking_json")?.let { Text("Tracking: ${it.optString("status", "Not updated")} ${it.optString("carrier", "")}") }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = { scope.launch { busy = true; try { detail = api.order(id) } finally { busy = false } } }, enabled = !busy) { Text("View details") }; if (status !in setOf("CANCELLED", "DELIVERED")) TextButton(onClick = { scope.launch { busy = true; try { api.cancelOrder(id); reload() } finally { busy = false } } }, enabled = !busy) { Text("Cancel") } }
         detail?.let { d -> Text("Items: ${d.optJSONArray("items")?.length() ?: 0}"); Text("Delivery status: ${d.optJSONObject("tracking")?.optString("status", status) ?: status}") }
@@ -348,7 +348,7 @@ private fun SellerDashboardScreen(padding: PaddingValues, api: AarvoApiClient, o
 @Composable
 private fun SellerProductRow(p: JSONObject, api: AarvoApiClient, reload: () -> Unit) {
     var stock by remember(p.optInt("id")) { mutableStateOf(p.optInt("stock_quantity").toString()) }; val scope = rememberCoroutineScope()
-    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(14.dp)) { Text(p.optString("name"), fontWeight = FontWeight.SemiBold); Text("₹${p.optLong("price_paise") / 100} • ${if (p.optBoolean("is_published")) "Published" else "Draft"}")
+    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(14.dp)) { Text(p.optString("name"), fontWeight = FontWeight.SemiBold); Text("${formatPaise(p.optLong("price_paise"))} • ${if (p.optBoolean("is_published")) "Published" else "Draft"}")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedTextField(stock, { stock = it }, Modifier.weight(1f), singleLine = true, label = { Text("Stock") }); Button(onClick = { scope.launch { api.updateInventory(p.optInt("id"), stock.toIntOrNull() ?: 0); reload() } }) { Text("Save") } }
     } }
 }
@@ -358,7 +358,7 @@ private fun SellerOrderRow(o: JSONObject, api: AarvoApiClient, reload: () -> Uni
     var busy by remember { mutableStateOf(false) }; val scope = rememberCoroutineScope(); val id = o.optString("id")
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Text("Order #$id", fontWeight = FontWeight.SemiBold); Text("Status: ${o.optString("status")} • Payment: ${o.optString("payment_status")}")
-        Text("Seller amount: ₹${(o.optJSONArray("items")?.let { arr -> (0 until arr.length()).sumOf { arr.getJSONObject(it).optLong("sellerAmountPaise") } } ?: 0L) / 100}")
+        Text("Seller amount: ${formatPaise(o.optJSONArray("items")?.let { arr -> (0 until arr.length()).sumOf { arr.getJSONObject(it).optLong("sellerAmountPaise") } } ?: 0L)}")
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             TextButton(onClick = { scope.launch { busy = true; try { api.updateOrderTracking(id, "SHIPPED", note = "Seller marked order shipped"); reload() } finally { busy = false } } }, enabled = !busy) { Text("Mark shipped") }
             TextButton(onClick = { scope.launch { busy = true; try { api.updateOrderTracking(id, "DELIVERED", note = "Seller marked order delivered"); reload() } finally { busy = false } } }, enabled = !busy) { Text("Mark delivered") }
@@ -369,5 +369,19 @@ private fun SellerOrderRow(o: JSONObject, api: AarvoApiClient, reload: () -> Uni
 @Composable
 private fun SellerProductDialog(api: AarvoApiClient, onDone: () -> Unit) {
     var name by remember { mutableStateOf("") }; var category by remember { mutableStateOf("") }; var price by remember { mutableStateOf("") }; var description by remember { mutableStateOf("") }; var stock by remember { mutableStateOf("0") }; var error by remember { mutableStateOf("") }; var busy by remember { mutableStateOf(false) }; val scope = rememberCoroutineScope()
-    AlertDialog(onDismissRequest = { if (!busy) onDone() }, title = { Text("Add product") }, text = { Column(verticalArrangement = Arrangement.spacedBy(7.dp)) { OutlinedTextField(name, { name = it }, label = { Text("Name") }); OutlinedTextField(category, { category = it }, label = { Text("Category") }); OutlinedTextField(price, { price = it }, label = { Text("Price ₹") }); OutlinedTextField(description, { description = it }, label = { Text("Description") }); OutlinedTextField(stock, { stock = it }, label = { Text("Stock") }); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error) } }, confirmButton = { Button(onClick = { scope.launch { busy = true; try { api.createSellerProduct(name, category, (price.toDouble() * 100).toLong(), description, stock.toIntOrNull() ?: 0, false); onDone() } catch (t: Throwable) { error = t.message ?: "Unable to create product" } finally { busy = false } } }, enabled = !busy && name.isNotBlank() && category.isNotBlank() && price.toDoubleOrNull()?.let { it > 0 } == true && description.isNotBlank()) { Text("Save draft") } }, dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text("Close") } })
+    AlertDialog(onDismissRequest = { if (!busy) onDone() }, title = { Text("Add product") }, text = { Column(verticalArrangement = Arrangement.spacedBy(7.dp)) { OutlinedTextField(name, { name = it }, label = { Text("Name") }); OutlinedTextField(category, { category = it }, label = { Text("Category") }); OutlinedTextField(price, { price = it }, label = { Text("Price ₹") }); OutlinedTextField(description, { description = it }, label = { Text("Description") }); OutlinedTextField(stock, { stock = it }, label = { Text("Stock") }); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error) } }, confirmButton = { Button(onClick = { scope.launch { busy = true; try { val pricePaise = parseRupeesToPaise(price); api.createSellerProduct(name, category, pricePaise, description, stock.toIntOrNull() ?: 0, false); onDone() } catch (t: Throwable) { error = t.message ?: "Unable to create product" } finally { busy = false } } }, enabled = !busy && name.isNotBlank() && category.isNotBlank() && parseRupeesToPaiseOrNull(price)?.let { it > 0 } == true && description.isNotBlank()) { Text("Save draft") } }, dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text("Close") } })
+}
+
+private fun formatPaise(paise: Long): String = "₹${paise / 100}.${(paise % 100).toString().padStart(2, '0')}"
+
+private fun parseRupeesToPaise(value: String): Long = parseRupeesToPaiseOrNull(value) ?: error("Enter a valid price")
+
+private fun parseRupeesToPaiseOrNull(value: String): Long? = value.trim().let {
+    if (!it.matches(Regex("\\d{1,9}(\\.\\d{1,2})?"))) null
+    else {
+        val parts = it.split('.')
+        val rupees = parts[0].toLongOrNull() ?: return@let null
+        val paise = (parts.getOrNull(1)?.padEnd(2, '0') ?: "00").toLongOrNull() ?: return@let null
+        (rupees * 100L + paise).takeIf { amount -> amount > 0L }
+    }
 }
