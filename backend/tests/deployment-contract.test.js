@@ -20,7 +20,8 @@ test('production container applies schema and numbered migrations before startin
   assert.match(dockerfile, /COPY migrations \.\/migrations/);
   assert.match(compose, /node src\/migrate\.js && node src\/server\.js/);
   assert.match(migrate, /schema\.sql/);
-  assert.match(migrate, /filter\(\(name\) => \/\^\\d\+_\//);
+  assert.match(migrate, /\.filter\(/);
+  assert.match(migrate, /\/\^\\d\+_\.\*\\\.sql\$/);
   assert.match(migrate, /\.sort\(\)/);
   assert.match(migrate, /BEGIN/);
   assert.match(migrate, /COMMIT/);
