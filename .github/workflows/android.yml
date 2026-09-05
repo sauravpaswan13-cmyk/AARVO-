@@ -29,7 +29,10 @@ jobs:
           test -f .dockerignore
           test -f .env.example
           test -f migrations/001_production_integrity.sql
+          test -f migrations/002_marketplace_operations.sql
           grep -q "CREATE UNIQUE INDEX" migrations/001_production_integrity.sql
+          grep -q "idempotency_key" migrations/002_marketplace_operations.sql
+          grep -q "audit_events" migrations/002_marketplace_operations.sql
       - name: Build backend container
         run: docker build --pull -t aarvo-api:ci .
 
