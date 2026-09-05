@@ -35,6 +35,14 @@ data class DeliveryAddress(
     val country: String = "IN"
 )
 
+data class DeliveryTracking(
+    val carrier: String? = null,
+    val trackingNumber: String? = null,
+    val status: String? = null,
+    val trackingUrl: String? = null,
+    val estimatedDelivery: String? = null
+)
+
 data class OrderLine(
     val productId: Int,
     val sellerId: String,
@@ -52,7 +60,16 @@ data class MarketplaceOrder(
     val total: Int,
     val paymentStatus: PaymentStatus,
     val status: OrderStatus,
-    val deliveryAddress: DeliveryAddress
+    val deliveryAddress: DeliveryAddress,
+    val tracking: DeliveryTracking? = null
+)
+
+data class ProductReview(
+    val orderId: String,
+    val productId: Int,
+    val rating: Int,
+    val comment: String,
+    val createdAt: String? = null
 )
 
 /** Server-authoritative marketplace contract. The mobile app never decides final price, stock or payout. */
