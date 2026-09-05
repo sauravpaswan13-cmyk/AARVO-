@@ -1,5 +1,6 @@
 package com.aarvo
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,10 +17,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -53,18 +58,127 @@ import com.aarvo.ui.theme.AarvoTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { AarvoTheme { AarvoApp() } }
+        setContent { AarvoTheme { AarvoRoot(applicationContext) } }
     }
 }
 
 @Composable
-private fun AarvoApp(cartViewModel: CartViewModel = viewModel()) {
+private fun AarvoRoot(context: Context) {
+    val prefs = remember { context.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
+    var onboarded by remember { mutableStateOf(prefs.getBoolean("onboarded", false)) }
+    var signedIn by remember { mutableStateOf(prefs.getBoolean("signed_in", false)) }
+    var userName by remember { mutableStateOf(prefs.getString("user_name", "") ?: "") }
+
+    when {
+        !onboarded -> OnboardingScreen(onDone = {
+            prefs.edit().putBoolean("onboarded", true).apply()
+            onboarded = true
+        })
+        !signedIn -> SignInScreen(onSignedIn = { name ->
+            userName = name
+            prefs.edit().putBoolean("signed_in", true).putString("user_name", name).apply()
+            signedIn = true
+        })
+        else -> AarvoApp(userName = userName, onSignOut = {
+            prefs.edit().putBoolean("signed_in", false).apply()
+            signedIn = false
+        })
+    }
+}
+
+@Composable
+private fun OnboardingScreen(onDone: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("AARVO", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(12.dp))
+        Text("Shop smart. Live better.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Text("Discover useful products, save favourites and checkout in a simple shopping experience.")
+        Spacer(Modifier.height(24.dp))
+        Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("Get started") }
+    }
+}
+
+@Composable
+private fun SignInScreen(onSignedIn: (String) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("Welcome to AARVO", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(16.dp))
+        OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Your name") })
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Email") })
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = { onSignedIn(name.trim().ifBlank { "AARVO User" }) },
+            enabled = name.isNotBlank() && email.contains("@"),
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Continue") }
+        Spacer(Modifier.height(8.dp))
+        Text("Demo authentication: account data is stored locally on this device.", style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun AarvoApp(
+    userName: String,
+    onSignOut: () -> Unit,
+    cartViewModel: CartViewModel = viewModel()
+) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var query by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("All") }
+    var selectedProduct by remember { mutableStateOf<Product?>(null) }
+    var wishlist by remember { mutableStateOf(setOf<Int>()) }
+    var showCheckout by remember { mutableStateOf(false) }
+    var orderPlaced by remember { mutableStateOf(false) }
+    var address by remember { mutableStateOf("") }
     val cartItems by cartViewModel.items.collectAsState()
     val repository = remember { ProductRepository() }
     val products = remember(query, category) { repository.products(query, category) }
+
+    if (selectedProduct != null) {
+        ProductDetailsScreen(
+            product = selectedProduct!!,
+            isSaved = selectedProduct!!.id in wishlist,
+            onBack = { selectedProduct = null },
+            onToggleWishlist = {
+                wishlist = if (selectedProduct!!.id in wishlist) wishlist - selectedProduct!!.id else wishlist + selectedProduct!!.id
+            },
+            onAdd = cartViewModel::add
+        )
+        return
+    }
+
+    if (showCheckout) {
+        CheckoutDialog(
+            total = cartItems.sumOf { it.price },
+            address = address,
+            onAddressChange = { address = it },
+            onDismiss = { showCheckout = false },
+            onPlaceOrder = {
+                showCheckout = false
+                orderPlaced = true
+                cartViewModel.clear()
+            }
+        )
+    }
+
+    if (orderPlaced) {
+        AlertDialog(
+            onDismissRequest = { orderPlaced = false },
+            title = { Text("Order placed") },
+            text = { Text("Your AARVO order has been created successfully. Order tracking will be connected to the backend in the next phase.") },
+            confirmButton = { TextButton(onClick = { orderPlaced = false }) { Text("Done") } }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -72,53 +186,25 @@ private fun AarvoApp(cartViewModel: CartViewModel = viewModel()) {
                 title = { Text("AARVO", fontWeight = FontWeight.Bold) },
                 actions = {
                     BadgedBox(badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } }) {
-                        IconButton(onClick = { selectedTab = 1 }) {
-                            Icon(Icons.Default.ShoppingCart, contentDescription = "Cart")
-                        }
+                        IconButton(onClick = { selectedTab = 1 }) { Icon(Icons.Default.ShoppingCart, "Cart") }
                     }
                 }
             )
         },
         bottomBar = {
             NavigationBar {
-                NavigationBarItem(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                    label = { Text("Home") }
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    icon = {
-                        BadgedBox(badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } }) {
-                            Icon(Icons.Default.ShoppingCart, contentDescription = "Cart")
-                        }
-                    },
-                    label = { Text("Cart") }
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                    label = { Text("Profile") }
-                )
+                NavigationBarItem(selectedTab == 0, { selectedTab = 0 }, { Icon(Icons.Default.Home, "Home") }, label = { Text("Home") })
+                NavigationBarItem(selectedTab == 1, { selectedTab = 1 }, {
+                    BadgedBox(badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } }) { Icon(Icons.Default.ShoppingCart, "Cart") }
+                }, label = { Text("Cart") })
+                NavigationBarItem(selectedTab == 2, { selectedTab = 2 }, { Icon(Icons.Default.Person, "Profile") }, label = { Text("Profile") })
             }
         }
     ) { padding ->
         when (selectedTab) {
-            0 -> HomeScreen(
-                padding = padding,
-                query = query,
-                onQueryChange = { query = it },
-                categories = repository.categories(),
-                selectedCategory = category,
-                onCategoryChange = { category = it },
-                products = products,
-                onAdd = cartViewModel::add
-            )
-            1 -> CartScreen(padding, cartItems, cartViewModel::remove, cartViewModel::clear)
-            else -> ProfileScreen(padding)
+            0 -> HomeScreen(padding, query, { query = it }, repository.categories(), category, { category = it }, products, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = if (id in wishlist) wishlist - id else wishlist + id })
+            1 -> CartScreen(padding, cartItems, cartViewModel::remove, cartViewModel::clear, onCheckout = { showCheckout = true })
+            else -> ProfileScreen(padding, userName, address, onSignOut)
         }
     }
 }
@@ -132,116 +218,100 @@ private fun HomeScreen(
     selectedCategory: String,
     onCategoryChange: (String) -> Unit,
     products: List<Product>,
-    onAdd: (Product) -> Unit
+    onAdd: (Product) -> Unit,
+    onOpen: (Product) -> Unit,
+    wishlist: Set<Int>,
+    onToggleWishlist: (Int) -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
+    LazyColumn(Modifier.fillMaxSize().padding(padding), PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Text("Shop smart. Live better.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text("Discover products you'll love.", style = MaterialTheme.typography.bodyMedium)
         }
-        item {
-            OutlinedTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                label = { Text("Search products") }
-            )
-        }
+        item { OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Search products") }) }
         item {
             Text("Categories", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(6.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(categories) { item ->
-                    TextButton(onClick = { onCategoryChange(item) }) {
-                        Text(if (item == selectedCategory) "✓ $item" else item)
-                    }
-                }
+                items(categories) { item -> TextButton(onClick = { onCategoryChange(item) }) { Text(if (item == selectedCategory) "✓ $item" else item) } }
             }
         }
         item { Text("Popular products", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
-        if (products.isEmpty()) {
-            item { Text("No products found. Try another search.") }
-        } else {
-            items(products, key = { it.id }) { product -> ProductCard(product, onAdd) }
-        }
+        if (products.isEmpty()) item { Text("No products found. Try another search.") }
+        else items(products, key = { it.id }) { product -> ProductCard(product, product.id in wishlist, onAdd, onOpen, onToggleWishlist) }
     }
 }
 
 @Composable
-private fun ProductCard(product: Product, onAdd: (Product) -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun ProductCard(product: Product, isSaved: Boolean, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, onToggleWishlist: (Int) -> Unit) {
+    Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            Text("${product.emoji}  ${product.name}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("${product.emoji}  ${product.name}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                IconButton(onClick = { onToggleWishlist(product.id) }) { Icon(if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Wishlist") }
+            }
             Text(product.category, style = MaterialTheme.typography.bodySmall)
             Text("₹${product.price}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text("★ ${product.rating}", style = MaterialTheme.typography.bodyMedium)
-            Spacer(Modifier.height(6.dp))
+            Text("★ ${product.rating}")
             Text(product.description, style = MaterialTheme.typography.bodyMedium)
-            TextButton(onClick = { onAdd(product) }) { Text("Add to cart") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { onOpen(product) }) { Text("View details") }
+                TextButton(onClick = { onAdd(product) }) { Text("Add to cart") }
+            }
         }
     }
 }
 
 @Composable
-private fun CartScreen(
-    padding: PaddingValues,
-    items: List<Product>,
-    onRemove: (Product) -> Unit,
-    onClear: () -> Unit
-) {
+private fun ProductDetailsScreen(product: Product, isSaved: Boolean, onBack: () -> Unit, onToggleWishlist: () -> Unit, onAdd: (Product) -> Unit) {
+    Scaffold(topBar = { TopAppBar(title = { Text("Product details") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("${product.emoji}  ${product.name}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(product.category)
+            Text("₹${product.price}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text("★ ${product.rating}")
+            Text(product.description, style = MaterialTheme.typography.bodyLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { onAdd(product) }) { Text("Add to cart") }
+                TextButton(onClick = onToggleWishlist) { Text(if (isSaved) "Remove from wishlist" else "Save to wishlist") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CartScreen(padding: PaddingValues, items: List<Product>, onRemove: (Product) -> Unit, onClear: () -> Unit, onCheckout: () -> Unit) {
     val total = items.sumOf { it.price }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Your Cart", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                if (items.isNotEmpty()) TextButton(onClick = onClear) { Text("Clear") }
-            }
-        }
-        if (items.isEmpty()) {
-            item { Text("Your cart is empty. Add something you like from Home.") }
-        } else {
-            items(items) { product ->
-                Card(Modifier.fillMaxWidth()) {
-                    Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column(Modifier.weight(1f)) {
-                            Text(product.name, fontWeight = FontWeight.SemiBold)
-                            Text("₹${product.price}")
-                        }
-                        IconButton(onClick = { onRemove(product) }) {
-                            Icon(Icons.Default.Remove, contentDescription = "Remove")
-                        }
-                    }
-                }
-            }
-            item {
-                Text("Total: ₹$total", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(6.dp))
-                Button(onClick = { }) { Text("Proceed to checkout") }
-            }
+    LazyColumn(Modifier.fillMaxSize().padding(padding), PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Your Cart", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); if (items.isNotEmpty()) TextButton(onClick = onClear) { Text("Clear") } } }
+        if (items.isEmpty()) item { Text("Your cart is empty. Add something you like from Home.") }
+        else {
+            items(items) { product -> Card(Modifier.fillMaxWidth()) { Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text(product.name, fontWeight = FontWeight.SemiBold); Text("₹${product.price}") }; IconButton(onClick = { onRemove(product) }) { Icon(Icons.Default.Remove, "Remove") } } } }
+            item { Text("Total: ₹$total", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Button(onClick = onCheckout) { Text("Proceed to checkout") } }
         }
     }
 }
 
 @Composable
-private fun ProfileScreen(padding: PaddingValues) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
+private fun CheckoutDialog(total: Int, address: String, onAddressChange: (String) -> Unit, onDismiss: () -> Unit, onPlaceOrder: () -> Unit) {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Checkout") }, text = {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Order total: ₹$total", fontWeight = FontWeight.Bold)
+            OutlinedTextField(address, onAddressChange, label = { Text("Delivery address") }, minLines = 3)
+            Text("Payment: Cash on delivery (demo)", style = MaterialTheme.typography.bodySmall)
+        }
+    }, confirmButton = { Button(onClick = onPlaceOrder, enabled = address.isNotBlank()) { Text("Place order") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+}
+
+@Composable
+private fun ProfileScreen(padding: PaddingValues, userName: String, address: String, onSignOut: () -> Unit) {
+    Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("My Profile", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Card(Modifier.fillMaxWidth()) { Text("Welcome to AARVO", Modifier.padding(18.dp), style = MaterialTheme.typography.titleMedium) }
-        TextButton(onClick = { }) { Text("Orders") }
-        TextButton(onClick = { }) { Text("Saved addresses") }
-        TextButton(onClick = { }) { Text("Help & support") }
+        Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(18.dp)) { Text(userName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); Text("AARVO account") } }
+        Text("Orders", style = MaterialTheme.typography.titleMedium)
+        Text("Order history will appear here after your purchases.", style = MaterialTheme.typography.bodyMedium)
+        Text("Saved address", style = MaterialTheme.typography.titleMedium)
+        Text(if (address.isBlank()) "No address saved yet." else address)
+        Text("Seller/Admin tools and backend sync are planned for the next phase.", style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = onSignOut) { Text("Sign out") }
     }
 }
