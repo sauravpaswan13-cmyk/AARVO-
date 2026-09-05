@@ -7,18 +7,19 @@ const schema = fs.readFileSync(new URL('../schema.sql', import.meta.url), 'utf8'
 const productModel = fs.readFileSync(new URL('../../app/src/main/java/com/aarvo/data/Product.kt', import.meta.url), 'utf8');
 
 test('database money fields stay integer paise with non-negative constraints', () => {
-  assert.match(schema, /price_paise\s+BIGINT/);
-  assert.match(schema, /total_paise\s+BIGINT/);
-  assert.match(schema, /delivery_fee_paise\s+BIGINT/);
-  assert.match(schema, /platform_fee_paise\s+BIGINT/);
-  assert.match(schema, /CHECK \(price_paise >= 0\)/);
+  for (const field of ['price_paise', 'total_paise', 'delivery_fee_paise', 'platform_fee_paise']) {
+    assert.match(schema, new RegExp(`${field}\\s+INTEGER`));
+  }
+  assert.match(schema, /CHECK \(price_paise > 0\)/);
+  assert.match(schema, /total_paise INTEGER NOT NULL/);
 });
 
 test('order pricing is calculated from integer paise on the server', () => {
   assert.match(server, /price_paise/);
   assert.match(server, /DELIVERY_FEE_PAISE/);
   assert.match(server, /PLATFORM_FEE_BPS/);
-  assert.match(server, /Math\.round\(/);
+  assert.match(server, /Math\.floor\(subtotal\*PLATFORM_FEE_BPS\/10000\)/);
+  assert.match(server, /amount:total/);
   assert.doesNotMatch(server, /parseFloat\([^\n]*price_paise/);
 });
 
