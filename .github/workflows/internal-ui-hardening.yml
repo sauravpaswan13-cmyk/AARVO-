@@ -1,0 +1,93 @@
+name: Internal UI hardening patch
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: contains(github.event.head_commit.message, 'internal-ui-patch')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch Android marketplace UI
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/java/com/aarvo/MainActivity.kt')
+          text = path.read_text()
+
+          replacements = [
+              ('CheckoutDialog(cartItems.sumOf { it.price },', 'CheckoutDialog(cartItems.sumOf { it.pricePaise },'),
+              ('private fun CheckoutDialog(total: Int,', 'private fun CheckoutDialog(totalPaise: Long,'),
+              ('Text("Cart value: ₹$total",', 'Text("Cart value: ₹${totalPaise / 100.0}",'),
+              ('val total = items.sumOf { it.price }', 'val totalPaise = items.sumOf { it.pricePaise }'),
+              ('Text("₹${product.price}")', 'Text(product.displayPrice)'),
+              ('Text("Total: ₹$total",', 'Text("Total: ₹${totalPaise / 100.0}",'),
+              ('o.getString("description"), o.getInt("stock_quantity"), o.optBoolean("is_published", true)))', 'o.getString("description"), o.getInt("stock_quantity"), o.optBoolean("is_published", true), o.getLong("price_paise")))'),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'Missing expected source pattern: {old}')
+              text = text.replace(old, new, 1)
+
+          old_card = '''        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = { scope.launch { busy = true; try { detail = api.order(id) } finally { busy = false } } }, enabled = !busy) { Text("View details") }; if (status !in setOf("CANCELLED", "DELIVERED")) TextButton(onClick = { scope.launch { busy = true; try { api.cancelOrder(id); reload() } finally { busy = false } } }, enabled = !busy) { Text("Cancel") } }
+        detail?.let { d -> Text("Items: ${d.optJSONArray("items")?.length() ?: 0}"); Text("Delivery status: ${d.optJSONObject("tracking")?.optString("status", status) ?: status}") }'''
+          new_card = '''        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = { scope.launch { busy = true; try { detail = api.order(id) } finally { busy = false } } }, enabled = !busy) { Text("View details") }; if (status !in setOf("CANCELLED", "DELIVERED")) TextButton(onClick = { scope.launch { busy = true; try { api.cancelOrder(id); reload() } finally { busy = false } } }, enabled = !busy) { Text("Cancel") }; if (status == "DELIVERED") TextButton(onClick = { feedbackMode = "review" }, enabled = !busy) { Text("Review") }; if (status in setOf("PAID", "CONFIRMED", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED")) TextButton(onClick = { feedbackMode = "dispute" }, enabled = !busy) { Text("Dispute") } }
+        detail?.let { d -> Text("Items: ${d.optJSONArray("items")?.length() ?: 0}"); Text("Delivery status: ${d.optJSONObject("tracking")?.optString("status", status) ?: status}") }
+        feedbackMode?.let { mode -> OrderFeedbackDialog(mode, busy, { feedbackMode = null }) { rating, reason, details -> scope.launch { busy = true; try { if (mode == "review") api.submitReview(id, detail?.optJSONArray("items")?.optJSONObject(0)?.optInt("productId") ?: 0, rating, details) else api.openDispute(id, reason, details); feedbackMode = null; reload() } catch (_: Throwable) { } finally { busy = false } } } }'''
+          if old_card not in text:
+              raise SystemExit('Missing expected OrderCard body')
+          text = text.replace(old_card, new_card, 1)
+
+          marker = '@Composable\nprivate fun OrderFeedbackDialog('
+          if marker not in text:
+              insertion = r'''
+
+@Composable
+private fun OrderFeedbackDialog(
+    mode: String,
+    loading: Boolean,
+    onDismiss: () -> Unit,
+    onSubmit: (Int, String, String) -> Unit
+) {
+    var rating by remember { mutableIntStateOf(5) }
+    var reason by remember { mutableStateOf("") }
+    var details by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = { if (!loading) onDismiss() },
+        title = { Text(if (mode == "review") "Rate your order" else "Open a dispute") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (mode == "review") {
+                    Text("Rating: $rating / 5")
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        (1..5).forEach { value -> TextButton(onClick = { rating = value }) { Text(if (value <= rating) "★" else "☆") } }
+                    }
+                } else {
+                    OutlinedTextField(reason, { reason = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Reason") })
+                }
+                OutlinedTextField(details, { details = it }, Modifier.fillMaxWidth(), minLines = 3, label = { Text(if (mode == "review") "Review" else "Details") })
+            }
+        },
+        confirmButton = { Button(onClick = { onSubmit(rating, reason, details) }, enabled = !loading && (mode == "review" || reason.isNotBlank())) { Text(if (loading) "Saving..." else "Submit") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text("Close") } }
+    )
+}
+'''
+              text += insertion
+
+          path.write_text(text)
+          PY
+      - name: Commit patched UI
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/aarvo/MainActivity.kt
+          git diff --cached --quiet && exit 0
+          git commit -m 'Complete internal marketplace feedback and paise UI'
+          git push
