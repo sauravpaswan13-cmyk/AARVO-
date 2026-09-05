@@ -115,7 +115,7 @@ private fun AarvoRoot(activity: MainActivity, context: Context) {
         !signedIn -> SignInScreen(api) { name, token ->
             userName = name; prefs.edit().putBoolean("signed_in", true).putString("user_name", name).putString("auth_token", token).apply(); signedIn = true
         }
-        else -> AarvoApp(userName, api, activity) { prefs.edit().putBoolean("signed_in", false).remove("auth_token").apply(); signedIn = false }
+        else -> AarvoApp(userName, api, activity, onSignOut = { prefs.edit().putBoolean("signed_in", false).remove("auth_token").apply(); signedIn = false })
     }
 }
 
@@ -173,19 +173,19 @@ private fun AarvoApp(userName: String, api: AarvoApiClient, activity: MainActivi
                 activity.startRazorpayPayment(options) { paymentId, paymentError ->
                     scope.launch {
                         if (paymentId != null) {
-                            val signature = PaymentBridge.lastSignature; val gatewayOrderId = PaymentBridge.lastOrderId ?: order.getString("gatewayOrderId")
+                            val signature = PaymentBridge.lastSignature
+                            val gatewayOrderId = PaymentBridge.lastOrderId ?: order.getString("gatewayOrderId")
                             if (!signature.isNullOrBlank()) {
-                                try { api.verifyPayment(order.getString("orderId"), paymentId, gatewayOrderId, signature); checkoutMessage = "Payment verified. Order confirmed."; cartViewModel.clear(); showCheckout = false } catch (t: Throwable) { checkoutMessage = t.message ?: "Payment verification failed. Your order was not confirmed." }
+                                try { api.verifyPayment(order.getString("orderId"), paymentId, gatewayOrderId, signature); checkoutMessage = "Payment verified. Order confirmed."; cartViewModel.clear(); showCheckout = false }
+                                catch (t: Throwable) { checkoutMessage = t.message ?: "Payment verification failed. Order was not confirmed." }
                             } else checkoutMessage = "Payment completed but verification data was missing. Order remains unconfirmed."
                         } else {
                             checkoutMessage = paymentError ?: "Payment cancelled or failed."
                             try { api.cancelOrder(order.getString("orderId")) } catch (_: Throwable) { }
                         }
-                        checkoutLoading = false
-                        PaymentBridge.clear()
+                        checkoutLoading = false; PaymentBridge.clear()
                     }
                 }
-                checkoutLoading = false
             } catch (t: Throwable) { checkoutLoading = false; checkoutMessage = t.message ?: "Unable to create order." }
         }
     }
