@@ -11,12 +11,18 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 class AarvoApiClient(
     private val tokenProvider: () -> String? = { null }
 ) {
     private val baseUrl: String = BuildConfig.AARVO_API_BASE_URL.trimEnd('/')
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .build()
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     fun isConfigured(): Boolean = baseUrl.startsWith("https://")
@@ -27,8 +33,15 @@ class AarvoApiClient(
         "/v1/auth/login", JSONObject().put("email", email.trim()).put("password", password)
     )
 
-    suspend fun register(email: String, password: String, displayName: String, role: String = "BUYER", phone: String = ""): JSONObject = post(
-        "/v1/auth/register", JSONObject().put("email", email.trim()).put("password", password)
+    suspend fun register(
+        email: String,
+        password: String,
+        displayName: String,
+        role: String = "BUYER",
+        phone: String = ""
+    ): JSONObject = post(
+        "/v1/auth/register",
+        JSONObject().put("email", email.trim()).put("password", password)
             .put("displayName", displayName.trim()).put("role", role).put("phone", phone.trim())
     )
 
@@ -42,8 +55,16 @@ class AarvoApiClient(
 
     suspend fun product(productId: Int): JSONObject = getObject("/v1/products/$productId")
 
-    suspend fun createOrder(items: JSONArray, address: JSONObject): JSONObject = withContext(Dispatchers.IO) {
-        val idempotencyKey = UUID.randomUUID().toString()
+    /**
+     * Creates an order with a caller-owned idempotency key. The caller can safely
+     * reuse the same key after a timeout/retry so the server cannot create a second order.
+     */
+    suspend fun createOrder(
+        items: JSONArray,
+        address: JSONObject,
+        idempotencyKey: String = UUID.randomUUID().toString()
+    ): JSONObject = withContext(Dispatchers.IO) {
+        require(idempotencyKey.length in 8..128) { "Invalid idempotency key" }
         val payload = JSONObject().put("items", items).put("address", address)
         val response = execute(
             Request.Builder().url(baseUrl + "/v1/orders").applyAuth()
@@ -57,9 +78,16 @@ class AarvoApiClient(
 
     suspend fun order(orderId: String): JSONObject = getObject("/v1/orders/$orderId")
 
-    suspend fun verifyPayment(orderId: String, paymentId: String, razorpayOrderId: String, signature: String): JSONObject = post(
-        "/v1/payments/verify", JSONObject().put("orderId", orderId)
-            .put("razorpayOrderId", razorpayOrderId).put("razorpayPaymentId", paymentId)
+    suspend fun verifyPayment(
+        orderId: String,
+        paymentId: String,
+        razorpayOrderId: String,
+        signature: String
+    ): JSONObject = post(
+        "/v1/payments/verify",
+        JSONObject().put("orderId", orderId)
+            .put("razorpayOrderId", razorpayOrderId)
+            .put("razorpayPaymentId", paymentId)
             .put("razorpaySignature", signature)
     )
 
@@ -68,6 +96,8 @@ class AarvoApiClient(
     )
 
     suspend fun sellerProfile(): JSONObject = getObject("/v1/seller/profile")
+
+    suspend fun sellerProducts(): JSONArray = get("/v1/seller/products")
 
     suspend fun createSellerProduct(
         name: String,
@@ -110,7 +140,11 @@ class AarvoApiClient(
         require(isConfigured()) { "AARVO_API_BASE_URL is not configured with HTTPS" }
         client.newCall(request).execute().use { response ->
             val body = response.body.string()
-            if (!response.isSuccessful) error("API ${response.code}: $body")
+            if (!response.isSuccessful) {
+                val message = runCatching { JSONObject(body).optString("error") }.getOrNull()
+                    ?.takeIf { it.isNotBlank() }
+                error("API ${response.code}: ${message ?: body.ifBlank { "Request failed" }}")
+            }
             return body
         }
     }
