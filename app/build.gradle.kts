@@ -16,6 +16,32 @@ android {
         buildConfigField("String", "AARVO_API_BASE_URL", "\"${project.findProperty("aarvoApiBaseUrl") ?: ""}\"")
     }
 
+    val releaseStoreFile = providers.gradleProperty("aarvoReleaseStoreFile").orNull
+    val releaseStorePassword = providers.gradleProperty("aarvoReleaseStorePassword").orNull
+    val releaseKeyAlias = providers.gradleProperty("aarvoReleaseKeyAlias").orNull
+    val releaseKeyPassword = providers.gradleProperty("aarvoReleaseKeyPassword").orNull
+    val hasReleaseSigning = listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword).all { !it.isNullOrBlank() }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("production") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("production")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
