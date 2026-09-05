@@ -27,6 +27,14 @@ class AarvoApiClient(
 
     fun isConfigured(): Boolean = baseUrl.startsWith("https://")
 
+    private fun buildUrl(path: String): String {
+        require(isConfigured()) {
+            "AARVO live API is not configured in this build. Set aarvoApiBaseUrl to an HTTPS API URL."
+        }
+        require(path.startsWith('/')) { "API path must start with /" }
+        return baseUrl + path
+    }
+
     suspend fun health(): JSONObject = getObject("/health")
 
     suspend fun login(email: String, password: String): JSONObject = post(
@@ -65,7 +73,7 @@ class AarvoApiClient(
         require(idempotencyKey.length in 8..128) { "Invalid idempotency key" }
         val payload = JSONObject().put("items", items).put("address", address)
         val response = execute(
-            Request.Builder().url(baseUrl + "/v1/orders").applyAuth()
+            Request.Builder().url(buildUrl("/v1/orders")).applyAuth()
                 .header("Idempotency-Key", idempotencyKey)
                 .post(payload.toString().toRequestBody(jsonMediaType)).build()
         )
@@ -150,25 +158,24 @@ class AarvoApiClient(
     )
 
     private suspend fun get(path: String): JSONArray = withContext(Dispatchers.IO) {
-        val response = execute(Request.Builder().url(baseUrl + path).applyAuth().get().build())
+        val response = execute(Request.Builder().url(buildUrl(path)).applyAuth().get().build())
         JSONArray(response)
     }
 
     private suspend fun getObject(path: String): JSONObject = withContext(Dispatchers.IO) {
-        val response = execute(Request.Builder().url(baseUrl + path).applyAuth().get().build())
+        val response = execute(Request.Builder().url(buildUrl(path)).applyAuth().get().build())
         JSONObject(response)
     }
 
     private suspend fun post(path: String, payload: JSONObject): JSONObject = withContext(Dispatchers.IO) {
         val response = execute(
-            Request.Builder().url(baseUrl + path).applyAuth()
+            Request.Builder().url(buildUrl(path)).applyAuth()
                 .post(payload.toString().toRequestBody(jsonMediaType)).build()
         )
         JSONObject(response)
     }
 
     private fun execute(request: Request): String {
-        require(isConfigured()) { "AARVO_API_BASE_URL is not configured with HTTPS" }
         client.newCall(request).execute().use { response ->
             val body = response.body.string()
             if (!response.isSuccessful) {
