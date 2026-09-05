@@ -22,13 +22,13 @@ test('release readiness: backend production contracts are present', () => {
     "app.post('/v1/orders/:id/reviews'",
     "app.post('/v1/orders/:id/disputes'",
     "app.post('/v1/webhooks/razorpay'",
-    "BEGIN",
-    "FOR UPDATE",
-    "COMMIT",
-    "ROLLBACK",
-    "timingSafeEqual",
-    "RAZORPAY_WEBHOOK_SECRET"
-  ]) assert.match(server, new RegExp(required.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')), `missing backend contract: ${required}`);
+    'BEGIN',
+    'FOR UPDATE',
+    'COMMIT',
+    'ROLLBACK',
+    'timingSafeEqual',
+    'RAZORPAY_WEBHOOK_SECRET'
+  ]) assert.ok(server.includes(required), `missing backend contract: ${required}`);
 
   assert.match(compose, /node src\/migrate\.js && node src\/server\.js/);
   assert.match(compose, /127\.0\.0\.1:8080\/health/);
