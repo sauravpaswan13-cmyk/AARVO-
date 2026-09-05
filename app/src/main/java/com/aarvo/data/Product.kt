@@ -11,8 +11,13 @@ data class Product(
     val emoji: String,
     val description: String,
     val stockQuantity: Int,
-    val isPublished: Boolean = true
-)
+    val isPublished: Boolean = true,
+    /** Exact server-authoritative amount in paise. Legacy callers may omit it. */
+    val pricePaise: Long = price.toLong() * 100L
+) {
+    val displayPrice: String
+        get() = "₹${pricePaise / 100.0}".removeSuffix(".0")
+}
 
 /**
  * Seed catalog used only until the live catalog API is connected.
