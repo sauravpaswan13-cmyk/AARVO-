@@ -183,8 +183,13 @@ app.get('/v1/orders', { preHandler: requireRole('BUYER') }, async (request, repl
 
 app.get('/v1/orders/:id', { preHandler: requireAuth }, async (request, reply) => {
   if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
-  const ownership = request.user.role === 'BUYER' ? 'o.buyer_id=$2' : request.user.role === 'SELLER' ? 'EXISTS (SELECT 1 FROM order_lines x WHERE x.order_id=o.id AND x.seller_id=$2)' : 'TRUE';
-  const result = await pool.query(`${orderQuery} AND ${ownership} GROUP BY o.id`, [request.params.id, request.user.sub]);
+  let result;
+  if (request.user.role === 'ADMIN') {
+    result = await pool.query(`${orderQuery} GROUP BY o.id`, [request.params.id]);
+  } else {
+    const ownership = request.user.role === 'BUYER' ? 'o.buyer_id=$2' : 'EXISTS (SELECT 1 FROM order_lines x WHERE x.order_id=o.id AND x.seller_id=$2)';
+    result = await pool.query(`${orderQuery} AND ${ownership} GROUP BY o.id`, [request.params.id, request.user.sub]);
+  }
   if (!result.rowCount) return reply.code(404).send({ error: 'ORDER_NOT_FOUND' });
   return result.rows[0];
 });
@@ -245,7 +250,7 @@ app.post('/v1/orders/:id/tracking', { preHandler: requireAuth }, async (request,
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const order = await client.query(`SELECT o.id,o.status FROM orders o WHERE o.id=$1 AND (${request.user.role === 'ADMIN' ? 'TRUE' : 'EXISTS (SELECT 1 FROM order_lines x WHERE x.order_id=o.id AND x.seller_id=$2)'}) FOR UPDATE`, [request.params.id, request.user.sub]);
+    const order = await client.query(`SELECT o.id,o.status FROM orders o WHERE o.id=$1 AND (${request.user.role === 'ADMIN' ? 'TRUE' : 'EXISTS (SELECT 1 FROM order_lines x WHERE x.order_id=o.id AND x.seller_id=$2)'}) FOR UPDATE`, request.user.role === 'ADMIN' ? [request.params.id] : [request.params.id, request.user.sub]);
     if (!order.rowCount) throw httpError(404, 'ORDER_NOT_FOUND');
     const current = normalizeStatus(order.rows[0].status);
     if (nextStatus !== 'CANCELLED' && !(transitionMap[current] || []).includes(nextStatus)) throw httpError(409, 'INVALID_ORDER_TRANSITION');
@@ -271,7 +276,7 @@ app.post('/v1/orders/:id/reviews', { preHandler: requireRole('BUYER') }, async (
     const line = await client.query('SELECT product_id FROM order_lines WHERE order_id=$1 AND product_id=$2', [request.params.id,productId]);
     if (!line.rowCount) throw httpError(400, 'PRODUCT_NOT_IN_ORDER');
     const inserted = await client.query('INSERT INTO product_reviews(product_id,buyer_id,order_id,rating,review_text) VALUES($1,$2,$3,$4,$5) ON CONFLICT (product_id,buyer_id,order_id) DO UPDATE SET rating=EXCLUDED.rating,review_text=EXCLUDED.review_text RETURNING id,product_id,rating,review_text,created_at', [productId,request.user.sub,request.params.id,rating,reviewText]);
-    await client.query('UPDATE products SET rating=(SELECT ROUND(AVG(rating)::numeric,1) FROM product_reviews WHERE product_id=$1),updated_at=updated_at WHERE id=$1', [productId]);
+    await client.query('UPDATE products SET rating=(SELECT ROUND(AVG(rating)::numeric,1) FROM product_reviews WHERE product_id=$1) WHERE id=$1', [productId]);
     await audit(client, request.user, 'REVIEW', inserted.rows[0].id, 'UPSERTED', { productId, orderId: request.params.id });
     await client.query('COMMIT');
     return reply.code(201).send(inserted.rows[0]);
