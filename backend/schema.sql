@@ -43,6 +43,13 @@ CREATE TABLE IF NOT EXISTS seller_ledger (
   amount_paise INTEGER NOT NULL, type TEXT NOT NULL CHECK (type IN ('SALE','REFUND','PAYOUT','REVERSAL')),
   gateway_transfer_id TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS orders_gateway_order_uidx ON orders (gateway_order_id) WHERE gateway_order_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS orders_gateway_payment_uidx ON orders (gateway_payment_id) WHERE gateway_payment_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS seller_ledger_sale_uidx ON seller_ledger (seller_id, order_id, type) WHERE type = 'SALE';
 CREATE INDEX IF NOT EXISTS products_search_idx ON products (category, is_published, created_at DESC);
+CREATE INDEX IF NOT EXISTS products_seller_idx ON products (seller_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS orders_buyer_idx ON orders (buyer_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS orders_status_idx ON orders (status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS ledger_seller_idx ON seller_ledger (seller_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS payment_events_order_idx ON payment_events (order_id, created_at DESC);
