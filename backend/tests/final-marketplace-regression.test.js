@@ -21,6 +21,8 @@ test('final Android checkout regression contracts remain server-authoritative', 
 
 test('final API client regression contracts remain HTTPS-only and idempotent', () => {
   assert.ok(apiClient.includes('baseUrl.startsWith("https://")'));
+  assert.match(apiClient, /buildUrl\(path\)/);
+  assert.match(apiClient, /AARVO live API is not configured in this build/);
   assert.match(apiClient, /Idempotency-Key/);
   assert.match(apiClient, /UUID\.randomUUID\(\)/);
   assert.ok(apiClient.includes('/v1/orders/$orderId/cancel'));
@@ -51,6 +53,7 @@ test('final money regression keeps exact integer paise representation', () => {
 test('final CI regression still builds both installable/debug and release artifacts', () => {
   assert.match(workflow, /Build debug APK/);
   assert.match(workflow, /Build release AAB \(unsigned\)/);
+  assert.match(workflow, /aarvoApiBaseUrl=\"\$\{\{ vars\.AARVO_API_BASE_URL \}\}\"/);
   assert.match(workflow, /Upload debug APK/);
   assert.match(workflow, /Upload release AAB/);
   assert.match(workflow, /backend-check/);
