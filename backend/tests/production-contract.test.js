@@ -15,6 +15,7 @@ test('backend exposes the core marketplace API contract', () => {
     '/v1/products/:id',
     '/v1/seller/products',
     '/v1/seller/profile',
+    '/v1/seller/orders',
     '/v1/orders',
     '/v1/orders/:id',
     '/v1/orders/:id/cancel',
@@ -39,6 +40,13 @@ test('idempotency is enforced end-to-end', () => {
   assert.match(server, /idempotency_key/);
   assert.match(client, /Idempotency-Key/);
   assert.match(client, /UUID\.randomUUID\(\)/);
+  assert.match(client, /idempotencyKey: String/);
+});
+
+test('seller order access is scoped to seller-owned order lines', () => {
+  assert.match(server, /app\.get\('\/v1\/seller\/orders'/);
+  assert.match(server, /WHERE ol\.seller_id=\$1/);
+  assert.match(server, /sellerAmountPaise/);
 });
 
 test('webhook keeps raw-body capture enabled while applying its rate limit', () => {
