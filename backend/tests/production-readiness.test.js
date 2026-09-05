@@ -45,7 +45,7 @@ test('reviews require delivered orders and an order line for the reviewed produc
   assert.match(server, /status='DELIVERED'/);
   assert.match(server, /PRODUCT_NOT_IN_ORDER/);
   assert.match(server, /product_reviews/);
-  assert.match(migration3, /UNIQUE\s*\(product_id,buyer_id,order_id\)/i);
+  assert.match(migration3, /UNIQUE\s*\(order_id,\s*product_id,\s*buyer_id\)/i);
 });
 
 test('database hardening protects money and payment status fields', () => {
