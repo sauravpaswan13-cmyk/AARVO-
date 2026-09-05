@@ -215,7 +215,7 @@ private fun CartScreen(padding: PaddingValues, items: List<Product>, onRemove: (
 
 @Composable
 private fun CheckoutDialog(total: Int, address: String, onAddressChange: (String) -> Unit, onDismiss: () -> Unit, onPlaceOrder: () -> Unit) {
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Checkout") }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { Text("Order total: ₹$total", fontWeight = FontWeight.Bold); OutlinedTextField(address, onAddressChange, label = { Text("Delivery address") }, minLines = 3); Text("Payment will be enabled after the secure server payment integration is configured.", style = MaterialTheme.typography.bodySmall) } }, confirmButton = { Button(onClick = onPlaceOrder, enabled = address.isNotBlank()) { Text("Place order") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Checkout") }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { Text("Order total: ₹$total", fontWeight = FontWeight.Bold); OutlinedTextField(address, onAddressChange, label = { Text("Delivery address") }, minLines = 3); Text("Secure online payment will be connected to the live server checkout before production launch.", style = MaterialTheme.typography.bodySmall) } }, confirmButton = { Button(onClick = onPlaceOrder, enabled = address.isNotBlank()) { Text("Place order") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
 }
 
 @Composable
