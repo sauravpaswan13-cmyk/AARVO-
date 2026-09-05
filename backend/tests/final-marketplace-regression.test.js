@@ -23,11 +23,10 @@ test('final API client regression contracts remain HTTPS-only and idempotent', (
   assert.ok(apiClient.includes('baseUrl.startsWith("https://")'));
   assert.match(apiClient, /Idempotency-Key/);
   assert.match(apiClient, /UUID\.randomUUID\(\)/);
-  assert.match(apiClient, /\/v1\/orders/);
-  assert.match(apiClient, /\/v1\/payments\/verify/);
-  assert.match(apiClient, /\/v1\/orders\/$\{orderId\}\/cancel/);
-  assert.match(apiClient, /\/v1\/orders\/$\{orderId\}\/reviews/);
-  assert.match(apiClient, /\/v1\/orders\/$\{orderId\}\/disputes/);
+  assert.ok(apiClient.includes('/v1/orders/$orderId/cancel'));
+  assert.ok(apiClient.includes('/v1/orders/$orderId/reviews'));
+  assert.ok(apiClient.includes('/v1/orders/$orderId/disputes'));
+  assert.ok(apiClient.includes('/v1/payments/verify'));
 });
 
 test('final money regression keeps exact integer paise representation', () => {
