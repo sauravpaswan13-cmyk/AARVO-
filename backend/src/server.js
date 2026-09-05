@@ -3,7 +3,8 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import pg from 'pg';
 import jwt from 'jsonwebtoken';
-import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
+import Razorpay from 'razorpay';
+import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 
 const app = Fastify({ logger: true });
 const { Pool } = pg;
@@ -11,6 +12,7 @@ const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env
 const JWT_SECRET = process.env.JWT_SECRET;
 const DELIVERY_FEE_PAISE = Number(process.env.DELIVERY_FEE_PAISE || 0);
 const PLATFORM_FEE_BPS = Number(process.env.PLATFORM_FEE_BPS || 0);
+const razorpay = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET ? new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET }) : null;
 
 await app.register(helmet);
 await app.register(cors, { origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true });
@@ -33,7 +35,7 @@ const issueToken = (user) => jwt.sign({ sub: user.id, role: user.role, email: us
 const badAddress = (a) => !a || !a.fullName || !a.phone || !a.line1 || !a.city || !a.state || !a.postalCode || !a.country;
 const httpError = (statusCode, message) => Object.assign(new Error(message), { statusCode, publicMessage: message });
 
-app.get('/health', async () => ({ service: 'aarvo-api', status: 'ok', database: Boolean(pool), auth: Boolean(JWT_SECRET) }));
+app.get('/health', async () => ({ service: 'aarvo-api', status: 'ok', database: Boolean(pool), auth: Boolean(JWT_SECRET), payments: Boolean(razorpay) }));
 
 app.post('/v1/auth/register', async (request, reply) => {
   if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
@@ -99,6 +101,7 @@ app.get('/v1/seller/profile', { preHandler: requireAuth }, async (request, reply
 
 app.post('/v1/orders', { preHandler: requireAuth }, async (request, reply) => {
   if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+  if (!razorpay) return reply.code(503).send({ error: 'PAYMENTS_NOT_CONFIGURED' });
   if (request.user.role !== 'BUYER') return reply.code(403).send({ error: 'BUYER_ROLE_REQUIRED' });
   const { items, address } = request.body || {};
   if (!Array.isArray(items) || items.length < 1 || items.length > 50 || badAddress(address)) return reply.code(400).send({ error: 'INVALID_ORDER' });
@@ -114,10 +117,33 @@ app.post('/v1/orders', { preHandler: requireAuth }, async (request, reply) => {
     let subtotal = 0;
     for (const p of products.rows) { const qty = merged.get(Number(p.id)); if (!p.is_published || p.stock_quantity < qty) throw httpError(409, `INSUFFICIENT_STOCK:${p.id}`); subtotal += Number(p.price_paise) * qty; }
     const platformFee = Math.floor(subtotal * PLATFORM_FEE_BPS / 10000), total = subtotal + DELIVERY_FEE_PAISE + platformFee, orderId = randomUUID();
-    await client.query('INSERT INTO orders(id,buyer_id,subtotal_paise,delivery_fee_paise,platform_fee_paise,total_paise,payment_status,status,address_json) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)', [orderId,request.user.sub,subtotal,DELIVERY_FEE_PAISE,platformFee,total,'CREATED','PENDING_PAYMENT',JSON.stringify(address)]);
+    const gatewayOrder = await razorpay.orders.create({ amount: total, currency: 'INR', receipt: orderId });
+    await client.query('INSERT INTO orders(id,buyer_id,subtotal_paise,delivery_fee_paise,platform_fee_paise,total_paise,payment_status,status,address_json,gateway_order_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [orderId,request.user.sub,subtotal,DELIVERY_FEE_PAISE,platformFee,total,'CREATED','PENDING_PAYMENT',JSON.stringify(address),gatewayOrder.id]);
     for (const p of products.rows) { const qty = merged.get(Number(p.id)), lineTotal = Number(p.price_paise) * qty; await client.query('INSERT INTO order_lines(order_id,product_id,seller_id,quantity,unit_price_paise,seller_amount_paise) VALUES($1,$2,$3,$4,$5,$6)', [orderId,p.id,p.seller_id,qty,p.price_paise,lineTotal]); await client.query('UPDATE products SET stock_quantity=stock_quantity-$1,updated_at=now() WHERE id=$2', [qty,p.id]); }
     await client.query('COMMIT');
-    return reply.code(201).send({ orderId, subtotalPaise: subtotal, deliveryFeePaise: DELIVERY_FEE_PAISE, platformFeePaise: platformFee, totalPaise: total, paymentStatus: 'CREATED', status: 'PENDING_PAYMENT', paymentProvider: process.env.RAZORPAY_KEY_ID ? 'RAZORPAY' : 'NOT_CONFIGURED' });
+    return reply.code(201).send({ orderId, amountPaise: total, currency: 'INR', gatewayOrderId: gatewayOrder.id, keyId: process.env.RAZORPAY_KEY_ID, paymentStatus: 'CREATED', status: 'PENDING_PAYMENT' });
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+  finally { client.release(); }
+});
+
+app.post('/v1/payments/verify', { preHandler: requireAuth }, async (request, reply) => {
+  if (!pool || !process.env.RAZORPAY_KEY_SECRET) return reply.code(503).send({ error: 'PAYMENTS_NOT_CONFIGURED' });
+  if (request.user.role !== 'BUYER') return reply.code(403).send({ error: 'BUYER_ROLE_REQUIRED' });
+  const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = request.body || {};
+  if (!orderId || !razorpayOrderId || !razorpayPaymentId || !razorpaySignature) return reply.code(400).send({ error: 'INVALID_PAYMENT' });
+  const expected = createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(`${razorpayOrderId}|${razorpayPaymentId}`).digest('hex');
+  if (expected.length !== String(razorpaySignature).length || !timingSafeEqual(Buffer.from(expected), Buffer.from(String(razorpaySignature)))) return reply.code(400).send({ error: 'INVALID_PAYMENT_SIGNATURE' });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query('SELECT id,total_paise,gateway_order_id,payment_status,status FROM orders WHERE id=$1 AND buyer_id=$2 FOR UPDATE', [orderId, request.user.sub]);
+    if (!result.rowCount) throw httpError(404, 'ORDER_NOT_FOUND');
+    const order = result.rows[0];
+    if (order.gateway_order_id !== razorpayOrderId) throw httpError(400, 'PAYMENT_ORDER_MISMATCH');
+    if (order.payment_status === 'CAPTURED') { await client.query('COMMIT'); return { orderId, paymentStatus: 'CAPTURED', status: order.status }; }
+    await client.query('UPDATE orders SET payment_status=$1,status=$2,gateway_payment_id=$3,updated_at=now() WHERE id=$4', ['CAPTURED','PAID',razorpayPaymentId,orderId]);
+    await client.query('COMMIT');
+    return { orderId, paymentStatus: 'CAPTURED', status: 'PAID' };
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
 });
