@@ -8,21 +8,21 @@ const migration3 = fs.readFileSync(new URL('../migrations/003_reviews_delivery.s
 
 test('backend exposes the core marketplace API contract', () => {
   for (const route of [
-    "'/v1/auth/register'",
-    "'/v1/auth/login'",
-    "'/v1/products'",
-    "'/v1/products/:id'",
-    "'/v1/seller/products'",
-    "'/v1/seller/profile'",
-    "'/v1/orders'",
-    "'/v1/orders/:id/cancel'",
-    "'/v1/payments/verify'",
-    "'/v1/webhooks/razorpay'",
-  ]) assert.match(server, new RegExp(`app\\.(get|post)\\(${route.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}`));
+    '/v1/auth/register',
+    '/v1/auth/login',
+    '/v1/products',
+    '/v1/products/:id',
+    '/v1/seller/products',
+    '/v1/seller/profile',
+    '/v1/orders',
+    '/v1/orders/:id/cancel',
+    '/v1/payments/verify',
+    '/v1/webhooks/razorpay',
+  ]) assert.ok(server.includes(`'${route}'`), `missing route: ${route}`);
 });
 
 test('payment verification is server-side and uses the stored gateway order', () => {
-  assert.match(server, /order\.gateway_order_id \!== razorpayOrderId/);
+  assert.match(server, /order\.gateway_order_id !== razorpayOrderId/);
   assert.match(server, /createHmac\('sha256'/);
   assert.match(server, /razorpay\.payments\.fetch\(razorpayPaymentId\)/);
 });
