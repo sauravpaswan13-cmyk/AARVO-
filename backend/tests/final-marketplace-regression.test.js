@@ -20,7 +20,7 @@ test('final Android checkout regression contracts remain server-authoritative', 
 });
 
 test('final API client regression contracts remain HTTPS-only and idempotent', () => {
-  assert.match(apiClient, /baseUrl\.startsWith\("https:\\/\\/"\)/);
+  assert.ok(apiClient.includes('baseUrl.startsWith("https://")'));
   assert.match(apiClient, /Idempotency-Key/);
   assert.match(apiClient, /UUID\.randomUUID\(\)/);
   assert.match(apiClient, /\/v1\/orders/);
