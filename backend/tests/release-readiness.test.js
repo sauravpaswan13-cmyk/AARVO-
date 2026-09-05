@@ -1,15 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import path from 'node:path';
 
-const root = path.resolve(process.cwd(), '..');
-const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
+const read = (relative) => fs.readFileSync(new URL(relative, import.meta.url), 'utf8');
 
 test('release readiness: backend production contracts are present', () => {
-  const server = read('backend/src/server.js');
-  const compose = read('backend/docker-compose.production.yml');
-  const env = read('backend/.env.production.example');
+  const server = read('../src/server.js');
+  const compose = read('../docker-compose.production.yml');
+  const env = read('../.env.production.example');
 
   for (const required of [
     "app.get('/health'",
@@ -22,12 +20,7 @@ test('release readiness: backend production contracts are present', () => {
     "app.post('/v1/orders/:id/reviews'",
     "app.post('/v1/orders/:id/disputes'",
     "app.post('/v1/webhooks/razorpay'",
-    'BEGIN',
-    'FOR UPDATE',
-    'COMMIT',
-    'ROLLBACK',
-    'timingSafeEqual',
-    'RAZORPAY_WEBHOOK_SECRET'
+    'BEGIN', 'FOR UPDATE', 'COMMIT', 'ROLLBACK', 'timingSafeEqual', 'RAZORPAY_WEBHOOK_SECRET'
   ]) assert.ok(server.includes(required), `missing backend contract: ${required}`);
 
   assert.match(compose, /node src\/migrate\.js && node src\/server\.js/);
@@ -36,13 +29,13 @@ test('release readiness: backend production contracts are present', () => {
   assert.match(env, /RAZORPAY_KEY_ID=/);
   assert.match(env, /RAZORPAY_KEY_SECRET=/);
   assert.match(env, /RAZORPAY_WEBHOOK_SECRET=/);
-  assert.doesNotMatch(env, /demo|fake|test[_-]?payment/i);
+  assert.match(env, /rzp_live_REPLACE_ME/);
 });
 
 test('release readiness: Android uses exact paise money model and HTTPS API guard', () => {
-  const product = read('app/src/main/java/com/aarvo/data/Product.kt');
-  const api = read('app/src/main/java/com/aarvo/network/AarvoApiClient.kt');
-  const gradle = read('app/build.gradle.kts');
+  const product = read('../../app/src/main/java/com/aarvo/data/Product.kt');
+  const api = read('../../app/src/main/java/com/aarvo/network/AarvoApiClient.kt');
+  const gradle = read('../../app/build.gradle.kts');
 
   assert.match(product, /val pricePaise: Long/);
   assert.match(product, /val displayPrice: String/);
@@ -54,8 +47,8 @@ test('release readiness: Android uses exact paise money model and HTTPS API guar
 });
 
 test('release readiness: no temporary internal hardening workflows remain', () => {
-  const workflowDir = path.join(root, '.github', 'workflows');
+  const workflowDir = new URL('../../.github/workflows/', import.meta.url);
   const files = fs.readdirSync(workflowDir);
   assert.ok(!files.some((name) => /hardening/i.test(name)), 'temporary hardening workflow remains');
-  assert.ok(files.some((name) => name === 'android.yml'), 'canonical Android CI workflow missing');
+  assert.ok(files.includes('android.yml'), 'canonical Android CI workflow missing');
 });
