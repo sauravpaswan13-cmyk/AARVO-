@@ -34,6 +34,7 @@ jobs:
           test -f migrations/002_marketplace_operations.sql
           test -f migrations/003_reviews_delivery.sql
           test -f migrations/004_marketplace_hardening.sql
+          test -f migrations/005_operational_indexes.sql
           test ! -f migrations/003_marketplace_reviews_and_returns.sql
           grep -q "CREATE UNIQUE INDEX" migrations/001_production_integrity.sql
           grep -q "idempotency_key" migrations/002_marketplace_operations.sql
@@ -43,6 +44,7 @@ jobs:
           grep -q "order_disputes" migrations/003_reviews_delivery.sql
           grep -q "orders_payment_status_chk" migrations/004_marketplace_hardening.sql
           grep -q "orders_money_nonnegative_chk" migrations/004_marketplace_hardening.sql
+          grep -q "orders_created_at_idx" migrations/005_operational_indexes.sql
       - name: Build backend container
         run: docker build --pull -t aarvo-api:ci .
 
