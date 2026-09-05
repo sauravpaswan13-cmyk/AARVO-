@@ -68,9 +68,13 @@ test('order lifecycle has cancellation, delivery tracking and dispute records', 
   assert.match(migration3, /order_disputes/);
 });
 
-test('tracking and dispute actions remain buyer or seller scoped', () => {
-  assert.match(server, /requireBuyer/);
-  assert.match(server, /requireSeller/);
+test('tracking and dispute actions remain role and ownership scoped', () => {
+  assert.match(server, /requireAuth/);
+  assert.match(server, /requireRole\('BUYER'\)/);
+  assert.match(server, /requireRole\('SELLER'\)/);
+  assert.match(server, /SELLER.*ADMIN|ADMIN.*SELLER/);
+  assert.match(server, /seller_id=\$2/);
+  assert.match(server, /buyer_id=\$2/);
   assert.match(server, /UPDATE orders/);
   assert.match(server, /order_disputes/);
   assert.match(server, /delivery_events/);
