@@ -316,14 +316,79 @@ private fun OrdersScreen(padding: PaddingValues, api: AarvoApiClient, onBack: ()
 
 @Composable
 private fun OrderCard(order: JSONObject, api: AarvoApiClient, reload: () -> Unit) {
-    var busy by remember { mutableStateOf(false) }; var detail by remember { mutableStateOf<JSONObject?>(null) }; val scope = rememberCoroutineScope()
-    val status = order.optString("status", "PENDING"); val payment = order.optString("payment_status", "PENDING"); val id = order.optString("id")
+    var busy by remember { mutableStateOf(false) }
+    var detail by remember { mutableStateOf<JSONObject?>(null) }
+    var actionError by remember { mutableStateOf("") }
+    var reviewOpen by remember { mutableStateOf(false) }
+    var disputeOpen by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val status = order.optString("status", "PENDING")
+    val payment = order.optString("payment_status", "PENDING")
+    val id = order.optString("id")
+    if (reviewOpen) ReviewDialog(api, id, detail, { reviewOpen = false; reload() })
+    if (disputeOpen) DisputeDialog(api, id, { disputeOpen = false; reload() })
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Order #$id", fontWeight = FontWeight.Bold); Text(formatPaise(order.optLong("total_paise", 0L)), style = MaterialTheme.typography.titleLarge); Text("Payment: $payment"); Text("Status: $status")
+        Text("Order #$id", fontWeight = FontWeight.Bold)
+        Text(formatPaise(order.optLong("total_paise", 0L)), style = MaterialTheme.typography.titleLarge)
+        Text("Payment: $payment")
+        Text("Status: $status")
         order.optJSONObject("tracking_json")?.let { Text("Tracking: ${it.optString("status", "Not updated")} ${it.optString("carrier", "")}") }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = { scope.launch { busy = true; try { detail = api.order(id) } finally { busy = false } } }, enabled = !busy) { Text("View details") }; if (status !in setOf("CANCELLED", "DELIVERED")) TextButton(onClick = { scope.launch { busy = true; try { api.cancelOrder(id); reload() } finally { busy = false } } }, enabled = !busy) { Text("Cancel") } }
-        detail?.let { d -> Text("Items: ${d.optJSONArray("items")?.length() ?: 0}"); Text("Delivery status: ${d.optJSONObject("tracking")?.optString("status", status) ?: status}") }
+        if (actionError.isNotBlank()) Text(actionError, color = MaterialTheme.colorScheme.error)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = {
+                scope.launch { busy = true; actionError = ""; try { detail = api.order(id) } catch (t: Throwable) { actionError = t.message ?: "Unable to load order details" } finally { busy = false } }
+            }, enabled = !busy) { Text(if (busy) "Loading..." else "View details") }
+            if (status !in setOf("CANCELLED", "DELIVERED")) TextButton(onClick = {
+                scope.launch { busy = true; actionError = ""; try { api.cancelOrder(id); reload() } catch (t: Throwable) { actionError = t.message ?: "Unable to cancel order" } finally { busy = false } }
+            }, enabled = !busy) { Text("Cancel") }
+            if (status == "DELIVERED") TextButton(onClick = { reviewOpen = true }, enabled = !busy) { Text("Review") }
+            if (status != "CANCELLED") TextButton(onClick = { disputeOpen = true }, enabled = !busy) { Text("Report issue") }
+        }
+        detail?.let { d ->
+            Text("Items: ${d.optJSONArray("items")?.length() ?: 0}")
+            Text("Delivery status: ${d.optJSONObject("tracking")?.optString("status", status) ?: status}")
+            d.optJSONArray("trackingEvents")?.let { events -> Text("Tracking events: ${events.length()}") }
+        }
     } }
+}
+
+@Composable
+private fun ReviewDialog(api: AarvoApiClient, orderId: String, detail: JSONObject?, onDone: () -> Unit) {
+    var rating by remember { mutableIntStateOf(5) }
+    var text by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    val items = detail?.optJSONArray("items")
+    val productId = items?.optJSONObject(0)?.optInt("product_id", items.optJSONObject(0)?.optInt("productId", 0) ?: 0) ?: 0
+    AlertDialog(onDismissRequest = { if (!busy) onDone() }, title = { Text("Rate your order") }, text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Rating: ${"★".repeat(rating)}${"☆".repeat(5 - rating)}")
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { (1..5).forEach { value -> TextButton(onClick = { rating = value }) { Text(value.toString()) } } }
+            OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), minLines = 3, label = { Text("Review (optional)") })
+            if (productId == 0) Text("Open order details first so AARVO can identify the purchased product.", color = MaterialTheme.colorScheme.error)
+            if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+        }
+    }, confirmButton = { Button(onClick = { scope.launch { busy = true; error = ""; try { api.submitReview(orderId, productId, rating, text); onDone() } catch (t: Throwable) { error = t.message ?: "Unable to submit review" } finally { busy = false } } }, enabled = !busy && productId > 0) { if (busy) CircularProgressIndicator() else Text("Submit review") } }, dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text("Close") } })
+}
+
+@Composable
+private fun DisputeDialog(api: AarvoApiClient, orderId: String, onDone: () -> Unit) {
+    var reason by remember { mutableStateOf("ITEM_NOT_RECEIVED") }
+    var details by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    AlertDialog(onDismissRequest = { if (!busy) onDone() }, title = { Text("Report an order issue") }, text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Reason")
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf("ITEM_NOT_RECEIVED", "DAMAGED", "WRONG_ITEM", "OTHER").forEach { value -> TextButton(onClick = { reason = value }) { Text(if (reason == value) "✓ $value" else value) } }
+            }
+            OutlinedTextField(details, { details = it }, Modifier.fillMaxWidth(), minLines = 3, label = { Text("Describe the issue") })
+            if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+        }
+    }, confirmButton = { Button(onClick = { scope.launch { busy = true; error = ""; try { api.openDispute(orderId, reason, details); onDone() } catch (t: Throwable) { error = t.message ?: "Unable to open dispute" } finally { busy = false } } }, enabled = !busy && details.trim().length >= 5) { if (busy) CircularProgressIndicator() else Text("Submit issue") } }, dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text("Close") } })
 }
 
 @Composable
