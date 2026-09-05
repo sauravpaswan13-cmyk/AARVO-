@@ -15,14 +15,20 @@ test('backend exposes the core marketplace API contract', () => {
     '/v1/seller/products',
     '/v1/seller/profile',
     '/v1/orders',
+    '/v1/orders/:id',
     '/v1/orders/:id/cancel',
+    '/v1/orders/:id/tracking',
+    '/v1/orders/:id/reviews',
+    '/v1/orders/:id/disputes',
     '/v1/payments/verify',
     '/v1/webhooks/razorpay',
+    '/v1/admin/sellers/:id/verify',
+    '/v1/admin/disputes/:id/resolve',
   ]) assert.ok(server.includes(`'${route}'`), `missing route: ${route}`);
 });
 
 test('payment verification is server-side and uses the stored gateway order', () => {
-  assert.match(server, /order\.gateway_order_id !== razorpayOrderId/);
+  assert.match(server, /order\.gateway_order_id\s*!==\s*razorpayOrderId/);
   assert.match(server, /createHmac\('sha256'/);
   assert.match(server, /razorpay\.payments\.fetch\(razorpayPaymentId\)/);
 });
