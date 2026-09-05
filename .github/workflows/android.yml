@@ -23,6 +23,8 @@ jobs:
         run: npm install --ignore-scripts
       - name: Check backend syntax
         run: npm run check
+      - name: Run backend contract tests
+        run: npm test
       - name: Validate production files
         run: |
           test -f Dockerfile
@@ -30,9 +32,12 @@ jobs:
           test -f .env.example
           test -f migrations/001_production_integrity.sql
           test -f migrations/002_marketplace_operations.sql
+          test -f migrations/003_reviews_delivery.sql
           grep -q "CREATE UNIQUE INDEX" migrations/001_production_integrity.sql
           grep -q "idempotency_key" migrations/002_marketplace_operations.sql
           grep -q "audit_events" migrations/002_marketplace_operations.sql
+          grep -q "product_reviews" migrations/003_reviews_delivery.sql
+          grep -q "delivery_events" migrations/003_reviews_delivery.sql
       - name: Build backend container
         run: docker build --pull -t aarvo-api:ci .
 
@@ -52,9 +57,17 @@ jobs:
           gradle-version: '9.7.1'
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true
+      - name: Build release AAB (unsigned)
+        run: gradle :app:bundleRelease --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: aarvo-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - name: Upload release AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: aarvo-release-aab-unsigned
+          path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
