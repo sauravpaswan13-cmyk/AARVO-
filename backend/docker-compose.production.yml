@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aarvo
+      POSTGRES_USER: aarvo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the deployment environment}
+    volumes:
+      - aarvo-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aarvo -d aarvo"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: postgresql://aarvo:${POSTGRES_PASSWORD}@db:5432/aarvo
+      DATABASE_SSL: "false"
+      CORS_ORIGIN: ${CORS_ORIGIN:?Set CORS_ORIGIN in the deployment environment}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the deployment environment}
+      DELIVERY_FEE_PAISE: ${DELIVERY_FEE_PAISE:-0}
+      PLATFORM_FEE_BPS: ${PLATFORM_FEE_BPS:-0}
+      PAYMENT_WINDOW_MINUTES: ${PAYMENT_WINDOW_MINUTES:-15}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:?Set RAZORPAY_KEY_ID in the deployment environment}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:?Set RAZORPAY_KEY_SECRET in the deployment environment}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:?Set RAZORPAY_WEBHOOK_SECRET in the deployment environment}
+    command: ["sh", "-c", "node src/migrate.js && node src/server.js"]
+    ports:
+      - "8080:8080"
+
+volumes:
+  aarvo-postgres:
