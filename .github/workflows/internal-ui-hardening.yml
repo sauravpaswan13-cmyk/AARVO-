@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   patch:
-    if: contains(github.event.head_commit.message, 'internal-ui-patch')
+    if: contains(github.event.head_commit.message, 'Internal UI hardening')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +43,8 @@ jobs:
           if old_card not in text:
               raise SystemExit('Missing expected OrderCard body')
           text = text.replace(old_card, new_card, 1)
+
+          text = text.replace('var busy by remember { mutableStateOf(false) }; var detail by remember { mutableStateOf<JSONObject?>(null) }; val scope = rememberCoroutineScope()', 'var busy by remember { mutableStateOf(false) }; var detail by remember { mutableStateOf<JSONObject?>(null) }; var feedbackMode by remember { mutableStateOf<String?>(null) }; val scope = rememberCoroutineScope()', 1)
 
           marker = '@Composable\nprivate fun OrderFeedbackDialog('
           if marker not in text:
