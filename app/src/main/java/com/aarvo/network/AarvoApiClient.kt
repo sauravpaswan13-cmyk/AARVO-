@@ -10,6 +10,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
+import java.util.UUID
 
 class AarvoApiClient(
     private val tokenProvider: () -> String? = { null }
@@ -41,9 +42,16 @@ class AarvoApiClient(
 
     suspend fun product(productId: Int): JSONObject = getObject("/v1/products/$productId")
 
-    suspend fun createOrder(items: JSONArray, address: JSONObject): JSONObject = post(
-        "/v1/orders", JSONObject().put("items", items).put("address", address)
-    )
+    suspend fun createOrder(items: JSONArray, address: JSONObject): JSONObject = withContext(Dispatchers.IO) {
+        val idempotencyKey = UUID.randomUUID().toString()
+        val payload = JSONObject().put("items", items).put("address", address)
+        val response = execute(
+            Request.Builder().url(baseUrl + "/v1/orders").applyAuth()
+                .header("Idempotency-Key", idempotencyKey)
+                .post(payload.toString().toRequestBody(jsonMediaType)).build()
+        )
+        JSONObject(response)
+    }
 
     suspend fun orders(): JSONArray = get("/v1/orders")
 
