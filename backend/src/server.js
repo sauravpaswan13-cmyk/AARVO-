@@ -44,6 +44,7 @@ app.post('/v1/auth/register', async (request, reply) => {
   const normalizedEmail = String(email || '').trim().toLowerCase(), normalizedRole = String(role).toUpperCase();
   if (!normalizedEmail || !password || String(password).length < 8 || !displayName) return reply.code(400).send({ error: 'INVALID_REGISTRATION' });
   if (!['BUYER', 'SELLER'].includes(normalizedRole)) return reply.code(400).send({ error: 'INVALID_ROLE' });
+  if (normalizedRole === 'SELLER' && String(phone).trim().length < 10) return reply.code(400).send({ error: 'SELLER_PHONE_REQUIRED' });
   const id = randomBytes(12).toString('hex'), client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -94,7 +95,7 @@ app.post('/v1/seller/products', { preHandler: requireAuth }, async (request, rep
 app.get('/v1/seller/profile', { preHandler: requireAuth }, async (request, reply) => {
   if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
   if (request.user.role !== 'SELLER') return reply.code(403).send({ error: 'SELLER_ROLE_REQUIRED' });
-  const result = await pool.query('SELECT seller_id,phone,verified,payout_account_ready FROM seller_profiles WHERE seller_id=$1', [request.user.sub]);
+  const result = await pool.query('SELECT s.seller_id,u.display_name,s.phone,s.verified,s.payout_account_ready FROM seller_profiles s JOIN users u ON u.id=s.seller_id WHERE s.seller_id=$1', [request.user.sub]);
   if (!result.rowCount) return reply.code(404).send({ error: 'SELLER_PROFILE_NOT_FOUND' });
   return result.rows[0];
 });
@@ -119,7 +120,7 @@ app.post('/v1/orders', { preHandler: requireAuth }, async (request, reply) => {
     const platformFee = Math.floor(subtotal * PLATFORM_FEE_BPS / 10000), total = subtotal + DELIVERY_FEE_PAISE + platformFee, orderId = randomUUID();
     const gatewayOrder = await razorpay.orders.create({ amount: total, currency: 'INR', receipt: orderId });
     await client.query('INSERT INTO orders(id,buyer_id,subtotal_paise,delivery_fee_paise,platform_fee_paise,total_paise,payment_status,status,address_json,gateway_order_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [orderId,request.user.sub,subtotal,DELIVERY_FEE_PAISE,platformFee,total,'CREATED','PENDING_PAYMENT',JSON.stringify(address),gatewayOrder.id]);
-    for (const p of products.rows) { const qty = merged.get(Number(p.id)), lineTotal = Number(p.price_paise) * qty; await client.query('INSERT INTO order_lines(order_id,product_id,seller_id,quantity,unit_price_paise,seller_amount_paise) VALUES($1,$2,$3,$4,$5,$6)', [orderId,p.id,p.seller_id,qty,p.price_paise,lineTotal]); await client.query('UPDATE products SET stock_quantity=stock_quantity-$1,updated_at=now() WHERE id=$2', [qty,p.id]); }
+    for (const p of products.rows) { const qty = merged.get(Number(p.id)), lineTotal = Number(p.price_paise) * qty, sellerAmount = lineTotal - Math.floor(lineTotal * PLATFORM_FEE_BPS / 10000); await client.query('INSERT INTO order_lines(order_id,product_id,seller_id,quantity,unit_price_paise,seller_amount_paise) VALUES($1,$2,$3,$4,$5,$6)', [orderId,p.id,p.seller_id,qty,p.price_paise,sellerAmount]); await client.query('UPDATE products SET stock_quantity=stock_quantity-$1,updated_at=now() WHERE id=$2', [qty,p.id]); }
     await client.query('COMMIT');
     return reply.code(201).send({ orderId, amountPaise: total, currency: 'INR', gatewayOrderId: gatewayOrder.id, keyId: process.env.RAZORPAY_KEY_ID, paymentStatus: 'CREATED', status: 'PENDING_PAYMENT' });
   } catch (error) { await client.query('ROLLBACK'); throw error; }
@@ -127,12 +128,10 @@ app.post('/v1/orders', { preHandler: requireAuth }, async (request, reply) => {
 });
 
 app.post('/v1/payments/verify', { preHandler: requireAuth }, async (request, reply) => {
-  if (!pool || !process.env.RAZORPAY_KEY_SECRET) return reply.code(503).send({ error: 'PAYMENTS_NOT_CONFIGURED' });
+  if (!pool || !razorpay || !process.env.RAZORPAY_KEY_SECRET) return reply.code(503).send({ error: 'PAYMENTS_NOT_CONFIGURED' });
   if (request.user.role !== 'BUYER') return reply.code(403).send({ error: 'BUYER_ROLE_REQUIRED' });
   const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = request.body || {};
   if (!orderId || !razorpayOrderId || !razorpayPaymentId || !razorpaySignature) return reply.code(400).send({ error: 'INVALID_PAYMENT' });
-  const expected = createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(`${razorpayOrderId}|${razorpayPaymentId}`).digest('hex');
-  if (expected.length !== String(razorpaySignature).length || !timingSafeEqual(Buffer.from(expected), Buffer.from(String(razorpaySignature)))) return reply.code(400).send({ error: 'INVALID_PAYMENT_SIGNATURE' });
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -140,10 +139,35 @@ app.post('/v1/payments/verify', { preHandler: requireAuth }, async (request, rep
     if (!result.rowCount) throw httpError(404, 'ORDER_NOT_FOUND');
     const order = result.rows[0];
     if (order.gateway_order_id !== razorpayOrderId) throw httpError(400, 'PAYMENT_ORDER_MISMATCH');
+    const expected = createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(`${order.gateway_order_id}|${razorpayPaymentId}`).digest('hex');
+    const signatureBuffer = Buffer.from(String(razorpaySignature));
+    if (expected.length !== signatureBuffer.length || !timingSafeEqual(Buffer.from(expected), signatureBuffer)) throw httpError(400, 'INVALID_PAYMENT_SIGNATURE');
     if (order.payment_status === 'CAPTURED') { await client.query('COMMIT'); return { orderId, paymentStatus: 'CAPTURED', status: order.status }; }
+    const payment = await razorpay.payments.fetch(razorpayPaymentId);
+    if (payment.order_id !== order.gateway_order_id || Number(payment.amount) !== Number(order.total_paise)) throw httpError(400, 'PAYMENT_DETAILS_MISMATCH');
+    if (!['authorized', 'captured'].includes(payment.status)) throw httpError(400, 'PAYMENT_NOT_SUCCESSFUL');
     await client.query('UPDATE orders SET payment_status=$1,status=$2,gateway_payment_id=$3,updated_at=now() WHERE id=$4', ['CAPTURED','PAID',razorpayPaymentId,orderId]);
+    await client.query('INSERT INTO seller_ledger(seller_id,order_id,amount_paise,type) SELECT seller_id,order_id,seller_amount_paise,\'SALE\' FROM order_lines WHERE order_id=$1', [orderId]);
     await client.query('COMMIT');
     return { orderId, paymentStatus: 'CAPTURED', status: 'PAID' };
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+  finally { client.release(); }
+});
+
+app.post('/v1/orders/:id/cancel', { preHandler: requireAuth }, async (request, reply) => {
+  if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+  if (request.user.role !== 'BUYER') return reply.code(403).send({ error: 'BUYER_ROLE_REQUIRED' });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const order = await client.query('SELECT id,payment_status,status FROM orders WHERE id=$1 AND buyer_id=$2 FOR UPDATE', [request.params.id, request.user.sub]);
+    if (!order.rowCount) throw httpError(404, 'ORDER_NOT_FOUND');
+    if (order.rows[0].status !== 'PENDING_PAYMENT') throw httpError(409, 'ORDER_CANNOT_BE_CANCELLED');
+    const lines = await client.query('SELECT product_id,quantity FROM order_lines WHERE order_id=$1', [request.params.id]);
+    for (const line of lines.rows) await client.query('UPDATE products SET stock_quantity=stock_quantity+$1,updated_at=now() WHERE id=$2', [line.quantity,line.product_id]);
+    await client.query('UPDATE orders SET status=$1,payment_status=$2,updated_at=now() WHERE id=$3', ['CANCELLED','FAILED',request.params.id]);
+    await client.query('COMMIT');
+    return { orderId: request.params.id, status: 'CANCELLED', paymentStatus: 'FAILED' };
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
 });
