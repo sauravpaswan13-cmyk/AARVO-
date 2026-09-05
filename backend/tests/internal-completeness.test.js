@@ -51,5 +51,5 @@ test('internal marketplace completion gate covers buyer, seller, money, deployme
   assert.match(migrationRunner, /migrations/);
   assert.match(envExample, /RAZORPAY_KEY_ID/);
   assert.match(envExample, /RAZORPAY_KEY_SECRET/);
-  assert.match(envExample, /DATABASE_URL/);
+  assert.match(envExample, /POSTGRES_PASSWORD/);
 });
