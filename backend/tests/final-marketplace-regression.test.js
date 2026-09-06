@@ -8,6 +8,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const androidMain = fs.readFileSync(path.join(ROOT, 'app/src/main/java/com/aarvo/MainActivity.kt'), 'utf8');
 const apiClient = fs.readFileSync(path.join(ROOT, 'app/src/main/java/com/aarvo/network/AarvoApiClient.kt'), 'utf8');
 const productModel = fs.readFileSync(path.join(ROOT, 'app/src/main/java/com/aarvo/data/Product.kt'), 'utf8');
+const cartViewModel = fs.readFileSync(path.join(ROOT, 'app/src/main/java/com/aarvo/cart/CartViewModel.kt'), 'utf8');
+const wishlistStore = fs.readFileSync(path.join(ROOT, 'app/src/main/java/com/aarvo/wishlist/WishlistStore.kt'), 'utf8');
+const marketplaceModels = fs.readFileSync(path.join(ROOT, 'app/src/main/java/com/aarvo/data/MarketplaceModels.kt'), 'utf8');
 const workflow = fs.readFileSync(path.join(ROOT, '.github/workflows/android.yml'), 'utf8');
 
 test('final Android checkout regression contracts remain server-authoritative', () => {
@@ -39,6 +42,45 @@ test('buyer review and dispute UI is wired to authenticated API actions', () => 
   assert.match(androidMain, /api\.openDispute\(orderId, reason, details\)/);
   assert.match(androidMain, /Unable to submit review/);
   assert.match(androidMain, /Unable to open dispute/);
+});
+
+test('wishlist regression keeps saved product IDs persistent and positive', () => {
+  assert.match(wishlistStore, /SharedPreferences/);
+  assert.match(wishlistStore, /KEY_PRODUCT_IDS/);
+  assert.match(wishlistStore, /filter \{ it > 0 \}/);
+  assert.match(wishlistStore, /require\(productId > 0/);
+  assert.match(wishlistStore, /prefs\.edit\(\)/);
+  assert.match(wishlistStore, /fun clear\(\)/);
+  assert.match(androidMain, /WishlistStore\(prefs\)/);
+  assert.match(androidMain, /wishlistStore\.toggle\(product\.id\)/);
+  assert.match(androidMain, /WishlistScreen\(/);
+});
+
+test('cart regression never exceeds server-provided stock and sends exact quantities', () => {
+  assert.match(cartViewModel, /product\.stockQuantity/);
+  assert.match(cartViewModel, /requestedQuantity\.coerceIn\(0, product\.stockQuantity\)/);
+  assert.match(cartViewModel, /quantity\(product\.id\)/);
+  assert.match(androidMain, /"quantity", cartViewModel\.quantity\(product\.id\)/);
+  assert.match(androidMain, /enabled = quantity < product\.stockQuantity/);
+});
+
+test('seller marketplace UI remains connected to product, inventory and fulfillment APIs', () => {
+  assert.match(androidMain, /SellerDashboardScreen\(/);
+  assert.match(androidMain, /api\.sellerProducts\(\)/);
+  assert.match(androidMain, /api\.sellerOrders\(\)/);
+  assert.match(androidMain, /api\.sellerProfile\(\)/);
+  assert.match(androidMain, /api\.createSellerProduct\(/);
+  assert.match(androidMain, /api\.updateInventory\(/);
+  assert.match(androidMain, /api\.updateOrderTracking\(/);
+});
+
+test('marketplace domain model preserves explicit order/payment lifecycle states', () => {
+  assert.match(marketplaceModels, /PENDING_PAYMENT/);
+  assert.match(marketplaceModels, /CAPTURED/);
+  assert.match(marketplaceModels, /DELIVERED/);
+  assert.match(marketplaceModels, /REFUNDED/);
+  assert.match(marketplaceModels, /DISPUTED/);
+  assert.match(marketplaceModels, /Server-authoritative marketplace contract/);
 });
 
 test('final money regression keeps exact integer paise representation', () => {
