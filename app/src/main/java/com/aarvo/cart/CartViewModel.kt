@@ -11,6 +11,9 @@ class CartViewModel : ViewModel() {
     val items: StateFlow<List<Product>> = _items.asStateFlow()
 
     fun add(product: Product) {
+        if (product.stockQuantity <= 0) return
+        val currentQuantity = _items.value.count { it.id == product.id }
+        if (currentQuantity >= product.stockQuantity) return
         _items.value = _items.value + product
     }
 
@@ -20,6 +23,8 @@ class CartViewModel : ViewModel() {
             _items.value = _items.value.toMutableList().also { it.removeAt(index) }
         }
     }
+
+    fun quantity(productId: Int): Int = _items.value.count { it.id == productId }
 
     fun clear() {
         _items.value = emptyList()
