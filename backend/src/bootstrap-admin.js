@@ -6,7 +6,7 @@ const { Pool } = pg;
 const databaseUrl = process.env.DATABASE_URL;
 const rawAdminEmail = process.env.ADMIN_EMAIL ?? '';
 // Render env values can occasionally contain accidental surrounding quotes.
-const adminEmail = rawAdminEmail.trim().replace(/^(\["'])(.*)\1$/, '$2').trim().toLowerCase();
+const adminEmail = rawAdminEmail.trim().replace(/^(['"])(.*)\1$/, '$2').trim().toLowerCase();
 const adminPassword = process.env.ADMIN_PASSWORD;
 const displayName = process.env.ADMIN_DISPLAY_NAME?.trim() || 'AARVO Admin';
 
