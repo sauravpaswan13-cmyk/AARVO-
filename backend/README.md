@@ -15,6 +15,36 @@ AARVO is being built as a two-sided marketplace, not a demo storefront.
 - Admin moderation and dispute handling
 - Audit logging and rate limiting
 
+## Secure one-time admin bootstrap
+
+Public registration intentionally does not allow the `ADMIN` role. The first admin is created only by the explicit bootstrap command in `src/bootstrap-admin.js`.
+
+Set these variables directly in the hosting provider (never commit them and never send the password in chat):
+
+- `ADMIN_EMAIL` — the admin email address
+- `ADMIN_PASSWORD` — at least 12 characters; use a unique strong password
+- `ADMIN_DISPLAY_NAME` — optional
+
+Run the bootstrap once:
+
+```bash
+npm run bootstrap:admin
+```
+
+If the hosting provider does not provide Shell/one-off jobs on the current plan, the same one-time command can be temporarily used as the service start command after migrations:
+
+```bash
+node src/migrate.js && node src/bootstrap-admin.js && node src/server.js
+```
+
+After the deployment successfully creates the admin, immediately restore the normal start command:
+
+```bash
+node src/migrate.js && node src/server.js
+```
+
+Then remove `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_DISPLAY_NAME` from the hosting environment. The bootstrap script is idempotent: if an admin already exists, it makes no changes.
+
 ## Current checkout flow
 
 1. Android authenticates the buyer and receives a JWT.
