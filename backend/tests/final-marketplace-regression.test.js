@@ -53,7 +53,9 @@ test('final money regression keeps exact integer paise representation', () => {
 test('final CI regression still builds both installable/debug and release artifacts', () => {
   assert.match(workflow, /Build debug APK/);
   assert.match(workflow, /Build release AAB \(unsigned\)/);
-  assert.match(workflow, /aarvoApiBaseUrl=\"\$\{\{ vars\.AARVO_API_BASE_URL \}\}\"/);
+  assert.match(workflow, /AARVO_API_BASE_URL/);
+  assert.match(workflow, /-PaarvoApiBaseUrl=/);
+  assert.match(workflow, /https:\/\/aarvo-api\.onrender\.com/);
   assert.match(workflow, /Upload debug APK/);
   assert.match(workflow, /Upload release AAB/);
   assert.match(workflow, /backend-check/);
