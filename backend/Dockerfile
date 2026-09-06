@@ -6,8 +6,8 @@ RUN npm install --omit=dev --ignore-scripts
 COPY src ./src
 COPY schema.sql ./schema.sql
 COPY migrations ./migrations
-# Fix the unescaped SQL interval literal in the phone OTP route before Node parses server.js.
-RUN node -e "const fs=require('fs');const p='src/server.js';let s=fs.readFileSync(p,'utf8');s=s.replaceAll(\"interval '10 minutes'\",'make_interval(mins => 10)');fs.writeFileSync(p,s)"
+# Replace the unescaped SQL interval literal before Node parses server.js.
+RUN sed -i "s/interval '10 minutes'/make_interval(mins => 10)/g" src/server.js
 RUN node src/prepare-phone-first-auth.js
 EXPOSE 8080
 USER node
