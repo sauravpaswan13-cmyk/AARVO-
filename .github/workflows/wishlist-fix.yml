@@ -1,0 +1,55 @@
+name: AARVO Wishlist Fix
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch wishlist catalog handling
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/aarvo/MainActivity.kt')
+          s = p.read_text()
+          old = 'var checkoutMessage by remember { mutableStateOf("") }; var products by remember { mutableStateOf<List<Product>>(emptyList()) }'
+          new = 'var checkoutMessage by remember { mutableStateOf("") }; var products by remember { mutableStateOf<List<Product>>(emptyList()) }; var allProducts by remember { mutableStateOf<List<Product>>(emptyList()) }'
+          if old not in s:
+              raise SystemExit('expected products state not found')
+          s = s.replace(old, new, 1)
+          old = '''    LaunchedEffect(query, category, api) {\n        loading = true; error = ""\n        try { products = api.products(query, category).toProductList() }\n        catch (t: Throwable) { products = emptyList(); error = t.message ?: "Unable to load products." }\n        finally { loading = false }\n    }'''
+          new = '''    LaunchedEffect(api) {\n        try { allProducts = api.products("", "All").toProductList() }\n        catch (_: Throwable) { allProducts = emptyList() }\n    }\n\n    LaunchedEffect(query, category, api) {\n        loading = true; error = ""\n        try { products = api.products(query, category).toProductList() }\n        catch (t: Throwable) { products = emptyList(); error = t.message ?: "Unable to load products." }\n        finally { loading = false }\n    }'''
+          if old not in s:
+              raise SystemExit('expected product loading block not found')
+          s = s.replace(old, new, 1)
+          old = '2 -> WishlistScreen(padding, products, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { selectedProduct = it }, cartViewModel::add)'
+          new = '2 -> WishlistScreen(padding, allProducts, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { selectedProduct = it }, cartViewModel::add)'
+          if old not in s:
+              raise SystemExit('expected wishlist call not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: Verify patch
+        run: |
+          grep -q 'var allProducts by remember' app/src/main/java/com/aarvo/MainActivity.kt
+          grep -q 'allProducts = api.products("", "All")' app/src/main/java/com/aarvo/MainActivity.kt
+          grep -q 'WishlistScreen(padding, allProducts' app/src/main/java/com/aarvo/MainActivity.kt
+      - name: Commit and self-remove
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/aarvo/MainActivity.kt .github/workflows/wishlist-fix.yml
+          git commit -m 'fix: show complete wishlist across filters'
+          git rm .github/workflows/wishlist-fix.yml
+          git commit -m 'chore: remove temporary wishlist fixer'
+          git push
