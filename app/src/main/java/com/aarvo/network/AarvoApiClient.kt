@@ -179,9 +179,11 @@ class AarvoApiClient(
         client.newCall(request).execute().use { response ->
             val body = response.body.string()
             if (!response.isSuccessful) {
-                val message = runCatching { JSONObject(body).optString("error") }.getOrNull()
-                    ?.takeIf { it.isNotBlank() }
-                error("API ${response.code}: ${message ?: body.ifBlank { "Request failed" }}")
+                val message = runCatching {
+                    JSONObject(body).optString("error").takeIf { it.isNotBlank() }
+                        ?: JSONObject(body).optString("message").takeIf { it.isNotBlank() }
+                }.getOrNull()
+                error("API ${response.code}: ${message ?: "Request failed"}")
             }
             return body
         }
