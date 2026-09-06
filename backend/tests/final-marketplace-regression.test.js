@@ -44,13 +44,14 @@ test('buyer review and dispute UI is wired to authenticated API actions', () => 
   assert.match(androidMain, /Unable to open dispute/);
 });
 
-test('wishlist regression keeps saved product IDs persistent and positive', () => {
+test('wishlist regression keeps saved product IDs persistent, positive and serialized', () => {
   assert.match(wishlistStore, /SharedPreferences/);
   assert.match(wishlistStore, /KEY_PRODUCT_IDS/);
   assert.match(wishlistStore, /filter \{ it > 0 \}/);
   assert.match(wishlistStore, /require\(productId > 0/);
+  assert.match(wishlistStore, /@Synchronized\s+fun toggle/);
+  assert.match(wishlistStore, /@Synchronized\s+fun clear/);
   assert.match(wishlistStore, /prefs\.edit\(\)/);
-  assert.match(wishlistStore, /fun clear\(\)/);
   assert.match(androidMain, /WishlistStore\(prefs\)/);
   assert.match(androidMain, /wishlistStore\.toggle\(product\.id\)/);
   assert.match(androidMain, /WishlistScreen\(/);
