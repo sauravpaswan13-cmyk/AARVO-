@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 /**
  * Small persistent wishlist store for buyer product IDs.
  * Product details remain server-authoritative; only the user's saved IDs are persisted locally.
+ * Mutations are serialized so concurrent UI callbacks cannot lose a toggle.
  */
 class WishlistStore(private val prefs: SharedPreferences) {
     companion object {
@@ -19,6 +20,7 @@ class WishlistStore(private val prefs: SharedPreferences) {
         ?.toSet()
         ?: emptySet()
 
+    @Synchronized
     fun toggle(productId: Int): Set<Int> {
         require(productId > 0) { "Product ID must be positive" }
         val next = load().toMutableSet().apply {
@@ -28,6 +30,7 @@ class WishlistStore(private val prefs: SharedPreferences) {
         return next
     }
 
+    @Synchronized
     fun clear() {
         prefs.edit().remove(KEY_PRODUCT_IDS).apply()
     }
