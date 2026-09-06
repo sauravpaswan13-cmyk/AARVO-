@@ -46,8 +46,8 @@ test('client exposes order operations beyond checkout', () => {
 });
 
 test('webhook keeps raw-body capture enabled while applying its rate limit', () => {
-  assert.match(server, /app\.register\(rawBody,\s*\{ field: 'rawBody', global: false, encoding: 'utf8', runFirst: true \}\)/);
-  assert.match(server, /config:\{rawBody:true,rateLimit:\{max:300,timeWindow:'1 minute'\}\}/);
+  assert.match(server, /app\.register\(rawBody,\s*\{\s*field:\s*'rawBody',\s*global:\s*false,\s*encoding:\s*'utf8',\s*runFirst:\s*true\s*\}\)/);
+  assert.match(server, /config\s*:\s*\{\s*rawBody\s*:\s*true\s*,\s*rateLimit\s*:\s*\{\s*max\s*:\s*300\s*,\s*timeWindow\s*:\s*'1 minute'\s*\}\s*\}/);
   assert.match(server, /request\.rawBody/);
 });
 
