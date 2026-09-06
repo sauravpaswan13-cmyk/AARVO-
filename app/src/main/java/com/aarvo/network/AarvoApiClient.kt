@@ -10,6 +10,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
+import java.net.URI
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -25,21 +26,27 @@ class AarvoApiClient(
         .build()
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
-    fun isConfigured(): Boolean = baseUrl.startsWith("https://")
+    fun isConfigured(): Boolean = runCatching {
+        val uri = URI(baseUrl)
+        uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank() && uri.query == null && uri.fragment == null
+    }.getOrDefault(false)
 
     private fun buildUrl(path: String): String {
         require(isConfigured()) {
             "AARVO live API is not configured in this build. Set aarvoApiBaseUrl to an HTTPS API URL."
         }
         require(path.startsWith('/')) { "API path must start with /" }
+        require(!path.contains("..")) { "API path contains an invalid segment" }
         return baseUrl + path
     }
 
     suspend fun health(): JSONObject = getObject("/health")
 
-    suspend fun login(email: String, password: String): JSONObject = post(
-        "/v1/auth/login", JSONObject().put("email", email.trim()).put("password", password)
-    )
+    suspend fun login(email: String, password: String): JSONObject {
+        require(email.trim().contains('@')) { "Enter a valid email" }
+        require(password.length >= 8) { "Password must be at least 8 characters" }
+        return post("/v1/auth/login", JSONObject().put("email", email.trim()).put("password", password))
+    }
 
     suspend fun register(
         email: String,
@@ -47,11 +54,19 @@ class AarvoApiClient(
         displayName: String,
         role: String = "BUYER",
         phone: String = ""
-    ): JSONObject = post(
-        "/v1/auth/register",
-        JSONObject().put("email", email.trim()).put("password", password)
-            .put("displayName", displayName.trim()).put("role", role).put("phone", phone.trim())
-    )
+    ): JSONObject {
+        val normalizedRole = role.trim().uppercase()
+        require(email.trim().contains('@')) { "Enter a valid email" }
+        require(password.length >= 8) { "Password must be at least 8 characters" }
+        require(displayName.trim().isNotBlank()) { "Display name is required" }
+        require(normalizedRole in setOf("BUYER", "SELLER")) { "Invalid account role" }
+        if (normalizedRole == "SELLER") require(phone.trim().length >= 10) { "Seller phone number is required" }
+        return post(
+            "/v1/auth/register",
+            JSONObject().put("email", email.trim()).put("password", password)
+                .put("displayName", displayName.trim()).put("role", normalizedRole).put("phone", phone.trim())
+        )
+    }
 
     suspend fun products(query: String = "", category: String = ""): JSONArray {
         val params = buildList {
@@ -61,15 +76,23 @@ class AarvoApiClient(
         return get("/v1/products$params")
     }
 
-    suspend fun product(productId: Int): JSONObject = getObject("/v1/products/$productId")
+    suspend fun product(productId: Int): JSONObject {
+        require(productId > 0) { "Product ID must be positive" }
+        return getObject("/v1/products/$productId")
+    }
 
-    suspend fun productReviews(productId: Int): JSONArray = get("/v1/products/$productId/reviews")
+    suspend fun productReviews(productId: Int): JSONArray {
+        require(productId > 0) { "Product ID must be positive" }
+        return get("/v1/products/$productId/reviews")
+    }
 
     suspend fun createOrder(
         items: JSONArray,
         address: JSONObject,
         idempotencyKey: String = UUID.randomUUID().toString()
     ): JSONObject = withContext(Dispatchers.IO) {
+        require(items.length() > 0) { "Order must contain at least one item" }
+        require(address.length() > 0) { "Delivery address is required" }
         require(idempotencyKey.length in 8..128) { "Invalid idempotency key" }
         val payload = JSONObject().put("items", items).put("address", address)
         val response = execute(
@@ -82,41 +105,64 @@ class AarvoApiClient(
 
     suspend fun orders(): JSONArray = get("/v1/orders")
 
-    suspend fun order(orderId: String): JSONObject = getObject("/v1/orders/$orderId")
+    suspend fun order(orderId: String): JSONObject {
+        require(orderId.trim().isNotBlank()) { "Order ID is required" }
+        return getObject("/v1/orders/${orderId.trim()}")
+    }
 
-    suspend fun orderTracking(orderId: String): JSONArray = get("/v1/orders/$orderId/tracking")
+    suspend fun orderTracking(orderId: String): JSONArray {
+        require(orderId.trim().isNotBlank()) { "Order ID is required" }
+        return get("/v1/orders/${orderId.trim()}/tracking")
+    }
 
-    suspend fun cancelOrder(orderId: String, reason: String = "BUYER_CANCELLED"): JSONObject = post(
-        "/v1/orders/$orderId/cancel", JSONObject().put("reason", reason.trim())
-    )
+    suspend fun cancelOrder(orderId: String, reason: String = "BUYER_CANCELLED"): JSONObject {
+        require(orderId.trim().isNotBlank()) { "Order ID is required" }
+        require(reason.trim().isNotBlank()) { "Cancellation reason is required" }
+        return post("/v1/orders/${orderId.trim()}/cancel", JSONObject().put("reason", reason.trim()))
+    }
 
     suspend fun submitReview(
         orderId: String,
         productId: Int,
         rating: Int,
         reviewText: String = ""
-    ): JSONObject = post(
-        "/v1/orders/$orderId/reviews",
-        JSONObject().put("productId", productId).put("rating", rating).put("reviewText", reviewText.trim())
-    )
+    ): JSONObject {
+        require(orderId.trim().isNotBlank()) { "Order ID is required" }
+        require(productId > 0) { "Product ID must be positive" }
+        require(rating in 1..5) { "Rating must be between 1 and 5" }
+        return post(
+            "/v1/orders/${orderId.trim()}/reviews",
+            JSONObject().put("productId", productId).put("rating", rating).put("reviewText", reviewText.trim())
+        )
+    }
 
-    suspend fun openDispute(orderId: String, reason: String, details: String = ""): JSONObject = post(
-        "/v1/orders/$orderId/disputes",
-        JSONObject().put("reason", reason.trim()).put("details", details.trim())
-    )
+    suspend fun openDispute(orderId: String, reason: String, details: String = ""): JSONObject {
+        require(orderId.trim().isNotBlank()) { "Order ID is required" }
+        require(reason.trim().isNotBlank()) { "Dispute reason is required" }
+        return post(
+            "/v1/orders/${orderId.trim()}/disputes",
+            JSONObject().put("reason", reason.trim()).put("details", details.trim())
+        )
+    }
 
     suspend fun verifyPayment(
         orderId: String,
         paymentId: String,
         razorpayOrderId: String,
         signature: String
-    ): JSONObject = post(
-        "/v1/payments/verify",
-        JSONObject().put("orderId", orderId)
-            .put("razorpayOrderId", razorpayOrderId)
-            .put("razorpayPaymentId", paymentId)
-            .put("razorpaySignature", signature)
-    )
+    ): JSONObject {
+        require(orderId.trim().isNotBlank()) { "Order ID is required" }
+        require(paymentId.trim().isNotBlank()) { "Payment ID is required" }
+        require(razorpayOrderId.trim().isNotBlank()) { "Gateway order ID is required" }
+        require(signature.trim().isNotBlank()) { "Payment signature is required" }
+        return post(
+            "/v1/payments/verify",
+            JSONObject().put("orderId", orderId.trim())
+                .put("razorpayOrderId", razorpayOrderId.trim())
+                .put("razorpayPaymentId", paymentId.trim())
+                .put("razorpaySignature", signature.trim())
+        )
+    }
 
     suspend fun sellerProfile(): JSONObject = getObject("/v1/seller/profile")
 
@@ -129,17 +175,28 @@ class AarvoApiClient(
         description: String,
         stockQuantity: Int,
         publish: Boolean = false
-    ): JSONObject = post(
-        "/v1/seller/products",
-        JSONObject().put("name", name.trim()).put("category", category.trim())
-            .put("pricePaise", pricePaise).put("description", description.trim())
-            .put("stockQuantity", stockQuantity).put("publish", publish)
-    )
+    ): JSONObject {
+        require(name.trim().isNotBlank()) { "Product name is required" }
+        require(category.trim().isNotBlank()) { "Product category is required" }
+        require(pricePaise > 0) { "Product price must be positive" }
+        require(description.trim().isNotBlank()) { "Product description is required" }
+        require(stockQuantity >= 0) { "Product stock cannot be negative" }
+        return post(
+            "/v1/seller/products",
+            JSONObject().put("name", name.trim()).put("category", category.trim())
+                .put("pricePaise", pricePaise).put("description", description.trim())
+                .put("stockQuantity", stockQuantity).put("publish", publish)
+        )
+    }
 
-    suspend fun updateInventory(productId: Int, stockQuantity: Int): JSONObject = post(
-        "/v1/seller/products/$productId/inventory",
-        JSONObject().put("stockQuantity", stockQuantity)
-    )
+    suspend fun updateInventory(productId: Int, stockQuantity: Int): JSONObject {
+        require(productId > 0) { "Product ID must be positive" }
+        require(stockQuantity >= 0) { "Product stock cannot be negative" }
+        return post(
+            "/v1/seller/products/$productId/inventory",
+            JSONObject().put("stockQuantity", stockQuantity)
+        )
+    }
 
     suspend fun sellerOrders(): JSONArray = get("/v1/seller/orders")
 
@@ -149,13 +206,17 @@ class AarvoApiClient(
         trackingCode: String = "",
         carrier: String = "",
         note: String = ""
-    ): JSONObject = post(
-        "/v1/orders/$orderId/tracking",
-        JSONObject().put("status", status)
-            .put("trackingCode", trackingCode.trim())
-            .put("carrier", carrier.trim())
-            .put("note", note.trim())
-    )
+    ): JSONObject {
+        require(orderId.trim().isNotBlank()) { "Order ID is required" }
+        require(status.trim().isNotBlank()) { "Tracking status is required" }
+        return post(
+            "/v1/orders/${orderId.trim()}/tracking",
+            JSONObject().put("status", status.trim().uppercase())
+                .put("trackingCode", trackingCode.trim())
+                .put("carrier", carrier.trim())
+                .put("note", note.trim())
+        )
+    }
 
     private suspend fun get(path: String): JSONArray = withContext(Dispatchers.IO) {
         val response = execute(Request.Builder().url(buildUrl(path)).applyAuth().get().build())
