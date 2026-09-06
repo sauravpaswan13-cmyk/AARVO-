@@ -56,15 +56,18 @@ class AarvoApiClient(
         phone: String = ""
     ): JSONObject {
         val normalizedRole = role.trim().uppercase()
+        val normalizedPhone = IndianPhoneValidator.normalize(phone)
         require(email.trim().contains('@')) { "Enter a valid email" }
         require(password.length >= 8) { "Password must be at least 8 characters" }
         require(displayName.trim().isNotBlank()) { "Display name is required" }
         require(normalizedRole in setOf("BUYER", "SELLER")) { "Invalid account role" }
-        if (normalizedRole == "SELLER") require(phone.trim().length >= 10) { "Seller phone number is required" }
+        require(IndianPhoneValidator.isValid(normalizedPhone)) {
+            "Enter a valid 10-digit Indian mobile number starting with 6, 7, 8 or 9."
+        }
         return post(
             "/v1/auth/register",
             JSONObject().put("email", email.trim()).put("password", password)
-                .put("displayName", displayName.trim()).put("role", normalizedRole).put("phone", phone.trim())
+                .put("displayName", displayName.trim()).put("role", normalizedRole).put("phone", normalizedPhone)
         )
     }
 
