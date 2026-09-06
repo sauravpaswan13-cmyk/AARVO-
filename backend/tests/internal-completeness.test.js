@@ -31,7 +31,8 @@ test('internal marketplace completion gate covers buyer, seller, money, deployme
   assert.match(androidMain, /api\.updateInventory\(/);
   assert.match(androidMain, /api\.updateOrderTracking\(/);
 
-  assert.match(apiClient, /baseUrl\.startsWith\("https:\/\//);
+  assert.match(apiClient, /URI\(baseUrl\)/);
+  assert.match(apiClient, /uri\.scheme\.equals\("https", ignoreCase = true\)/);
   assert.match(apiClient, /Idempotency-Key/);
   assert.match(apiClient, /submitReview/);
   assert.match(apiClient, /openDispute/);
