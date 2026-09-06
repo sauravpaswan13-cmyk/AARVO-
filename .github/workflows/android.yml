@@ -11,6 +11,9 @@ permissions:
   id-token: write
   attestations: write
 
+env:
+  AARVO_API_BASE_URL: ${{ vars.AARVO_API_BASE_URL }}
+
 jobs:
   backend-check:
     runs-on: ubuntu-latest
