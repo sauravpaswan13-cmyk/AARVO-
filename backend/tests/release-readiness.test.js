@@ -42,7 +42,8 @@ test('release readiness: Android uses exact paise money model and HTTPS API guar
   assert.match(product, /pricePaise \/ 100/);
   assert.match(product, /pricePaise % 100/);
   assert.match(api, /BuildConfig\.AARVO_API_BASE_URL/);
-  assert.ok(api.includes('https://'), 'API client must contain the HTTPS transport guard');
+  assert.match(api, /URI\(baseUrl\)/);
+  assert.match(api, /uri\.scheme\.equals\(\"https\", ignoreCase = true\\)/);
   assert.match(gradle, /AARVO_API_BASE_URL/);
 });
 
