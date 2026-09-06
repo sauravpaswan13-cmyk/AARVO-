@@ -1,1 +1,0 @@
-Trigger verified cart quantity patch on PR branch.
