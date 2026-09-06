@@ -73,9 +73,9 @@ jobs:
         with:
           gradle-version: '9.7.1'
       - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${{ vars.AARVO_API_BASE_URL }}"
+        run: gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true
       - name: Build release AAB (unsigned)
-        run: gradle :app:bundleRelease --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${{ vars.AARVO_API_BASE_URL }}"
+        run: gradle :app:bundleRelease --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true
       - name: Attest debug APK provenance
         uses: actions/attest@v4
         with:
