@@ -57,7 +57,10 @@ test('wishlist regression keeps saved product IDs persistent, positive and seria
   assert.match(androidMain, /WishlistScreen\(/);
 });
 
-test('cart regression never exceeds server-provided stock and sends exact quantities', () => {
+test('cart regression never exceeds server-provided stock and serializes mutations', () => {
+  assert.match(cartViewModel, /@Synchronized\s+fun add/);
+  assert.match(cartViewModel, /@Synchronized\s+fun remove/);
+  assert.match(cartViewModel, /@Synchronized\s+fun setQuantity/);
   assert.match(cartViewModel, /product\.stockQuantity/);
   assert.match(cartViewModel, /requestedQuantity\.coerceIn\(0, product\.stockQuantity\)/);
   assert.match(cartViewModel, /quantity\(product\.id\)/);
