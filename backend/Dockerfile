@@ -8,4 +8,4 @@ COPY schema.sql ./schema.sql
 COPY migrations ./migrations
 EXPOSE 8080
 USER node
-CMD ["node", "src/server.js"]
+CMD ["sh", "-c", "node src/migrate.js && node src/server.js"]
