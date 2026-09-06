@@ -1,0 +1,277 @@
+name: AARVO auth phone patch
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Patch authentication and remove workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          # ---- Android auth UI ----
+          p = Path('app/src/main/java/com/aarvo/MainActivity.kt')
+          s = p.read_text()
+          start = s.index('@Composable private fun SignInScreen(')
+          end = s.index('@Composable private fun AarvoApp(', start)
+          new = r'''@Composable private fun SignInScreen(api: AarvoApiClient, onSignedIn: (String, String, String) -> Unit) {
+              val phoneApi = remember { com.aarvo.network.PhoneVerificationApi() }
+              var name by remember { mutableStateOf("") }; var email by remember { mutableStateOf("") }
+              var password by remember { mutableStateOf("") }; var seller by remember { mutableStateOf(false) }
+              var phone by remember { mutableStateOf("") }; var registerMode by remember { mutableStateOf(false) }
+              var verificationId by remember { mutableStateOf("") }; var otp by remember { mutableStateOf("") }
+              var loading by remember { mutableStateOf(false) }; var error by remember { mutableStateOf("") }
+              var resendSeconds by remember { mutableIntStateOf(0) }
+              val scope = rememberCoroutineScope()
+
+              LaunchedEffect(resendSeconds) {
+                  if (resendSeconds > 0) { kotlinx.coroutines.delay(1000); resendSeconds -= 1 }
+              }
+
+              if (verificationId.isNotBlank()) {
+                  Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
+                      Text("Verify your phone number", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                      Spacer(Modifier.height(8.dp))
+                      Text("We sent a 6-digit OTP to ${phone.takeLast(10).let { "+91 $it" }}")
+                      Spacer(Modifier.height(16.dp))
+                      OutlinedTextField(otp, { otp = it.filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("6-digit OTP") })
+                      if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+                      Spacer(Modifier.height(8.dp))
+                      Button(onClick = {
+                          loading = true; error = ""
+                          scope.launch {
+                              try {
+                                  val result = phoneApi.verify(verificationId, otp)
+                                  val user = result.getJSONObject("user")
+                                  onSignedIn(user.optString("display_name", name), result.getString("token"), user.optString("role", "BUYER"))
+                              } catch (t: Throwable) { error = t.message ?: "OTP verification failed." }
+                              finally { loading = false }
+                          }
+                      }, enabled = !loading && otp.length == 6, modifier = Modifier.fillMaxWidth()) {
+                          if (loading) CircularProgressIndicator() else Text("Verify & Continue")
+                      }
+                      TextButton(onClick = {
+                          if (resendSeconds == 0) {
+                              loading = true; error = ""
+                              scope.launch {
+                                  try { phoneApi.resend(verificationId); resendSeconds = 60 }
+                                  catch (t: Throwable) { error = t.message ?: "Unable to resend OTP." }
+                                  finally { loading = false }
+                              }
+                          }
+                      }, enabled = !loading && resendSeconds == 0) { Text(if (resendSeconds == 0) "Resend OTP" else "Resend in ${resendSeconds}s") }
+                      TextButton(onClick = { verificationId = ""; otp = ""; error = "" }) { Text("Back") }
+                  }
+                  return
+              }
+
+              Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
+                  Text(if (registerMode) "Create your AARVO account" else "Welcome to AARVO", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                  Spacer(Modifier.height(16.dp))
+                  if (registerMode) {
+                      OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full name") }); Spacer(Modifier.height(10.dp))
+                      OutlinedTextField(phone, { phone = it.filter { c -> c.isDigit() }.take(10) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Mobile number") }, prefix = { Text("+91 ") }); Spacer(Modifier.height(10.dp))
+                  }
+                  OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Email") })
+                  Spacer(Modifier.height(10.dp))
+                  OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text("Password (8+ characters)") })
+                  if (registerMode) TextButton(onClick = { seller = !seller }) { Text(if (seller) "✓ Register as seller" else "Register as buyer") }
+                  if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+                  Spacer(Modifier.height(8.dp))
+                  Button(onClick = {
+                      loading = true; error = ""
+                      scope.launch {
+                          try {
+                              if (registerMode) {
+                                  require(phone.length == 10) { "Enter a valid 10-digit mobile number" }
+                                  val result = api.register(email, password, name, if (seller) "SELLER" else "BUYER", phone)
+                                  verificationId = result.getString("verificationId")
+                              } else {
+                                  val result = api.login(email, password)
+                                  val user = result.getJSONObject("user")
+                                  onSignedIn(user.optString("display_name", name), result.getString("token"), user.optString("role", "BUYER"))
+                              }
+                          } catch (t: Throwable) { error = t.message ?: "Unable to connect to AARVO server." }
+                          finally { loading = false }
+                      }
+                  }, enabled = !loading && email.contains("@") && password.length >= 8 && (!registerMode || (name.isNotBlank() && phone.length == 10)), modifier = Modifier.fillMaxWidth()) {
+                      if (loading) CircularProgressIndicator() else Text(if (registerMode) "Send OTP & Create account" else "Sign in")
+                  }
+                  TextButton(onClick = { registerMode = !registerMode; error = "" }) { Text(if (registerMode) "Already have an account? Sign in" else "New to AARVO? Create account") }
+                  if (!api.isConfigured()) Text("Live API is not configured in this build. No demo account is used.", style = MaterialTheme.typography.bodySmall)
+              }
+          }
+
+          '''
+          p.write_text(s[:start] + new + s[end:])
+
+          # ---- Backend auth + OTP contract ----
+          p = Path('backend/src/server.js')
+          s = p.read_text()
+          marker = "const normalizeStatus = (value) => String(value || '').trim().toUpperCase();"
+          helpers = r'''
+          const OTP_PROVIDER_URL = process.env.OTP_PROVIDER_URL;
+          const OTP_PROVIDER_TOKEN = process.env.OTP_PROVIDER_TOKEN;
+          const OTP_SECRET = process.env.OTP_SECRET || JWT_SECRET;
+          const normalizePhone = (value) => {
+            const digits = String(value || '').replace(/\D/g, '');
+            if (digits.length === 10) return `+91${digits}`;
+            if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+            return null;
+          };
+          const hashOtp = (challengeId, code) => createHmac('sha256', String(OTP_SECRET || '')).update(`${challengeId}:${code}`).digest('hex');
+          const deliverOtp = async (phone, code) => {
+            if (!OTP_PROVIDER_URL) throw httpError(503, 'OTP_PROVIDER_NOT_CONFIGURED');
+            const headers = { 'content-type': 'application/json' };
+            if (OTP_PROVIDER_TOKEN) headers.authorization = `Bearer ${OTP_PROVIDER_TOKEN}`;
+            const response = await fetch(OTP_PROVIDER_URL, { method: 'POST', headers, body: JSON.stringify({ phone, otp: code, channel: 'sms', brand: 'AARVO' }) });
+            if (!response.ok) throw httpError(502, 'OTP_DELIVERY_FAILED');
+          };
+          const createAndSendPhoneChallenge = async (userId, phone) => {
+            const normalizedPhone = normalizePhone(phone);
+            if (!normalizedPhone) throw httpError(400, 'INVALID_PHONE');
+            const challengeId = randomUUID();
+            const code = String(Math.floor(100000 + Math.random() * 900000));
+            const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+            await pool.query('UPDATE phone_verification_challenges SET consumed_at=now() WHERE user_id=$1 AND consumed_at IS NULL', [userId]);
+            await pool.query('INSERT INTO phone_verification_challenges(id,user_id,phone,code_hash,expires_at) VALUES($1,$2,$3,$4,$5)', [challengeId,userId,normalizedPhone,hashOtp(challengeId,code),expiresAt]);
+            await deliverOtp(normalizedPhone, code);
+            return { verificationId: challengeId, expiresInSeconds: 300, resendAfterSeconds: 60, phone: normalizedPhone };
+          };
+          const getPhoneUser = async (userId) => (await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE id=$1', [userId])).rows[0];
+          '''
+          s = s.replace(marker, marker + "\n" + helpers)
+
+          register_pattern = re.compile(r"app\.post\('/v1/auth/register'.*?\n\}\);\n\napp\.post\('/v1/auth/login'", re.S)
+          register_repl = r'''app.post('/v1/auth/register', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
+            if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+            if (!JWT_SECRET) return reply.code(503).send({ error: 'AUTH_NOT_CONFIGURED' });
+            const { email, password, displayName, role = 'BUYER', phone = '' } = request.body || {};
+            const normalizedEmail = String(email || '').trim().toLowerCase(), normalizedRole = String(role).toUpperCase(), normalizedPhone = normalizePhone(phone);
+            if (!normalizedEmail || !password || String(password).length < 8 || !String(displayName || '').trim()) return reply.code(400).send({ error: 'INVALID_REGISTRATION' });
+            if (!['BUYER', 'SELLER'].includes(normalizedRole)) return reply.code(400).send({ error: 'INVALID_ROLE' });
+            if (!normalizedPhone) return reply.code(400).send({ error: 'INVALID_PHONE' });
+            const id = randomBytes(12).toString('hex'), client = await pool.connect();
+            try {
+              await client.query('BEGIN');
+              const user = await client.query('INSERT INTO users(id,email,display_name,password_hash,role,phone,phone_verified) VALUES($1,$2,$3,$4,$5,$6,false) RETURNING id,email,display_name,role,phone,phone_verified', [id, normalizedEmail, String(displayName).trim(), hashPassword(String(password)), normalizedRole, normalizedPhone]);
+              if (normalizedRole === 'SELLER') await client.query('INSERT INTO seller_profiles(seller_id,phone) VALUES($1,$2)', [id, normalizedPhone]);
+              await audit(client, { sub: id, role: normalizedRole }, 'USER', id, 'REGISTERED', { phoneVerificationRequired: true });
+              await client.query('COMMIT');
+              try { const verification = await createAndSendPhoneChallenge(id, normalizedPhone); return reply.code(202).send({ verificationRequired: true, verificationId: verification.verificationId, expiresInSeconds: verification.expiresInSeconds, resendAfterSeconds: verification.resendAfterSeconds, phone: normalizedPhone, user: user.rows[0] }); }
+              catch (error) { return reply.code(error.statusCode || 503).send({ error: error.publicMessage || 'OTP_DELIVERY_FAILED' }); }
+            } catch (error) { await client.query('ROLLBACK'); if (error.code === '23505') return reply.code(409).send({ error: error.constraint === 'users_phone_uidx' ? 'PHONE_ALREADY_REGISTERED' : 'EMAIL_ALREADY_REGISTERED' }); throw error; }
+            finally { client.release(); }
+          });
+
+          app.post('/v1/auth/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) =>'''
+          s, n = register_pattern.subn(register_repl, s, count=1)
+          if n != 1: raise SystemExit('register route patch failed')
+
+          login_pattern = re.compile(r"app\.post\('/v1/auth/login'.*?\n\}\);\n\napp\.get\('/v1/products'", re.S)
+          login_repl = r'''app.post('/v1/auth/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+            if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+            if (!JWT_SECRET) return reply.code(503).send({ error: 'AUTH_NOT_CONFIGURED' });
+            const { email, password } = request.body || {};
+            const result = await pool.query('SELECT id,email,display_name,role,password_hash,phone,phone_verified FROM users WHERE email=$1', [String(email || '').trim().toLowerCase()]);
+            if (!result.rowCount || !verifyPassword(String(password || ''), result.rows[0].password_hash)) return reply.code(401).send({ error: 'INVALID_CREDENTIALS' });
+            const user = result.rows[0];
+            if (user.phone && !user.phone_verified) {
+              try { const verification = await createAndSendPhoneChallenge(user.id, user.phone); return reply.code(403).send({ error: 'PHONE_VERIFICATION_REQUIRED', verificationId: verification.verificationId, expiresInSeconds: verification.expiresInSeconds, resendAfterSeconds: verification.resendAfterSeconds, phone: user.phone }); }
+              catch (error) { return reply.code(error.statusCode || 503).send({ error: error.publicMessage || 'OTP_DELIVERY_FAILED' }); }
+            }
+            const { password_hash, ...safeUser } = user; return { user: safeUser, token: issueToken(safeUser) };
+          });
+
+          app.post('/v1/auth/phone/verify', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+            if (!pool || !JWT_SECRET) return reply.code(503).send({ error: 'AUTH_NOT_CONFIGURED' });
+            const verificationId = String(request.body?.verificationId || '').trim(), code = String(request.body?.code || '').trim();
+            if (!/^[0-9a-f-]{20,64}$/i.test(verificationId) || !/^\d{6}$/.test(code)) return reply.code(400).send({ error: 'INVALID_OTP' });
+            const client = await pool.connect();
+            try {
+              await client.query('BEGIN');
+              const challenge = await client.query('SELECT id,user_id,phone,code_hash,expires_at,attempts,consumed_at FROM phone_verification_challenges WHERE id=$1 FOR UPDATE', [verificationId]);
+              if (!challenge.rowCount) { await client.query('ROLLBACK'); return reply.code(404).send({ error: 'VERIFICATION_NOT_FOUND' }); }
+              const c = challenge.rows[0];
+              if (c.consumed_at || new Date(c.expires_at) <= new Date()) { await client.query('ROLLBACK'); return reply.code(410).send({ error: 'OTP_EXPIRED' }); }
+              if (c.attempts >= 5) { await client.query('ROLLBACK'); return reply.code(429).send({ error: 'OTP_ATTEMPTS_EXCEEDED' }); }
+              const valid = safeSignatureEqual(c.code_hash, hashOtp(c.id, code));
+              if (!valid) { await client.query('UPDATE phone_verification_challenges SET attempts=attempts+1 WHERE id=$1', [verificationId]); await client.query('COMMIT'); return reply.code(401).send({ error: 'INVALID_OTP' }); }
+              await client.query('UPDATE users SET phone=$1,phone_verified=true,phone_verified_at=now() WHERE id=$2', [c.phone,c.user_id]);
+              await client.query('UPDATE seller_profiles SET phone=$1,verified=true WHERE seller_id=$2', [c.phone,c.user_id]);
+              await client.query('UPDATE phone_verification_challenges SET consumed_at=now() WHERE id=$1', [verificationId]);
+              const user = await client.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE id=$1', [c.user_id]);
+              await audit(client, { sub: c.user_id, role: user.rows[0].role }, 'USER', c.user_id, 'PHONE_VERIFIED');
+              await client.query('COMMIT');
+              return { user: user.rows[0], token: issueToken(user.rows[0]), phoneVerified: true };
+            } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+          });
+
+          app.post('/v1/auth/phone/resend', { config: { rateLimit: { max: 3, timeWindow: '1 minute' } } }, async (request, reply) => {
+            if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+            const verificationId = String(request.body?.verificationId || '').trim();
+            const result = await pool.query('SELECT user_id,phone,last_sent_at,expires_at,consumed_at FROM phone_verification_challenges WHERE id=$1', [verificationId]);
+            if (!result.rowCount) return reply.code(404).send({ error: 'VERIFICATION_NOT_FOUND' });
+            const c = result.rows[0];
+            if (c.consumed_at) return reply.code(410).send({ error: 'VERIFICATION_ALREADY_COMPLETED' });
+            if (Date.now() - new Date(c.last_sent_at).getTime() < 60000) return reply.code(429).send({ error: 'OTP_RESEND_TOO_SOON' });
+            const code = String(Math.floor(100000 + Math.random() * 900000));
+            const newExpiry = new Date(Date.now() + 5 * 60 * 1000);
+            await pool.query('UPDATE phone_verification_challenges SET code_hash=$1,expires_at=$2,last_sent_at=now(),attempts=0 WHERE id=$3', [hashOtp(verificationId,code),newExpiry,verificationId]);
+            try { await deliverOtp(c.phone, code); return { verificationId, expiresInSeconds: 300, resendAfterSeconds: 60, phone: c.phone }; }
+            catch (error) { return reply.code(error.statusCode || 503).send({ error: error.publicMessage || 'OTP_DELIVERY_FAILED' }); }
+          });
+
+          app.get('/v1/products', async (request, reply)'''
+          s, n = login_pattern.subn(login_repl, s, count=1)
+          if n != 1: raise SystemExit('login route patch failed')
+          p.write_text(s)
+
+          # ---- Production templates ----
+          for name in ['backend/.env.example', 'backend/.env.production.example']:
+              p = Path(name); s = p.read_text()
+              if 'OTP_PROVIDER_URL=' not in s:
+                  s += 'OTP_PROVIDER_URL=https://sms-provider.example/send\nOTP_PROVIDER_TOKEN=replace-with-provider-token\nOTP_SECRET=replace-with-32-plus-random-secret\n'
+                  p.write_text(s)
+
+          # ---- CI migration contract ----
+          p = Path('.github/workflows/android.yml'); s = p.read_text()
+          if 'migrations/006_phone_verification.sql' not in s:
+              s = s.replace('          test -f migrations/005_operational_indexes.sql\n', '          test -f migrations/005_operational_indexes.sql\n          test -f migrations/006_phone_verification.sql\n')
+              p.write_text(s)
+
+          # ---- Static regression checks ----
+          p = Path('backend/tests/release-readiness.test.js'); s = p.read_text()
+          for required in ["app.post('/v1/auth/phone/verify'", "app.post('/v1/auth/phone/resend'", 'PHONE_VERIFICATION_REQUIRED', 'timingSafeEqual']:
+              if required not in s:
+                  s = s.replace("    \"app.post('/v1/webhooks/razorpay'\",", f"    \"app.post('/v1/webhooks/razorpay'\",\n    {required!r},")
+          p.write_text(s)
+
+          p = Path('backend/tests/final-marketplace-regression.test.js'); s = p.read_text()
+          if 'phone_verification_challenges' not in s:
+              s += "\ntest('phone verification auth contract is present', () => {\n  assert.match(androidMain, /Verify your phone number/);\n  assert.match(androidMain, /6-digit OTP/);\n  assert.match(androidMain, /Verify & Continue/);\n  assert.match(androidMain, /Send OTP & Create account/);\n  assert.match(apiClient, /v1\\/auth\\/register/);\n  const server = fs.readFileSync(path.join(ROOT, 'backend/src/server.js'), 'utf8');\n  assert.match(server, /app\\.post\\('\/v1\\/auth\\/phone\\/verify'/);\n  assert.match(server, /app\\.post\\('\/v1\\/auth\\/phone\\/resend'/);\n  assert.match(server, /phone_verification_challenges/);\n  assert.match(server, /OTP_PROVIDER_URL/);\n  assert.match(server, /PHONE_VERIFICATION_REQUIRED/);\n});\n"
+              p.write_text(s)
+          PY
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/aarvo/MainActivity.kt backend/src/server.js backend/.env.example backend/.env.production.example .github/workflows/android.yml backend/tests/release-readiness.test.js backend/tests/final-marketplace-regression.test.js
+          git commit -m 'feat: add phone verification to auth flow' || true
+          git push
+          git rm .github/workflows/auth-phone-patch.yml
+          git commit -m 'chore: remove temporary auth patch workflow'
+          git push
