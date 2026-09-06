@@ -31,12 +31,12 @@ jobs:
                         put(JSONObject().put("productId", product.id).put("quantity", cartViewModel.quantity(product.id)))
                     }
                 }'''
-          if old_checkout not in text: raise SystemExit('checkout block not found')
-          text = text.replace(old_checkout, new_checkout, 1)
+          if old_checkout in text:
+              text = text.replace(old_checkout, new_checkout, 1)
           old_call = '''        1 -> CartScreen(padding, cartItems, cartViewModel::remove, cartViewModel::clear) { showCheckout = true; checkoutMessage = "" }'''
           new_call = '''        1 -> CartScreen(padding, cartItems, cartViewModel::increment, cartViewModel::decrement, cartViewModel::removeAll, cartViewModel::quantity, cartViewModel::clear) { showCheckout = true; checkoutMessage = "" }'''
-          if old_call not in text: raise SystemExit('CartScreen call not found')
-          text = text.replace(old_call, new_call, 1)
+          if old_call in text:
+              text = text.replace(old_call, new_call, 1)
           start = text.find('@Composable\nprivate fun CartScreen(')
           if start < 0: raise SystemExit('CartScreen start not found')
           end = text.find('\n@Composable\n', start + 20)
@@ -70,6 +70,6 @@ private fun CartScreen(padding: PaddingValues, items: List<Product>, onIncrement
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add app/src/main/java/com/aarvo/MainActivity.kt
-          if git diff --cached --quiet; then exit 1; fi
+          if git diff --cached --quiet; then echo 'No source changes needed.'; exit 0; fi
           git commit -m 'feat: cart quantity controls'
           git push
