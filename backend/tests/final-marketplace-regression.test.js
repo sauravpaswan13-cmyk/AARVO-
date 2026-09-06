@@ -87,6 +87,12 @@ test('marketplace domain model preserves explicit order/payment lifecycle states
   assert.match(marketplaceModels, /Server-authoritative marketplace contract/);
 });
 
+test('product domain validation rejects invalid IDs, stock and ratings', () => {
+  assert.match(productModel, /require\(id > 0/);
+  assert.match(productModel, /require\(stockQuantity >= 0/);
+  assert.match(productModel, /require\(rating in 0\.0\.\.5\.0\)/);
+});
+
 test('final money regression keeps exact integer paise representation', () => {
   assert.match(productModel, /val pricePaise: Long/);
   assert.match(productModel, /pricePaise \/ 100/);
