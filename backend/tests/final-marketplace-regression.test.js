@@ -22,16 +22,22 @@ test('final Android checkout regression contracts remain server-authoritative', 
   assert.match(androidMain, /BUYER_PAYMENT_CANCELLED/);
 });
 
-test('final API client regression contracts remain HTTPS-only and idempotent', () => {
-  assert.ok(apiClient.includes('baseUrl.startsWith("https://")'));
+test('final API client regression contracts remain HTTPS-only, validated and idempotent', () => {
+  assert.match(apiClient, /URI\(baseUrl\)/);
+  assert.match(apiClient, /uri\.scheme\.equals\("https", ignoreCase = true\)/);
+  assert.match(apiClient, /uri\.query == null/);
+  assert.match(apiClient, /uri\.fragment == null/);
   assert.match(apiClient, /buildUrl\(path\)/);
   assert.match(apiClient, /AARVO live API is not configured in this build/);
   assert.match(apiClient, /Idempotency-Key/);
   assert.match(apiClient, /UUID\.randomUUID\(\)/);
-  assert.ok(apiClient.includes('/v1/orders/$orderId/cancel'));
-  assert.ok(apiClient.includes('/v1/orders/$orderId/reviews'));
-  assert.ok(apiClient.includes('/v1/orders/$orderId/disputes'));
+  assert.ok(apiClient.includes('/v1/orders/${orderId.trim()}/cancel'));
+  assert.ok(apiClient.includes('/v1/orders/${orderId.trim()}/reviews'));
+  assert.ok(apiClient.includes('/v1/orders/${orderId.trim()}/disputes'));
   assert.ok(apiClient.includes('/v1/payments/verify'));
+  assert.match(apiClient, /require\(rating in 1\.\.5/);
+  assert.match(apiClient, /require\(stockQuantity >= 0/);
+  assert.match(apiClient, /require\(pricePaise > 0/);
 });
 
 test('buyer review and dispute UI is wired to authenticated API actions', () => {
