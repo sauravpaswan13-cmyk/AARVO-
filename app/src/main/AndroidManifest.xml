@@ -7,12 +7,13 @@
         android:label="AARVO"
         android:supportsRtl="true"
         android:theme="@style/Theme.AARVO">
-        <activity android:name=".PhoneAuthActivity" android:exported="true">
+        <activity android:name=".GuestBrowseActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".PhoneAuthActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="false" />
     </application>
 </manifest>
