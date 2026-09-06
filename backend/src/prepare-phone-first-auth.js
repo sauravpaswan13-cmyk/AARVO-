@@ -43,7 +43,7 @@ const createPhoneChallenge = async (userId, phone) => {
   if (recent.rowCount && Date.now() - new Date(recent.rows[0].last_sent_at).getTime() < 60000) throw httpError(429, 'OTP_RESEND_TOO_SOON');
   const code = makeOtp(), id = randomUUID();
   await pool.query('UPDATE phone_verification_challenges SET consumed_at=now() WHERE user_id=$1 AND consumed_at IS NULL', [userId]);
-  await pool.query('INSERT INTO phone_verification_challenges(id,user_id,phone,code_hash,expires_at) VALUES($1,$2,$3,$4,now()+interval \'10 minutes\')', [id, userId, phone, otpHash(code)]);
+  await pool.query('INSERT INTO phone_verification_challenges(id,user_id,phone,code_hash,expires_at) VALUES($1,$2,$3,$4,now()+make_interval(mins => 10))', [id, userId, phone, otpHash(code)]);
   const delivery = await sendOtp(phone, code);
   return { challengeId: id, ...delivery };
 };
