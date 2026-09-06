@@ -199,7 +199,11 @@ private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activi
         checkoutLoading = true; checkoutMessage = "Creating secure order..."
         scope.launch {
             try {
-                val items = JSONArray().apply { cartItems.forEach { put(JSONObject().put("productId", it.id).put("quantity", 1)) } }
+                val items = JSONArray().apply {
+    cartViewModel.distinctItems().forEach { product ->
+        put(JSONObject().put("productId", product.id).put("quantity", cartViewModel.quantity(product.id)))
+    }
+}
                 val address = JSONObject().apply { put("fullName", fullName.trim()); put("phone", phone.trim()); put("line1", line1.trim()); put("line2", ""); put("city", city.trim()); put("state", state.trim()); put("postalCode", postalCode.trim()); put("country", "IN") }
                 val order = api.createOrder(items, address)
                 val options = JSONObject().apply {
@@ -232,7 +236,7 @@ private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activi
         NavigationBarItem(selectedTab == 2, { selectedTab = 2 }, { Icon(Icons.Default.Person, "Profile") }, label = { Text("Account") })
     } }) { padding -> when (selectedTab) {
         0 -> HomeScreen(padding, query, { query = it }, listOf("All", "Fashion", "Electronics", "Home", "Beauty"), category, { category = it }, products, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = if (id in wishlist) wishlist - id else wishlist + id })
-        1 -> CartScreen(padding, cartItems, cartViewModel::remove, cartViewModel::clear) { showCheckout = true; checkoutMessage = "" }
+        1 -> CartScreen(padding, cartItems, cartViewModel::increment, cartViewModel::decrement, cartViewModel::removeAll, cartViewModel::quantity, cartViewModel::clear) { showCheckout = true; checkoutMessage = "" }
         else -> AccountScreen(padding, userName, role, api, onSignOut)
     } }
 }
@@ -270,12 +274,23 @@ private fun ProductDetailsScreen(product: Product, isSaved: Boolean, onBack: () 
 }
 
 @Composable
-private fun CartScreen(padding: PaddingValues, items: List<Product>, onRemove: (Product) -> Unit, onClear: () -> Unit, onCheckout: () -> Unit) {
+private fun CartScreen(padding: PaddingValues, items: List<Product>, onIncrement: (Product) -> Unit, onDecrement: (Product) -> Unit, onRemoveAll: (Int) -> Unit, quantityOf: (Int) -> Int, onClear: () -> Unit, onCheckout: () -> Unit) {
     val totalPaise = items.sumOf { it.pricePaise }
+    val groupedItems = items.distinctBy { it.id }
     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Your Cart", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); if (items.isNotEmpty()) TextButton(onClick = onClear) { Text("Clear") } } }
         if (items.isEmpty()) item { Text("Your cart is empty. Add something you like from Home.") }
-        else { items(items) { product -> Card(Modifier.fillMaxWidth()) { Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text(product.name, fontWeight = FontWeight.SemiBold); Text(product.displayPrice) }; IconButton(onClick = { onRemove(product) }) { Icon(Icons.Default.Delete, "Remove") } } } }; item { Text("Total: ${formatPaise(totalPaise)}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Button(onClick = onCheckout) { Text("Proceed to secure checkout") } } }
+        else {
+            items(groupedItems) { product ->
+                val quantity = quantityOf(product.id)
+                Card(Modifier.fillMaxWidth()) { Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text(product.name, fontWeight = FontWeight.SemiBold); Text(product.displayPrice) }; IconButton(onClick = { onRemoveAll(product.id) }) { Icon(Icons.Default.Delete, "Remove all") } }
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { IconButton(onClick = { onDecrement(product) }, enabled = quantity > 0) { Text("−", style = MaterialTheme.typography.titleLarge) }; Text(quantity.toString(), Modifier.padding(horizontal = 12.dp), fontWeight = FontWeight.Bold); IconButton(onClick = { onIncrement(product) }, enabled = quantity < product.stockQuantity) { Text("+", style = MaterialTheme.typography.titleLarge) } }
+                    Text("Subtotal: ${formatPaise(product.pricePaise * quantity)}")
+                } }
+            }
+            item { Text("Total: ${formatPaise(totalPaise)}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Button(onClick = onCheckout, modifier = Modifier.fillMaxWidth()) { Text("Proceed to secure checkout") } }
+        }
     }
 }
 
