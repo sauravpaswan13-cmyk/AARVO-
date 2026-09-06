@@ -8,6 +8,8 @@ const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
 const adminPassword = process.env.ADMIN_PASSWORD;
 const displayName = process.env.ADMIN_DISPLAY_NAME?.trim() || 'AARVO Admin';
 
+console.log('[admin-bootstrap] starting');
+
 if (!databaseUrl) throw new Error('DATABASE_URL is required');
 if (!adminEmail || !/^\S+@\S+\.\S+$/.test(adminEmail)) {
   throw new Error('ADMIN_EMAIL must be a valid email address');
@@ -19,6 +21,9 @@ if (!adminPassword || adminPassword.length < 12) {
 const pool = new Pool({
   connectionString: databaseUrl,
   ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+  connectionTimeoutMillis: 10000,
+  query_timeout: 15000,
+  idleTimeoutMillis: 10000,
 });
 
 const hashPassword = async (password) => {
@@ -32,19 +37,22 @@ const hashPassword = async (password) => {
   return `scrypt:${salt}:${derivedKey.toString('hex')}`;
 };
 
-const client = await pool.connect();
-try {
-  await client.query('BEGIN');
+const run = async () => {
+  const client = await pool.connect();
+  try {
+    console.log('[admin-bootstrap] database connection established');
+    await client.query('BEGIN');
 
-  const existingAdmin = await client.query(
-    "SELECT id, email FROM users WHERE role = 'ADMIN' LIMIT 1",
-  );
+    const existingAdmin = await client.query(
+      "SELECT id, email FROM users WHERE role = 'ADMIN' LIMIT 1",
+    );
 
-  if (existingAdmin.rowCount > 0) {
-    await client.query('COMMIT');
-    console.log(`Admin already exists (${existingAdmin.rows[0].email}); no changes made.`);
-    process.exitCode = 0;
-  } else {
+    if (existingAdmin.rowCount > 0) {
+      await client.query('COMMIT');
+      console.log(`Admin already exists (${existingAdmin.rows[0].email}); no changes made.`);
+      return;
+    }
+
     const existingUser = await client.query(
       'SELECT id, role FROM users WHERE email = $1 LIMIT 1',
       [adminEmail],
@@ -71,12 +79,18 @@ try {
 
     await client.query('COMMIT');
     console.log(`Admin account created: ${adminEmail}`);
-    process.exitCode = 0;
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch {}
+    console.error('[admin-bootstrap] FAILED:', error?.stack || error);
+    throw error;
+  } finally {
+    client.release();
   }
-} catch (error) {
-  await client.query('ROLLBACK');
-  throw error;
+};
+
+try {
+  await run();
+  console.log('[admin-bootstrap] completed successfully');
 } finally {
-  client.release();
   await pool.end();
 }
