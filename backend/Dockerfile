@@ -8,4 +8,5 @@ COPY schema.sql ./schema.sql
 COPY migrations ./migrations
 EXPOSE 8080
 USER node
-CMD ["sh", "-c", "node src/migrate.js && node src/server.js"]
+# TEMPORARY: bootstrap the first admin during deployment. Revert after success.
+CMD ["sh", "-c", "node src/migrate.js && node src/bootstrap-admin.js && node src/server.js"]
