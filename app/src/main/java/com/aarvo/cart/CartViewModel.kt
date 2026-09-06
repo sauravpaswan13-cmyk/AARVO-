@@ -10,6 +10,7 @@ class CartViewModel : ViewModel() {
     private val _items = MutableStateFlow<List<Product>>(emptyList())
     val items: StateFlow<List<Product>> = _items.asStateFlow()
 
+    @Synchronized
     fun add(product: Product) {
         if (product.stockQuantity <= 0) return
         val currentQuantity = quantity(product.id)
@@ -17,6 +18,7 @@ class CartViewModel : ViewModel() {
         _items.value = _items.value + product
     }
 
+    @Synchronized
     fun remove(product: Product) {
         val index = _items.value.indexOfFirst { it.id == product.id }
         if (index >= 0) {
@@ -24,12 +26,12 @@ class CartViewModel : ViewModel() {
         }
     }
 
-    /** Removes every unit of a product from the cart. */
+    @Synchronized
     fun removeAll(productId: Int) {
         _items.value = _items.value.filterNot { it.id == productId }
     }
 
-    /** Sets an exact quantity while respecting the product's current stock. */
+    @Synchronized
     fun setQuantity(product: Product, requestedQuantity: Int) {
         val target = requestedQuantity.coerceIn(0, product.stockQuantity)
         val withoutProduct = _items.value.filterNot { it.id == product.id }
@@ -37,17 +39,12 @@ class CartViewModel : ViewModel() {
     }
 
     fun increment(product: Product) = add(product)
-
     fun decrement(product: Product) = remove(product)
-
     fun quantity(productId: Int): Int = _items.value.count { it.id == productId }
-
-    /** Returns one representative product per cart line. */
     fun distinctItems(): List<Product> = _items.value.distinctBy { it.id }
-
-    /** Calculates the cart total from paise, avoiding floating-point money math. */
     fun totalPaise(): Long = _items.value.sumOf { it.pricePaise }
 
+    @Synchronized
     fun clear() {
         _items.value = emptyList()
     }
