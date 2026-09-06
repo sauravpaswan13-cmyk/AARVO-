@@ -1,13 +1,36 @@
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
-  email TEXT NOT NULL UNIQUE,
+  email TEXT UNIQUE,
   display_name TEXT NOT NULL,
   password_hash TEXT,
   role TEXT NOT NULL CHECK (role IN ('BUYER','SELLER','ADMIN')),
+  phone TEXT,
+  phone_verified BOOLEAN NOT NULL DEFAULT false,
+  phone_verified_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified_at TIMESTAMPTZ;
+ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_phone_uidx ON users (phone) WHERE phone IS NOT NULL AND phone <> '';
+
+CREATE TABLE IF NOT EXISTS phone_verification_challenges (
+  id UUID PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  phone TEXT NOT NULL,
+  code_hash TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  consumed_at TIMESTAMPTZ,
+  last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS phone_verification_user_idx ON phone_verification_challenges (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS phone_verification_expiry_idx ON phone_verification_challenges (expires_at);
 
 CREATE TABLE IF NOT EXISTS seller_profiles (
   seller_id TEXT PRIMARY KEY REFERENCES users(id), phone TEXT NOT NULL,
