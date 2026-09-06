@@ -11,13 +11,32 @@ const adminPassword = process.env.ADMIN_PASSWORD;
 const displayName = process.env.ADMIN_DISPLAY_NAME?.trim() || 'AARVO Admin';
 
 console.log('[admin-bootstrap] starting');
+console.log('[admin-bootstrap] env diagnostics:', JSON.stringify({
+  ADMIN_EMAIL_present: Object.prototype.hasOwnProperty.call(process.env, 'ADMIN_EMAIL'),
+  ADMIN_EMAIL_length: rawAdminEmail.length,
+  ADMIN_EMAIL_trimmed_length: rawAdminEmail.trim().length,
+  ADMIN_PASSWORD_present: Boolean(adminPassword),
+  ADMIN_PASSWORD_length: adminPassword?.length ?? 0,
+  DATABASE_URL_present: Boolean(databaseUrl),
+  ADMIN_DISPLAY_NAME_present: Object.prototype.hasOwnProperty.call(process.env, 'ADMIN_DISPLAY_NAME'),
+  NODE_ENV: process.env.NODE_ENV ?? null,
+}));
 
 if (!databaseUrl) throw new Error('DATABASE_URL is required');
 if (!adminEmail || !/^\S+@\S+\.\S+$/.test(adminEmail)) {
-  console.error('[admin-bootstrap] ADMIN_EMAIL validation failed; received length:', adminEmail.length);
+  if (!rawAdminEmail) {
+    console.error('[admin-bootstrap] ADMIN_EMAIL is missing or empty inside the container.');
+  } else {
+    console.error('[admin-bootstrap] ADMIN_EMAIL format validation failed.');
+  }
   throw new Error('ADMIN_EMAIL must be a valid email address');
 }
 if (!adminPassword || adminPassword.length < 12) {
+  if (!adminPassword) {
+    console.error('[admin-bootstrap] ADMIN_PASSWORD is missing or empty inside the container.');
+  } else {
+    console.error('[admin-bootstrap] ADMIN_PASSWORD is present but shorter than 12 characters.');
+  }
   throw new Error('ADMIN_PASSWORD must be at least 12 characters');
 }
 
