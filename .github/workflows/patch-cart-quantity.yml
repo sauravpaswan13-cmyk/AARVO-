@@ -1,0 +1,162 @@
+name: Apply cart quantity patch
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Apply patch
+        run: |
+          if git log -1 --pretty=%B | grep -q '^feat: cart quantity controls'; then
+            echo 'Patch commit already applied.'
+            exit 0
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/java/com/aarvo/MainActivity.kt')
+          text = path.read_text()
+
+          old_checkout = '''        val items = JSONArray().apply {
+            cartItems.forEach {
+                put(JSONObject().put("productId", it.id).put("quantity", 1))
+            }
+        }'''
+          new_checkout = '''        val items = JSONArray().apply {
+            cartViewModel.distinctItems().forEach { product ->
+                put(JSONObject()
+                    .put("productId", product.id)
+                    .put("quantity", cartViewModel.quantity(product.id)))
+            }
+        }'''
+          if old_checkout not in text:
+              raise SystemExit('checkout block not found')
+          text = text.replace(old_checkout, new_checkout, 1)
+
+          old_total = '        cartItems.sumOf { it.pricePaise },'
+          new_total = '        cartViewModel.totalPaise(),'
+          if old_total not in text:
+              raise SystemExit('checkout total block not found')
+          text = text.replace(old_total, new_total, 1)
+
+          old_call = '''                cartItems,
+                cartViewModel::remove,
+                cartViewModel::clear
+            ) {'''
+          new_call = '''                cartItems,
+                cartViewModel::increment,
+                cartViewModel::decrement,
+                cartViewModel::removeAll,
+                cartViewModel::quantity,
+                cartViewModel::clear
+            ) {'''
+          if old_call not in text:
+              raise SystemExit('CartScreen call block not found')
+          text = text.replace(old_call, new_call, 1)
+
+          start = text.find('@Composable\nprivate fun CartScreen(')
+          if start < 0:
+              raise SystemExit('CartScreen start not found')
+          end = text.find('\n@Composable\n', start + 20)
+          if end < 0:
+              raise SystemExit('CartScreen end not found')
+
+          new_screen = '''@Composable
+private fun CartScreen(
+    padding: PaddingValues,
+    items: List<Product>,
+    onIncrement: (Product) -> Unit,
+    onDecrement: (Product) -> Unit,
+    onRemoveAll: (Int) -> Unit,
+    quantityOf: (Int) -> Int,
+    onClear: () -> Unit,
+    onCheckout: () -> Unit
+) {
+    val totalPaise = items.sumOf { it.pricePaise }
+    val groupedItems = items.distinctBy { it.id }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Your Cart", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                if (items.isNotEmpty()) TextButton(onClick = onClear) { Text("Clear") }
+            }
+        }
+        if (items.isEmpty()) {
+            item { Text("Your cart is empty. Add something you like from Home.") }
+        } else {
+            items(groupedItems) { product ->
+                val quantity = quantityOf(product.id)
+                Card(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(product.name, fontWeight = FontWeight.SemiBold)
+                            Text(product.displayPrice)
+                            Spacer(Modifier.height(8.dp))
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = { onDecrement(product) },
+                                    enabled = quantity > 0
+                                ) { Text("−", style = MaterialTheme.typography.titleLarge) }
+                                Text(
+                                    quantity.toString(),
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                IconButton(
+                                    onClick = { onIncrement(product) },
+                                    enabled = quantity < product.stockQuantity
+                                ) { Text("+", style = MaterialTheme.typography.titleLarge) }
+                            }
+                            Text("${formatPaise(product.pricePaise * quantity)}")
+                        }
+                        IconButton(onClick = { onRemoveAll(product.id) }) {
+                            Icon(Icons.Default.Delete, "Remove all")
+                        }
+                    }
+                }
+            }
+            item {
+                Text("Total: ${formatPaise(totalPaise)}", fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onCheckout, modifier = Modifier.fillMaxWidth()) {
+                    Text("Proceed to secure checkout")
+                }
+                Spacer(Modifier.height(24.dp))
+            }
+        }
+    }
+}
+'''
+          text = text[:start] + new_screen + text[end:]
+          path.write_text(text)
+          PY
+          git diff --check
+
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/aarvo/MainActivity.kt
+          if git diff --cached --quiet; then
+            echo 'No changes produced.'
+            exit 1
+          fi
+          git commit -m 'feat: cart quantity controls'
+          git push
