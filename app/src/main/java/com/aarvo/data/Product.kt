@@ -17,8 +17,11 @@ data class Product(
     val pricePaise: Long = price.toLong() * 100L
 ) {
     init {
+        require(id > 0) { "Product ID must be positive" }
         require(price >= 0) { "Product price cannot be negative" }
         require(pricePaise >= 0) { "Product price in paise cannot be negative" }
+        require(stockQuantity >= 0) { "Product stock cannot be negative" }
+        require(rating in 0.0..5.0) { "Product rating must be between 0 and 5" }
     }
 
     /** Exact rupee display without floating-point arithmetic. */
