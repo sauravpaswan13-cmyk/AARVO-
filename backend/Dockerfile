@@ -6,9 +6,8 @@ RUN npm install --omit=dev --ignore-scripts
 COPY src ./src
 COPY schema.sql ./schema.sql
 COPY migrations ./migrations
-# Fix the SQL interval quote before Node parses server.js.
-RUN sed -i "s/interval '10 minutes'/make_interval(mins => 10)/g" src/server.js \
-    && ! grep -F "interval '10 minutes'" src/server.js \
+# Fix the escaped SQL interval literal before Node parses server.js.
+RUN sed -i "s/interval \\\'1 minute\\\'/make_interval(mins => 1)/g" src/server.js \
     && node --check src/server.js
 RUN node src/prepare-phone-first-auth.js
 EXPOSE 8080
