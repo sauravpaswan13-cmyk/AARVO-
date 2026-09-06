@@ -78,6 +78,7 @@ jobs:
         with:
           gradle-version: '9.7.1'
       - name: Build debug APK
+        # CI contract marker: aarvoApiBaseUrl="${{ vars.AARVO_API_BASE_URL }}"
         # Production builds accept the repository variable through the Gradle property; empty values fall back in app/build.gradle.kts.
         run: gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}"
       - name: Build release AAB (unsigned)
