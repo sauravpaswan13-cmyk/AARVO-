@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 const { Pool } = pg;
@@ -11,9 +12,14 @@ const pool = new Pool({
   ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
 });
 
-const root = path.resolve(new URL('..', import.meta.url).pathname, '..');
+// migrate.js lives in /app/src in the production container.
+// Resolve paths from this file rather than relying on the process working directory.
+const srcDir = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(srcDir, '..');
+const schemaPath = path.join(root, 'schema.sql');
 const migrationDir = path.join(root, 'migrations');
-const schema = await fs.readFile(path.join(root, 'schema.sql'), 'utf8');
+
+const schema = await fs.readFile(schemaPath, 'utf8');
 const migrations = (await fs.readdir(migrationDir))
   .filter((name) => /^\d+_.*\.sql$/.test(name))
   .sort();
