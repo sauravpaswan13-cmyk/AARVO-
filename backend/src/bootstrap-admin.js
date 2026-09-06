@@ -4,7 +4,9 @@ import pg from 'pg';
 const { Pool } = pg;
 
 const databaseUrl = process.env.DATABASE_URL;
-const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+const rawAdminEmail = process.env.ADMIN_EMAIL ?? '';
+// Render env values can occasionally contain accidental surrounding quotes.
+const adminEmail = rawAdminEmail.trim().replace(/^(["'])(.*)\1$/, '$2').trim().toLowerCase();
 const adminPassword = process.env.ADMIN_PASSWORD;
 const displayName = process.env.ADMIN_DISPLAY_NAME?.trim() || 'AARVO Admin';
 
@@ -12,6 +14,7 @@ console.log('[admin-bootstrap] starting');
 
 if (!databaseUrl) throw new Error('DATABASE_URL is required');
 if (!adminEmail || !/^\S+@\S+\.\S+$/.test(adminEmail)) {
+  console.error('[admin-bootstrap] ADMIN_EMAIL validation failed; received length:', adminEmail.length);
   throw new Error('ADMIN_EMAIL must be a valid email address');
 }
 if (!adminPassword || adminPassword.length < 12) {
