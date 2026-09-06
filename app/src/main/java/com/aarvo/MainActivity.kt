@@ -178,9 +178,14 @@ private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activi
     var selectedTab by remember { mutableIntStateOf(0) }; var query by remember { mutableStateOf("") }; var category by remember { mutableStateOf("All") }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }; var wishlist by remember { mutableStateOf(wishlistStore.load()) }
     var showCheckout by remember { mutableStateOf(false) }; var checkoutLoading by remember { mutableStateOf(false) }
-    var checkoutMessage by remember { mutableStateOf("") }; var products by remember { mutableStateOf<List<Product>>(emptyList()) }
+    var checkoutMessage by remember { mutableStateOf("") }; var products by remember { mutableStateOf<List<Product>>(emptyList()) }; var allProducts by remember { mutableStateOf<List<Product>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }
     val cartItems by cartViewModel.items.collectAsState(); val scope = rememberCoroutineScope()
+
+    LaunchedEffect(api) {
+        try { allProducts = api.products("", "All").toProductList() }
+        catch (_: Throwable) { allProducts = emptyList() }
+    }
 
     LaunchedEffect(query, category, api) {
         loading = true; error = ""
@@ -238,7 +243,7 @@ private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activi
     } }) { padding -> when (selectedTab) {
         0 -> HomeScreen(padding, query, { query = it }, listOf("All", "Fashion", "Electronics", "Home", "Beauty"), category, { category = it }, products, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = wishlistStore.toggle(id) })
         1 -> CartScreen(padding, cartItems, cartViewModel::increment, cartViewModel::decrement, cartViewModel::removeAll, cartViewModel::quantity, cartViewModel::clear) { showCheckout = true; checkoutMessage = "" }
-        2 -> WishlistScreen(padding, products, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { selectedProduct = it }, cartViewModel::add)
+        2 -> WishlistScreen(padding, allProducts, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { selectedProduct = it }, cartViewModel::add)
         else -> AccountScreen(padding, userName, role, api, onSignOut)
     } }
 }
