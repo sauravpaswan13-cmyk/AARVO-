@@ -48,3 +48,7 @@ AARVO is being developed as a **real two-sided marketplace**: customers buy genu
 ## Important launch gate
 
 The Android UI alone cannot make AARVO a real marketplace. Before accepting real customer money, the production backend, payment/payout account, seller verification, shipping integration, security configuration and legal policies must be connected and tested end-to-end. Until that gate is passed, no build should be marketed as a live shopping service.
+
+## Engineering progress
+
+Cart quantity controls and quantity-aware checkout are part of the production client path; CI verifies the backend contract and Android debug/release compilation.
