@@ -77,3 +77,5 @@ private fun CartScreen(padding: PaddingValues, items: List<Product>, onIncrement
           if git diff --cached --quiet; then echo 'No source changes needed.'; exit 0; fi
           git commit -m 'feat: cart quantity controls'
           git push origin HEAD:${{ github.head_ref || github.ref_name }}
+
+# Triggered intentionally after verifying the source still contains the legacy cart call.
