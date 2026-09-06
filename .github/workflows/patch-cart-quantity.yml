@@ -2,11 +2,7 @@ name: Apply cart quantity patch
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: write
@@ -15,36 +11,41 @@ jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout main
+        uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 1
-          ref: ${{ github.head_ref || github.ref }}
-      - name: Apply patch
+
+      - name: Patch cart quantity handling
+        shell: bash
         run: |
-          if git log -1 --pretty=%B | grep -q '^feat: cart quantity controls'; then
-            echo 'Patch commit already applied.'
-            exit 0
-          fi
           python3 - <<'PY'
           from pathlib import Path
           path = Path('app/src/main/java/com/aarvo/MainActivity.kt')
           text = path.read_text()
-          old_checkout = '''                val items = JSONArray().apply { cartItems.forEach { put(JSONObject().put("productId", it.id).put("quantity", 1)) } }'''
-          new_checkout = '''                val items = JSONArray().apply {
-                    cartViewModel.distinctItems().forEach { product ->
-                        put(JSONObject().put("productId", product.id).put("quantity", cartViewModel.quantity(product.id)))
-                    }
-                }'''
-          if old_checkout in text:
-              text = text.replace(old_checkout, new_checkout, 1)
-          old_call = '''        1 -> CartScreen(padding, cartItems, cartViewModel::remove, cartViewModel::clear) { showCheckout = true; checkoutMessage = "" }'''
-          new_call = '''        1 -> CartScreen(padding, cartItems, cartViewModel::increment, cartViewModel::decrement, cartViewModel::removeAll, cartViewModel::quantity, cartViewModel::clear) { showCheckout = true; checkoutMessage = "" }'''
+
+          old = 'val items = JSONArray().apply { cartItems.forEach { put(JSONObject().put("productId", it.id).put("quantity", 1)) } }'
+          new = '''val items = JSONArray().apply {
+              cartViewModel.distinctItems().forEach { product ->
+                  put(JSONObject().put("productId", product.id).put("quantity", cartViewModel.quantity(product.id)))
+              }
+          }'''
+          if old in text:
+              text = text.replace(old, new, 1)
+
+          old_call = '1 -> CartScreen(padding, cartItems, cartViewModel::remove, cartViewModel::clear) { showCheckout = true; checkoutMessage = "" }'
+          new_call = '1 -> CartScreen(padding, cartItems, cartViewModel::increment, cartViewModel::decrement, cartViewModel::removeAll, cartViewModel::quantity, cartViewModel::clear) { showCheckout = true; checkoutMessage = "" }'
           if old_call in text:
               text = text.replace(old_call, new_call, 1)
+
           start = text.find('@Composable\nprivate fun CartScreen(')
-          if start < 0: raise SystemExit('CartScreen start not found')
+          if start < 0:
+              raise SystemExit('CartScreen start not found')
           end = text.find('\n@Composable\n', start + 20)
-          if end < 0: raise SystemExit('CartScreen end not found')
+          if end < 0:
+              raise SystemExit('CartScreen end not found')
+
           new_screen = '''@Composable
 private fun CartScreen(padding: PaddingValues, items: List<Product>, onIncrement: (Product) -> Unit, onDecrement: (Product) -> Unit, onRemoveAll: (Int) -> Unit, quantityOf: (Int) -> Int, onClear: () -> Unit, onCheckout: () -> Unit) {
     val totalPaise = items.sumOf { it.pricePaise }
@@ -66,16 +67,21 @@ private fun CartScreen(padding: PaddingValues, items: List<Product>, onIncrement
     }
 }
 '''
-          path.write_text(text[:start] + new_screen + text[end:])
+          text = text[:start] + new_screen + text[end:]
+          path.write_text(text)
           PY
           git diff --check
-      - name: Commit patch
+          grep -q 'cartViewModel.quantity(product.id)' app/src/main/java/com/aarvo/MainActivity.kt
+          grep -q 'private fun CartScreen(padding: PaddingValues, items: List<Product>, onIncrement' app/src/main/java/com/aarvo/MainActivity.kt
+
+      - name: Commit patched source
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add app/src/main/java/com/aarvo/MainActivity.kt
-          if git diff --cached --quiet; then echo 'No source changes needed.'; exit 0; fi
+          if git diff --cached --quiet; then
+            echo 'Cart quantity patch already applied.'
+            exit 0
+          fi
           git commit -m 'feat: cart quantity controls'
-          git push origin HEAD:${{ github.head_ref || github.ref_name }}
-
-# Triggered intentionally after verifying the source still contains the legacy cart call.
+          git push origin main
