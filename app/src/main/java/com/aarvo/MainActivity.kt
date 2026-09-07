@@ -1,6 +1,7 @@
 package com.aarvo
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -70,11 +71,17 @@ import org.json.JSONObject
 class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     private lateinit var razorpayCheckout: Checkout
     private var paymentCallback: ((String?, String?) -> Unit)? = null
+    private val authRefresh = mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         razorpayCheckout = Checkout()
-        setContent { AarvoTheme { AarvoRoot(this, applicationContext) } }
+        setContent { AarvoTheme { AarvoRoot(this, applicationContext, authRefresh.intValue) } }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        authRefresh.intValue++
     }
 
     fun startRazorpayPayment(options: JSONObject, callback: (String?, String?) -> Unit) {
@@ -102,24 +109,33 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 }
 
 @Composable
-private fun AarvoRoot(activity: MainActivity, context: Context) {
+private fun AarvoRoot(activity: MainActivity, context: Context, authRefresh: Int) {
     val prefs = remember { context.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
     val wishlistStore = remember { WishlistStore(prefs) }
     var onboarded by remember { mutableStateOf(prefs.getBoolean("onboarded", false)) }
-    var signedIn by remember { mutableStateOf(prefs.getBoolean("signed_in", false)) }
-    var userName by remember { mutableStateOf(prefs.getString("user_name", "") ?: "") }
-    var role by remember { mutableStateOf(prefs.getString("user_role", "BUYER") ?: "BUYER") }
+    var signedIn by remember(authRefresh) { mutableStateOf(prefs.getBoolean("signed_in", false)) }
+    var guestMode by remember(authRefresh) { mutableStateOf(prefs.getBoolean("guest_mode", false)) }
+    var userName by remember(authRefresh) { mutableStateOf(prefs.getString("user_name", "") ?: "") }
+    var role by remember(authRefresh) { mutableStateOf(prefs.getString("user_role", "BUYER") ?: "BUYER") }
     val api = remember { AarvoApiClient { prefs.getString("auth_token", null) } }
+    val openOtpLogin = {
+        prefs.edit().putBoolean("onboarded", true).apply()
+        activity.startActivity(Intent(activity, PhoneAuthActivity::class.java))
+    }
     when {
         !onboarded -> OnboardingScreen { prefs.edit().putBoolean("onboarded", true).apply(); onboarded = true }
+        guestMode -> AarvoApp(userName.ifBlank { "Guest" }, role, api, activity, wishlistStore, guestMode = true, onLogin = openOtpLogin, onSignOut = {
+            prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply()
+            signedIn = false; guestMode = false
+        })
         !signedIn -> SignInScreen(api) { name, token, userRole ->
             userName = name; role = userRole
-            prefs.edit().putBoolean("signed_in", true).putString("user_name", name).putString("user_role", userRole).putString("auth_token", token).apply()
+            prefs.edit().putBoolean("signed_in", true).putBoolean("guest_mode", false).putString("user_name", name).putString("user_role", userRole).putString("auth_token", token).apply()
             signedIn = true
         }
-        else -> AarvoApp(userName, role, api, activity, wishlistStore, onSignOut = {
-            prefs.edit().putBoolean("signed_in", false).remove("auth_token").remove("user_role").apply()
-            signedIn = false
+        else -> AarvoApp(userName, role, api, activity, wishlistStore, guestMode = false, onLogin = openOtpLogin, onSignOut = {
+            prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply()
+            signedIn = false; guestMode = false
         })
     }
 }
@@ -174,10 +190,10 @@ private fun AarvoRoot(activity: MainActivity, context: Context) {
 }
 
 @Composable
-private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activity: MainActivity, wishlistStore: WishlistStore, onSignOut: () -> Unit, cartViewModel: CartViewModel = viewModel()) {
+private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activity: MainActivity, wishlistStore: WishlistStore, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit, cartViewModel: CartViewModel = viewModel()) {
     var selectedTab by remember { mutableIntStateOf(0) }; var query by remember { mutableStateOf("") }; var category by remember { mutableStateOf("All") }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }; var wishlist by remember { mutableStateOf(wishlistStore.load()) }
-    var showCheckout by remember { mutableStateOf(false) }; var checkoutLoading by remember { mutableStateOf(false) }
+    var showCheckout by remember { mutableStateOf(false) }; var showLoginRequired by remember { mutableStateOf(false) }; var checkoutLoading by remember { mutableStateOf(false) }
     var checkoutMessage by remember { mutableStateOf("") }; var products by remember { mutableStateOf<List<Product>>(emptyList()) }; var allProducts by remember { mutableStateOf<List<Product>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }
     val cartItems by cartViewModel.items.collectAsState(); val scope = rememberCoroutineScope()
@@ -198,6 +214,10 @@ private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activi
         val product = selectedProduct!!
         ProductDetailsScreen(product, product.id in wishlist, { selectedProduct = null }, { wishlist = wishlistStore.toggle(product.id) }, cartViewModel::add)
         return
+    }
+
+    if (showLoginRequired) {
+        LoginRequiredDialog(onLogin = { showLoginRequired = false; onLogin() }, onDismiss = { showLoginRequired = false })
     }
 
     if (showCheckout) CheckoutDialog(cartItems.sumOf { it.pricePaise }, checkoutLoading, checkoutMessage, { if (!checkoutLoading) showCheckout = false }) { fullName, phone, line1, city, state, postalCode ->
@@ -242,10 +262,14 @@ private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activi
         NavigationBarItem(selectedTab == 3, { selectedTab = 3 }, { Icon(Icons.Default.Person, "Profile") }, label = { Text("Account") })
     } }) { padding -> when (selectedTab) {
         0 -> HomeScreen(padding, query, { query = it }, listOf("All", "Fashion", "Electronics", "Home", "Beauty"), category, { category = it }, products, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = wishlistStore.toggle(id) })
-        1 -> CartScreen(padding, cartItems, cartViewModel::increment, cartViewModel::decrement, cartViewModel::removeAll, cartViewModel::quantity, cartViewModel::clear) { showCheckout = true; checkoutMessage = "" }
+        1 -> CartScreen(padding, cartItems, cartViewModel::increment, cartViewModel::decrement, cartViewModel::removeAll, cartViewModel::quantity, cartViewModel::clear) { if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" } }
         2 -> WishlistScreen(padding, allProducts, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { selectedProduct = it }, cartViewModel::add)
-        else -> AccountScreen(padding, userName, role, api, onSignOut)
+        else -> AccountScreen(padding, userName, role, api, guestMode, onLogin, onSignOut)
     } }
+}
+
+@Composable private fun LoginRequiredDialog(onLogin: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Login Required") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("To complete your purchase, please login or create an account."); Text("You can still browse and add to cart.", style = MaterialTheme.typography.bodySmall) } }, confirmButton = { Button(onClick = onLogin) { Text("Login / Sign Up") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Continue Browsing") } })
 }
 
 private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 until length()) { val o = getJSONObject(i); val pricePaise = o.getLong("price_paise"); add(Product(o.getLong("id").toInt(), o.getString("seller_id"), o.getString("seller_name"), o.getString("name"), o.getString("category"), (pricePaise / 100L).toInt(), o.optDouble("rating", 0.0), "🛍️", o.getString("description"), o.getInt("stock_quantity"), o.optBoolean("is_published", true), pricePaise)) } }
@@ -259,8 +283,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
     }
 }
 
-@Composable
-private fun HomeScreen(padding: PaddingValues, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit) {
+@Composable private fun HomeScreen(padding: PaddingValues, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit) {
     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Text("Shop smart. Live better.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("Products come from the live marketplace API.") }
         item { OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Search products") }) }
@@ -272,8 +295,7 @@ private fun HomeScreen(padding: PaddingValues, query: String, onQueryChange: (St
     }
 }
 
-@Composable
-private fun ProductCard(product: Product, isSaved: Boolean, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, onToggleWishlist: (Int) -> Unit) {
+@Composable private fun ProductCard(product: Product, isSaved: Boolean, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, onToggleWishlist: (Int) -> Unit) {
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("${product.emoji}  ${product.name}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)); IconButton(onClick = { onToggleWishlist(product.id) }) { Icon(if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Wishlist") } }
         Text(product.category, style = MaterialTheme.typography.bodySmall); Text(product.displayPrice, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description)
@@ -308,17 +330,22 @@ private fun ProductCard(product: Product, isSaved: Boolean, onAdd: (Product) -> 
     AlertDialog(onDismissRequest = onDismiss, title = { Text("Secure checkout") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Cart value: ${formatPaise(totalPaise)}", fontWeight = FontWeight.Bold); OutlinedTextField(fullName, { fullName = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full name") }); OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Phone") }); OutlinedTextField(line1, { line1 = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Address") }); OutlinedTextField(city, { city = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("City") }); OutlinedTextField(state, { state = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("State") }); OutlinedTextField(postalCode, { postalCode = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("PIN code") }); if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary); Text("Payment is processed by Razorpay. AARVO verifies it on the server before confirming the order.", style = MaterialTheme.typography.bodySmall) } }, confirmButton = { Button(onClick = { onPlaceOrder(fullName, phone, line1, city, state, postalCode) }, enabled = !loading && fullName.isNotBlank() && phone.trim().length >= 10 && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && postalCode.trim().length >= 5) { if (loading) CircularProgressIndicator() else Text("Pay securely") } }, dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text("Close") } })
 }
 
-@Composable private fun AccountScreen(padding: PaddingValues, userName: String, role: String, api: AarvoApiClient, onSignOut: () -> Unit) {
+@Composable private fun AccountScreen(padding: PaddingValues, userName: String, role: String, api: AarvoApiClient, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit) {
     var section by remember { mutableStateOf("account") }
     when (section) {
         "orders" -> OrdersScreen(padding, api) { section = "account" }
         "seller" -> SellerDashboardScreen(padding, api) { section = "account" }
         else -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { Text("My Account", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(userName) }
-            item { Button(onClick = { section = "orders" }, modifier = Modifier.fillMaxWidth()) { Text("My Orders & Tracking") } }
-            if (role == "SELLER") item { Button(onClick = { section = "seller" }, modifier = Modifier.fillMaxWidth()) { Text("Seller Dashboard") } }
-            item { Text("Buyer payments are server-verified before an order becomes confirmed.", style = MaterialTheme.typography.bodySmall) }
-            item { TextButton(onClick = onSignOut) { Text("Sign out") } }
+            item { Text("My Account", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(if (guestMode) "Guest browsing" else userName) }
+            if (guestMode) {
+                item { Text("Browse products and keep items in your cart. Login is only required when you purchase.") }
+                item { Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text("Login / Sign Up with OTP") } }
+            } else {
+                item { Button(onClick = { section = "orders" }, modifier = Modifier.fillMaxWidth()) { Text("My Orders & Tracking") } }
+                if (role == "SELLER") item { Button(onClick = { section = "seller" }, modifier = Modifier.fillMaxWidth()) { Text("Seller Dashboard") } }
+                item { Text("Buyer payments are server-verified before an order becomes confirmed.", style = MaterialTheme.typography.bodySmall) }
+                item { TextButton(onClick = onSignOut) { Text("Sign out") } }
+            }
         }
     }
 }
