@@ -6,8 +6,7 @@ RUN npm install --omit=dev --ignore-scripts
 COPY src ./src
 COPY schema.sql ./schema.sql
 COPY migrations ./migrations
-# Prepare phone-first auth first because the preparation script rewrites server.js.
-RUN node src/prepare-phone-first-auth.js
+# Phone-first auth is part of the committed server.js; do not rewrite production source during the Docker build.
 # Fix any legacy escaped SQL interval and verify all production JavaScript sources.
 RUN sed -i "s/interval \\\'1 minute\\\'/make_interval(mins => 1)/g" src/server.js \
     && node --check src/server.js \
