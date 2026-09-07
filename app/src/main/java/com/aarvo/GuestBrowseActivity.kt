@@ -48,7 +48,8 @@ class GuestBrowseActivity : ComponentActivity() {
     private fun continueAsGuest() {
         getSharedPreferences("aarvo_prefs", MODE_PRIVATE).edit()
             .putBoolean("onboarded", true)
-            .putBoolean("signed_in", true)
+            // Guest access is NOT an authenticated/signed-in account.
+            .putBoolean("signed_in", false)
             .putBoolean("guest_mode", true)
             .putString("user_name", "Guest")
             .putString("user_role", "BUYER")
@@ -62,6 +63,8 @@ class GuestBrowseActivity : ComponentActivity() {
         getSharedPreferences("aarvo_prefs", MODE_PRIVATE).edit()
             .putBoolean("onboarded", true)
             .putBoolean("guest_mode", false)
+            .putBoolean("signed_in", false)
+            .remove("auth_token")
             .apply()
         startActivity(Intent(this, PhoneAuthActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
     }
