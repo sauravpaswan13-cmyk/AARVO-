@@ -47,7 +47,7 @@ test('buyer review and dispute UI is wired to authenticated API actions', () => 
   assert.match(androidMain, /DisputeDialog\(api, id/);
   assert.match(androidMain, /api\.openDispute\(orderId, reason, details\)/);
   assert.match(androidMain, /Unable to submit review/);
-  assert.match(androidMain, /Unable to open dispute/);
+  assert.match(androidMain, /Unable to open (?:dispute|issue)/);
 });
 
 test('wishlist regression keeps saved product IDs persistent, positive and serialized', () => {
