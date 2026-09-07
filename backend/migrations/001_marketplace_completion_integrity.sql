@@ -5,6 +5,7 @@
 ALTER TABLE phone_verification_challenges ADD COLUMN IF NOT EXISTS otp_hash TEXT;
 ALTER TABLE phone_verification_challenges ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
 ALTER TABLE phone_verification_challenges ALTER COLUMN code_hash DROP NOT NULL;
+ALTER TABLE phone_verification_challenges ALTER COLUMN id SET DEFAULT md5(random()::text || clock_timestamp()::text)::uuid;
 UPDATE phone_verification_challenges
 SET otp_hash = COALESCE(otp_hash, code_hash),
     verified_at = COALESCE(verified_at, consumed_at)
