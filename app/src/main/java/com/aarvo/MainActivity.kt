@@ -125,13 +125,13 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     if (showFilters) ProductFilterDialog(sortMode, minRating, maxPrice, inStockOnly, { sortMode = it; showFilters = false }, { minRating = it }, { maxPrice = it }, { inStockOnly = it }, { showFilters = false })
     if (selectedProduct != null) { val product = selectedProduct!!; ProductDetailsScreen(product, product.id in wishlist, { selectedProduct = null }, { wishlist = wishlistStore.toggle(product.id) }, cartViewModel::add); return }
     if (showLoginRequired) LoginRequiredDialog({ showLoginRequired = false; onLogin() }, { showLoginRequired = false })
-    if (showCheckout) CheckoutDialog(cartItems.sumOf { it.pricePaise }, checkoutLoading, checkoutMessage, { if (!checkoutLoading) showCheckout = false }) { fullName, phone, line1, city, state, postalCode ->
+    if (showCheckout) CheckoutDialog(api, cartItems.sumOf { it.pricePaise }, checkoutLoading, checkoutMessage, { if (!checkoutLoading) showCheckout = false }) { fullName, phone, line1, city, state, postalCode ->
         checkoutLoading = true; checkoutMessage = "Creating secure order..."; scope.launch { try { val items = JSONArray().apply { cartViewModel.distinctItems().forEach { product -> put(JSONObject().put("productId", product.id).put("quantity", cartViewModel.quantity(product.id))) } }; val address = JSONObject().apply { put("fullName", fullName.trim()); put("phone", phone.trim()); put("line1", line1.trim()); put("line2", ""); put("city", city.trim()); put("state", state.trim()); put("postalCode", postalCode.trim()); put("country", "IN") }; val order = api.createOrder(items, address); val options = JSONObject().apply { put("key", order.getString("keyId")); put("amount", order.getLong("amountPaise")); put("currency", order.getString("currency")); put("name", "AARVO"); put("description", "AARVO marketplace order"); put("order_id", order.getString("gatewayOrderId")); put("prefill", JSONObject().put("name", fullName.trim()).put("contact", phone.trim())); put("notes", JSONObject().put("order_id", order.getString("orderId"))) }; checkoutMessage = "Opening secure payment..."; activity.startRazorpayPayment(options) { paymentId, paymentError -> scope.launch { if (paymentId != null) { val signature = PaymentBridge.lastSignature; val gatewayOrderId = PaymentBridge.lastOrderId ?: order.getString("gatewayOrderId"); if (!signature.isNullOrBlank()) { try { api.verifyPayment(order.getString("orderId"), paymentId, gatewayOrderId, signature); checkoutMessage = "Payment verified. Order confirmed."; cartViewModel.clear(); showCheckout = false } catch (t: Throwable) { checkoutMessage = t.message ?: "Payment verification failed. Order was not confirmed." } } else checkoutMessage = "Payment completed but verification data was missing. Order remains unconfirmed." } else { checkoutMessage = paymentError ?: "Payment cancelled or failed."; try { api.cancelOrder(order.getString("orderId"), "BUYER_PAYMENT_CANCELLED") } catch (_: Throwable) { } }; checkoutLoading = false; PaymentBridge.clear() } } } catch (t: Throwable) { checkoutLoading = false; checkoutMessage = t.message ?: "Unable to create order." } } }
     Scaffold(topBar = { TopAppBar(title = { Text(if (role == "SELLER") "AARVO Seller" else "AARVO", fontWeight = FontWeight.Bold) }, actions = { TextButton(onClick = { activity.startActivity(Intent(activity, AarvoAiActivity::class.java)) }) { Text("AI") }; BadgedBox(badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } }) { IconButton(onClick = { selectedTab = 1 }) { Icon(Icons.Default.ShoppingCart, "Cart") } } }) }, bottomBar = { NavigationBar { NavigationBarItem(selectedTab == 0, { selectedTab = 0 }, { Icon(Icons.Default.Home, "Home") }, label = { Text("Home") }); NavigationBarItem(selectedTab == 1, { selectedTab = 1 }, { BadgedBox(badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } }) { Icon(Icons.Default.ShoppingCart, "Cart") } }, label = { Text("Cart") }); NavigationBarItem(selectedTab == 2, { selectedTab = 2 }, { Icon(Icons.Default.Favorite, "Wishlist") }, label = { Text("Wishlist") }); NavigationBarItem(selectedTab == 3, { selectedTab = 3 }, { Icon(Icons.Default.Person, "Account") }, label = { Text("Account") }) } }) { padding -> when (selectedTab) {
         0 -> HomeScreen(padding, query, { query = it }, availableCategories, category, { category = it }, visibleProducts, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { showFilters = true }, sortMode, minRating, maxPrice, inStockOnly)
         1 -> CartScreen(padding, cartItems, cartViewModel::increment, cartViewModel::decrement, cartViewModel::removeAll, cartViewModel::quantity, cartViewModel::clear) { if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" } }
         2 -> WishlistScreen(padding, allProducts, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { selectedProduct = it }, cartViewModel::add)
-        else -> AccountScreen(padding, userName, role, api, guestMode, onLogin, onSignOut)
+        else -> AccountScreen(padding, userName, role, api, activity, guestMode, onLogin, onSignOut)
     } } }
 
 @Composable private fun LoginRequiredDialog(onLogin: () -> Unit, onDismiss: () -> Unit) { AlertDialog(onDismissRequest = onDismiss, title = { Text("Login Required") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("To complete your purchase, please login or create an account."); Text("You can still browse and add to cart.", style = MaterialTheme.typography.bodySmall) } }, confirmButton = { Button(onClick = onLogin) { Text("Login / Sign Up") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Continue Browsing") } }) }
@@ -150,9 +150,81 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
 
 @Composable private fun CartScreen(padding: PaddingValues, items: List<Product>, onIncrement: (Product) -> Unit, onDecrement: (Product) -> Unit, onRemoveAll: (Int) -> Unit, quantityOf: (Int) -> Int, onClear: () -> Unit, onCheckout: () -> Unit) { val totalPaise = items.sumOf { it.pricePaise }; val groupedItems = items.distinctBy { it.id }; LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Your Cart", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); if (items.isNotEmpty()) TextButton(onClick = onClear) { Text("Clear") } } }; if (items.isEmpty()) item { Text("Your cart is empty. Add something you like from Home.") } else { items(groupedItems) { product -> val quantity = quantityOf(product.id); Card(Modifier.fillMaxWidth()) { Column(Modifier.fillMaxWidth().padding(14.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text(product.name, fontWeight = FontWeight.SemiBold); Text(product.displayPrice) }; IconButton(onClick = { onRemoveAll(product.id) }) { Icon(Icons.Default.Delete, "Remove all") } }; Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { IconButton(onClick = { onDecrement(product) }, enabled = quantity > 0) { Text("−", style = MaterialTheme.typography.titleLarge) }; Text(quantity.toString(), Modifier.padding(horizontal = 12.dp), fontWeight = FontWeight.Bold); IconButton(onClick = { onIncrement(product) }, enabled = quantity < product.stockQuantity) { Text("+") } }; Text("Subtotal: ${formatPaise(product.pricePaise * quantity)}") } } } }; item { Text("Total: ${formatPaise(totalPaise)}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Button(onClick = onCheckout, modifier = Modifier.fillMaxWidth()) { Text("Proceed to secure checkout") } } } }
 
-@Composable private fun CheckoutDialog(totalPaise: Long, loading: Boolean, message: String, onDismiss: () -> Unit, onPlaceOrder: (String, String, String, String, String, String) -> Unit) { var fullName by remember { mutableStateOf("") }; var phone by remember { mutableStateOf("") }; var line1 by remember { mutableStateOf("") }; var city by remember { mutableStateOf("") }; var state by remember { mutableStateOf("") }; var postalCode by remember { mutableStateOf("") }; AlertDialog(onDismissRequest = onDismiss, title = { Text("Secure checkout") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Cart value: ${formatPaise(totalPaise)}", fontWeight = FontWeight.Bold); OutlinedTextField(fullName, { fullName = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full name") }); OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Phone") }); OutlinedTextField(line1, { line1 = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Address") }); OutlinedTextField(city, { city = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("City") }); OutlinedTextField(state, { state = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("State") }); OutlinedTextField(postalCode, { postalCode = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("PIN code") }); if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary); Text("Payment is processed by Razorpay. AARVO verifies it on the server before confirming the order.", style = MaterialTheme.typography.bodySmall) } }, confirmButton = { Button(onClick = { onPlaceOrder(fullName, phone, line1, city, state, postalCode) }, enabled = !loading && fullName.isNotBlank() && phone.trim().length >= 10 && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && postalCode.trim().length >= 5) { if (loading) CircularProgressIndicator() else Text("Pay securely") } }, dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text("Close") } }) }
+@Composable private fun CheckoutDialog(api: AarvoApiClient, totalPaise: Long, loading: Boolean, message: String, onDismiss: () -> Unit, onPlaceOrder: (String, String, String, String, String, String) -> Unit) {
+    var fullName by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var line1 by remember { mutableStateOf("") }
+    var city by remember { mutableStateOf("") }
+    var state by remember { mutableStateOf("") }
+    var postalCode by remember { mutableStateOf("") }
+    var savedAddresses by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var selectedAddressId by remember { mutableStateOf("") }
+    var addressLoading by remember { mutableStateOf(true) }
+    fun applyAddress(address: JSONObject) {
+        selectedAddressId = address.optString("id")
+        fullName = address.optString("full_name", address.optString("fullName"))
+        phone = address.optString("phone")
+        line1 = address.optString("line1")
+        city = address.optString("city")
+        state = address.optString("state")
+        postalCode = address.optString("postal_code", address.optString("postalCode"))
+    }
+    LaunchedEffect(api) {
+        addressLoading = true
+        try {
+            val response = api.addresses()
+            savedAddresses = buildList { for (i in 0 until response.length()) add(response.getJSONObject(i)) }
+            savedAddresses.firstOrNull { it.optBoolean("is_default", false) || it.optBoolean("isDefault", false) }?.let(::applyAddress)
+        } catch (_: Throwable) { savedAddresses = emptyList() }
+        finally { addressLoading = false }
+    }
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Secure checkout") }, text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Cart value: ${formatPaise(totalPaise)}", fontWeight = FontWeight.Bold)
+            if (addressLoading) Text("Loading saved delivery addresses...")
+            if (savedAddresses.isNotEmpty()) {
+                Text("Saved delivery addresses", fontWeight = FontWeight.SemiBold)
+                savedAddresses.forEach { address ->
+                    val id = address.optString("id")
+                    val label = address.optString("label").ifBlank { "Saved address" }
+                    val name = address.optString("full_name", address.optString("fullName"))
+                    val addressLine = listOf(address.optString("line1"), address.optString("city"), address.optString("state"), address.optString("postal_code", address.optString("postalCode"))).filter { it.isNotBlank() }.joinToString(", ")
+                    TextButton(onClick = { applyAddress(address) }, modifier = Modifier.fillMaxWidth()) { Text(if (selectedAddressId == id) "✓ $label — $name, $addressLine" else "$label — $name, $addressLine") }
+                }
+                Text("You can edit the selected address below before payment.", style = MaterialTheme.typography.bodySmall)
+            } else Text("No saved address yet. Enter your delivery address below; you can save addresses from My Account.", style = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(fullName, { fullName = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full name") })
+            OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Phone") })
+            OutlinedTextField(line1, { line1 = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Address") })
+            OutlinedTextField(city, { city = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("City") })
+            OutlinedTextField(state, { state = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("State") })
+            OutlinedTextField(postalCode, { postalCode = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("PIN code") })
+            if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary)
+            Text("Payment is processed by Razorpay. AARVO verifies it on the server before confirming the order.", style = MaterialTheme.typography.bodySmall)
+        }
+    }, confirmButton = { Button(onClick = { onPlaceOrder(fullName, phone, line1, city, state, postalCode) }, enabled = !loading && fullName.isNotBlank() && Regex("^[6-9][0-9]{9}$").matches(phone.trim()) && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && Regex("^[0-9]{6}$").matches(postalCode.trim())) { if (loading) CircularProgressIndicator() else Text("Pay securely") } }, dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text("Close") } })
+}
 
-@Composable private fun AccountScreen(padding: PaddingValues, userName: String, role: String, api: AarvoApiClient, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit) { var section by remember { mutableStateOf("account") }; when (section) { "orders" -> OrdersScreen(padding, api) { section = "account" }; "seller" -> SellerDashboardScreen(padding, api) { section = "account" }; else -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Text("My Account", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(if (guestMode) "Guest browsing" else userName) }; if (guestMode) { item { Text("Browse products and keep items in your cart. Login is only required when you purchase.") }; item { Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text("Login / Sign Up with OTP") } } } else { item { Button(onClick = { section = "orders" }, modifier = Modifier.fillMaxWidth()) { Text("My Orders & Tracking") } }; if (role == "SELLER") item { Button(onClick = { section = "seller" }, modifier = Modifier.fillMaxWidth()) { Text("Seller Dashboard") } }; item { Text("Buyer payments are server-verified before an order becomes confirmed.", style = MaterialTheme.typography.bodySmall) }; item { TextButton(onClick = onSignOut) { Text("Sign out") } } } } } }
+@Composable private fun AccountScreen(padding: PaddingValues, userName: String, role: String, api: AarvoApiClient, activity: MainActivity, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit) {
+    var section by remember { mutableStateOf("account") }
+    when (section) {
+        "orders" -> OrdersScreen(padding, api) { section = "account" }
+        "seller" -> SellerDashboardScreen(padding, api) { section = "account" }
+        else -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item { Text("My Account", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(if (guestMode) "Guest browsing" else userName) }
+            if (guestMode) {
+                item { Text("Browse products and keep items in your cart. Login is only required when you purchase.") }
+                item { Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text("Login / Sign Up with OTP") } }
+            } else {
+                item { Button(onClick = { activity.startActivity(Intent(activity, AddressBookActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("Delivery Addresses") } }
+                item { Button(onClick = { section = "orders" }, modifier = Modifier.fillMaxWidth()) { Text("My Orders & Tracking") } }
+                if (role == "SELLER") item { Button(onClick = { section = "seller" }, modifier = Modifier.fillMaxWidth()) { Text("Seller Dashboard") } }
+                item { Text("Buyer payments are server-verified before an order becomes confirmed.", style = MaterialTheme.typography.bodySmall) }
+                item { TextButton(onClick = onSignOut) { Text("Sign out") } }
+            }
+        }
+    }
+}
 
 @Composable private fun OrdersScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) { var orders by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); fun reload() { scope.launch { loading = true; error = ""; try { val a = api.orders(); orders = buildList { for (i in 0 until a.length()) add(a.getJSONObject(i)) } } catch (t: Throwable) { error = t.message ?: "Unable to load orders" } finally { loading = false } } }; LaunchedEffect(Unit) { reload() }; Scaffold(topBar = { TopAppBar(title = { Text("My Orders") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { inner -> LazyColumn(Modifier.fillMaxSize().padding(inner), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { if (loading) item { CircularProgressIndicator() }; if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }; if (!loading && orders.isEmpty()) item { Text("No orders yet.") }; items(orders, key = { it.optString("id") }) { order -> OrderCard(order, api, ::reload) } } } }
 
