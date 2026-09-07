@@ -40,33 +40,26 @@ class AarvoApiClient(
 
     suspend fun health(): JSONObject = getObject("/health")
 
+    suspend fun aiAssistant(message: String): JSONObject {
+        require(message.trim().isNotBlank()) { "Ask AARVO AI a question" }
+        val payload = JSONObject().put("message", message.trim())
+        return post("/v1/ai/assistant", payload)
+    }
+
     suspend fun login(phone: String, password: String): JSONObject {
         val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
         require(password.length >= 8) { "Password must be at least 8 characters" }
         return post("/v1/auth/login", JSONObject().put("phone", normalizedPhone).put("password", password))
     }
 
-    suspend fun register(
-        email: String = "",
-        password: String,
-        displayName: String,
-        role: String = "BUYER",
-        phone: String
-    ): JSONObject {
+    suspend fun register(email: String = "", password: String, displayName: String, role: String = "BUYER", phone: String): JSONObject {
         val normalizedRole = role.trim().uppercase()
         val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
         require(password.length >= 8) { "Password must be at least 8 characters" }
         require(displayName.trim().isNotBlank()) { "Display name is required" }
         require(normalizedRole in setOf("BUYER", "SELLER")) { "Invalid account role" }
-        val payload = JSONObject()
-            .put("password", password)
-            .put("displayName", displayName.trim())
-            .put("role", normalizedRole)
-            .put("phone", normalizedPhone)
-        if (email.trim().isNotBlank()) {
-            require(email.trim().contains('@')) { "Enter a valid email or leave it blank" }
-            payload.put("email", email.trim())
-        }
+        val payload = JSONObject().put("password", password).put("displayName", displayName.trim()).put("role", normalizedRole).put("phone", normalizedPhone)
+        if (email.trim().isNotBlank()) { require(email.trim().contains('@')) { "Enter a valid email or leave it blank" }; payload.put("email", email.trim()) }
         return post("/v1/auth/register", payload)
     }
 
@@ -82,10 +75,7 @@ class AarvoApiClient(
     }
 
     suspend fun products(query: String = "", category: String = ""): JSONArray {
-        val params = buildList {
-            if (query.isNotBlank()) add("q=${URLEncoder.encode(query, "UTF-8")}")
-            if (category.isNotBlank() && category != "All") add("category=${URLEncoder.encode(category, "UTF-8")}")
-        }.joinToString("&").let { if (it.isBlank()) "" else "?$it" }
+        val params = buildList { if (query.isNotBlank()) add("q=${URLEncoder.encode(query, "UTF-8")}"); if (category.isNotBlank() && category != "All") add("category=${URLEncoder.encode(category, "UTF-8")}") }.joinToString("&").let { if (it.isBlank()) "" else "?$it" }
         return get("/v1/products$params")
     }
 
