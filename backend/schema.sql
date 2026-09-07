@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS seller_profiles (
   verified BOOLEAN NOT NULL DEFAULT false, payout_account_ready BOOLEAN NOT NULL DEFAULT false,
   gateway_account_id TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS verified_by TEXT REFERENCES users(id);
+
 CREATE TABLE IF NOT EXISTS products (
   id BIGSERIAL PRIMARY KEY, seller_id TEXT NOT NULL REFERENCES users(id), seller_name TEXT NOT NULL,
   name TEXT NOT NULL, category TEXT NOT NULL, price_paise INTEGER NOT NULL CHECK (price_paise > 0),
@@ -44,13 +47,31 @@ CREATE TABLE IF NOT EXISTS products (
   stock_quantity INTEGER NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0),
   is_published BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY, buyer_id TEXT NOT NULL REFERENCES users(id), subtotal_paise INTEGER NOT NULL,
   delivery_fee_paise INTEGER NOT NULL DEFAULT 0, platform_fee_paise INTEGER NOT NULL DEFAULT 0,
   total_paise INTEGER NOT NULL, payment_status TEXT NOT NULL, status TEXT NOT NULL,
   address_json JSONB NOT NULL, gateway_order_id TEXT, gateway_payment_id TEXT,
+  tracking_json JSONB,
+  payment_expires_at TIMESTAMPTZ,
+  idempotency_key TEXT,
+  cancelled_at TIMESTAMPTZ,
+  cancel_reason TEXT,
+  refund_status TEXT,
+  refunded_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_json JSONB;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_expires_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancel_reason TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_status TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMPTZ;
+
+CREATE UNIQUE INDEX IF NOT EXISTS orders_buyer_idempotency_uidx ON orders (buyer_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS order_lines (
   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE, product_id BIGINT NOT NULL REFERENCES products(id),
   seller_id TEXT NOT NULL REFERENCES users(id), quantity INTEGER NOT NULL CHECK (quantity > 0),
@@ -66,6 +87,29 @@ CREATE TABLE IF NOT EXISTS seller_ledger (
   amount_paise INTEGER NOT NULL, type TEXT NOT NULL CHECK (type IN ('SALE','REFUND','PAYOUT','REVERSAL')),
   gateway_transfer_id TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS delivery_events (
+  id BIGSERIAL PRIMARY KEY,
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  status TEXT NOT NULL,
+  tracking_code TEXT,
+  carrier TEXT,
+  note TEXT,
+  actor_id TEXT REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS delivery_events_order_idx ON delivery_events(order_id, created_at ASC);
+CREATE TABLE IF NOT EXISTS order_disputes (
+  id UUID PRIMARY KEY,
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  buyer_id TEXT NOT NULL REFERENCES users(id),
+  reason TEXT NOT NULL,
+  details TEXT,
+  status TEXT NOT NULL DEFAULT 'OPEN',
+  resolution TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS order_disputes_open_uidx ON order_disputes(order_id) WHERE status IN ('OPEN','UNDER_REVIEW');
 
 CREATE UNIQUE INDEX IF NOT EXISTS orders_gateway_order_uidx ON orders (gateway_order_id) WHERE gateway_order_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS orders_gateway_payment_uidx ON orders (gateway_payment_id) WHERE gateway_payment_id IS NOT NULL;
