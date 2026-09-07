@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,7 +41,7 @@ class AarvoAiActivity : ComponentActivity() {
     }
 }
 
-@androidx.compose.runtime.Composable
+@Composable
 private fun AiShoppingScreen(context: Context, onClose: () -> Unit) {
     val prefs = remember { context.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
     val api = remember { AarvoApiClient { prefs.getString("auth_token", null) } }
@@ -66,7 +67,12 @@ private fun AiShoppingScreen(context: Context, onClose: () -> Unit) {
                     val result = api.aiAssistant(input)
                     answer = result.optString("reply", "AARVO AI ne response diya.")
                     suggestions = result.optJSONArray("products")?.let { arr ->
-                        buildList { for (i in 0 until arr.length()) { val o = arr.optJSONObject(i) ?: continue; add(Product(o.optInt("id"), o.optString("seller_name"), o.optString("name"), o.optString("category"), o.optLong("price_paise"), o.optDouble("rating"), o.optString("description"), o.optInt("stock_quantity"))) } }
+                        buildList {
+                            for (i in 0 until arr.length()) {
+                                val o = arr.optJSONObject(i) ?: continue
+                                add(Product(o.optInt("id"), o.optString("seller_id"), o.optString("seller_name"), o.optString("name"), o.optString("category"), (o.optLong("price_paise") / 100L).toInt(), o.optDouble("rating"), "", o.optString("description"), o.optInt("stock_quantity"), o.optBoolean("is_published", true), o.optLong("price_paise")))
+                            }
+                        }
                     } ?: emptyList()
                 } catch (t: Throwable) { error = t.message ?: "AI service unavailable." } finally { loading = false }
             }
@@ -76,7 +82,7 @@ private fun AiShoppingScreen(context: Context, onClose: () -> Unit) {
         if (error.isNotBlank()) { Spacer(Modifier.height(8.dp)); Text(error, color = MaterialTheme.colorScheme.error) }
         if (suggestions.isNotEmpty()) {
             Spacer(Modifier.height(12.dp)); Text("AI Suggestions", fontWeight = FontWeight.Bold)
-            LazyColumn { items(suggestions.size) { index -> val p = suggestions[index]; Card(Modifier.fillMaxWidth().padding(vertical = 5.dp)) { Column(Modifier.padding(12.dp)) { Text(p.name, fontWeight = FontWeight.Bold); Text("₹${p.pricePaise / 100} • ⭐ ${p.rating}"); Text(p.category) } } } }
+            LazyColumn { items(suggestions.size) { index -> val p = suggestions[index]; Card(Modifier.fillMaxWidth().padding(vertical = 5.dp)) { Column(Modifier.padding(12.dp)) { Text(p.name, fontWeight = FontWeight.Bold); Text(p.displayPrice + " • ⭐ " + p.rating); Text(p.category) } } } }
         }
     }
 }
