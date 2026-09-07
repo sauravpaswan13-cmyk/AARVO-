@@ -5,9 +5,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 
 /**
- * Temporary test-entry bridge.
- * Opens the full AARVO application without requiring verification first.
- * Authentication remains available from inside the app after signing out.
+ * Guest-entry bridge: lets users browse the real marketplace without
+ * verification. Authentication is requested when they try to purchase.
  */
 class GuestBrowseActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -16,10 +15,11 @@ class GuestBrowseActivity : ComponentActivity() {
         val prefs = getSharedPreferences("aarvo_prefs", MODE_PRIVATE)
         prefs.edit()
             .putBoolean("onboarded", true)
-            .putBoolean("signed_in", true)
-            .putString("user_name", "AARVO Tester")
-            .putString("user_role", "BUYER")
+            .putBoolean("signed_in", false)
+            .putBoolean("guest_mode", true)
             .remove("auth_token")
+            .remove("user_name")
+            .remove("user_role")
             .apply()
 
         startActivity(
