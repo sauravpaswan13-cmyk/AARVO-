@@ -45,12 +45,12 @@ if (refundStart >= 0 && refundEnd > refundStart) {
       const sellerAmount = Number(line.seller_amount_paise);
       const allocation = i === lines.rows.length - 1 ? remainingSellerRefund : Math.min(sellerAmount, Math.floor(amount * sellerAmount / Number(order.total_paise)));
       if (allocation > 0) {
-        await client.query('INSERT INTO seller_ledger(seller_id,order_id,amount_paise,type,gateway_transfer_id) VALUES($1,$2,$3,\'REFUND\',$4)', [line.seller_id, line.order_id, allocation, refund.id]);
+        await client.query("INSERT INTO seller_ledger(seller_id,order_id,amount_paise,type,gateway_transfer_id) VALUES($1,$2,$3,'REFUND',$4)", [line.seller_id, line.order_id, allocation, refund.id]);
         remainingSellerRefund -= allocation;
       }
     }
     const fullRefund = amount === Number(order.total_paise);
-    await client.query('UPDATE orders SET refund_status=$1,payment_status=CASE WHEN $2 THEN \'REFUNDED\' ELSE payment_status END,refunded_at=CASE WHEN $2 THEN now() ELSE refunded_at END,status=CASE WHEN $2 AND status<>\'DELIVERED\' THEN \'REFUNDED\' ELSE status END,updated_at=now() WHERE id=$3', [fullRefund ? 'PROCESSED' : 'PARTIAL', fullRefund, request.params.id]);
+    await client.query("UPDATE orders SET refund_status=$1,payment_status=CASE WHEN $2 THEN 'REFUNDED' ELSE payment_status END,refunded_at=CASE WHEN $2 THEN now() ELSE refunded_at END,status=CASE WHEN $2 AND status<>'DELIVERED' THEN 'REFUNDED' ELSE status END,updated_at=now() WHERE id=$3", [fullRefund ? 'PROCESSED' : 'PARTIAL', fullRefund, request.params.id]);
     await audit(client, request.user, 'ORDER', request.params.id, 'REFUND_PROCESSED', { refundId: refund.id, amountPaise: amount, fullRefund });
     await client.query('COMMIT');
     return { orderId: request.params.id, refundId: refund.id, amountPaise: amount, refundStatus: fullRefund ? 'PROCESSED' : 'PARTIAL' };
