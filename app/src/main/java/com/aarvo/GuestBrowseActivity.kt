@@ -18,11 +18,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.ShoppingBag
-import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -79,7 +78,7 @@ private fun EntryScreen(onGuest: () -> Unit, onLogin: () -> Unit) {
                 verticalArrangement = Arrangement.Center
             ) {
                 Surface(shape = CircleShape, color = gold.copy(alpha = .14f), modifier = Modifier.size(92.dp)) {
-                    Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.ShoppingBag, "AARVO", tint = gold, modifier = Modifier.size(48.dp)) }
+                    Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.ShoppingCart, "AARVO", tint = gold, modifier = Modifier.size(48.dp)) }
                 }
                 Spacer(Modifier.height(18.dp))
                 Text("AARVO", fontSize = 42.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 4.sp, color = gold)
@@ -102,9 +101,9 @@ private fun EntryScreen(onGuest: () -> Unit, onLogin: () -> Unit) {
                 }
                 Spacer(Modifier.height(22.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    TrustItem(Icons.Default.Security, "SECURE")
-                    TrustItem(Icons.Default.ShoppingBag, "QUALITY")
-                    TrustItem(Icons.Default.Speed, "FAST")
+                    TrustItem(Icons.Default.Lock, "SECURE")
+                    TrustItem(Icons.Default.ShoppingCart, "QUALITY")
+                    TrustItem(Icons.Default.Favorite, "FAST")
                 }
             }
         }
