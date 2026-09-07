@@ -41,10 +41,10 @@ test('marketplace completion runtime exposes product media and address APIs', ()
 });
 
 test('product image lifecycle preserves a primary image after deleting the current primary', () => {
-  assert.match(completion, /if \(result\.rows\[0\]\.is_primary\)/);
+  assert.match(completion, /if \(result\.rows\[0\]\.is_primary\) \{/);
   assert.match(completion, /ORDER BY sort_order ASC,id ASC LIMIT 1/);
   assert.match(completion, /UPDATE product_images SET is_primary=true WHERE id=\$1/);
-  assert.match(completion, /UPDATE products SET image_url=\$1,updated_at=now\(\)/);
+  assert.match(completion, /UPDATE products SET image_url=\$1,updated_at=now\(\) WHERE id=\$2/);
   assert.match(completion, /image_url=NULL,updated_at=now\(\)/);
 });
 
