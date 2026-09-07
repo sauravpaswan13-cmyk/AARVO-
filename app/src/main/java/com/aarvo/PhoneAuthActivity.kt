@@ -17,12 +17,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -36,11 +36,9 @@ import org.json.JSONObject
 class PhoneAuthActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val prefs = getSharedPreferences("aarvo_prefs", MODE_PRIVATE)
-        if (prefs.getBoolean("signed_in", false) && !prefs.getString("auth_token", null).isNullOrBlank()) {
-            openApp(); return
-        }
-        setContent { AarvoTheme { PhoneAuthScreen(prefs, ::openApp) } }
+        val prefs = getSharedPreferences("aarvo", MODE_PRIVATE)
+        val api = AarvoApiClient { prefs.getString("auth_token", null) }
+        setContent { AarvoTheme { PhoneAuthScreen(api, prefs) { openApp() } } }
     }
 
     private fun openApp() {
@@ -49,9 +47,8 @@ class PhoneAuthActivity : ComponentActivity() {
     }
 }
 
-@Composable
-private fun PhoneAuthScreen(prefs: android.content.SharedPreferences, openApp: () -> Unit) {
-    val api = remember { AarvoApiClient { prefs.getString("auth_token", null) } }
+@androidx.compose.runtime.Composable
+private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPreferences, openApp: () -> Unit) {
     var registerMode by remember { mutableStateOf(false) }
     var otpMode by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
@@ -65,27 +62,17 @@ private fun PhoneAuthScreen(prefs: android.content.SharedPreferences, openApp: (
     var otpPreview by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 32.dp), verticalArrangement = Arrangement.Center) {
-        Text("AARVO", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold)
-        Spacer(Modifier.height(6.dp))
-        Text(
-            if (otpMode) "Verify your mobile number" else if (registerMode) "Create your AARVO account" else "Login to AARVO",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(8.dp))
-        if (!otpMode && !registerMode) {
-            Text("Enter your mobile number to continue", style = MaterialTheme.typography.bodyMedium)
-            Spacer(Modifier.height(16.dp))
-        } else {
-            Spacer(Modifier.height(16.dp))
-        }
-
+    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("AARVO", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(20.dp))
         if (otpMode) {
-            Text("OTP has been sent to +91 ${IndianPhoneValidator.normalize(phone)}")
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(otp, { otp = it.filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("6-digit OTP") })
-            if (otpPreview.isNotBlank()) Text("Test OTP: $otpPreview", color = MaterialTheme.colorScheme.primary)
+            Text("Verify your mobile number", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Text("OTP sent to +91 $phone")
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(otp, { otp = it.filter(Char::isDigit).take(8) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("6-digit OTP") })
+            if (otpPreview.isNotBlank()) { Spacer(Modifier.height(6.dp)); Text("Test OTP: $otpPreview", color = MaterialTheme.colorScheme.primary) }
+            if (error.isNotBlank()) { Spacer(Modifier.height(6.dp)); Text(error, color = MaterialTheme.colorScheme.error) }
             Spacer(Modifier.height(12.dp))
             Button(onClick = {
                 loading = true; error = ""
@@ -94,8 +81,8 @@ private fun PhoneAuthScreen(prefs: android.content.SharedPreferences, openApp: (
                     catch (t: Throwable) { error = t.message ?: "OTP verification failed" }
                     finally { loading = false }
                 }
-            }, enabled = !loading && Regex("^[0-9]{6}$").matches(otp), modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                if (loading) CircularProgressIndicator() else Text("Verify & continue", fontWeight = FontWeight.Bold)
+            }, enabled = !loading && otp.length == 6, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                if (loading) CircularProgressIndicator() else Text("Verify & Continue", fontWeight = FontWeight.Bold)
             }
             TextButton(onClick = {
                 if (!loading) scope.launch {
@@ -126,10 +113,19 @@ private fun PhoneAuthScreen(prefs: android.content.SharedPreferences, openApp: (
                 scope.launch {
                     try {
                         if (registerMode) {
-                            val result = api.register(email, password, name, if (seller) "SELLER" else "BUYER", phone)
-                            otpMode = true; otpPreview = result.optString("otpPreview", "")
+                            api.register(email, password, name, if (seller) "SELLER" else "BUYER", phone)
+                            val otpResult = api.resendPhoneOtp(phone)
+                            otpPreview = otpResult.optString("otpPreview", "")
+                            otpMode = true
                         } else {
-                            val result = api.login(phone, password); saveSession(prefs, result); openApp()
+                            val result = api.login(phone, password)
+                            if (result.optBoolean("requiresPhoneVerification", false)) {
+                                val otpResult = api.resendPhoneOtp(phone)
+                                otpPreview = otpResult.optString("otpPreview", "")
+                                otpMode = true
+                            } else {
+                                saveSession(prefs, result); openApp()
+                            }
                         }
                     } catch (t: Throwable) { error = t.message ?: "Unable to connect to AARVO server." }
                     finally { loading = false }
