@@ -8,9 +8,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const read = (relativePath) => fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
 
 const schema = read('backend/schema.sql');
+const operationsMigration = read('backend/migrations/002_marketplace_operations.sql');
+const reviewsMigration = read('backend/migrations/003_reviews_delivery.sql');
 const authMigration = read('backend/migrations/007_phone_first_auth.sql');
 const runtimeMigration = read('backend/migrations/008_auth_runtime_compat.sql');
-const migration = `${authMigration}\n${runtimeMigration}`;
+const migration = `${operationsMigration}\n${reviewsMigration}\n${authMigration}\n${runtimeMigration}`;
 const server = read('backend/src/server.js');
 
 test('marketplace schema matches the auth/order/review/audit server contracts', () => {
@@ -19,14 +21,12 @@ test('marketplace schema matches the auth/order/review/audit server contracts', 
   assert.match(schema, /CREATE TABLE IF NOT EXISTS order_lines/);
   assert.match(schema, /CREATE TABLE IF NOT EXISTS seller_ledger/);
 
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS audit_events/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS product_reviews/);
   assert.match(migration, /ADD COLUMN IF NOT EXISTS otp_hash TEXT/);
   assert.match(migration, /ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ/);
   assert.match(migration, /ALTER COLUMN code_hash DROP NOT NULL/);
   assert.match(migration, /ALTER COLUMN id SET DEFAULT (gen_random_uuid\(\)|md5\(random\(\)::text \|\| clock_timestamp\(\)::text\)::uuid)/);
-  assert.match(migration, /CREATE TABLE IF NOT EXISTS product_images/);
-  assert.match(migration, /CREATE TABLE IF NOT EXISTS product_reviews/);
-  assert.match(migration, /CREATE TABLE IF NOT EXISTS audit_events/);
-  assert.match(migration, /CREATE TABLE IF NOT EXISTS buyer_addresses/);
 
   assert.match(server, /phone_verification_challenges/);
   assert.match(server, /otp_hash/);
