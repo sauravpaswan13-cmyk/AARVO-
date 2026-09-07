@@ -4,8 +4,6 @@ import { fileURLToPath, pathToFileURL } from 'url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const serverPath = path.join(here, 'server.js');
-// The compatibility wrapper lives beside server.js so Node resolves package imports
-// (fastify, pg, etc.) and relative imports from the correct /app/src module scope.
 const runtimePath = path.join(here, '.aarvo-runtime-server.mjs');
 let source = await fs.readFile(serverPath, 'utf8');
 
@@ -17,6 +15,30 @@ if (!source.includes('registerMarketplaceCompletion')) {
   source = source.replace(
     "const port=Number(process.env.PORT||8080);",
     "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\nconst port=Number(process.env.PORT||8080);"
+  );
+}
+
+// Category-based AARVO commission: 3% minimum through 12% maximum.
+if (!source.includes("commission-rules.js")) {
+  source = source.replace(
+    "import { registerSettlementCompletion } from './settlement-completion.js';",
+    "import { registerSettlementCompletion } from './settlement-completion.js';\nimport { commissionBpsForCategory, commissionPaise } from './commission-rules.js';"
+  );
+  source = source.replace(
+    "const PLATFORM_FEE_BPS = Number(process.env.PLATFORM_FEE_BPS || 0);",
+    "const PLATFORM_FEE_BPS = 0;"
+  );
+  source = source.replace(
+    "SELECT id,seller_id,price_paise,stock_quantity,is_published FROM products WHERE id=ANY($1::bigint[]) FOR UPDATE",
+    "SELECT id,seller_id,category,price_paise,stock_quantity,is_published FROM products WHERE id=ANY($1::bigint[]) FOR UPDATE"
+  );
+  source = source.replace(
+    "const platformFee=Math.floor(subtotal*PLATFORM_FEE_BPS/10000),total=subtotal+DELIVERY_FEE_PAISE+platformFee,orderId=randomUUID();",
+    "const platformFee=products.rows.reduce((sum,p)=>sum+commissionPaise(Number(p.price_paise)*merged.get(Number(p.id)),p.category),0),total=subtotal+DELIVERY_FEE_PAISE+platformFee,orderId=randomUUID();"
+  );
+  source = source.replace(
+    "const qty=merged.get(Number(p.id)),lineTotal=Number(p.price_paise)*qty,sellerAmount=lineTotal-Math.floor(lineTotal*PLATFORM_FEE_BPS/10000);",
+    "const qty=merged.get(Number(p.id)),lineTotal=Number(p.price_paise)*qty,sellerAmount=lineTotal-commissionPaise(lineTotal,p.category);"
   );
 }
 
