@@ -1,0 +1,144 @@
+name: Integrate saved address UI
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch MainActivity
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('app/src/main/java/com/aarvo/MainActivity.kt')
+          s = p.read_text()
+
+          old_call = 'if (showCheckout) CheckoutDialog(cartItems.sumOf { it.pricePaise }, checkoutLoading, checkoutMessage, { if (!checkoutLoading) showCheckout = false }) {'
+          new_call = 'if (showCheckout) CheckoutDialog(cartItems.sumOf { it.pricePaise }, checkoutLoading, checkoutMessage, api, activity, { if (!checkoutLoading) showCheckout = false }) {'
+          if old_call not in s:
+              raise SystemExit('checkout call marker not found')
+          s = s.replace(old_call, new_call, 1)
+
+          old_account_call = 'else -> AccountScreen(padding, userName, role, api, guestMode, onLogin, onSignOut)'
+          new_account_call = 'else -> AccountScreen(padding, userName, role, api, activity, guestMode, onLogin, onSignOut)'
+          if old_account_call not in s:
+              raise SystemExit('account call marker not found')
+          s = s.replace(old_account_call, new_account_call, 1)
+
+          start = s.index('@Composable private fun CheckoutDialog(')
+          end = s.index('\n\n@Composable private fun AccountScreen(', start)
+          new_checkout = r'''@Composable private fun CheckoutDialog(totalPaise: Long, loading: Boolean, message: String, api: AarvoApiClient, activity: MainActivity, onDismiss: () -> Unit, onPlaceOrder: (String, String, String, String, String, String) -> Unit) {
+    var fullName by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var line1 by remember { mutableStateOf("") }
+    var city by remember { mutableStateOf("") }
+    var state by remember { mutableStateOf("") }
+    var postalCode by remember { mutableStateOf("") }
+    var addresses by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var selectedAddressId by remember { mutableStateOf("") }
+    var addressLoading by remember { mutableStateOf(true) }
+
+    fun applyAddress(address: JSONObject) {
+        fullName = address.optString("full_name")
+        phone = address.optString("phone")
+        line1 = address.optString("line1")
+        city = address.optString("city")
+        state = address.optString("state")
+        postalCode = address.optString("postal_code")
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            val result = api.addresses()
+            addresses = buildList { for (i in 0 until result.length()) add(result.getJSONObject(i)) }
+            val defaultAddress = addresses.firstOrNull { it.optBoolean("is_default", false) } ?: addresses.firstOrNull()
+            if (defaultAddress != null) {
+                selectedAddressId = defaultAddress.optString("id")
+                applyAddress(defaultAddress)
+            }
+        } catch (_: Throwable) {
+            addresses = emptyList()
+        } finally {
+            addressLoading = false
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Secure checkout") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Cart value: ${formatPaise(totalPaise)}", fontWeight = FontWeight.Bold)
+                if (addressLoading) CircularProgressIndicator()
+                if (addresses.isNotEmpty()) {
+                    Text("Saved delivery addresses", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    addresses.forEach { address ->
+                        val id = address.optString("id")
+                        TextButton(onClick = { selectedAddressId = id; applyAddress(address) }, modifier = Modifier.fillMaxWidth()) {
+                            Text(if (selectedAddressId == id) "✓ ${address.optString("label", "Delivery address")} • ${address.optString("city")}" else "${address.optString("label", "Delivery address")} • ${address.optString("city")}")
+                        }
+                    }
+                }
+                TextButton(onClick = { activity.startActivity(Intent(activity, AddressBookActivity::class.java)) }, enabled = !loading, modifier = Modifier.fillMaxWidth()) { Text("Manage saved addresses") }
+                OutlinedTextField(fullName, { fullName = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full name") })
+                OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Phone") })
+                OutlinedTextField(line1, { line1 = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Address") })
+                OutlinedTextField(city, { city = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("City") })
+                OutlinedTextField(state, { state = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("State") })
+                OutlinedTextField(postalCode, { postalCode = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("PIN code") })
+                if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary)
+                Text("Payment is processed by Razorpay. AARVO verifies it on the server before confirming the order.", style = MaterialTheme.typography.bodySmall)
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onPlaceOrder(fullName, phone, line1, city, state, postalCode) }, enabled = !loading && fullName.isNotBlank() && phone.trim().matches(Regex("^[6-9][0-9]{9}$")) && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && postalCode.trim().matches(Regex("^[0-9]{6}$"))) {
+                if (loading) CircularProgressIndicator() else Text("Pay securely")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text("Close") } }
+    )
+}'''
+          s = s[:start] + new_checkout + s[end:]
+
+          start = s.index('@Composable private fun AccountScreen(')
+          end = s.index('\n\n@Composable private fun OrdersScreen(', start)
+          new_account = r'''@Composable private fun AccountScreen(padding: PaddingValues, userName: String, role: String, api: AarvoApiClient, activity: MainActivity, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit) {
+    var section by remember { mutableStateOf("account") }
+    when (section) {
+        "orders" -> OrdersScreen(padding, api) { section = "account" }
+        "seller" -> SellerDashboardScreen(padding, api) { section = "account" }
+        else -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item { Text("My Account", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(if (guestMode) "Guest browsing" else userName) }
+            if (guestMode) {
+                item { Text("Browse products and keep items in your cart. Login is only required when you purchase.") }
+                item { Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text("Login / Sign Up with OTP") } }
+            } else {
+                item { Button(onClick = { activity.startActivity(Intent(activity, AddressBookActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("Delivery Addresses") } }
+                item { Button(onClick = { section = "orders" }, modifier = Modifier.fillMaxWidth()) { Text("My Orders & Tracking") } }
+                if (role == "SELLER") item { Button(onClick = { section = "seller" }, modifier = Modifier.fillMaxWidth()) { Text("Seller Dashboard") } }
+                item { Text("Buyer payments are server-verified before an order becomes confirmed.", style = MaterialTheme.typography.bodySmall) }
+                item { TextButton(onClick = onSignOut) { Text("Sign out") } }
+            }
+        }
+    }
+}'''
+          s = s[:start] + new_account + s[end:]
+          p.write_text(s)
+
+      - name: Commit integrated UI
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/aarvo/MainActivity.kt .github/workflows/integrate-address-book.yml
+          git rm .github/workflows/integrate-address-book.yml
+          git commit -m "feat: integrate saved delivery addresses"
+          git push
