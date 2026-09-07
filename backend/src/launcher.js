@@ -4,9 +4,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const serverPath = path.join(here, 'server.js');
-// The image runs as the unprivileged `node` user, so /app/src is not writable.
-// Keep the generated compatibility wrapper in the writable runtime temp area.
-const runtimePath = path.join('/tmp', '.aarvo-runtime-server.mjs');
+// The compatibility wrapper lives beside server.js so Node resolves package imports
+// (fastify, pg, etc.) and relative imports from the correct /app/src module scope.
+const runtimePath = path.join(here, '.aarvo-runtime-server.mjs');
 let source = await fs.readFile(serverPath, 'utf8');
 
 if (!source.includes('registerMarketplaceCompletion')) {
