@@ -29,10 +29,6 @@ CREATE TABLE IF NOT EXISTS phone_verification_challenges (
   last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-ALTER TABLE phone_verification_challenges ADD COLUMN IF NOT EXISTS otp_hash TEXT;
-ALTER TABLE phone_verification_challenges ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
-ALTER TABLE phone_verification_challenges ALTER COLUMN id SET DEFAULT gen_random_uuid();
-ALTER TABLE phone_verification_challenges ALTER COLUMN otp_hash DROP NOT NULL;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='phone_verification_challenges' AND column_name='code_hash')
@@ -44,7 +40,10 @@ BEGIN
     EXECUTE 'ALTER TABLE phone_verification_challenges RENAME COLUMN consumed_at TO verified_at';
   END IF;
 END $$;
-UPDATE phone_verification_challenges SET otp_hash = COALESCE(otp_hash, code_hash) WHERE otp_hash IS NULL AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='phone_verification_challenges' AND column_name='code_hash');
+ALTER TABLE phone_verification_challenges ADD COLUMN IF NOT EXISTS otp_hash TEXT;
+ALTER TABLE phone_verification_challenges ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+ALTER TABLE phone_verification_challenges ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE phone_verification_challenges ALTER COLUMN otp_hash DROP NOT NULL;
 CREATE INDEX IF NOT EXISTS phone_verification_user_idx ON phone_verification_challenges (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS phone_verification_expiry_idx ON phone_verification_challenges (expires_at);
 
