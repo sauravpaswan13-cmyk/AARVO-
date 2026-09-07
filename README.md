@@ -10,16 +10,28 @@ AARVO is being developed as a **real two-sided marketplace**: customers buy genu
 
 **Admin:** seller approval → catalog moderation → commission rules → orders/payments → refunds/disputes → fraud/risk → analytics → audit logs.
 
-## Super-marketplace roadmap
+## Core product promise
 
-AARVO's master roadmap is maintained in [`AARVO_ROADMAP.md`](AARVO_ROADMAP.md). The target is a feature set equal to or broader than major marketplaces, built in controlled phases so feature growth does not break existing flows.
-
-### Core product promise
-
-- Guest users can browse and shop the catalog without verification.
+- Guest users can browse the catalog without verification.
 - Login/Signup with OTP remains available for users who want an account.
 - Authentication is required at the appropriate purchase step, while browsing and cart access remain available to guests.
 - Every completed feature must preserve existing functionality and pass CI/build validation.
+
+## Current implementation status
+
+- Guest entry + guest browsing path: implemented.
+- OTP authentication path: implemented.
+- Search, categories, sorting and product filters: implemented foundation.
+- Cart quantity controls: implemented.
+- Wishlist foundation: present.
+- Checkout/address and marketplace backend foundations: present.
+- Product images and seller settlement/payout foundations: present.
+- Refund/cancellation protection foundations: present.
+- Android/backend CI: verified green on the latest repository status.
+
+## Internal completion policy
+
+Before external launch dependencies are connected, internal work is treated as complete only after the relevant client/backend implementation exists, failure paths are handled, and build/contract checks pass. Real payment credentials, seller KYC/bank onboarding, shipping-provider activation and other production-account setup are external launch tasks and are intentionally kept separate.
 
 ## Production principles
 
@@ -30,47 +42,23 @@ AARVO's master roadmap is maintained in [`AARVO_ROADMAP.md`](AARVO_ROADMAP.md). 
 - Sensitive payment credentials are never stored in the Android app or AARVO database.
 - Every order supports cancellation/refund/dispute paths and auditable state transitions.
 
-## Current repository foundation
+## Production milestones
 
-- Kotlin + Jetpack Compose Android application.
-- Marketplace domain models for buyers, sellers, orders, payments, delivery addresses and order states.
-- `MarketplaceApi` boundary for replacing the development catalog with a live HTTPS backend.
-- Inventory-aware product model with seller ownership and publication state.
-- Android CI with JDK 17 + Gradle 9.7.1 and debug APK artifact.
-- `backend/README.md` documenting the production API/payment/security requirements.
-
-## Current implementation status
-
-- Guest entry + guest browsing path: implemented.
-- OTP authentication path: implemented.
-- Search, categories, sorting and product filters: implemented foundation.
-- Cart quantity controls: implemented.
-- Wishlist foundation: present.
-- Offers/coupon architecture: present as server-ready foundation; checkout must still validate offers server-side before this is considered live coupon functionality.
-- Android/backend CI: green on the latest verified run.
-- Full master roadmap: tracked in `AARVO_ROADMAP.md`.
-
-## 10 production milestones
-
-1. **Backend + database** — users, sellers, products, inventory, orders, payments, payouts and audit events.
-2. **Real authentication** — OTP/email login, secure sessions and buyer/seller/admin roles.
-3. **Seller onboarding** — store creation, KYC, bank/payout onboarding and seller approval.
-4. **Live catalog** — product images, categories, search, filters, variants and server-side inventory.
-5. **Real cart/checkout** — persistent cart, addresses, shipping calculation and server-side totals.
-6. **Real payments** — Indian payment gateway, webhook verification, idempotency, refunds and payment reconciliation.
-7. **Seller operations** — listing management, stock, order acceptance, packing/shipping and earnings.
-8. **Delivery + trust** — tracking, notifications, returns, reviews, ratings and disputes.
-9. **Admin control plane** — moderation, commissions, payouts, fraud/risk controls, support and analytics.
-10. **Production launch** — security hardening, tests, monitoring, crash reporting, release signing, policies and Play Store release.
+1. Backend + database — users, sellers, products, inventory, orders, payments, payouts and audit events.
+2. Real authentication — OTP/email login, secure sessions and buyer/seller/admin roles.
+3. Seller onboarding — store creation, KYC, bank/payout onboarding and seller approval.
+4. Live catalog — product images, categories, search, filters, variants and server-side inventory.
+5. Real cart/checkout — persistent cart, addresses, shipping calculation and server-side totals.
+6. Real payments — Indian payment gateway, webhook verification, idempotency, refunds and payment reconciliation.
+7. Seller operations — listing management, stock, order acceptance, packing/shipping and earnings.
+8. Delivery + trust — tracking, notifications, returns, reviews, ratings and disputes.
+9. Admin control plane — moderation, commissions, payouts, fraud/risk controls, support and analytics.
+10. Production launch — security hardening, tests, monitoring, crash reporting, release signing, policies and Play Store release.
 
 ## Release signing preparation
 
-`app/build.gradle.kts` now supports an optional `production` signing configuration. The repository contains `keystore.properties.example` as a template only; real keystore files and passwords must remain outside Git and should be supplied through a secure local/CI secret mechanism. If signing properties are not supplied, CI can still build an unsigned release AAB for verification.
+`app/build.gradle.kts` supports an optional `production` signing configuration. Real keystore files and passwords must remain outside Git and should be supplied through a secure local/CI secret mechanism. If signing properties are not supplied, CI can still build an unsigned release AAB for verification.
 
 ## Important launch gate
 
 The Android UI alone cannot make AARVO a real marketplace. Before accepting real customer money, the production backend, payment/payout account, seller verification, shipping integration, security configuration and legal policies must be connected and tested end-to-end. Until that gate is passed, no build should be marketed as a live shopping service.
-
-## Engineering progress
-
-Cart quantity controls and quantity-aware checkout are part of the production client path; CI verifies the backend contract and Android debug/release compilation.
