@@ -93,6 +93,7 @@ class AarvoApiClient(
     suspend fun productReviews(productId: Int): JSONArray { require(productId > 0) { "Product ID must be positive" }; return get("/v1/products/$productId/reviews") }
 
     suspend fun createOrder(items: JSONArray, address: JSONObject, idempotencyKey: String = UUID.randomUUID().toString()): JSONObject = withContext(Dispatchers.IO) {
+        require(!tokenProvider().isNullOrBlank()) { "Login or verify your mobile number before purchasing." }
         require(items.length() > 0) { "Order must contain at least one item" }; require(address.length() > 0) { "Delivery address is required" }; require(idempotencyKey.length in 8..128) { "Invalid idempotency key" }
         val response = execute(Request.Builder().url(buildUrl("/v1/orders")).applyAuth().header("Idempotency-Key", idempotencyKey).post(JSONObject().put("items", items).put("address", address).toString().toRequestBody(jsonMediaType)).build()); JSONObject(response)
     }
