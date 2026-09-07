@@ -65,28 +65,38 @@ private fun PhoneAuthScreen(prefs: android.content.SharedPreferences, openApp: (
     var otpPreview by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
-    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
-        Text("AARVO", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 32.dp), verticalArrangement = Arrangement.Center) {
+        Text("AARVO", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            if (otpMode) "Verify your mobile number" else if (registerMode) "Create your AARVO account" else "Login to AARVO",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
         Spacer(Modifier.height(8.dp))
-        Text(if (otpMode) "Verify your mobile number" else if (registerMode) "Create your AARVO account" else "Login to AARVO", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(16.dp))
+        if (!otpMode && !registerMode) {
+            Text("Enter your mobile number to continue", style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(16.dp))
+        } else {
+            Spacer(Modifier.height(16.dp))
+        }
 
         if (otpMode) {
             Text("OTP has been sent to +91 ${IndianPhoneValidator.normalize(phone)}")
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(otp, { otp = it.filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("6-digit OTP") })
             if (otpPreview.isNotBlank()) Text("Test OTP: $otpPreview", color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Button(onClick = {
                 loading = true; error = ""
                 scope.launch {
-                    try {
-                        val result = api.verifyPhoneOtp(phone, otp)
-                        saveSession(prefs, result); openApp()
-                    } catch (t: Throwable) { error = t.message ?: "OTP verification failed" }
+                    try { val result = api.verifyPhoneOtp(phone, otp); saveSession(prefs, result); openApp() }
+                    catch (t: Throwable) { error = t.message ?: "OTP verification failed" }
                     finally { loading = false }
                 }
-            }, enabled = !loading && Regex("^[0-9]{6}$").matches(otp), modifier = Modifier.fillMaxWidth()) { if (loading) CircularProgressIndicator() else Text("Verify & continue") }
+            }, enabled = !loading && Regex("^[0-9]{6}$").matches(otp), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                if (loading) CircularProgressIndicator() else Text("Verify & continue", fontWeight = FontWeight.Bold)
+            }
             TextButton(onClick = {
                 if (!loading) scope.launch {
                     loading = true; error = ""
@@ -100,17 +110,17 @@ private fun PhoneAuthScreen(prefs: android.content.SharedPreferences, openApp: (
                 OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full name") })
                 Spacer(Modifier.height(8.dp))
             }
-            OutlinedTextField(phone, { phone = it.filter(Char::isDigit).take(10) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Mobile number (10 digits)") })
+            OutlinedTextField(phone, { phone = it.filter(Char::isDigit).take(10) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Mobile number") }, prefix = { Text("+91  ") })
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text("Password (8+ characters)") })
+            OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), label = { Text("Password") })
             if (registerMode) {
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Email (optional)") })
                 Spacer(Modifier.height(4.dp))
                 TextButton(onClick = { seller = !seller }) { Text(if (seller) "✓ Register as seller" else "Register as buyer") }
             }
-            if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
-            Spacer(Modifier.height(8.dp))
+            if (error.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(error, color = MaterialTheme.colorScheme.error) }
+            Spacer(Modifier.height(12.dp))
             Button(onClick = {
                 loading = true; error = ""
                 scope.launch {
@@ -124,8 +134,21 @@ private fun PhoneAuthScreen(prefs: android.content.SharedPreferences, openApp: (
                     } catch (t: Throwable) { error = t.message ?: "Unable to connect to AARVO server." }
                     finally { loading = false }
                 }
-            }, enabled = !loading && IndianPhoneValidator.isValid(phone) && password.length >= 8 && (!registerMode || name.isNotBlank()), modifier = Modifier.fillMaxWidth()) { if (loading) CircularProgressIndicator() else Text(if (registerMode) "Create account & verify phone" else "Login") }
-            TextButton(onClick = { registerMode = !registerMode; error = "" }) { Text(if (registerMode) "Already have an account? Login" else "New to AARVO? Create account") }
+            }, enabled = !loading && IndianPhoneValidator.isValid(phone) && password.length >= 8 && (!registerMode || name.isNotBlank()), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                if (loading) CircularProgressIndicator() else Text(if (registerMode) "Create account & verify" else "Continue", fontWeight = FontWeight.Bold)
+            }
+            if (!registerMode) {
+                Spacer(Modifier.height(4.dp))
+                TextButton(onClick = { registerMode = true; error = "" }, modifier = Modifier.fillMaxWidth()) { Text("New to AARVO? Create account") }
+                Text("By continuing, you agree to AARVO's Terms & Privacy Policy", style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(10.dp))
+                TextButton(onClick = {
+                    prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", true).putString("user_name", "Guest").putString("user_role", "BUYER").remove("auth_token").apply()
+                    openApp()
+                }, modifier = Modifier.fillMaxWidth()) { Text("Continue as Guest", fontWeight = FontWeight.Bold) }
+            } else {
+                TextButton(onClick = { registerMode = false; error = "" }) { Text("Already have an account? Login") }
+            }
         }
         if (!api.isConfigured()) Text("Live API is not configured in this build.", style = MaterialTheme.typography.bodySmall)
     }
