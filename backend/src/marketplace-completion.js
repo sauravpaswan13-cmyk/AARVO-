@@ -6,8 +6,9 @@ const normalizePhone = (value) => {
 
 const validImageUrl = (value) => {
   try {
-    const url = new URL(String(value || '').trim());
-    return ['http:', 'https:'].includes(url.protocol) && String(value).length <= 2000;
+    const raw = String(value || '').trim();
+    const url = new URL(raw);
+    return ['http:', 'https:'].includes(url.protocol) && raw.length <= 2000;
   } catch {
     return false;
   }
@@ -53,7 +54,7 @@ export async function registerMarketplaceCompletion({ app, pool, requireAuth, re
       await client.query('BEGIN');
       if (isPrimary) await client.query('UPDATE product_images SET is_primary=false WHERE product_id=$1', [request.params.id]);
       const result = await client.query('INSERT INTO product_images(product_id,seller_id,image_url,alt_text,sort_order,is_primary) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,image_url,alt_text,sort_order,is_primary', [request.params.id, request.user.sub, imageUrl, altText, sortOrder, isPrimary]);
-      await client.query('UPDATE products SET image_url=CASE WHEN $2 THEN $1 ELSE image_url END,updated_at=now() WHERE id=$3', [imageUrl, isPrimary, request.params.id]);
+      if (isPrimary) await client.query('UPDATE products SET image_url=$1,updated_at=now() WHERE id=$2', [imageUrl, request.params.id]);
       await audit(client, request.user, 'PRODUCT', request.params.id, 'IMAGE_ADDED', { imageId: result.rows[0].id });
       await client.query('COMMIT');
       return reply.code(201).send(result.rows[0]);
@@ -65,10 +66,24 @@ export async function registerMarketplaceCompletion({ app, pool, requireAuth, re
 
   app.delete('/v1/seller/products/:id/images/:imageId', { preHandler: requireRole('SELLER') }, async (request, reply) => {
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
-    const result = await pool.query('DELETE FROM product_images WHERE id=$1 AND product_id=$2 AND seller_id=$3 RETURNING id,is_primary', [request.params.imageId, request.params.id, request.user.sub]);
-    if (!result.rowCount) return reply.code(404).send({ error: 'PRODUCT_IMAGE_NOT_FOUND' });
-    if (result.rows[0].is_primary) await pool.query('UPDATE products SET image_url=NULL,updated_at=now() WHERE id=$1 AND seller_id=$2', [request.params.id, request.user.sub]);
-    return { deleted: true, imageId: Number(request.params.imageId) };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await client.query('DELETE FROM product_images WHERE id=$1 AND product_id=$2 AND seller_id=$3 RETURNING id,is_primary', [request.params.imageId, request.params.id, request.user.sub]);
+      if (!result.rowCount) { await client.query('ROLLBACK'); return reply.code(404).send({ error: 'PRODUCT_IMAGE_NOT_FOUND' }); }
+      if (result.rows[0].is_primary) {
+        const replacement = await client.query('SELECT id,image_url FROM product_images WHERE product_id=$1 ORDER BY sort_order ASC,id ASC LIMIT 1', [request.params.id]);
+        if (replacement.rowCount) {
+          await client.query('UPDATE product_images SET is_primary=true WHERE id=$1', [replacement.rows[0].id]);
+          await client.query('UPDATE products SET image_url=$1,updated_at=now() WHERE id=$2 AND seller_id=$3', [replacement.rows[0].image_url, request.params.id, request.user.sub]);
+        } else {
+          await client.query('UPDATE products SET image_url=NULL,updated_at=now() WHERE id=$1 AND seller_id=$2', [request.params.id, request.user.sub]);
+        }
+      }
+      await audit(client, request.user, 'PRODUCT', request.params.id, 'IMAGE_DELETED', { imageId: Number(request.params.imageId) });
+      await client.query('COMMIT');
+      return { deleted: true, imageId: Number(request.params.imageId) };
+    } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
   });
 
   app.get('/v1/addresses', { preHandler: requireRole('BUYER') }, async (request, reply) => {
@@ -98,13 +113,15 @@ export async function registerMarketplaceCompletion({ app, pool, requireAuth, re
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
     const address = normalizeAddress(request.body);
     if (!address) return reply.code(400).send({ error: 'INVALID_ADDRESS' });
-    const makeDefault = request.body?.isDefault === true;
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      if (makeDefault) await client.query('UPDATE buyer_addresses SET is_default=false,updated_at=now() WHERE buyer_id=$1', [request.user.sub]);
-      const result = await client.query('UPDATE buyer_addresses SET label=$1,full_name=$2,phone=$3,line1=$4,line2=$5,city=$6,state=$7,postal_code=$8,country=$9,is_default=$10,updated_at=now() WHERE id=$11 AND buyer_id=$12 RETURNING *', [address.label,address.fullName,address.phone,address.line1,address.line2,address.city,address.state,address.postalCode,address.country,makeDefault,request.params.id,request.user.sub]);
-      if (!result.rowCount) { await client.query('ROLLBACK'); return reply.code(404).send({ error: 'ADDRESS_NOT_FOUND' }); }
+      const current = await client.query('SELECT is_default FROM buyer_addresses WHERE id=$1 AND buyer_id=$2 FOR UPDATE', [request.params.id, request.user.sub]);
+      if (!current.rowCount) { await client.query('ROLLBACK'); return reply.code(404).send({ error: 'ADDRESS_NOT_FOUND' }); }
+      const requestedDefault = request.body?.isDefault === true;
+      const isDefault = requestedDefault || current.rows[0].is_default;
+      if (isDefault) await client.query('UPDATE buyer_addresses SET is_default=false,updated_at=now() WHERE buyer_id=$1 AND id<>$2', [request.user.sub, request.params.id]);
+      const result = await client.query('UPDATE buyer_addresses SET label=$1,full_name=$2,phone=$3,line1=$4,line2=$5,city=$6,state=$7,postal_code=$8,country=$9,is_default=$10,updated_at=now() WHERE id=$11 AND buyer_id=$12 RETURNING *', [address.label,address.fullName,address.phone,address.line1,address.line2,address.city,address.state,address.postalCode,address.country,isDefault,request.params.id,request.user.sub]);
       await audit(client, request.user, 'ADDRESS', request.params.id, 'UPDATED');
       await client.query('COMMIT');
       return result.rows[0];
@@ -113,12 +130,15 @@ export async function registerMarketplaceCompletion({ app, pool, requireAuth, re
 
   app.delete('/v1/addresses/:id', { preHandler: requireRole('BUYER') }, async (request, reply) => {
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
-    const result = await pool.query('DELETE FROM buyer_addresses WHERE id=$1 AND buyer_id=$2 RETURNING is_default', [request.params.id, request.user.sub]);
-    if (!result.rowCount) return reply.code(404).send({ error: 'ADDRESS_NOT_FOUND' });
-    if (result.rows[0].is_default) {
-      await pool.query('UPDATE buyer_addresses SET is_default=true,updated_at=now() WHERE id=(SELECT id FROM buyer_addresses WHERE buyer_id=$1 ORDER BY updated_at DESC LIMIT 1)', [request.user.sub]);
-    }
-    return { deleted: true, addressId: request.params.id };
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await client.query('DELETE FROM buyer_addresses WHERE id=$1 AND buyer_id=$2 RETURNING is_default', [request.params.id, request.user.sub]);
+      if (!result.rowCount) { await client.query('ROLLBACK'); return reply.code(404).send({ error: 'ADDRESS_NOT_FOUND' }); }
+      if (result.rows[0].is_default) await client.query('UPDATE buyer_addresses SET is_default=true,updated_at=now() WHERE id=(SELECT id FROM buyer_addresses WHERE buyer_id=$1 ORDER BY updated_at DESC LIMIT 1)', [request.user.sub]);
+      await client.query('COMMIT');
+      return { deleted: true, addressId: request.params.id };
+    } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
   });
 
   app.post('/v1/addresses/:id/default', { preHandler: requireRole('BUYER') }, async (request, reply) => {
@@ -126,11 +146,12 @@ export async function registerMarketplaceCompletion({ app, pool, requireAuth, re
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query('UPDATE buyer_addresses SET is_default=false,updated_at=now() WHERE buyer_id=$1', [request.user.sub]);
-      const result = await client.query('UPDATE buyer_addresses SET is_default=true,updated_at=now() WHERE id=$1 AND buyer_id=$2 RETURNING *', [request.params.id, request.user.sub]);
+      const result = await client.query('SELECT id FROM buyer_addresses WHERE id=$1 AND buyer_id=$2 FOR UPDATE', [request.params.id, request.user.sub]);
       if (!result.rowCount) { await client.query('ROLLBACK'); return reply.code(404).send({ error: 'ADDRESS_NOT_FOUND' }); }
+      await client.query('UPDATE buyer_addresses SET is_default=false,updated_at=now() WHERE buyer_id=$1', [request.user.sub]);
+      const updated = await client.query('UPDATE buyer_addresses SET is_default=true,updated_at=now() WHERE id=$1 AND buyer_id=$2 RETURNING *', [request.params.id, request.user.sub]);
       await client.query('COMMIT');
-      return result.rows[0];
+      return updated.rows[0];
     } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
   });
 }
