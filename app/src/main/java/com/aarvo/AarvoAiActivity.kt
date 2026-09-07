@@ -59,24 +59,34 @@ private fun AiShoppingScreen(context: Context, onClose: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         Text("Smart shopping • Search • Compare • Reviews • Deals • Support", style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(16.dp))
-        OutlinedTextField(input, { input = it }, Modifier.fillMaxWidth(), minLines = 3, label = { Text("Try: ₹20,000 ke andar best phone dikhao") })
+        OutlinedTextField(value = input, onValueChange = { input = it }, modifier = Modifier.fillMaxWidth(), minLines = 3, label = { Text("Try: ₹20,000 ke andar best phone dikhao") })
         Spacer(Modifier.height(10.dp))
-        Button(enabled = input.isNotBlank() && !loading, onClick = {
-            loading = true; error = ""; scope.launch {
-                try {
-                    val result = api.aiAssistant(input)
-                    answer = result.optString("reply", "AARVO AI ne response diya.")
-                    suggestions = result.optJSONArray("products")?.let { arr ->
-                        buildList {
-                            for (i in 0 until arr.length()) {
-                                val o = arr.optJSONObject(i) ?: continue
-                                add(Product(o.optInt("id"), o.optString("seller_id"), o.optString("seller_name"), o.optString("name"), o.optString("category"), (o.optLong("price_paise") / 100L).toInt(), o.optDouble("rating"), "", o.optString("description"), o.optInt("stock_quantity"), o.optBoolean("is_published", true), o.optLong("price_paise")))
+        Button(
+            onClick = {
+                loading = true
+                error = ""
+                scope.launch {
+                    try {
+                        val result = api.aiAssistant(input)
+                        answer = result.optString("reply", "AARVO AI ne response diya.")
+                        suggestions = result.optJSONArray("products")?.let { arr ->
+                            buildList {
+                                for (i in 0 until arr.length()) {
+                                    val o = arr.optJSONObject(i) ?: continue
+                                    add(Product(o.optInt("id"), o.optString("seller_id"), o.optString("seller_name"), o.optString("name"), o.optString("category"), (o.optLong("price_paise") / 100L).toInt(), o.optDouble("rating"), "", o.optString("description"), o.optInt("stock_quantity"), o.optBoolean("is_published", true), o.optLong("price_paise")))
+                                }
                             }
-                        }
-                    } ?: emptyList()
-                } catch (t: Throwable) { error = t.message ?: "AI service unavailable." } finally { loading = false }
-            }
-        }, Modifier.fillMaxWidth()) { if (loading) CircularProgressIndicator() else Text("Ask AARVO AI") }
+                        } ?: emptyList()
+                    } catch (t: Throwable) {
+                        error = t.message ?: "AI service unavailable."
+                    } finally {
+                        loading = false
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = input.isNotBlank() && !loading
+        ) { if (loading) CircularProgressIndicator() else Text("Ask AARVO AI") }
         Spacer(Modifier.height(14.dp))
         Card(Modifier.fillMaxWidth()) { Text(answer, Modifier.padding(16.dp)) }
         if (error.isNotBlank()) { Spacer(Modifier.height(8.dp)); Text(error, color = MaterialTheme.colorScheme.error) }
