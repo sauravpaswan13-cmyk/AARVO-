@@ -6,6 +6,20 @@
 
 AARVO will not sacrifice reliability for feature count. Every feature must pass build/contract checks and preserve existing guest browsing, OTP authentication, cart and checkout behavior.
 
+## Monetization model
+
+AARVO's planned revenue model is diversified so the platform does not depend on a single fee:
+
+- **Seller commission:** default planning target of **10% of eligible order value**, configurable by category/offer rules later.
+- **Seller services fee:** optional fixed/percentage fee for premium marketplace services when those services are actually provided.
+- **Sponsored listings / seller advertising:** sellers can pay for promoted placement; ads must be clearly identified.
+- **Shipping margin:** where AARVO negotiates a lower logistics cost than the shipping fee charged to the buyer, the transparent difference can contribute to platform revenue. This must not be treated as live until a shipping provider is integrated.
+- **Future membership/referral/affiliate revenue:** reserved for later phases and not required for initial launch.
+
+**Illustrative target only:** at 500 orders/day and ₹1,000 average order value, GMV is ₹5,00,000/day. A 10% commission would be ₹50,000/day or about ₹15,00,000 per 30-day month in gross commission before refunds, payment costs, taxes, promotions, support, shipping subsidies and other operating expenses. This is not a guaranteed profit forecast.
+
+Commission and seller earnings must always be calculated server-side from recorded transactions. Actual rates can be changed through future admin commission rules rather than hard-coded in the Android client.
+
 ## Phase 0 — Stability Gate
 
 - [x] Guest entry without verification
