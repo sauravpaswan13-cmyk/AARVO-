@@ -10,6 +10,17 @@ AARVO is being developed as a **real two-sided marketplace**: customers buy genu
 
 **Admin:** seller approval → catalog moderation → commission rules → orders/payments → refunds/disputes → fraud/risk → analytics → audit logs.
 
+## Super-marketplace roadmap
+
+AARVO's master roadmap is maintained in [`AARVO_ROADMAP.md`](AARVO_ROADMAP.md). The target is a feature set equal to or broader than major marketplaces, built in controlled phases so feature growth does not break existing flows.
+
+### Core product promise
+
+- Guest users can browse and shop the catalog without verification.
+- Login/Signup with OTP remains available for users who want an account.
+- Authentication is required at the appropriate purchase step, while browsing and cart access remain available to guests.
+- Every completed feature must preserve existing functionality and pass CI/build validation.
+
 ## Production principles
 
 - The backend is the source of truth for price, inventory, order state and seller earnings.
@@ -27,6 +38,17 @@ AARVO is being developed as a **real two-sided marketplace**: customers buy genu
 - Inventory-aware product model with seller ownership and publication state.
 - Android CI with JDK 17 + Gradle 9.7.1 and debug APK artifact.
 - `backend/README.md` documenting the production API/payment/security requirements.
+
+## Current implementation status
+
+- Guest entry + guest browsing path: implemented.
+- OTP authentication path: implemented.
+- Search, categories, sorting and product filters: implemented foundation.
+- Cart quantity controls: implemented.
+- Wishlist foundation: present.
+- Offers/coupon architecture: present as server-ready foundation; checkout must still validate offers server-side before this is considered live coupon functionality.
+- Android/backend CI: green on the latest verified run.
+- Full master roadmap: tracked in `AARVO_ROADMAP.md`.
 
 ## 10 production milestones
 
