@@ -25,14 +25,14 @@ for (const [name, source] of [['migration', migration], ['schema', schema]]) {
 
 test('marketplace completion runtime exposes product media and address APIs', () => {
   for (const contract of [
-    /GET \'\/v1\/products\/:id\/images\'/,
-    /POST \'\/v1\/seller\/products\/:id\/images\'/,
-    /DELETE \'\/v1\/seller\/products\/:id\/images\/:imageId\'/,
-    /GET \'\/v1\/addresses\'/,
-    /POST \'\/v1\/addresses\'/,
-    /PUT \'\/v1\/addresses\/:id\'/,
-    /DELETE \'\/v1\/addresses\/:id\'/,
-    /POST \'\/v1\/addresses\/:id\/default\'/,
+    /app\.get\('\/v1\/products\/:id\/images'/,
+    /app\.post\('\/v1\/seller\/products\/:id\/images'/,
+    /app\.delete\('\/v1\/seller\/products\/:id\/images\/:imageId'/,
+    /app\.get\('\/v1\/addresses'/,
+    /app\.post\('\/v1\/addresses'/,
+    /app\.put\('\/v1\/addresses\/:id'/,
+    /app\.delete\('\/v1\/addresses\/:id'/,
+    /app\.post\('\/v1\/addresses\/:id\/default'/,
     /requireRole\('BUYER'\)/,
     /requireRole\('SELLER'\)/
   ]) assert.match(completion, contract);
