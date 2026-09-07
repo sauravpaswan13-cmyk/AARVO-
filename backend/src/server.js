@@ -126,6 +126,88 @@ app.get('/v1/seller/products', { preHandler: requireRole('SELLER') }, async (req
 app.post('/v1/seller/products/:id/inventory', { preHandler: requireRole('SELLER') }, async (request, reply) => { if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' }); const stock = Number(request.body?.stockQuantity); if (!Number.isInteger(stock) || stock < 0 || stock > 1000000) return reply.code(400).send({ error: 'INVALID_STOCK' }); const result = await pool.query('UPDATE products SET stock_quantity=$1,updated_at=now() WHERE id=$2 AND seller_id=$3 RETURNING id,stock_quantity,is_published', [stock, request.params.id, request.user.sub]); if (!result.rowCount) return reply.code(404).send({ error: 'PRODUCT_NOT_FOUND' }); await audit(pool, request.user, 'PRODUCT', request.params.id, 'INVENTORY_UPDATED', { stockQuantity: stock }); return result.rows[0]; });
 app.get('/v1/seller/profile', { preHandler: requireRole('SELLER') }, async (request, reply) => { if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' }); const result = await pool.query('SELECT s.seller_id,u.display_name,s.phone,s.verified,s.payout_account_ready FROM seller_profiles s JOIN users u ON u.id=s.seller_id WHERE s.seller_id=$1', [request.user.sub]); if (!result.rowCount) return reply.code(404).send({ error: 'SELLER_PROFILE_NOT_FOUND' }); return result.rows[0]; });
 app.get('/v1/seller/orders', { preHandler: requireRole('SELLER') }, async (request, reply) => { if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' }); return (await pool.query(`SELECT o.id,o.buyer_id,o.total_paise,o.payment_status,o.status,o.tracking_json,o.created_at,o.updated_at,COALESCE(json_agg(json_build_object('productId',ol.product_id,'quantity',ol.quantity,'unitPricePaise',ol.unit_price_paise,'sellerAmountPaise',ol.seller_amount_paise)) FILTER (WHERE ol.order_id IS NOT NULL),'[]') AS items FROM orders o JOIN order_lines ol ON ol.order_id=o.id WHERE ol.seller_id=$1 GROUP BY o.id ORDER BY o.created_at DESC LIMIT 200`, [request.user.sub])).rows; });
+
+
+// Marketplace completion layer: seller catalog lifecycle, returns/refunds and settlement visibility.
+app.put('/v1/seller/products/:id', { preHandler: requireRole('SELLER') }, async (request, reply) => {
+  if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+  const { name, category, pricePaise, description, stockQuantity, publish } = request.body || {};
+  const price = Number(pricePaise), stock = Number(stockQuantity);
+  if (!String(name || '').trim() || !String(category || '').trim() || !String(description || '').trim() || !Number.isInteger(price) || price <= 0 || !Number.isInteger(stock) || stock < 0) return reply.code(400).send({ error: 'INVALID_PRODUCT' });
+  const seller = await pool.query('SELECT verified,payout_account_ready FROM seller_profiles WHERE seller_id=$1', [request.user.sub]);
+  if (!seller.rowCount) return reply.code(403).send({ error: 'SELLER_PROFILE_REQUIRED' });
+  const wantsPublish = publish === undefined ? undefined : Boolean(publish);
+  const isPublished = wantsPublish === undefined ? undefined : (wantsPublish && seller.rows[0].verified && seller.rows[0].payout_account_ready);
+  const result = isPublished === undefined
+    ? await pool.query('UPDATE products SET name=$1,category=$2,price_paise=$3,description=$4,stock_quantity=$5,updated_at=now() WHERE id=$6 AND seller_id=$7 RETURNING id,seller_id,seller_name,name,category,price_paise,rating,description,stock_quantity,is_published,updated_at', [String(name).trim(),String(category).trim(),price,String(description).trim(),stock,request.params.id,request.user.sub])
+    : await pool.query('UPDATE products SET name=$1,category=$2,price_paise=$3,description=$4,stock_quantity=$5,is_published=$6,updated_at=now() WHERE id=$7 AND seller_id=$8 RETURNING id,seller_id,seller_name,name,category,price_paise,rating,description,stock_quantity,is_published,updated_at', [String(name).trim(),String(category).trim(),price,String(description).trim(),stock,isPublished,request.params.id,request.user.sub]);
+  if (!result.rowCount) return reply.code(404).send({ error: 'PRODUCT_NOT_FOUND' });
+  await audit(pool, request.user, 'PRODUCT', request.params.id, 'UPDATED', { published: result.rows[0].is_published });
+  return { product: result.rows[0], publishBlocked: wantsPublish === true && !result.rows[0].is_published };
+});
+
+app.delete('/v1/seller/products/:id', { preHandler: requireRole('SELLER') }, async (request, reply) => {
+  if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+  const result = await pool.query('DELETE FROM products WHERE id=$1 AND seller_id=$2 AND NOT EXISTS (SELECT 1 FROM order_lines WHERE product_id=$1) RETURNING id', [request.params.id, request.user.sub]);
+  if (!result.rowCount) return reply.code(409).send({ error: 'PRODUCT_NOT_FOUND_OR_ALREADY_ORDERED' });
+  await audit(pool, request.user, 'PRODUCT', request.params.id, 'DELETED');
+  return { deleted: true, productId: Number(request.params.id) };
+});
+
+app.post('/v1/seller/products/:id/publish', { preHandler: requireRole('SELLER') }, async (request, reply) => {
+  if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+  const publish = request.body?.publish !== false;
+  const seller = await pool.query('SELECT verified,payout_account_ready FROM seller_profiles WHERE seller_id=$1', [request.user.sub]);
+  if (!seller.rowCount) return reply.code(403).send({ error: 'SELLER_PROFILE_REQUIRED' });
+  const allowed = seller.rows[0].verified && seller.rows[0].payout_account_ready;
+  if (publish && !allowed) return reply.code(403).send({ error: 'SELLER_VERIFICATION_AND_PAYOUT_REQUIRED' });
+  const result = await pool.query('UPDATE products SET is_published=$1,updated_at=now() WHERE id=$2 AND seller_id=$3 RETURNING id,is_published', [publish, request.params.id, request.user.sub]);
+  if (!result.rowCount) return reply.code(404).send({ error: 'PRODUCT_NOT_FOUND' });
+  await audit(pool, request.user, 'PRODUCT', request.params.id, publish ? 'PUBLISHED' : 'UNPUBLISHED');
+  return result.rows[0];
+});
+
+app.get('/v1/seller/settlements', { preHandler: requireRole('SELLER') }, async (request, reply) => {
+  if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+  const rows = (await pool.query(`SELECT type,COALESCE(SUM(amount_paise),0)::bigint AS amount_paise,COUNT(*)::int AS entries FROM seller_ledger WHERE seller_id=$1 GROUP BY type ORDER BY type`, [request.user.sub])).rows;
+  const ledger = (await pool.query(`SELECT id,order_id,amount_paise,type,gateway_transfer_id,created_at FROM seller_ledger WHERE seller_id=$1 ORDER BY created_at DESC LIMIT 200`, [request.user.sub])).rows;
+  return { summary: rows, ledger };
+});
+
+app.post('/v1/orders/:id/return', { preHandler: requireRole('BUYER') }, async (request, reply) => {
+  if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+  const reason = String(request.body?.reason || 'RETURN_REQUESTED').trim().slice(0,200);
+  const details = String(request.body?.details || '').trim().slice(0,3000);
+  const order = await pool.query('SELECT id,status FROM orders WHERE id=$1 AND buyer_id=$2', [request.params.id, request.user.sub]);
+  if (!order.rowCount) return reply.code(404).send({ error: 'ORDER_NOT_FOUND' });
+  if (!['DELIVERED','SHIPPED','OUT_FOR_DELIVERY'].includes(normalizeStatus(order.rows[0].status))) return reply.code(409).send({ error: 'RETURN_NOT_ALLOWED' });
+  try {
+    const result = await pool.query('INSERT INTO order_disputes(id,order_id,buyer_id,reason,details) VALUES($1,$2,$3,$4,$5) RETURNING id,order_id,reason,details,status,created_at', [randomUUID(),request.params.id,request.user.sub,reason,details]);
+    await audit(pool,request.user,'ORDER',request.params.id,'RETURN_REQUESTED',{reason});
+    return reply.code(201).send(result.rows[0]);
+  } catch (error) { if (error.code === '23505') return reply.code(409).send({ error: 'OPEN_RETURN_EXISTS' }); throw error; }
+});
+
+app.post('/v1/admin/orders/:id/refund', { preHandler: requireRole('ADMIN') }, async (request, reply) => {
+  if (!pool || !razorpay) return reply.code(503).send({ error: 'PAYMENTS_NOT_CONFIGURED' });
+  const order = await pool.query('SELECT id,total_paise,gateway_payment_id,payment_status,status FROM orders WHERE id=$1', [request.params.id]);
+  if (!order.rowCount) return reply.code(404).send({ error: 'ORDER_NOT_FOUND' });
+  const o = order.rows[0];
+  if (o.payment_status !== 'CAPTURED' || !o.gateway_payment_id) return reply.code(409).send({ error: 'ORDER_NOT_REFUNDABLE' });
+  const amount = request.body?.amountPaise === undefined ? Number(o.total_paise) : Number(request.body.amountPaise);
+  if (!Number.isInteger(amount) || amount <= 0 || amount > Number(o.total_paise)) return reply.code(400).send({ error: 'INVALID_REFUND_AMOUNT' });
+  const refund = await razorpay.payments.refund(o.gateway_payment_id, { amount });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('UPDATE orders SET refund_status=$1,payment_status=CASE WHEN $2=$3 THEN \'REFUNDED\' ELSE payment_status END,refunded_at=CASE WHEN $2=$3 THEN now() ELSE refunded_at END,status=CASE WHEN $2=$3 AND status<>\'DELIVERED\' THEN \'REFUNDED\' ELSE status END,updated_at=now() WHERE id=$4', [amount === Number(o.total_paise) ? 'PROCESSED' : 'PARTIAL', amount, Number(o.total_paise), request.params.id]);
+    await client.query('INSERT INTO seller_ledger(seller_id,order_id,amount_paise,type,gateway_transfer_id) SELECT seller_id,order_id,LEAST(seller_amount_paise,$1),\'REFUND\',$2 FROM order_lines WHERE order_id=$3', [amount, refund.id, request.params.id]);
+    await audit(client,request.user,'ORDER',request.params.id,'REFUND_PROCESSED',{refundId:refund.id,amountPaise:amount});
+    await client.query('COMMIT');
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+  return { orderId: request.params.id, refundId: refund.id, amountPaise: amount, refundStatus: amount === Number(o.total_paise) ? 'PROCESSED' : 'PARTIAL' };
+});
+
 app.get('/v1/admin/sellers', { preHandler: requireRole('ADMIN') }, async (request, reply) => { if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' }); return (await pool.query('SELECT s.seller_id,u.email,u.display_name,s.phone,s.verified,s.payout_account_ready,s.gateway_account_id FROM seller_profiles s JOIN users u ON u.id=s.seller_id ORDER BY s.created_at DESC')).rows; });
 app.post('/v1/admin/sellers/:id/verify', { preHandler: requireRole('ADMIN') }, async (request, reply) => { if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' }); const verified = Boolean(request.body?.verified); const result = await pool.query('UPDATE seller_profiles SET verified=$1,verified_at=CASE WHEN $1 THEN now() ELSE NULL END,verified_by=CASE WHEN $1 THEN $3 ELSE NULL END WHERE seller_id=$2 RETURNING seller_id,verified,verified_at,verified_by,payout_account_ready', [verified, request.params.id, request.user.sub]); if (!result.rowCount) return reply.code(404).send({ error: 'SELLER_NOT_FOUND' }); await audit(pool, request.user, 'SELLER', request.params.id, verified ? 'VERIFIED' : 'UNVERIFIED'); return result.rows[0]; });
 

@@ -93,7 +93,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     when {
         !onboarded -> OnboardingScreen { prefs.edit().putBoolean("onboarded", true).apply(); onboarded = true }
         guestMode -> AarvoApp(userName.ifBlank { "Guest" }, role, api, activity, wishlistStore, true, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply(); signedIn = false; guestMode = false })
-        !signedIn -> SignInScreen(api) { name, token, userRole -> userName = name; role = userRole; prefs.edit().putBoolean("signed_in", true).putBoolean("guest_mode", false).putString("user_name", name).putString("user_role", userRole).putString("auth_token", token).apply(); signedIn = true }
+        !signedIn -> { LaunchedEffect(Unit) { openOtpLogin() } }
         else -> AarvoApp(userName, role, api, activity, wishlistStore, false, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply(); signedIn = false; guestMode = false })
     }
 }
