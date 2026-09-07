@@ -36,7 +36,7 @@ import org.json.JSONObject
 class PhoneAuthActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val prefs = getSharedPreferences("aarvo", MODE_PRIVATE)
+        val prefs = getSharedPreferences("aarvo_prefs", MODE_PRIVATE)
         val api = AarvoApiClient { prefs.getString("auth_token", null) }
         setContent { AarvoTheme { PhoneAuthScreen(api, prefs) { openApp() } } }
     }
