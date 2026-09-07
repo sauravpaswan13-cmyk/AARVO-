@@ -48,17 +48,19 @@ CREATE TABLE IF NOT EXISTS products (
   is_published BOOLEAN NOT NULL DEFAULT false, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS seller_id TEXT;
 
 CREATE TABLE IF NOT EXISTS product_images (
   id BIGSERIAL PRIMARY KEY,
   product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-  seller_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  seller_id TEXT,
   image_url TEXT NOT NULL,
   alt_text TEXT NOT NULL DEFAULT '',
   sort_order INTEGER NOT NULL DEFAULT 0 CHECK (sort_order >= 0),
   is_primary BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE product_images ADD COLUMN IF NOT EXISTS seller_id TEXT;
 CREATE INDEX IF NOT EXISTS product_images_product_idx ON product_images(product_id, sort_order, id);
 CREATE INDEX IF NOT EXISTS product_images_seller_idx ON product_images(seller_id, product_id);
 CREATE UNIQUE INDEX IF NOT EXISTS product_images_primary_uidx ON product_images(product_id) WHERE is_primary;
