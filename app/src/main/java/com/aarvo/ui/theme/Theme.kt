@@ -12,8 +12,16 @@ private val LightColors = lightColorScheme(
     primaryContainer = AarvoPrimaryContainer,
     onPrimaryContainer = AarvoOnPrimaryContainer,
     secondary = AarvoSecondary,
+    onSecondary = AarvoOnSecondary,
+    secondaryContainer = AarvoSecondaryContainer,
+    onSecondaryContainer = AarvoOnSecondaryContainer,
     background = AarvoBackground,
-    surface = AarvoSurface
+    onBackground = AarvoOnBackground,
+    surface = AarvoSurface,
+    onSurface = AarvoOnSurface,
+    surfaceVariant = AarvoSurfaceVariant,
+    onSurfaceVariant = AarvoOnSurfaceVariant,
+    outline = AarvoOutline
 )
 
 private val DarkColors = darkColorScheme(
@@ -21,7 +29,17 @@ private val DarkColors = darkColorScheme(
     onPrimary = AarvoOnPrimaryDark,
     primaryContainer = AarvoPrimaryContainerDark,
     onPrimaryContainer = AarvoOnPrimaryContainerDark,
-    secondary = AarvoSecondaryDark
+    secondary = AarvoSecondaryDark,
+    onSecondary = AarvoOnSecondaryDark,
+    secondaryContainer = AarvoSecondaryContainerDark,
+    onSecondaryContainer = AarvoOnSecondaryContainerDark,
+    background = AarvoBackgroundDark,
+    onBackground = AarvoOnBackgroundDark,
+    surface = AarvoSurfaceDark,
+    onSurface = AarvoOnSurfaceDark,
+    surfaceVariant = AarvoSurfaceVariantDark,
+    onSurfaceVariant = AarvoOnSurfaceVariantDark,
+    outline = AarvoOutlineDark
 )
 
 @Composable
