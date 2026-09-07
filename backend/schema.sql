@@ -19,16 +19,32 @@ ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_phone_uidx ON users (phone) WHERE phone IS NOT NULL AND phone <> '';
 
 CREATE TABLE IF NOT EXISTS phone_verification_challenges (
-  id UUID PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   phone TEXT NOT NULL,
-  code_hash TEXT NOT NULL,
+  otp_hash TEXT NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
-  consumed_at TIMESTAMPTZ,
+  verified_at TIMESTAMPTZ,
   last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE phone_verification_challenges ADD COLUMN IF NOT EXISTS otp_hash TEXT;
+ALTER TABLE phone_verification_challenges ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+ALTER TABLE phone_verification_challenges ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE phone_verification_challenges ALTER COLUMN otp_hash DROP NOT NULL;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='phone_verification_challenges' AND column_name='code_hash')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='phone_verification_challenges' AND column_name='otp_hash') THEN
+    EXECUTE 'ALTER TABLE phone_verification_challenges RENAME COLUMN code_hash TO otp_hash';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='phone_verification_challenges' AND column_name='consumed_at')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='phone_verification_challenges' AND column_name='verified_at') THEN
+    EXECUTE 'ALTER TABLE phone_verification_challenges RENAME COLUMN consumed_at TO verified_at';
+  END IF;
+END $$;
+UPDATE phone_verification_challenges SET otp_hash = COALESCE(otp_hash, code_hash) WHERE otp_hash IS NULL AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='phone_verification_challenges' AND column_name='code_hash');
 CREATE INDEX IF NOT EXISTS phone_verification_user_idx ON phone_verification_challenges (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS phone_verification_expiry_idx ON phone_verification_challenges (expires_at);
 
