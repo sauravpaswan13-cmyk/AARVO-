@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Deep blue rounded-square base -->
+    <path
+        android:fillColor="#0826D9"
+        android:pathData="M18,2 L90,2 C99,2 106,9 106,18 L106,90 C106,99 99,106 90,106 L18,106 C9,106 2,99 2,90 L2,18 C2,9 9,2 18,2 Z" />
+
+    <!-- Bright cyan edge -->
+    <path
+        android:fillColor="#00D9FF"
+        android:pathData="M18,1 L90,1 C100,1 107,8 107,18 L107,90 C107,100 100,107 90,107 L18,107 C8,107 1,100 1,90 L1,18 C1,8 8,1 18,1 Z M18,4 C10,4 4,10 4,18 L4,90 C4,98 10,104 18,104 L90,104 C98,104 104,98 104,90 L104,18 C104,10 98,4 90,4 Z" />
+
+    <!-- Inner blue field -->
+    <path
+        android:fillColor="#1239F5"
+        android:pathData="M18,5 L90,5 C97,5 103,11 103,18 L103,90 C103,97 97,103 90,103 L18,103 C11,103 5,97 5,90 L5,18 C5,11 11,5 18,5 Z" />
+
+    <!-- Left golden ribbon of A -->
+    <path
+        android:fillColor="#FFD800"
+        android:pathData="M22,78 C24,73 27,67 31,60 L48,29 C52,22 57,18 63,18 C68,18 72,21 75,27 L90,58 L78,76 L64,45 C63,43 62,43 61,45 L48,69 L39,86 C36,92 31,96 26,95 C21,94 19,88 22,78 Z" />
+
+    <!-- Warm orange inner shading -->
+    <path
+        android:fillColor="#FF7A00"
+        android:pathData="M27,82 C29,77 32,71 36,64 L52,35 C55,29 58,27 61,29 C64,30 66,34 68,39 L60,54 L49,75 L41,88 C37,94 32,96 28,92 C25,90 25,86 27,82 Z" />
+
+    <!-- Right golden ribbon -->
+    <path
+        android:fillColor="#FFE500"
+        android:pathData="M58,25 C62,19 68,18 73,21 C77,23 80,28 83,34 L96,62 L88,82 L76,61 L63,37 C60,32 58,28 58,25 Z" />
+
+    <!-- Magenta/purple foreground ribbon -->
+    <path
+        android:fillColor="#F000D8"
+        android:pathData="M23,82 C27,76 35,69 44,63 C52,58 60,54 68,55 C77,56 86,62 92,70 C97,77 98,86 94,91 C90,96 82,98 75,94 C68,90 63,83 58,78 C55,75 52,75 48,78 L35,89 C30,93 25,92 23,88 C21,86 21,84 23,82 Z" />
+
+    <!-- Purple lower fold -->
+    <path
+        android:fillColor="#8A00FF"
+        android:pathData="M48,78 C52,75 55,75 58,78 C64,84 69,90 75,94 C79,97 84,97 88,95 C82,101 73,101 66,96 L49,84 C46,82 45,80 48,78 Z" />
+</vector>
