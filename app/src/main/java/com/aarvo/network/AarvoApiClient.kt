@@ -39,48 +39,15 @@ class AarvoApiClient(
     }
 
     suspend fun health(): JSONObject = getObject("/health")
-
-    suspend fun aiAssistant(message: String): JSONObject {
-        require(message.trim().isNotBlank()) { "Ask AARVO AI a question" }
-        val payload = JSONObject().put("message", message.trim())
-        return post("/v1/ai/assistant", payload)
-    }
-
-    suspend fun login(phone: String, password: String): JSONObject {
-        val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
-        require(password.length >= 8) { "Password must be at least 8 characters" }
-        return post("/v1/auth/login", JSONObject().put("phone", normalizedPhone).put("password", password))
-    }
-
-    suspend fun register(email: String = "", password: String, displayName: String, role: String = "BUYER", phone: String): JSONObject {
-        val normalizedRole = role.trim().uppercase()
-        val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
-        require(password.length >= 8) { "Password must be at least 8 characters" }
-        require(displayName.trim().isNotBlank()) { "Display name is required" }
-        require(normalizedRole in setOf("BUYER", "SELLER")) { "Invalid account role" }
-        val payload = JSONObject().put("password", password).put("displayName", displayName.trim()).put("role", normalizedRole).put("phone", normalizedPhone)
-        if (email.trim().isNotBlank()) { require(email.trim().contains('@')) { "Enter a valid email or leave it blank" }; payload.put("email", email.trim()) }
-        return post("/v1/auth/register", payload)
-    }
-
-    suspend fun verifyPhoneOtp(phone: String, otp: String): JSONObject {
-        val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
-        require(Regex("^[0-9]{4,8}$").matches(otp.trim())) { "Enter the OTP" }
-        return post("/v1/auth/verify-phone", JSONObject().put("phone", normalizedPhone).put("otp", otp.trim()))
-    }
-
-    suspend fun resendPhoneOtp(phone: String): JSONObject {
-        val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
-        return post("/v1/auth/resend-phone-otp", JSONObject().put("phone", normalizedPhone))
-    }
-
-    suspend fun products(query: String = "", category: String = ""): JSONArray {
-        val params = buildList { if (query.isNotBlank()) add("q=${URLEncoder.encode(query, "UTF-8")}"); if (category.isNotBlank() && category != "All") add("category=${URLEncoder.encode(category, "UTF-8")}") }.joinToString("&").let { if (it.isBlank()) "" else "?$it" }
-        return get("/v1/products$params")
-    }
-
+    suspend fun aiAssistant(message: String): JSONObject { require(message.trim().isNotBlank()) { "Ask AARVO AI a question" }; return post("/v1/ai/assistant", JSONObject().put("message", message.trim())) }
+    suspend fun login(phone: String, password: String): JSONObject { val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone); require(password.length >= 8) { "Password must be at least 8 characters" }; return post("/v1/auth/login", JSONObject().put("phone", normalizedPhone).put("password", password)) }
+    suspend fun register(email: String = "", password: String, displayName: String, role: String = "BUYER", phone: String): JSONObject { val normalizedRole = role.trim().uppercase(); val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone); require(password.length >= 8) { "Password must be at least 8 characters" }; require(displayName.trim().isNotBlank()) { "Display name is required" }; require(normalizedRole in setOf("BUYER", "SELLER")) { "Invalid account role" }; val payload = JSONObject().put("password", password).put("displayName", displayName.trim()).put("role", normalizedRole).put("phone", normalizedPhone); if (email.trim().isNotBlank()) { require(email.trim().contains('@')) { "Enter a valid email or leave it blank" }; payload.put("email", email.trim()) }; return post("/v1/auth/register", payload) }
+    suspend fun verifyPhoneOtp(phone: String, otp: String): JSONObject { val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone); require(Regex("^[0-9]{4,8}$").matches(otp.trim())) { "Enter the OTP" }; return post("/v1/auth/verify-phone", JSONObject().put("phone", normalizedPhone).put("otp", otp.trim())) }
+    suspend fun resendPhoneOtp(phone: String): JSONObject { val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone); return post("/v1/auth/resend-phone-otp", JSONObject().put("phone", normalizedPhone)) }
+    suspend fun products(query: String = "", category: String = ""): JSONArray { val params = buildList { if (query.isNotBlank()) add("q=${URLEncoder.encode(query, "UTF-8")}"); if (category.isNotBlank() && category != "All") add("category=${URLEncoder.encode(category, "UTF-8")}") }.joinToString("&").let { if (it.isBlank()) "" else "?$it" }; return get("/v1/products$params") }
     suspend fun product(productId: Int): JSONObject { require(productId > 0) { "Product ID must be positive" }; return getObject("/v1/products/$productId") }
     suspend fun productReviews(productId: Int): JSONArray { require(productId > 0) { "Product ID must be positive" }; return get("/v1/products/$productId/reviews") }
+    suspend fun productImages(productId: Int): JSONArray { require(productId > 0) { "Product ID must be positive" }; return get("/v1/products/$productId/images") }
 
     suspend fun createOrder(items: JSONArray, address: JSONObject, idempotencyKey: String = UUID.randomUUID().toString()): JSONObject = withContext(Dispatchers.IO) {
         require(!tokenProvider().isNullOrBlank()) { "Login or verify your mobile number before purchasing." }
@@ -94,16 +61,27 @@ class AarvoApiClient(
     suspend fun submitReview(orderId: String, productId: Int, rating: Int, reviewText: String = ""): JSONObject { require(orderId.trim().isNotBlank()) { "Order ID is required" }; require(productId > 0) { "Product ID must be positive" }; require(rating in 1..5) { "Rating must be between 1 and 5" }; return post("/v1/orders/${orderId.trim()}/reviews", JSONObject().put("productId", productId).put("rating", rating).put("reviewText", reviewText.trim())) }
     suspend fun openDispute(orderId: String, reason: String, details: String = ""): JSONObject { require(orderId.trim().isNotBlank()) { "Order ID is required" }; require(reason.trim().isNotBlank()) { "Dispute reason is required" }; return post("/v1/orders/${orderId.trim()}/disputes", JSONObject().put("reason", reason.trim()).put("details", details.trim())) }
     suspend fun verifyPayment(orderId: String, paymentId: String, razorpayOrderId: String, signature: String): JSONObject { require(orderId.trim().isNotBlank()) { "Order ID is required" }; require(paymentId.trim().isNotBlank()) { "Payment ID is required" }; require(razorpayOrderId.trim().isNotBlank()) { "Gateway order ID is required" }; require(signature.trim().isNotBlank()) { "Payment signature is required" }; return post("/v1/payments/verify", JSONObject().put("orderId", orderId.trim()).put("razorpayOrderId", razorpayOrderId.trim()).put("razorpayPaymentId", paymentId.trim()).put("razorpaySignature", signature.trim())) }
+
+    suspend fun addresses(): JSONArray = get("/v1/addresses")
+    suspend fun addAddress(address: JSONObject, isDefault: Boolean = false): JSONObject = post("/v1/addresses", JSONObject(address.toString()).put("isDefault", isDefault))
+    suspend fun updateAddress(addressId: String, address: JSONObject, isDefault: Boolean = false): JSONObject { require(addressId.trim().isNotBlank()) { "Address ID is required" }; return put("/v1/addresses/${addressId.trim()}", JSONObject(address.toString()).put("isDefault", isDefault)) }
+    suspend fun deleteAddress(addressId: String): JSONObject { require(addressId.trim().isNotBlank()) { "Address ID is required" }; return delete("/v1/addresses/${addressId.trim()}") }
+    suspend fun setDefaultAddress(addressId: String): JSONObject { require(addressId.trim().isNotBlank()) { "Address ID is required" }; return post("/v1/addresses/${addressId.trim()}/default", JSONObject()) }
+
     suspend fun sellerProfile(): JSONObject = getObject("/v1/seller/profile")
     suspend fun sellerProducts(): JSONArray = get("/v1/seller/products")
     suspend fun createSellerProduct(name: String, category: String, pricePaise: Long, description: String, stockQuantity: Int, publish: Boolean = false): JSONObject { require(name.trim().isNotBlank()) { "Product name is required" }; require(category.trim().isNotBlank()) { "Product category is required" }; require(pricePaise > 0) { "Product price must be positive" }; require(description.trim().isNotBlank()) { "Product description is required" }; require(stockQuantity >= 0) { "Product stock cannot be negative" }; return post("/v1/seller/products", JSONObject().put("name", name.trim()).put("category", category.trim()).put("pricePaise", pricePaise).put("description", description.trim()).put("stockQuantity", stockQuantity).put("publish", publish)) }
     suspend fun updateInventory(productId: Int, stockQuantity: Int): JSONObject { require(productId > 0) { "Product ID must be positive" }; require(stockQuantity >= 0) { "Product stock cannot be negative" }; return post("/v1/seller/products/$productId/inventory", JSONObject().put("stockQuantity", stockQuantity)) }
+    suspend fun productImageAdd(productId: Int, imageUrl: String, altText: String = "", sortOrder: Int = 0, isPrimary: Boolean = true): JSONObject { require(productId > 0) { "Product ID must be positive" }; require(imageUrl.startsWith("https://") || imageUrl.startsWith("http://")) { "Image URL must use HTTP or HTTPS" }; return post("/v1/seller/products/$productId/images", JSONObject().put("imageUrl", imageUrl.trim()).put("altText", altText.trim()).put("sortOrder", sortOrder).put("isPrimary", isPrimary)) }
+    suspend fun productImageDelete(productId: Int, imageId: Long): JSONObject { require(productId > 0) { "Product ID must be positive" }; require(imageId > 0) { "Image ID must be positive" }; return delete("/v1/seller/products/$productId/images/$imageId") }
     suspend fun sellerOrders(): JSONArray = get("/v1/seller/orders")
     suspend fun updateOrderTracking(orderId: String, status: String, trackingCode: String = "", carrier: String = "", note: String = ""): JSONObject { require(orderId.trim().isNotBlank()) { "Order ID is required" }; require(status.trim().isNotBlank()) { "Tracking status is required" }; return post("/v1/orders/${orderId.trim()}/tracking", JSONObject().put("status", status.trim().uppercase()).put("trackingCode", trackingCode.trim()).put("carrier", carrier.trim()).put("note", note.trim())) }
 
     private suspend fun get(path: String): JSONArray = withContext(Dispatchers.IO) { JSONArray(execute(Request.Builder().url(buildUrl(path)).applyAuth().get().build())) }
     private suspend fun getObject(path: String): JSONObject = withContext(Dispatchers.IO) { JSONObject(execute(Request.Builder().url(buildUrl(path)).applyAuth().get().build())) }
     private suspend fun post(path: String, payload: JSONObject): JSONObject = withContext(Dispatchers.IO) { JSONObject(execute(Request.Builder().url(buildUrl(path)).applyAuth().post(payload.toString().toRequestBody(jsonMediaType)).build())) }
+    private suspend fun put(path: String, payload: JSONObject): JSONObject = withContext(Dispatchers.IO) { JSONObject(execute(Request.Builder().url(buildUrl(path)).applyAuth().put(payload.toString().toRequestBody(jsonMediaType)).build())) }
+    private suspend fun delete(path: String): JSONObject = withContext(Dispatchers.IO) { JSONObject(execute(Request.Builder().url(buildUrl(path)).applyAuth().delete().build())) }
     private fun execute(request: Request): String { client.newCall(request).execute().use { response -> val body = response.body.string(); if (!response.isSuccessful) { val message = runCatching { JSONObject(body).optString("error").takeIf { it.isNotBlank() } ?: JSONObject(body).optString("message").takeIf { it.isNotBlank() } }.getOrNull(); error("API ${response.code}: ${message ?: "Request failed"}") }; return body } }
     private fun Request.Builder.applyAuth(): Request.Builder { tokenProvider()?.takeIf { it.isNotBlank() }?.let { header("Authorization", "Bearer $it") }; return this }
 }
