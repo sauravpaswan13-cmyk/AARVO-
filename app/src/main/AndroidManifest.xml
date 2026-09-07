@@ -5,6 +5,8 @@
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
         android:label="AARVO"
+        android:icon="@drawable/aarvo_logo"
+        android:roundIcon="@drawable/aarvo_logo"
         android:supportsRtl="true"
         android:theme="@style/Theme.AARVO">
         <activity android:name=".GuestBrowseActivity" android:exported="true">
