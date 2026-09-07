@@ -16,7 +16,7 @@ if (!source.includes('registerMarketplaceCompletion')) {
   );
   source = source.replace(
     "const port=Number(process.env.PORT||8080);",
-    "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit });\nconst port=Number(process.env.PORT||8080);"
+    "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\nconst port=Number(process.env.PORT||8080);"
   );
 }
 
