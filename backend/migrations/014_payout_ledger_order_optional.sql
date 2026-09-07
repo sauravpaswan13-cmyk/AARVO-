@@ -1,0 +1,1 @@
+ALTER TABLE seller_ledger ALTER COLUMN order_id DROP NOT NULL;
