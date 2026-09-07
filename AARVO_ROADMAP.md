@@ -10,15 +10,16 @@ AARVO will not sacrifice reliability for feature count. Every feature must pass 
 
 AARVO's planned revenue model is diversified so the platform does not depend on a single fee:
 
-- **Seller commission:** default planning target of **10% of eligible order value**, configurable by category/offer rules later.
+- **Seller commission:** final planning range **3%–12% of eligible order value**, configurable by product category and promotional/admin rules. The rate must stay within this range unless the business model is deliberately revised later.
+- **Suggested initial category bands:** Mobiles/Electronics **3%–6%**; Fashion **5%–8%**; Home/Kitchen **6%–9%**; Beauty/Personal Care **7%–10%**; General Products **8%–12%**; high-margin categories **up to 12%**.
 - **Seller services fee:** optional fixed/percentage fee for premium marketplace services when those services are actually provided.
 - **Sponsored listings / seller advertising:** sellers can pay for promoted placement; ads must be clearly identified.
 - **Shipping margin:** where AARVO negotiates a lower logistics cost than the shipping fee charged to the buyer, the transparent difference can contribute to platform revenue. This must not be treated as live until a shipping provider is integrated.
 - **Future membership/referral/affiliate revenue:** reserved for later phases and not required for initial launch.
 
-**Illustrative target only:** at 500 orders/day and ₹1,000 average order value, GMV is ₹5,00,000/day. A 10% commission would be ₹50,000/day or about ₹15,00,000 per 30-day month in gross commission before refunds, payment costs, taxes, promotions, support, shipping subsidies and other operating expenses. This is not a guaranteed profit forecast.
+**Illustrative target only:** at 500 orders/day and ₹1,000 average order value, GMV is ₹5,00,000/day. At a 3%–12% commission range, gross commission would be ₹15,000–₹60,000/day or about ₹4,50,000–₹18,00,000 per 30-day month before refunds, payment costs, taxes, promotions, support, shipping subsidies and other operating expenses. This is not a guaranteed profit forecast.
 
-Commission and seller earnings must always be calculated server-side from recorded transactions. Actual rates can be changed through future admin commission rules rather than hard-coded in the Android client.
+Commission and seller earnings must always be calculated server-side from recorded transactions. Actual rates should be controlled through admin/category commission rules rather than hard-coded in the Android client.
 
 ## Phase 0 — Stability Gate
 
@@ -92,7 +93,7 @@ Commission and seller earnings must always be calculated server-side from record
 - [ ] Seller order management
 - [ ] Packing/shipping workflow
 - [ ] Seller earnings dashboard
-- [ ] Commission calculation
+- [ ] Commission calculation **(3%–12% category-aware model)**
 - [ ] Payout reconciliation
 - [ ] Seller ratings and performance
 - [ ] Seller support/disputes
@@ -144,7 +145,7 @@ Commission and seller earnings must always be calculated server-side from record
 - [ ] Catalog moderation
 - [ ] Category/brand management
 - [ ] Offer/coupon management
-- [ ] Commission rules
+- [ ] Commission rules **(3%–12% configurable)**
 - [ ] Order/payment/refund operations
 - [ ] Fraud/risk review
 - [ ] Support/dispute management
