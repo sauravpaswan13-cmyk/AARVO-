@@ -3,7 +3,8 @@
 -- the older code_hash/consumed_at column names.
 ALTER TABLE phone_verification_challenges
   ADD COLUMN IF NOT EXISTS otp_hash TEXT,
-  ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ,
+  ALTER COLUMN code_hash DROP NOT NULL;
 
 -- Runtime inserts omit the challenge id, so give it a database-generated UUID.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
