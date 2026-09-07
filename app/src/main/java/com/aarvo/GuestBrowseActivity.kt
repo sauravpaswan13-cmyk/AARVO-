@@ -6,7 +6,7 @@ import androidx.activity.ComponentActivity
 
 /**
  * Guest-entry bridge: lets users browse the real marketplace without
- * verification. Authentication is requested when they try to purchase.
+ * verification. Authentication is required before an order can be created.
  */
 class GuestBrowseActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -15,11 +15,11 @@ class GuestBrowseActivity : ComponentActivity() {
         val prefs = getSharedPreferences("aarvo_prefs", MODE_PRIVATE)
         prefs.edit()
             .putBoolean("onboarded", true)
-            .putBoolean("signed_in", false)
+            .putBoolean("signed_in", true)
             .putBoolean("guest_mode", true)
+            .putString("user_name", "Guest")
+            .putString("user_role", "BUYER")
             .remove("auth_token")
-            .remove("user_name")
-            .remove("user_role")
             .apply()
 
         startActivity(
