@@ -133,5 +133,5 @@ private fun PhoneAuthScreen(prefs: android.content.SharedPreferences, openApp: (
 
 private fun saveSession(prefs: android.content.SharedPreferences, result: JSONObject) {
     val user = result.getJSONObject("user")
-    prefs.edit().putBoolean("signed_in", true).putString("user_name", user.optString("display_name", "AARVO User")).putString("user_role", user.optString("role", "BUYER")).putString("auth_token", result.getString("token")).apply()
+    prefs.edit().putBoolean("signed_in", true).putBoolean("guest_mode", false).putString("user_name", user.optString("display_name", "AARVO User")).putString("user_role", user.optString("role", "BUYER")).putString("auth_token", result.getString("token")).apply()
 }
