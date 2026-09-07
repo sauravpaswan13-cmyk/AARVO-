@@ -4,7 +4,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const serverPath = path.join(here, 'server.js');
-const runtimePath = path.join(here, '.aarvo-runtime-server.mjs');
+// The image runs as the unprivileged `node` user, so /app/src is not writable.
+// Keep the generated compatibility wrapper in the writable runtime temp area.
+const runtimePath = path.join('/tmp', '.aarvo-runtime-server.mjs');
 let source = await fs.readFile(serverPath, 'utf8');
 
 if (!source.includes('registerMarketplaceCompletion')) {
