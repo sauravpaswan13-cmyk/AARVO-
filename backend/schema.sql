@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS product_images (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE product_images ADD COLUMN IF NOT EXISTS seller_id TEXT;
+ALTER TABLE product_images ADD COLUMN IF NOT EXISTS is_primary BOOLEAN NOT NULL DEFAULT false;
 CREATE INDEX IF NOT EXISTS product_images_product_idx ON product_images(product_id, sort_order, id);
 CREATE INDEX IF NOT EXISTS product_images_seller_idx ON product_images(seller_id, product_id);
 CREATE UNIQUE INDEX IF NOT EXISTS product_images_primary_uidx ON product_images(product_id) WHERE is_primary;
