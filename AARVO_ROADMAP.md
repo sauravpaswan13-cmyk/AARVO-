@@ -172,6 +172,10 @@ AARVO will not sacrifice reliability for feature count. Every feature must pass 
 
 A phase is complete only when its feature is implemented in the correct client/backend layer, existing flows still work, CI is green, and the feature has a production-safe failure path. UI-only placeholders do not count as complete marketplace functionality.
 
+## Today's internal-work gate
+
+External provider/account work is intentionally deferred. Internal work for today is limited to repository code, Android/backend contracts, validation, error handling, tests, build integrity and documentation. Do not mark external payment, KYC, bank, shipping, Play Store or real-money smoke-test items complete until the corresponding external integration has actually been configured and verified.
+
 ## Priority order
 
 1. Stability + real backend source of truth
