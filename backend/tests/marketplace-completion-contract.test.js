@@ -10,6 +10,8 @@ const read = (relativePath) => fs.readFileSync(path.join(ROOT, relativePath), 'u
 const migration = read('backend/migrations/009_marketplace_media_addresses.sql');
 const schema = read('backend/schema.sql');
 const server = read('backend/src/server.js');
+const completion = read('backend/src/marketplace-completion.js');
+const launcher = read('backend/src/launcher.js');
 
 for (const [name, source] of [['migration', migration], ['schema', schema]]) {
   test(`${name} contains product media and buyer address contracts`, () => {
@@ -20,6 +22,22 @@ for (const [name, source] of [['migration', migration], ['schema', schema]]) {
     assert.match(source, /buyer_addresses_default_uidx/);
   });
 }
+
+test('marketplace completion runtime exposes product media and address APIs', () => {
+  for (const contract of [
+    /GET \'\/v1\/products\/:id\/images\'/,
+    /POST \'\/v1\/seller\/products\/:id\/images\'/,
+    /DELETE \'\/v1\/seller\/products\/:id\/images\/:imageId\'/,
+    /GET \'\/v1\/addresses\'/,
+    /POST \'\/v1\/addresses\'/,
+    /PUT \'\/v1\/addresses\/:id\'/,
+    /DELETE \'\/v1\/addresses\/:id\'/,
+    /POST \'\/v1\/addresses\/:id\/default\'/,
+    /requireRole\('BUYER'\)/,
+    /requireRole\('SELLER'\)/
+  ]) assert.match(completion, contract);
+  assert.match(launcher, /registerMarketplaceCompletion/);
+});
 
 test('existing marketplace server keeps the protected purchase and settlement contracts', () => {
   for (const contract of [
