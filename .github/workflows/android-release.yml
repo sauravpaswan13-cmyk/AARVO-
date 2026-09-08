@@ -98,3 +98,5 @@ jobs:
       - name: Cleanup signing material
         if: always()
         run: rm -f "$RUNNER_TEMP/aarvo-release.jks"
+
+# Retrigger Android release validation without changing build or signing logic.
