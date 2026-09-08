@@ -110,7 +110,7 @@ if (!source.includes("otp-delivery.js")) {
     const code = error?.code === 'OTP_PROVIDER_NOT_CONFIGURED' ? 'OTP_PROVIDER_NOT_CONFIGURED' : 'OTP_DELIVERY_FAILED';
     return reply.code(503).send({ error: code });
   }
-  await pool.query('INSERT INTO phone_verification_challenges(user_id,phone,otp_hash,expires_at,attempts) VALUES($1,$2,$3,now()+interval \'10 minutes\',0)', [user.rows[0].id, phone, otpHash]);
+  await pool.query("INSERT INTO phone_verification_challenges(user_id,phone,otp_hash,expires_at,attempts) VALUES($1,$2,$3,now()+interval '10 minutes',0)", [user.rows[0].id, phone, otpHash]);
   return { sent: true, expiresInSeconds: 600 };
 });`;
     source = source.slice(0, otpStart) + otpRoute + source.slice(otpEnd);
