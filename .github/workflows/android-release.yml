@@ -99,4 +99,4 @@ jobs:
         if: always()
         run: rm -f "$RUNNER_TEMP/aarvo-release.jks"
 
-# Retrigger Android release validation without changing build or signing logic.
+# Force a fresh signed release verification after the latest Android UI/icon fixes.
