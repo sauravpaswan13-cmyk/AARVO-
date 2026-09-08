@@ -17,11 +17,24 @@ export async function sendPhoneOtp({ phone, otp }) {
     otp_length: '6',
     otp_expiry: '10',
   });
-  const response = await fetch(`${OTP_ENDPOINT}?${params.toString()}`, {
-    method: 'POST',
-    headers: { accept: 'application/json', 'Content-Type': 'application/json' },
-    body: '{}',
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  let response;
+  try {
+    response = await fetch(`${OTP_ENDPOINT}?${params.toString()}`, {
+      method: 'POST',
+      headers: { accept: 'application/json', 'Content-Type': 'application/json' },
+      body: '{}',
+      signal: controller.signal,
+    });
+  } catch (cause) {
+    const error = new Error(cause?.name === 'AbortError' ? 'OTP_PROVIDER_TIMEOUT' : 'OTP_DELIVERY_FAILED');
+    error.code = error.message;
+    error.cause = cause;
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
   const raw = await response.text();
   let data;
   try { data = JSON.parse(raw); } catch { data = { message: raw }; }
