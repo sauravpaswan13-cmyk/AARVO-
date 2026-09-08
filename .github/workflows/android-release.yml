@@ -2,7 +2,7 @@ name: AARVO Android Release
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
     paths:
       - 'app/**'
       - 'gradle/**'
@@ -22,10 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
@@ -39,12 +39,10 @@ jobs:
           KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          for value in KEYSTORE_B64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
-            if [ -z "${!value}" ]; then
-              echo "Missing required GitHub Actions secret: $value"
-              exit 1
-            fi
-          done
+          test -n "$KEYSTORE_B64" || { echo 'ERROR: AARVO_KEYSTORE_BASE64 is empty.'; exit 1; }
+          test -n "$STORE_PASSWORD" || { echo 'ERROR: AARVO_KEYSTORE_PASSWORD is empty.'; exit 1; }
+          test -n "$KEY_ALIAS" || { echo 'ERROR: AARVO_KEY_ALIAS is empty.'; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo 'ERROR: AARVO_KEY_PASSWORD is empty.'; exit 1; }
 
       - name: Restore release keystore
         env:
@@ -52,7 +50,6 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]' | base64 --ignore-garbage --decode > "$RUNNER_TEMP/aarvo-release.jks"
-          chmod 600 "$RUNNER_TEMP/aarvo-release.jks"
           test -s "$RUNNER_TEMP/aarvo-release.jks"
 
       - name: Verify release keystore
@@ -62,68 +59,59 @@ jobs:
           KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          echo "Checking keystore password..."
           if ! keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" >/dev/null 2>&1; then
-            echo "ERROR: AARVO_KEYSTORE_PASSWORD does not unlock the restored keystore."
+            echo 'ERROR: AARVO_KEYSTORE_PASSWORD does not unlock the restored keystore.'
             exit 1
           fi
-          echo "Keystore password OK."
-          echo "Checking key alias..."
+          echo 'Keystore password OK.'
           if ! keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
-            echo "ERROR: AARVO_KEY_ALIAS was not found in the restored keystore."
+            echo 'ERROR: AARVO_KEY_ALIAS was not found in the restored keystore.'
             exit 1
           fi
-          echo "Alias OK."
-          echo "Checking key password..."
+          echo 'Alias OK.'
           if ! keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" -keypass "$KEY_PASSWORD" >/dev/null 2>&1; then
-            echo "ERROR: AARVO_KEY_PASSWORD does not unlock the selected key alias."
+            echo 'ERROR: AARVO_KEY_PASSWORD does not unlock the selected key alias.'
             exit 1
           fi
-          echo "Release keystore and signing alias verified."
+          echo 'Release keystore and signing alias verified.'
 
       - name: Build signed release APK and AAB
         env:
-          AARVO_STORE_FILE: ${{ runner.temp }}/aarvo-release.jks
-          AARVO_STORE_PASSWORD: ${{ secrets.AARVO_KEYSTORE_PASSWORD }}
-          AARVO_KEY_ALIAS: ${{ secrets.AARVO_KEY_ALIAS }}
-          AARVO_KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.AARVO_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AARVO_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
         run: |
-          set -euo pipefail
           chmod +x ./gradlew
           ./gradlew :app:assembleRelease :app:bundleRelease \
-            -PaarvoReleaseStoreFile="$AARVO_STORE_FILE" \
-            -PaarvoReleaseStorePassword="$AARVO_STORE_PASSWORD" \
-            -PaarvoReleaseKeyAlias="$AARVO_KEY_ALIAS" \
-            -PaarvoReleaseKeyPassword="$AARVO_KEY_PASSWORD" \
-            --no-daemon --stacktrace
+            -PaarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-release.jks" \
+            -PaarvoReleaseStorePassword="$STORE_PASSWORD" \
+            -PaarvoReleaseKeyAlias="$KEY_ALIAS" \
+            -PaarvoReleaseKeyPassword="$KEY_PASSWORD" \
+            --stacktrace
 
       - name: Verify APK and AAB outputs
         run: |
           set -euo pipefail
           test -s app/build/outputs/apk/release/app-release.apk
           test -s app/build/outputs/bundle/release/app-release.aab
-          apksigner verify --verbose app/build/outputs/apk/release/app-release.apk
-          ls -lh app/build/outputs/apk/release/app-release.apk
-          ls -lh app/build/outputs/bundle/release/app-release.aab
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
+          echo 'Signed APK verified.'
+          echo 'AAB verified as present.'
 
       - name: Upload signed APK
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: aarvo-release-apk
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
-          retention-days: 14
 
       - name: Upload signed AAB
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: aarvo-release-aab
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
-          retention-days: 14
 
       - name: Cleanup signing material
         if: always()
         run: rm -f "$RUNNER_TEMP/aarvo-release.jks"
-
-# Signed release: restore, identify signing-secret mismatch safely, verify, build, and upload APK/AAB.
