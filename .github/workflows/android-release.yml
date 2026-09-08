@@ -62,8 +62,23 @@ jobs:
           KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" >/dev/null
-          keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" -keypass "$KEY_PASSWORD" >/dev/null
+          echo "Checking keystore password..."
+          if ! keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" >/dev/null 2>&1; then
+            echo "ERROR: AARVO_KEYSTORE_PASSWORD does not unlock the restored keystore."
+            exit 1
+          fi
+          echo "Keystore password OK."
+          echo "Checking key alias..."
+          if ! keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
+            echo "ERROR: AARVO_KEY_ALIAS was not found in the restored keystore."
+            exit 1
+          fi
+          echo "Alias OK."
+          echo "Checking key password..."
+          if ! keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" -keypass "$KEY_PASSWORD" >/dev/null 2>&1; then
+            echo "ERROR: AARVO_KEY_PASSWORD does not unlock the selected key alias."
+            exit 1
+          fi
           echo "Release keystore and signing alias verified."
 
       - name: Build signed release APK and AAB
@@ -111,4 +126,4 @@ jobs:
         if: always()
         run: rm -f "$RUNNER_TEMP/aarvo-release.jks"
 
-# Signed release: restore, cryptographically verify, build, and upload APK/AAB.
+# Signed release: restore, identify signing-secret mismatch safely, verify, build, and upload APK/AAB.
