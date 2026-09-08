@@ -51,9 +51,20 @@ jobs:
           KEYSTORE_B64: ${{ secrets.AARVO_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
-          printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]' | base64 --decode > "$RUNNER_TEMP/aarvo-release.jks"
+          printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]' | base64 --ignore-garbage --decode > "$RUNNER_TEMP/aarvo-release.jks"
           chmod 600 "$RUNNER_TEMP/aarvo-release.jks"
           test -s "$RUNNER_TEMP/aarvo-release.jks"
+
+      - name: Verify release keystore
+        env:
+          STORE_PASSWORD: ${{ secrets.AARVO_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AARVO_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" >/dev/null
+          keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" -keypass "$KEY_PASSWORD" >/dev/null
+          echo "Release keystore and signing alias verified."
 
       - name: Build signed release APK and AAB
         env:
@@ -76,6 +87,7 @@ jobs:
           set -euo pipefail
           test -s app/build/outputs/apk/release/app-release.apk
           test -s app/build/outputs/bundle/release/app-release.aab
+          apksigner verify --verbose app/build/outputs/apk/release/app-release.apk
           ls -lh app/build/outputs/apk/release/app-release.apk
           ls -lh app/build/outputs/bundle/release/app-release.aab
 
@@ -99,5 +111,4 @@ jobs:
         if: always()
         run: rm -f "$RUNNER_TEMP/aarvo-release.jks"
 
-# Force a fresh signed release verification after the latest Android UI/icon fixes.
-# Verified trigger refresh: 2026-09-08.
+# Signed release: restore, cryptographically verify, build, and upload APK/AAB.
