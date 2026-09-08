@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -162,7 +161,7 @@ private fun WelcomeScreen(onGuest: () -> Unit, onLogin: () -> Unit) {
             }
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                TrustItem(Icons.Default.Security, "Secure")
+                TrustItem(Icons.Default.Lock, "Secure")
                 TrustItem(Icons.Default.Lock, "Trusted Shopping")
                 TrustItem(Icons.Default.Person, "Easy Access")
             }
