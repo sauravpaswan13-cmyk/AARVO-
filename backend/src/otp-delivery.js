@@ -1,6 +1,20 @@
 const OTP_ENDPOINT = 'https://control.msg91.com/api/v5/otp';
 const LEGACY_OTP_ENDPOINT = 'https://api.msg91.com/api/sendotp.php';
 
+function msg91Mobile(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  return digits.startsWith('91') && digits.length === 12 ? digits : `91${digits}`;
+}
+
+async function requestOtp({ endpoint, params, method, headers, body, signal }) {
+  return fetch(`${endpoint}${method === 'GET' ? `?${params.toString()}` : `?${params.toString()}`}`, {
+    method,
+    headers,
+    body,
+    signal,
+  });
+}
+
 export async function sendPhoneOtp({ phone, otp }) {
   const authKey = process.env.MSG91_AUTH_KEY;
   const templateId = process.env.MSG91_TEMPLATE_ID;
@@ -11,31 +25,83 @@ export async function sendPhoneOtp({ phone, otp }) {
     throw error;
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-  let response;
-  try {
-    if (templateId) {
-      const params = new URLSearchParams({ template_id: templateId, mobile: `91${phone}`, authkey: authKey, otp, otp_length: '6', otp_expiry: '10' });
-      response = await fetch(`${OTP_ENDPOINT}?${params.toString()}`, { method: 'POST', headers: { accept: 'application/json', 'Content-Type': 'application/json' }, body: '{}', signal: controller.signal });
-    } else {
-      const params = new URLSearchParams({ authkey: authKey, mobile: `91${phone}`, message: `Your AARVO verification code is ${otp}. It expires in 10 minutes.`, sender: senderId, otp, otp_length: '6', otp_expiry: '10' });
-      response = await fetch(`${LEGACY_OTP_ENDPOINT}?${params.toString()}`, { method: 'GET', headers: { accept: 'application/json' }, signal: controller.signal });
-    }
-  } catch (cause) {
-    const error = new Error(cause?.name === 'AbortError' ? 'OTP_PROVIDER_TIMEOUT' : 'OTP_DELIVERY_FAILED');
-    error.code = error.message;
-    error.cause = cause;
-    throw error;
-  } finally { clearTimeout(timeout); }
+  const mobile = msg91Mobile(phone);
+  let lastError;
 
-  const raw = await response.text();
-  let data;
-  try { data = JSON.parse(raw); } catch { data = { message: raw }; }
-  if (!response.ok || String(data?.type || '').toLowerCase() !== 'success') {
-    const error = new Error('OTP_DELIVERY_FAILED');
-    error.providerResponse = data;
-    throw error;
+  // Retry only transient/network failures. Provider rejection is returned immediately
+  // so the login flow never reports an OTP as sent when MSG91 rejected it.
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+      let response;
+      if (templateId) {
+        const params = new URLSearchParams({
+          template_id: templateId,
+          mobile,
+          authkey: authKey,
+          otp: String(otp),
+          otp_length: '6',
+          otp_expiry: '10',
+        });
+        response = await requestOtp({
+          endpoint: OTP_ENDPOINT,
+          params,
+          method: 'POST',
+          headers: { accept: 'application/json', 'Content-Type': 'application/json' },
+          body: '{}',
+          signal: controller.signal,
+        });
+      } else {
+        const params = new URLSearchParams({
+          authkey: authKey,
+          mobile,
+          message: `Your AARVO verification code is ${otp}. It expires in 10 minutes.`,
+          sender: senderId,
+          otp: String(otp),
+          otp_length: '6',
+          otp_expiry: '10',
+        });
+        response = await requestOtp({
+          endpoint: LEGACY_OTP_ENDPOINT,
+          params,
+          method: 'GET',
+          headers: { accept: 'application/json' },
+          signal: controller.signal,
+        });
+      }
+
+      const raw = await response.text();
+      let data;
+      try { data = JSON.parse(raw); } catch { data = { message: raw }; }
+
+      if (!response.ok || String(data?.type || '').toLowerCase() !== 'success') {
+        const error = new Error('OTP_DELIVERY_FAILED');
+        error.code = 'OTP_DELIVERY_FAILED';
+        error.providerStatus = response.status;
+        error.providerResponse = data;
+        throw error;
+      }
+
+      return data;
+    } catch (cause) {
+      lastError = cause;
+      const transient = cause?.name === 'AbortError' || cause?.code === 'ECONNRESET' || cause?.code === 'ETIMEDOUT' || cause?.message === 'fetch failed';
+      if (!transient || attempt === 2) {
+        if (cause?.message === 'OTP_DELIVERY_FAILED') throw cause;
+        const error = new Error(cause?.name === 'AbortError' ? 'OTP_PROVIDER_TIMEOUT' : 'OTP_DELIVERY_FAILED');
+        error.code = error.message;
+        error.cause = cause;
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    } finally {
+      clearTimeout(timeout);
+    }
   }
-  return data;
+
+  const error = new Error('OTP_DELIVERY_FAILED');
+  error.code = 'OTP_DELIVERY_FAILED';
+  error.cause = lastError;
+  throw error;
 }
