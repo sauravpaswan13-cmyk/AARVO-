@@ -115,7 +115,7 @@ jobs:
       - name: Attest release AAB provenance
         uses: actions/attest@v4
         with:
-          subject-path: 'app/build/outputs/bundleRelease/*.aab'
+          subject-path: 'app/build/outputs/bundle/release/*.aab'
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
