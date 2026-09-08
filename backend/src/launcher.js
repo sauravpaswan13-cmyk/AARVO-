@@ -94,7 +94,6 @@ if (!source.includes("otp-delivery.js")) {
   }
 }
 
-// Every successful password login now sends a fresh 6-digit SMS OTP. The token is issued only after OTP verification.
 if (!source.includes('AARVO_LOGIN_OTP_ENABLED')) {
   const loginStart = source.indexOf("app.post('/v1/auth/login'");
   const loginEnd = loginStart >= 0 ? source.indexOf("\napp.get('/v1/products'", loginStart) : -1;
@@ -121,6 +120,17 @@ if (!source.includes('AARVO_LOGIN_OTP_ENABLED')) {
 });`;
     source = source.slice(0, loginStart) + loginRoute + source.slice(loginEnd);
   }
+}
+
+if (!source.includes('msg91-widget-auth.js')) {
+  source = source.replace(
+    "import { registerSettlementCompletion } from './settlement-completion.js';",
+    "import { registerSettlementCompletion } from './settlement-completion.js';\nimport { registerMsg91WidgetAuth } from './msg91-widget-auth.js';"
+  );
+  source = source.replace(
+    "const port=Number(process.env.PORT||8080);",
+    "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });\nconst port=Number(process.env.PORT||8080);"
+  );
 }
 
 await fs.writeFile(runtimePath, source, 'utf8');
