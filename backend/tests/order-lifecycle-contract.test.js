@@ -9,6 +9,7 @@ const read = (relativePath) => fs.readFileSync(path.join(ROOT, relativePath), 'u
 
 const server = read('backend/src/server.js');
 const launcher = read('backend/src/launcher.js');
+const otpDelivery = read('backend/src/otp-delivery.js');
 
 
 test('order lifecycle contract keeps seller status transitions and buyer tracking access guarded', () => {
@@ -21,10 +22,10 @@ test('order lifecycle contract keeps seller status transitions and buyer trackin
 });
 
 test('refund and OTP runtime hardening remains wired into the production launcher', () => {
-  assert.match(launcher, /SELECT id,total_paise,gateway_payment_id,payment_status,status FROM orders WHERE id=\$1 FOR UPDATE/);
+  assert.match(launcher, /SELECT id,total_paise,gateway_payment_id,payment_status,status,refund_status FROM orders WHERE id=\$1 FOR UPDATE/);
   assert.match(launcher, /FOR UPDATE/);
   assert.match(launcher, /refund_status/);
   assert.match(launcher, /seller_amount_paise/);
   assert.match(launcher, /OTP_DELIVERY_FAILED/);
-  assert.match(launcher, /setTimeout\(\(\) => controller\.abort\(\), 10000\)/);
+  assert.match(otpDelivery, /setTimeout\(\(\) => controller\.abort\(\), 10000\)/);
 });
