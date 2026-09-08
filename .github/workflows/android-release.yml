@@ -51,7 +51,7 @@ jobs:
           KEYSTORE_B64: ${{ secrets.AARVO_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
-          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/aarvo-release.jks"
+          printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]' | base64 --decode > "$RUNNER_TEMP/aarvo-release.jks"
           chmod 600 "$RUNNER_TEMP/aarvo-release.jks"
           test -s "$RUNNER_TEMP/aarvo-release.jks"
 
