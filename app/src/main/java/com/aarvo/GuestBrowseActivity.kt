@@ -103,25 +103,12 @@ private fun SplashScreen() {
                 modifier = Modifier.size(138.dp)
             )
             Spacer(Modifier.height(4.dp))
-            Text(
-                "AARVO",
-                color = Color.White,
-                fontSize = 42.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 2.5.sp
-            )
+            Text("AARVO", color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.5.sp)
             Spacer(Modifier.height(4.dp))
-            Text(
-                "Shop Smart  •  Live Better",
-                color = Color.White.copy(alpha = .94f),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+            Text("Shop Smart  •  Live Better", color = Color.White.copy(alpha = .94f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(44.dp))
             Surface(color = Color.White.copy(alpha = .18f), shape = CircleShape, modifier = Modifier.size(38.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text("", modifier = Modifier.size(1.dp))
-                }
+                Box(contentAlignment = Alignment.Center) { Text("", modifier = Modifier.size(1.dp)) }
             }
             Spacer(Modifier.height(10.dp))
             Text("Loading your world...", color = Color.White.copy(alpha = .78f), fontSize = 12.sp)
@@ -138,64 +125,29 @@ private fun WelcomeScreen(onGuest: () -> Unit, onLogin: () -> Unit) {
             verticalArrangement = Arrangement.Center
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    painter = painterResource(R.drawable.aarvo_logo),
-                    contentDescription = "AARVO logo",
-                    tint = Color.Unspecified,
-                    modifier = Modifier.size(58.dp)
-                )
+                Icon(painter = painterResource(R.drawable.aarvo_logo), contentDescription = "AARVO logo", tint = Color.Unspecified, modifier = Modifier.size(58.dp))
                 Spacer(Modifier.size(7.dp))
-                Text(
-                    "AARVO",
-                    color = Color(0xFF22236D),
-                    fontSize = 31.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 1.sp
-                )
+                Text("AARVO", color = Color(0xFF22236D), fontSize = 31.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
             }
             Spacer(Modifier.height(5.dp))
-            Text(
-                "Your One Stop Shopping Destination",
-                color = Color(0xFF3D3D5B),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
-            )
+            Text("Your One Stop Shopping Destination", color = Color(0xFF3D3D5B), fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(20.dp))
-
-            Surface(
-                modifier = Modifier.size(width = 210.dp, height = 164.dp),
-                color = Color(0xFFF7F2FF),
-                shape = RoundedCornerShape(28.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text("🛍️", fontSize = 82.sp)
-                }
+            Surface(modifier = Modifier.size(width = 210.dp, height = 164.dp), color = Color(0xFFF7F2FF), shape = RoundedCornerShape(28.dp)) {
+                Box(contentAlignment = Alignment.Center) { Text("🛍️", fontSize = 82.sp) }
             }
             Spacer(Modifier.height(24.dp))
-
-            Button(
-                onClick = onGuest,
-                modifier = Modifier.fillMaxWidth().height(54.dp),
-                shape = RoundedCornerShape(13.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5A16E8), contentColor = Color.White)
-            ) {
+            Button(onClick = onGuest, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(13.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5A16E8), contentColor = Color.White)) {
                 Icon(Icons.Default.Person, contentDescription = null)
                 Spacer(Modifier.size(8.dp))
                 Text("Continue as Guest", fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(10.dp))
-            OutlinedButton(
-                onClick = onLogin,
-                modifier = Modifier.fillMaxWidth().height(54.dp),
-                shape = RoundedCornerShape(13.dp)
-            ) {
+            OutlinedButton(onClick = onLogin, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(13.dp)) {
                 Icon(Icons.Default.Lock, contentDescription = null)
                 Spacer(Modifier.size(8.dp))
                 Text("Login / Sign Up", fontWeight = FontWeight.Bold)
             }
-            TextButton(onClick = onGuest) {
-                Text("Explore as Guest", color = Color(0xFF4B17B9), fontWeight = FontWeight.SemiBold)
-            }
+            TextButton(onClick = onGuest) { Text("Explore as Guest", color = Color(0xFF4B17B9), fontWeight = FontWeight.SemiBold) }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 TrustItem(Icons.Default.Lock, "Secure")
