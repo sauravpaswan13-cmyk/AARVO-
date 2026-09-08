@@ -16,6 +16,8 @@ RUN sed -i "s/interval \\\'1 minute\\\'/make_interval(mins => 1)/g" src/server.j
 RUN chown -R node:node /app
 EXPOSE 8080
 USER node
-CMD ["sh", "-c", "node src/migrate.js && if [ -n \"$ADMIN_EMAIL\" ] && [ -n \"$ADMIN_PASSWORD\" ]; then node src/bootstrap-admin.js; else echo 'Admin bootstrap skipped: ADMIN_EMAIL/ADMIN_PASSWORD not available'; fi && node src/launcher.js"]
+# Start the HTTP server immediately so Render can detect the port while migrations/bootstrap run.
+# If migrations fail, terminate the server and fail the deploy; otherwise keep the server process attached.
+CMD ["sh", "-c", "node src/launcher.js & SERVER_PID=$!; node src/migrate.js && if [ -n \"$ADMIN_EMAIL\" ] && [ -n \"$ADMIN_PASSWORD\" ]; then node src/bootstrap-admin.js; else echo 'Admin bootstrap skipped: ADMIN_EMAIL/ADMIN_PASSWORD not available'; fi; MIGRATE_STATUS=$?; if [ $MIGRATE_STATUS -ne 0 ]; then kill $SERVER_PID 2>/dev/null || true; wait $SERVER_PID 2>/dev/null || true; exit $MIGRATE_STATUS; fi; wait $SERVER_PID"]
 
-# AARVO backend redeploy marker
+# AARVO backend port-binding fix
