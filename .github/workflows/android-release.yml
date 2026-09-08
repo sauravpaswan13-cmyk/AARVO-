@@ -69,7 +69,7 @@ jobs:
             -PaarvoReleaseStorePassword="$AARVO_STORE_PASSWORD" \
             -PaarvoReleaseKeyAlias="$AARVO_KEY_ALIAS" \
             -PaarvoReleaseKeyPassword="$AARVO_KEY_PASSWORD" \
-            --stacktrace
+            --no-daemon --stacktrace
 
       - name: Verify AAB output
         run: |
@@ -84,3 +84,7 @@ jobs:
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
+
+      - name: Cleanup signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/aarvo-release.jks"
