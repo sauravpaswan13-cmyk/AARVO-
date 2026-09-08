@@ -13,8 +13,9 @@ android {
         targetSdk = 37
         versionCode = 4
         versionName = "1.3"
-        // Production API is used by default; a Gradle property can still override it for staging/local builds.
         buildConfigField("String", "AARVO_API_BASE_URL", "\"${project.findProperty("aarvoApiBaseUrl") ?: "https://aarvo-api.onrender.com"}\"")
+        buildConfigField("String", "MSG91_WIDGET_ID", "\"${project.findProperty("msg91WidgetId") ?: "366968707564323239363235"}\"")
+        buildConfigField("String", "MSG91_WIDGET_TOKEN", "\"${project.findProperty("msg91WidgetToken") ?: ""}\"")
     }
 
     val releaseStoreFile = providers.gradleProperty("aarvoReleaseStoreFile").orNull
@@ -68,5 +69,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("com.squareup.okhttp3:okhttp:5.1.0")
     implementation("com.razorpay:checkout:1.6.41")
+    implementation("com.msg91.lib:sendotp:1.0.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
