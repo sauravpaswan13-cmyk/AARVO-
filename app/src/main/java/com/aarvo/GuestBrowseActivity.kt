@@ -19,10 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -171,11 +168,7 @@ private fun WelcomeScreen(onGuest: () -> Unit, onLogin: () -> Unit) {
                 shape = RoundedCornerShape(28.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Icon(Icons.Default.ShoppingBag, null, tint = Color(0xFFFF9D24), modifier = Modifier.size(74.dp))
-                        Icon(Icons.Default.ShoppingBag, null, tint = Color(0xFF5A16E8), modifier = Modifier.size(96.dp))
-                        Icon(Icons.Default.ShoppingBag, null, tint = Color(0xFFFF4B9B), modifier = Modifier.size(62.dp))
-                    }
+                    Text("🛍️", fontSize = 82.sp)
                 }
             }
             Spacer(Modifier.height(24.dp))
@@ -205,8 +198,8 @@ private fun WelcomeScreen(onGuest: () -> Unit, onLogin: () -> Unit) {
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                TrustItem(Icons.Default.Security, "Secure")
-                TrustItem(Icons.Default.LocalShipping, "Trusted Shopping")
+                TrustItem(Icons.Default.Lock, "Secure")
+                TrustItem(Icons.Default.Person, "Trusted Shopping")
                 TrustItem(Icons.Default.Lock, "Safe Payments")
             }
         }
