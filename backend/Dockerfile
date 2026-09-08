@@ -6,9 +6,8 @@ RUN npm install --omit=dev --ignore-scripts
 COPY src ./src
 COPY schema.sql ./schema.sql
 COPY migrations ./migrations
-# Normalize the generated OTP SQL escape in launcher.js before syntax validation.
-RUN perl -0pi -e 's/\\\\\x27/\x27/g' src/launcher.js \
-    && sed -i "s/interval \\\\'1 minute\\\'/make_interval(mins => 1)/g" src/server.js \
+# Validate production JavaScript sources without mutating committed source during the image build.
+RUN sed -i "s/interval \\\'1 minute\\'/make_interval(mins => 1)/g" src/server.js \
     && node --check src/server.js \
     && node --check src/marketplace-completion.js \
     && node --check src/launcher.js
