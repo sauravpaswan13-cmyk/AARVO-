@@ -10,7 +10,7 @@ let source = await fs.readFile(serverPath, 'utf8');
 if (!source.includes('registerMarketplaceCompletion')) {
   source = source.replace(
     "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';",
-    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\nimport { registerMarketplaceCompletion } from './marketplace-completion.js';\nimport { registerCartCompletion } from './cart-completion.js';\nimport { registerSettlementCompletion } from './settlement-completion.js';"
+    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\nimport { registerMarketplaceCompletion } from './marketplace-completion.js';\nimport { registerCartCompletion } from './cart-completion.js';\nimport { registerSettlementCompletion } from './settlement-completion.js'"
   );
   source = source.replace(
     "const port=Number(process.env.PORT||8080);",
@@ -18,31 +18,17 @@ if (!source.includes('registerMarketplaceCompletion')) {
   );
 }
 
-// Category-based AARVO commission: 3% minimum through 12% maximum.
 if (!source.includes("commission-rules.js")) {
   source = source.replace(
     "import { registerSettlementCompletion } from './settlement-completion.js';",
     "import { registerSettlementCompletion } from './settlement-completion.js';\nimport { commissionBpsForCategory, commissionPaise } from './commission-rules.js';"
   );
-  source = source.replace(
-    "const PLATFORM_FEE_BPS = Number(process.env.PLATFORM_FEE_BPS || 0);",
-    "const PLATFORM_FEE_BPS = 0;"
-  );
-  source = source.replace(
-    "SELECT id,seller_id,price_paise,stock_quantity,is_published FROM products WHERE id=ANY($1::bigint[]) FOR UPDATE",
-    "SELECT id,seller_id,category,price_paise,stock_quantity,is_published FROM products WHERE id=ANY($1::bigint[]) FOR UPDATE"
-  );
-  source = source.replace(
-    "const platformFee=Math.floor(subtotal*PLATFORM_FEE_BPS/10000),total=subtotal+DELIVERY_FEE_PAISE+platformFee,orderId=randomUUID();",
-    "const platformFee=products.rows.reduce((sum,p)=>sum+commissionPaise(Number(p.price_paise)*merged.get(Number(p.id)),p.category),0),total=subtotal+DELIVERY_FEE_PAISE+platformFee,orderId=randomUUID();"
-  );
-  source = source.replace(
-    "const qty=merged.get(Number(p.id)),lineTotal=Number(p.price_paise)*qty,sellerAmount=lineTotal-Math.floor(lineTotal*PLATFORM_FEE_BPS/10000);",
-    "const qty=merged.get(Number(p.id)),lineTotal=Number(p.price_paise)*qty,sellerAmount=lineTotal-commissionPaise(lineTotal,p.category);"
-  );
+  source = source.replace("const PLATFORM_FEE_BPS = Number(process.env.PLATFORM_FEE_BPS || 0);", "const PLATFORM_FEE_BPS = 0;");
+  source = source.replace("SELECT id,seller_id,price_paise,stock_quantity,is_published FROM products WHERE id=ANY($1::bigint[]) FOR UPDATE", "SELECT id,seller_id,category,price_paise,stock_quantity,is_published FROM products WHERE id=ANY($1::bigint[]) FOR UPDATE");
+  source = source.replace("const platformFee=Math.floor(subtotal*PLATFORM_FEE_BPS/10000),total=subtotal+DELIVERY_FEE_PAISE+platformFee,orderId=randomUUID();", "const platformFee=products.rows.reduce((sum,p)=>sum+commissionPaise(Number(p.price_paise)*merged.get(Number(p.id)),p.category),0),total=subtotal+DELIVERY_FEE_PAISE+platformFee,orderId=randomUUID();");
+  source = source.replace("const qty=merged.get(Number(p.id)),lineTotal=Number(p.price_paise)*qty,sellerAmount=lineTotal-Math.floor(lineTotal*PLATFORM_FEE_BPS/10000);", "const qty=merged.get(Number(p.id)),lineTotal=Number(p.price_paise)*qty,sellerAmount=lineTotal-commissionPaise(lineTotal,p.category);");
 }
 
-// Harden the legacy refund handler without mutating the canonical server source at build time.
 const refundStart = source.indexOf("app.post('/v1/admin/orders/:id/refund'");
 const refundEnd = refundStart >= 0 ? source.indexOf("\napp.get('/v1/admin/sellers'", refundStart) : -1;
 if (refundStart >= 0 && refundEnd > refundStart) {
@@ -76,16 +62,12 @@ if (refundStart >= 0 && refundEnd > refundStart) {
     await audit(client, request.user, 'ORDER', request.params.id, 'REFUND_PROCESSED', { refundId: refund.id, amountPaise: amount, fullRefund });
     await client.query('COMMIT');
     return { orderId: request.params.id, refundId: refund.id, amountPaise: amount, refundStatus: fullRefund ? 'PROCESSED' : 'PARTIAL' };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally { client.release(); }
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+  finally { client.release(); }
 });`;
   source = source.slice(0, refundStart) + safeRefundRoute + source.slice(refundEnd);
 }
 
-// Production phone OTP delivery: keep the existing database challenge/verification flow,
-// but send the generated OTP through MSG91 when configured.
 if (!source.includes("otp-delivery.js")) {
   source = source.replace(
     "import { registerSettlementCompletion } from './settlement-completion.js';",
@@ -103,17 +85,41 @@ if (!source.includes("otp-delivery.js")) {
   const otp = String(Math.floor(100000 + Math.random() * 900000));
   const otpHash = hashPassword(otp);
   await pool.query('UPDATE phone_verification_challenges SET verified_at=COALESCE(verified_at,now()) WHERE phone=$1 AND verified_at IS NULL', [phone]);
-  try {
-    await sendPhoneOtp({ phone, otp });
-  } catch (error) {
-    request.log.error({ err: error }, 'phone OTP delivery failed');
-    const code = error?.code === 'OTP_PROVIDER_NOT_CONFIGURED' ? 'OTP_PROVIDER_NOT_CONFIGURED' : 'OTP_DELIVERY_FAILED';
-    return reply.code(503).send({ error: code });
-  }
+  try { await sendPhoneOtp({ phone, otp }); }
+  catch (error) { request.log.error({ err: error }, 'phone OTP delivery failed'); return reply.code(503).send({ error: error?.code === 'OTP_PROVIDER_NOT_CONFIGURED' ? 'OTP_PROVIDER_NOT_CONFIGURED' : 'OTP_DELIVERY_FAILED' }); }
   await pool.query("INSERT INTO phone_verification_challenges(user_id,phone,otp_hash,expires_at,attempts) VALUES($1,$2,$3,now()+interval '10 minutes',0)", [user.rows[0].id, phone, otpHash]);
   return { sent: true, expiresInSeconds: 600 };
 });`;
     source = source.slice(0, otpStart) + otpRoute + source.slice(otpEnd);
+  }
+}
+
+// Every successful password login now sends a fresh 6-digit SMS OTP. The token is issued only after OTP verification.
+if (!source.includes('AARVO_LOGIN_OTP_ENABLED')) {
+  const loginStart = source.indexOf("app.post('/v1/auth/login'");
+  const loginEnd = loginStart >= 0 ? source.indexOf("\napp.get('/v1/products'", loginStart) : -1;
+  if (loginStart >= 0 && loginEnd > loginStart) {
+    const loginRoute = `app.post('/v1/auth/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+  if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+  if (!JWT_SECRET) return reply.code(503).send({ error: 'AUTH_NOT_CONFIGURED' });
+  const { phone, email, password } = request.body || {};
+  const normalizedPhone = normalizePhone(phone);
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if ((!normalizedPhone && !normalizedEmail) || !password) return reply.code(400).send({ error: 'INVALID_LOGIN' });
+  const result = normalizedPhone ? await pool.query('SELECT id,email,display_name,role,password_hash,phone,phone_verified FROM users WHERE phone=$1', [normalizedPhone]) : await pool.query('SELECT id,email,display_name,role,password_hash,phone,phone_verified FROM users WHERE email=$1', [normalizedEmail]);
+  if (!result.rowCount || !verifyPassword(String(password || ''), result.rows[0].password_hash)) return reply.code(401).send({ error: 'INVALID_CREDENTIALS' });
+  const user = result.rows[0];
+  if (!user.phone) return reply.code(400).send({ error: 'PHONE_REQUIRED_FOR_OTP' });
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  const otpHash = hashPassword(otp);
+  await pool.query('UPDATE phone_verification_challenges SET verified_at=COALESCE(verified_at,now()) WHERE phone=$1 AND verified_at IS NULL', [user.phone]);
+  try { await sendPhoneOtp({ phone: user.phone, otp }); }
+  catch (error) { request.log.error({ err: error }, 'login OTP delivery failed'); return reply.code(503).send({ error: error?.code === 'OTP_PROVIDER_NOT_CONFIGURED' ? 'OTP_PROVIDER_NOT_CONFIGURED' : 'OTP_DELIVERY_FAILED' }); }
+  await pool.query("INSERT INTO phone_verification_challenges(user_id,phone,otp_hash,expires_at,attempts) VALUES($1,$2,$3,now()+interval '10 minutes',0)", [user.id, user.phone, otpHash]);
+  const { password_hash, ...safeUser } = user;
+  return { user: safeUser, requiresPhoneVerification: true, otpRequired: true, expiresInSeconds: 600 };
+});`;
+    source = source.slice(0, loginStart) + loginRoute + source.slice(loginEnd);
   }
 }
 
