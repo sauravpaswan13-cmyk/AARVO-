@@ -84,5 +84,38 @@ if (refundStart >= 0 && refundEnd > refundStart) {
   source = source.slice(0, refundStart) + safeRefundRoute + source.slice(refundEnd);
 }
 
+// Production phone OTP delivery: keep the existing database challenge/verification flow,
+// but send the generated OTP through MSG91 when configured.
+if (!source.includes("otp-delivery.js")) {
+  source = source.replace(
+    "import { registerSettlementCompletion } from './settlement-completion.js';",
+    "import { registerSettlementCompletion } from './settlement-completion.js';\nimport { sendPhoneOtp } from './otp-delivery.js';"
+  );
+  const otpStart = source.indexOf("app.post('/v1/auth/resend-phone-otp'");
+  const otpEnd = otpStart >= 0 ? source.indexOf("\napp.post('/v1/ai/assistant'", otpStart) : -1;
+  if (otpStart >= 0 && otpEnd > otpStart) {
+    const otpRoute = `app.post('/v1/auth/resend-phone-otp', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
+  if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+  const phone = normalizePhone(request.body?.phone);
+  if (!phone) return reply.code(400).send({ error: 'INVALID_PHONE' });
+  const user = await pool.query('SELECT id FROM users WHERE phone=$1', [phone]);
+  if (!user.rowCount) return reply.code(404).send({ error: 'USER_NOT_FOUND' });
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  const otpHash = hashPassword(otp);
+  await pool.query('UPDATE phone_verification_challenges SET verified_at=COALESCE(verified_at,now()) WHERE phone=$1 AND verified_at IS NULL', [phone]);
+  try {
+    await sendPhoneOtp({ phone, otp });
+  } catch (error) {
+    request.log.error({ err: error }, 'phone OTP delivery failed');
+    const code = error?.code === 'OTP_PROVIDER_NOT_CONFIGURED' ? 'OTP_PROVIDER_NOT_CONFIGURED' : 'OTP_DELIVERY_FAILED';
+    return reply.code(503).send({ error: code });
+  }
+  await pool.query('INSERT INTO phone_verification_challenges(user_id,phone,otp_hash,expires_at,attempts) VALUES($1,$2,$3,now()+interval \'10 minutes\',0)', [user.rows[0].id, phone, otpHash]);
+  return { sent: true, expiresInSeconds: 600 };
+});`;
+    source = source.slice(0, otpStart) + otpRoute + source.slice(otpEnd);
+  }
+}
+
 await fs.writeFile(runtimePath, source, 'utf8');
 await import(`${pathToFileURL(runtimePath).href}?v=${Date.now()}`);
