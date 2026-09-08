@@ -11,8 +11,8 @@ android {
         applicationId = "com.aarvo"
         minSdk = 24
         targetSdk = 37
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
         // Production API is used by default; a Gradle property can still override it for staging/local builds.
         buildConfigField("String", "AARVO_API_BASE_URL", "\"${project.findProperty("aarvoApiBaseUrl") ?: "https://aarvo-api.onrender.com"}\"")
     }
