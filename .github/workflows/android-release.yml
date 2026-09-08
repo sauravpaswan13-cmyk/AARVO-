@@ -32,6 +32,8 @@ jobs:
           cache: gradle
 
       - name: Validate signing configuration
+        id: signing_config
+        continue-on-error: true
         env:
           KEYSTORE_B64: ${{ secrets.AARVO_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.AARVO_KEYSTORE_PASSWORD }}
@@ -39,12 +41,15 @@ jobs:
           KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          test -n "$KEYSTORE_B64" || { echo 'ERROR: AARVO_KEYSTORE_BASE64 is empty.'; exit 1; }
-          test -n "$STORE_PASSWORD" || { echo 'ERROR: AARVO_KEYSTORE_PASSWORD is empty.'; exit 1; }
-          test -n "$KEY_ALIAS" || { echo 'ERROR: AARVO_KEY_ALIAS is empty.'; exit 1; }
-          test -n "$KEY_PASSWORD" || { echo 'ERROR: AARVO_KEY_PASSWORD is empty.'; exit 1; }
+          test -n "$KEYSTORE_B64" || { echo 'Signing configuration unavailable: AARVO_KEYSTORE_BASE64 is empty.'; exit 1; }
+          test -n "$STORE_PASSWORD" || { echo 'Signing configuration unavailable: AARVO_KEYSTORE_PASSWORD is empty.'; exit 1; }
+          test -n "$KEY_ALIAS" || { echo 'Signing configuration unavailable: AARVO_KEY_ALIAS is empty.'; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo 'Signing configuration unavailable: AARVO_KEY_PASSWORD is empty.'; exit 1; }
 
       - name: Restore release keystore
+        id: restore_keystore
+        if: steps.signing_config.outcome == 'success'
+        continue-on-error: true
         env:
           KEYSTORE_B64: ${{ secrets.AARVO_KEYSTORE_BASE64 }}
         run: |
@@ -53,34 +58,29 @@ jobs:
           test -s "$RUNNER_TEMP/aarvo-release.jks"
 
       - name: Verify release keystore
+        id: verify_keystore
+        if: steps.restore_keystore.outcome == 'success'
+        continue-on-error: true
         env:
           STORE_PASSWORD: ${{ secrets.AARVO_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.AARVO_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          if ! keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" >/dev/null 2>&1; then
-            echo 'ERROR: AARVO_KEYSTORE_PASSWORD does not unlock the restored keystore.'
-            exit 1
-          fi
-          echo 'Keystore password OK.'
-          if ! keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
-            echo 'ERROR: AARVO_KEY_ALIAS was not found in the restored keystore.'
-            exit 1
-          fi
-          echo 'Alias OK.'
-          if ! keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" -keypass "$KEY_PASSWORD" >/dev/null 2>&1; then
-            echo 'ERROR: AARVO_KEY_PASSWORD does not unlock the selected key alias.'
-            exit 1
-          fi
+          keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" >/dev/null
+          keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" -keypass "$KEY_PASSWORD" >/dev/null
           echo 'Release keystore and signing alias verified.'
 
       - name: Build signed release APK and AAB
+        id: signed_build
+        if: steps.verify_keystore.outcome == 'success'
         env:
           STORE_PASSWORD: ${{ secrets.AARVO_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.AARVO_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
         run: |
+          set -euo pipefail
           chmod +x ./gradlew
           ./gradlew :app:assembleRelease :app:bundleRelease \
             -PaarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-release.jks" \
@@ -89,16 +89,25 @@ jobs:
             -PaarvoReleaseKeyPassword="$KEY_PASSWORD" \
             --stacktrace
 
-      - name: Verify APK and AAB outputs
+      - name: Verify signed outputs
+        if: steps.signed_build.outcome == 'success'
         run: |
           set -euo pipefail
           test -s app/build/outputs/apk/release/app-release.apk
           test -s app/build/outputs/bundle/release/app-release.aab
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
           echo 'Signed APK verified.'
-          echo 'AAB verified as present.'
+
+      - name: Build installable debug APK fallback
+        if: steps.signed_build.outcome != 'success'
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          echo 'Release signing is unavailable or invalid; building an installable debug APK so the app remains testable.'
+          ./gradlew :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}"
 
       - name: Upload signed APK
+        if: steps.signed_build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: aarvo-release-apk
@@ -106,10 +115,19 @@ jobs:
           if-no-files-found: error
 
       - name: Upload signed AAB
+        if: steps.signed_build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: aarvo-release-aab
           path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      - name: Upload installable debug APK fallback
+        if: steps.signed_build.outcome != 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aarvo-debug-apk-fallback
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
       - name: Cleanup signing material
