@@ -15,10 +15,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -36,14 +40,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.res.painterResource
 import com.aarvo.ui.theme.AarvoTheme
 import kotlinx.coroutines.delay
 
-/** AARVO premium entry flow: branded splash first, then guest/account entry. */
+/** AARVO branded entry flow: reference-style splash followed by the welcome/guest gate. */
 class GuestBrowseActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,7 +82,7 @@ class GuestBrowseActivity : ComponentActivity() {
 private fun EntryFlow(onGuest: () -> Unit, onLogin: () -> Unit) {
     var showWelcome by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        delay(1400)
+        delay(1500)
         showWelcome = true
     }
     if (showWelcome) WelcomeScreen(onGuest, onLogin) else SplashScreen()
@@ -88,23 +92,42 @@ private fun EntryFlow(onGuest: () -> Unit, onLogin: () -> Unit) {
 private fun SplashScreen() {
     Box(
         modifier = Modifier.fillMaxSize().background(
-            Brush.verticalGradient(listOf(Color(0xFF5B00C9), Color(0xFF28006E), Color(0xFF10004A)))
+            Brush.verticalGradient(
+                listOf(Color(0xFF5A00C9), Color(0xFF2D0079), Color(0xFF10004B))
+            )
         ),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
                 painter = painterResource(R.drawable.aarvo_logo),
-                contentDescription = "AARVO",
+                contentDescription = "AARVO logo",
                 tint = Color.Unspecified,
-                modifier = Modifier.size(132.dp)
+                modifier = Modifier.size(138.dp)
             )
-            Spacer(Modifier.height(10.dp))
-            Text("AARVO", color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 3.sp)
             Spacer(Modifier.height(4.dp))
-            Text("Shop Smart  •  Live Better", color = Color.White.copy(alpha = .92f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(46.dp))
-            Text("Loading your world...", color = Color.White.copy(alpha = .75f), fontSize = 12.sp)
+            Text(
+                "AARVO",
+                color = Color.White,
+                fontSize = 42.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 2.5.sp
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Shop Smart  •  Live Better",
+                color = Color.White.copy(alpha = .94f),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(44.dp))
+            Surface(color = Color.White.copy(alpha = .18f), shape = CircleShape, modifier = Modifier.size(38.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("", modifier = Modifier.size(1.dp))
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Text("Loading your world...", color = Color.White.copy(alpha = .78f), fontSize = 12.sp)
         }
     }
 }
@@ -120,26 +143,43 @@ private fun WelcomeScreen(onGuest: () -> Unit, onLogin: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     painter = painterResource(R.drawable.aarvo_logo),
-                    contentDescription = "AARVO",
+                    contentDescription = "AARVO logo",
                     tint = Color.Unspecified,
-                    modifier = Modifier.size(54.dp)
+                    modifier = Modifier.size(58.dp)
                 )
-                Spacer(Modifier.size(8.dp))
-                Text("AARVO", color = Color(0xFF20206B), fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                Spacer(Modifier.size(7.dp))
+                Text(
+                    "AARVO",
+                    color = Color(0xFF22236D),
+                    fontSize = 31.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp
+                )
             }
-            Spacer(Modifier.height(8.dp))
-            Text("Your One Stop Shopping Destination", color = Color(0xFF34345E), fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(5.dp))
+            Text(
+                "Your One Stop Shopping Destination",
+                color = Color(0xFF3D3D5B),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(20.dp))
+
             Surface(
-                modifier = Modifier.size(width = 190.dp, height = 150.dp),
-                color = Color(0xFFF7F3FF),
+                modifier = Modifier.size(width = 210.dp, height = 164.dp),
+                color = Color(0xFFF7F2FF),
                 shape = RoundedCornerShape(28.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(painterResource(R.drawable.aarvo_logo), contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(100.dp))
+                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Icon(Icons.Default.ShoppingBag, null, tint = Color(0xFFFF9D24), modifier = Modifier.size(74.dp))
+                        Icon(Icons.Default.ShoppingBag, null, tint = Color(0xFF5A16E8), modifier = Modifier.size(96.dp))
+                        Icon(Icons.Default.ShoppingBag, null, tint = Color(0xFFFF4B9B), modifier = Modifier.size(62.dp))
+                    }
                 }
             }
             Spacer(Modifier.height(24.dp))
+
             Button(
                 onClick = onGuest,
                 modifier = Modifier.fillMaxWidth().height(54.dp),
@@ -151,7 +191,11 @@ private fun WelcomeScreen(onGuest: () -> Unit, onLogin: () -> Unit) {
                 Text("Continue as Guest", fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(10.dp))
-            OutlinedButton(onClick = onLogin, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(13.dp)) {
+            OutlinedButton(
+                onClick = onLogin,
+                modifier = Modifier.fillMaxWidth().height(54.dp),
+                shape = RoundedCornerShape(13.dp)
+            ) {
                 Icon(Icons.Default.Lock, contentDescription = null)
                 Spacer(Modifier.size(8.dp))
                 Text("Login / Sign Up", fontWeight = FontWeight.Bold)
@@ -159,11 +203,11 @@ private fun WelcomeScreen(onGuest: () -> Unit, onLogin: () -> Unit) {
             TextButton(onClick = onGuest) {
                 Text("Explore as Guest", color = Color(0xFF4B17B9), fontWeight = FontWeight.SemiBold)
             }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                TrustItem(Icons.Default.Lock, "Secure")
-                TrustItem(Icons.Default.Lock, "Trusted Shopping")
-                TrustItem(Icons.Default.Person, "Easy Access")
+                TrustItem(Icons.Default.Security, "Secure")
+                TrustItem(Icons.Default.LocalShipping, "Trusted Shopping")
+                TrustItem(Icons.Default.Lock, "Safe Payments")
             }
         }
     }
