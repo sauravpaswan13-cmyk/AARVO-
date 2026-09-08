@@ -4,44 +4,17 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-
-    <!-- Deep blue rounded-square base -->
+    <!-- AARVO three-ribbon A mark from the supplied UI reference -->
     <path
-        android:fillColor="#0826D9"
-        android:pathData="M18,2 L90,2 C99,2 106,9 106,18 L106,90 C106,99 99,106 90,106 L18,106 C9,106 2,99 2,90 L2,18 C2,9 9,2 18,2 Z" />
-
-    <!-- Bright cyan edge -->
+        android:fillColor="#FF8A00"
+        android:pathData="M14,79 C17,73 21,64 26,54 L43,20 C47,12 53,8 59,9 C64,10 68,14 71,21 L88,57 L77,74 L61,41 C60,39 59,39 58,42 L43,72 C40,79 36,88 29,91 C23,94 17,90 14,84 C13,82 13,80 14,79 Z"/>
     <path
-        android:fillColor="#00D9FF"
-        android:pathData="M18,1 L90,1 C100,1 107,8 107,18 L107,90 C107,100 100,107 90,107 L18,107 C8,107 1,100 1,90 L1,18 C1,8 8,1 18,1 Z M18,4 C10,4 4,10 4,18 L4,90 C4,98 10,104 18,104 L90,104 C98,104 104,98 104,90 L104,18 C104,10 98,4 90,4 Z" />
-
-    <!-- Inner blue field -->
+        android:fillColor="#FFC21A"
+        android:pathData="M47,20 C51,12 56,9 61,10 C66,11 69,15 72,22 L91,62 L83,79 L66,45 C62,37 58,30 55,29 C52,28 50,31 47,36 L39,51 L32,41 Z"/>
     <path
-        android:fillColor="#1239F5"
-        android:pathData="M18,5 L90,5 C97,5 103,11 103,18 L103,90 C103,97 97,103 90,103 L18,103 C11,103 5,97 5,90 L5,18 C5,11 11,5 18,5 Z" />
-
-    <!-- Left golden ribbon of A -->
+        android:fillColor="#FF2F57"
+        android:pathData="M17,80 C23,75 30,69 38,64 C47,58 55,53 63,53 C73,53 83,59 90,67 C96,74 97,82 94,88 C91,94 84,96 77,93 C69,90 64,82 57,76 C54,73 51,73 47,76 L33,88 C28,92 22,91 19,87 C17,85 16,82 17,80 Z"/>
     <path
-        android:fillColor="#FFD800"
-        android:pathData="M22,78 C24,73 27,67 31,60 L48,29 C52,22 57,18 63,18 C68,18 72,21 75,27 L90,58 L78,76 L64,45 C63,43 62,43 61,45 L48,69 L39,86 C36,92 31,96 26,95 C21,94 19,88 22,78 Z" />
-
-    <!-- Warm orange inner shading -->
-    <path
-        android:fillColor="#FF7A00"
-        android:pathData="M27,82 C29,77 32,71 36,64 L52,35 C55,29 58,27 61,29 C64,30 66,34 68,39 L60,54 L49,75 L41,88 C37,94 32,96 28,92 C25,90 25,86 27,82 Z" />
-
-    <!-- Right golden ribbon -->
-    <path
-        android:fillColor="#FFE500"
-        android:pathData="M58,25 C62,19 68,18 73,21 C77,23 80,28 83,34 L96,62 L88,82 L76,61 L63,37 C60,32 58,28 58,25 Z" />
-
-    <!-- Magenta/purple foreground ribbon -->
-    <path
-        android:fillColor="#F000D8"
-        android:pathData="M23,82 C27,76 35,69 44,63 C52,58 60,54 68,55 C77,56 86,62 92,70 C97,77 98,86 94,91 C90,96 82,98 75,94 C68,90 63,83 58,78 C55,75 52,75 48,78 L35,89 C30,93 25,92 23,88 C21,86 21,84 23,82 Z" />
-
-    <!-- Purple lower fold -->
-    <path
-        android:fillColor="#8A00FF"
-        android:pathData="M48,78 C52,75 55,75 58,78 C64,84 69,90 75,94 C79,97 84,97 88,95 C82,101 73,101 66,96 L49,84 C46,82 45,80 48,78 Z" />
+        android:fillColor="#C500C9"
+        android:pathData="M47,76 C51,73 54,73 57,76 C64,82 69,90 77,93 C82,96 88,94 92,90 C88,97 79,99 71,94 L50,82 C46,80 45,78 47,76 Z"/>
 </vector>
