@@ -101,9 +101,13 @@ jobs:
         with:
           gradle-version: '9.7.1'
       - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}"
+        run: gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}" -Pmsg91WidgetToken="${MSG91_WIDGET_TOKEN}"
+        env:
+          MSG91_WIDGET_TOKEN: ${{ secrets.MSG91_WIDGET_TOKEN }}
       - name: Build release AAB (unsigned)
-        run: gradle :app:bundleRelease --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}"
+        run: gradle :app:bundleRelease --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}" -Pmsg91WidgetToken="${MSG91_WIDGET_TOKEN}"
+        env:
+          MSG91_WIDGET_TOKEN: ${{ secrets.MSG91_WIDGET_TOKEN }}
       - name: Attest debug APK provenance
         uses: actions/attest@v4
         with:
@@ -111,7 +115,7 @@ jobs:
       - name: Attest release AAB provenance
         uses: actions/attest@v4
         with:
-          subject-path: 'app/build/outputs/bundle/release/*.aab'
+          subject-path: 'app/build/outputs/bundleRelease/*.aab'
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
