@@ -6,10 +6,7 @@ RUN npm install --omit=dev --ignore-scripts
 COPY src ./src
 COPY schema.sql ./schema.sql
 COPY migrations ./migrations
-# Make the runtime patcher independent of the old 8080 string and register all runtime modules before server listen.
-RUN node --input-type=module -e "import fs from 'node:fs'; const p='src/launcher.js'; let s=fs.readFileSync(p,'utf8'); const marker=\"await fs.writeFile(runtimePath, source, 'utf8');\"; const patch=\`\nif (!source.includes(\"registerMarketplaceCompletion\")) {\n  source = source.replace(\"import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\", \"import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\\nimport { registerMarketplaceCompletion } from './marketplace-completion.js';\\nimport { registerCartCompletion } from './cart-completion.js';\\nimport { registerSettlementCompletion } from './settlement-completion.js';\");\n}\nif (!source.includes(\"msg91-widget-auth.js\")) {\n  source = source.replace(\"import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\", \"import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\\nimport { registerMsg91WidgetAuth } from './msg91-widget-auth.js';\");\n}\nconst listenMarker=\"app.listen(PORT, '0.0.0.0', () => {\";\nconst registrations=\"await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\\nawait registerCartCompletion({ app, pool, requireRole, audit });\\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\\nawait registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });\\n\";\nif (source.includes(listenMarker) && !source.includes(\"await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });\")) source = source.replace(listenMarker, registrations + listenMarker);\n\`; if (!s.includes(marker)) throw new Error('launcher write marker missing'); s=s.replace(marker, patch+marker); fs.writeFileSync(p,s);"
-RUN sed -i "s/interval \\\'1 minute\\'/make_interval(mins => 1)/g" src/server.js \
-    && node --check src/server.js \
+RUN node --check src/server.js \
     && node --check src/marketplace-completion.js \
     && node --check src/launcher.js
 RUN chown -R node:node /app
