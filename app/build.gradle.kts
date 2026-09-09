@@ -11,8 +11,8 @@ android {
         applicationId = "com.aarvo"
         minSdk = 24
         targetSdk = 37
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
         buildConfigField("String", "AARVO_API_BASE_URL", "\"${project.findProperty("aarvoApiBaseUrl") ?: "https://aarvo-api.onrender.com"}\"")
         buildConfigField("String", "MSG91_WIDGET_ID", "\"${project.findProperty("msg91WidgetId") ?: "366968707564323239363235"}\"")
         buildConfigField("String", "MSG91_WIDGET_TOKEN", "\"${project.findProperty("msg91WidgetToken") ?: ""}\"")
