@@ -1,0 +1,1 @@
+This repository now uses the Gradle 9.7.1 setup action in CI. The wrapper configuration is retained for project compatibility; CI does not require this binary jar.
