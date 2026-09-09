@@ -13,8 +13,8 @@ if (!source.includes('registerMarketplaceCompletion')) {
     "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\nimport { registerMarketplaceCompletion } from './marketplace-completion.js';\nimport { registerCartCompletion } from './cart-completion.js';\nimport { registerSettlementCompletion } from './settlement-completion.js'"
   );
   source = source.replace(
-    "const port=Number(process.env.PORT||8080);",
-    "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\nconst port=Number(process.env.PORT||8080);"
+    "app.listen(PORT, '0.0.0.0', () => {",
+    "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\napp.listen(PORT, '0.0.0.0', () => {"
   );
 }
 
@@ -128,8 +128,8 @@ if (!source.includes('msg91-widget-auth.js')) {
     "import { registerSettlementCompletion } from './settlement-completion.js';\nimport { registerMsg91WidgetAuth } from './msg91-widget-auth.js';"
   );
   source = source.replace(
-    "const port=Number(process.env.PORT||8080);",
-    "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });\nconst port=Number(process.env.PORT||8080);"
+    "app.listen(PORT, '0.0.0.0', () => {",
+    "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });\napp.listen(PORT, '0.0.0.0', () => {"
   );
 }
 
