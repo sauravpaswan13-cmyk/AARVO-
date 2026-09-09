@@ -83,6 +83,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("com.squareup.okhttp3:okhttp:5.1.0")
     implementation("com.razorpay:checkout:1.6.41")
-    implementation("com.msg91.lib:sendotp:1.0.0")
+    implementation("com.msg91.lib:sendotp:1.0.1-rc")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
