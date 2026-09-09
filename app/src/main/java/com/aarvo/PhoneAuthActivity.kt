@@ -75,6 +75,7 @@ private fun widgetField(raw: String, vararg keys: String): String {
 private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPreferences, openApp: () -> Unit) {
     var registerMode by remember { mutableStateOf(false) }
     var otpMode by remember { mutableStateOf(false) }
+    var adminVerified by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -112,93 +113,103 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
     }
 
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("AARVO", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.height(20.dp))
-
-        if (otpMode) {
-            Text("Verify your mobile number", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        if (adminVerified) {
+            Text("AARVO Admin", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(16.dp))
+            Text("Role: ADMIN", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
-            Text("OTP sent to +91 $phone")
-            Spacer(Modifier.height(12.dp))
-            OutlinedTextField(otp, { otp = it.filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("6-digit OTP") })
-            if (error.isNotBlank()) { Spacer(Modifier.height(6.dp)); Text(error, color = MaterialTheme.colorScheme.error) }
-            Spacer(Modifier.height(12.dp))
-            Button(onClick = {
-                loading = true; error = ""
-                scope.launch {
-                    try {
-                        val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
-                        val raw = withContext(Dispatchers.IO) {
-                            OTPWidget.verifyOTP(BuildConfig.MSG91_WIDGET_ID, BuildConfig.MSG91_WIDGET_TOKEN, reqId, otp)
-                        }
-                        val text = widgetResultText(raw)
-                        // MSG91 Widget returns the JWT using the documented `access-token` key.
-                        val accessToken = widgetField(text, "access-token", "accessToken", "access_token", "token", "message")
-                        if (accessToken.isBlank()) error = widgetField(text, "error", "message").ifBlank { "Invalid OTP" }
-                        else {
-                            val result = api.verifyMsg91AccessToken(normalizedPhone, accessToken)
-                            saveSession(prefs, result)
-                            openApp()
-                        }
-                    } catch (t: Throwable) { error = t.message ?: "OTP verification failed" }
-                    finally { loading = false }
-                }
-            }, enabled = !loading && otp.length == 6 && reqId.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                if (loading) CircularProgressIndicator() else Text("Verify & Continue", fontWeight = FontWeight.Bold)
-            }
-            TextButton(onClick = {
-                if (!loading && reqId.isNotBlank()) scope.launch {
-                    loading = true; error = ""
-                    try {
-                        val raw = withContext(Dispatchers.IO) {
-                            OTPWidget.retryOTP(BuildConfig.MSG91_WIDGET_ID, BuildConfig.MSG91_WIDGET_TOKEN, reqId, 11)
-                        }
-                        val text = widgetResultText(raw)
-                        val newReqId = widgetField(text, "message", "reqId", "reqid", "requestId")
-                        if (newReqId.isNotBlank()) reqId = newReqId
-                        else if (widgetField(text, "error").isNotBlank()) error = widgetField(text, "error")
-                    } catch (t: Throwable) { error = t.message ?: "Unable to resend OTP" }
-                    finally { loading = false }
-                }
-            }) { Text("Resend OTP") }
+            Text("Admin account verified successfully. You have administrator access to AARVO.")
+            Spacer(Modifier.height(20.dp))
+            Button(onClick = openApp, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Continue to AARVO", fontWeight = FontWeight.Bold) }
         } else {
-            Text(if (registerMode) "Create your AARVO account" else "Login with mobile OTP", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(12.dp))
-            if (registerMode) {
-                OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full name") })
+            Text("AARVO", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(20.dp))
+
+            if (otpMode) {
+                Text("Verify your mobile number", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
-            }
-            OutlinedTextField(phone, { phone = it.filter(Char::isDigit).take(10) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Mobile number") }, prefix = { Text("+91  ") })
-            Spacer(Modifier.height(8.dp))
-
-            if (registerMode) {
-                OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Create password (8+ characters)") })
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Email (optional)") })
-                Spacer(Modifier.height(4.dp))
-                TextButton(onClick = { seller = !seller }) { Text(if (seller) "✓ Register as seller" else "Register as buyer") }
-            } else {
-                Text("Password ki zarurat nahi hai. Mobile number par OTP se direct login hoga.", style = MaterialTheme.typography.bodyMedium)
-            }
-
-            if (error.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(error, color = MaterialTheme.colorScheme.error) }
-            Spacer(Modifier.height(12.dp))
-            Button(onClick = { sendWidgetOtp() }, enabled = !loading && IndianPhoneValidator.isValid(phone) && (!registerMode || (name.isNotBlank() && password.length >= 8)), modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                if (loading) CircularProgressIndicator() else Text(if (registerMode) "Create account & verify OTP" else "Send OTP & Login", fontWeight = FontWeight.Bold)
-            }
-
-            if (!registerMode) {
-                Spacer(Modifier.height(4.dp))
-                TextButton(onClick = { registerMode = true; error = "" }, modifier = Modifier.fillMaxWidth()) { Text("New to AARVO? Create account") }
+                Text("OTP sent to +91 $phone")
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(otp, { otp = it.filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("6-digit OTP") })
+                if (error.isNotBlank()) { Spacer(Modifier.height(6.dp)); Text(error, color = MaterialTheme.colorScheme.error) }
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = {
+                    loading = true; error = ""
+                    scope.launch {
+                        try {
+                            val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
+                            val raw = withContext(Dispatchers.IO) {
+                                OTPWidget.verifyOTP(BuildConfig.MSG91_WIDGET_ID, BuildConfig.MSG91_WIDGET_TOKEN, reqId, otp)
+                            }
+                            val text = widgetResultText(raw)
+                            val accessToken = widgetField(text, "access-token", "accessToken", "access_token", "token", "message")
+                            if (accessToken.isBlank()) error = widgetField(text, "error", "message").ifBlank { "Invalid OTP" }
+                            else {
+                                val result = api.verifyMsg91AccessToken(normalizedPhone, accessToken)
+                                saveSession(prefs, result)
+                                val userRole = result.optJSONObject("user")?.optString("role", "BUYER")?.uppercase() ?: "BUYER"
+                                if (userRole == "ADMIN") adminVerified = true else openApp()
+                            }
+                        } catch (t: Throwable) { error = t.message ?: "OTP verification failed" }
+                        finally { loading = false }
+                    }
+                }, enabled = !loading && otp.length == 6 && reqId.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                    if (loading) CircularProgressIndicator() else Text("Verify & Continue", fontWeight = FontWeight.Bold)
+                }
                 TextButton(onClick = {
-                    prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", true).putString("user_name", "Guest").putString("user_role", "BUYER").remove("auth_token").apply()
-                    openApp()
-                }, modifier = Modifier.fillMaxWidth()) { Text("Continue as Guest", fontWeight = FontWeight.Bold) }
+                    if (!loading && reqId.isNotBlank()) scope.launch {
+                        loading = true; error = ""
+                        try {
+                            val raw = withContext(Dispatchers.IO) {
+                                OTPWidget.retryOTP(BuildConfig.MSG91_WIDGET_ID, BuildConfig.MSG91_WIDGET_TOKEN, reqId, 11)
+                            }
+                            val text = widgetResultText(raw)
+                            val newReqId = widgetField(text, "message", "reqId", "reqid", "requestId")
+                            if (newReqId.isNotBlank()) reqId = newReqId
+                            else if (widgetField(text, "error").isNotBlank()) error = widgetField(text, "error")
+                        } catch (t: Throwable) { error = t.message ?: "Unable to resend OTP" }
+                        finally { loading = false }
+                    }
+                }) { Text("Resend OTP") }
             } else {
-                TextButton(onClick = { registerMode = false; error = "" }) { Text("Already have an account? Login with OTP") }
+                Text(if (registerMode) "Create your AARVO account" else "Login with mobile OTP", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(12.dp))
+                if (registerMode) {
+                    OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full name") })
+                    Spacer(Modifier.height(8.dp))
+                }
+                OutlinedTextField(phone, { phone = it.filter(Char::isDigit).take(10) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Mobile number") }, prefix = { Text("+91  ") })
+                Spacer(Modifier.height(8.dp))
+
+                if (registerMode) {
+                    OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Create password (8+ characters)") })
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Email (optional)") })
+                    Spacer(Modifier.height(4.dp))
+                    TextButton(onClick = { seller = !seller }) { Text(if (seller) "✓ Register as seller" else "Register as buyer") }
+                } else {
+                    Text("Password ki zarurat nahi hai. Mobile number par OTP se direct login hoga.", style = MaterialTheme.typography.bodyMedium)
+                }
+
+                if (error.isNotBlank()) { Spacer(Modifier.height(4.dp)); Text(error, color = MaterialTheme.colorScheme.error) }
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = { sendWidgetOtp() }, enabled = !loading && IndianPhoneValidator.isValid(phone) && (!registerMode || (name.isNotBlank() && password.length >= 8)), modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                    if (loading) CircularProgressIndicator() else Text(if (registerMode) "Create account & verify OTP" else "Send OTP & Login", fontWeight = FontWeight.Bold)
+                }
+
+                if (!registerMode) {
+                    Spacer(Modifier.height(4.dp))
+                    TextButton(onClick = { registerMode = true; error = "" }, modifier = Modifier.fillMaxWidth()) { Text("New to AARVO? Create account") }
+                    TextButton(onClick = {
+                        prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", true).putString("user_name", "Guest").putString("user_role", "BUYER").remove("auth_token").apply()
+                        openApp()
+                    }, modifier = Modifier.fillMaxWidth()) { Text("Continue as Guest", fontWeight = FontWeight.Bold) }
+                } else {
+                    TextButton(onClick = { registerMode = false; error = "" }) { Text("Already have an account? Login with OTP") }
+                }
             }
+            if (!api.isConfigured()) Text("Live API is not configured in this build.", style = MaterialTheme.typography.bodySmall)
         }
-        if (!api.isConfigured()) Text("Live API is not configured in this build.", style = MaterialTheme.typography.bodySmall)
     }
 }
 
