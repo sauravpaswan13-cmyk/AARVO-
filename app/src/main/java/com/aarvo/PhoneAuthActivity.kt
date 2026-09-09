@@ -132,7 +132,8 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                             OTPWidget.verifyOTP(BuildConfig.MSG91_WIDGET_ID, BuildConfig.MSG91_WIDGET_TOKEN, reqId, otp)
                         }
                         val text = widgetResultText(raw)
-                        val accessToken = widgetField(text, "message", "accessToken", "access_token", "token")
+                        // MSG91 Widget returns the JWT using the documented `access-token` key.
+                        val accessToken = widgetField(text, "access-token", "accessToken", "access_token", "token", "message")
                         if (accessToken.isBlank()) error = widgetField(text, "error", "message").ifBlank { "Invalid OTP" }
                         else {
                             val result = api.verifyMsg91AccessToken(normalizedPhone, accessToken)
