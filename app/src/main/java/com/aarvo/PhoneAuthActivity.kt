@@ -55,8 +55,10 @@ private fun widgetResultText(raw: Any?): String = when (raw) {
     else -> raw?.toString() ?: ""
 }
 
+private fun widgetJson(raw: String): JSONObject? = runCatching { JSONObject(raw) }.getOrNull()
+
 private fun widgetField(raw: String, vararg keys: String): String {
-    val json = runCatching { JSONObject(raw) }.getOrNull() ?: return ""
+    val json = widgetJson(raw) ?: return ""
     for (key in keys) {
         val value = json.optString(key, "").trim()
         if (value.isNotBlank()) return value
@@ -69,6 +71,26 @@ private fun widgetField(raw: String, vararg keys: String): String {
         }
     }
     return ""
+}
+
+/** MSG91's current widget SDK returns the normal send-OTP request id in `message`. */
+private fun widgetReqId(raw: String): String {
+    val direct = widgetField(raw, "reqId", "reqid", "requestId", "request_id")
+    if (direct.isNotBlank()) return direct
+    val json = widgetJson(raw) ?: return ""
+    val type = json.optString("type", "").lowercase()
+    val message = widgetField(raw, "message")
+    return if (type == "success" && message.isNotBlank()) message else ""
+}
+
+private fun widgetError(raw: String, fallback: String): String {
+    val explicit = widgetField(raw, "error", "errorMessage", "error_message", "failureReason")
+    if (explicit.isNotBlank()) return explicit
+    val json = widgetJson(raw)
+    val type = json?.optString("type", "")?.lowercase()
+    val message = widgetField(raw, "message")
+    if (type == "failure" && message.isNotBlank()) return message
+    return fallback
 }
 
 @Composable
@@ -104,11 +126,12 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                     OTPWidget.sendOTP(BuildConfig.MSG91_WIDGET_ID, BuildConfig.MSG91_WIDGET_TOKEN, "91$normalizedPhone")
                 }
                 val text = widgetResultText(raw)
-                // MSG91 returns reqId separately from the human-readable message.
-                // Never treat the message text as the request ID.
-                val id = widgetField(text, "reqId", "reqid", "requestId", "request_id")
+
+                // Current MSG91 SDK returns {type:"success", message:"<reqId>"} for normal OTP.
+                // Older responses may expose reqId/requestId directly, so support both formats.
+                val id = widgetReqId(text)
                 if (id.isBlank()) {
-                    error = widgetField(text, "error", "message").ifBlank { "Unable to send OTP" }
+                    error = widgetError(text, "Unable to send OTP")
                 } else {
                     reqId = id
                     otpMode = true
@@ -153,7 +176,7 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                             val text = widgetResultText(raw)
                             val accessToken = widgetField(text, "access-token", "accessToken", "access_token", "token")
                             if (accessToken.isBlank()) {
-                                error = widgetField(text, "error", "message").ifBlank { "Invalid OTP" }
+                                error = widgetError(text, "Invalid OTP")
                             } else {
                                 val result = api.verifyMsg91AccessToken(normalizedPhone, accessToken)
                                 saveSession(prefs, result)
@@ -170,13 +193,14 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                     if (!loading && reqId.isNotBlank()) scope.launch {
                         loading = true; error = ""
                         try {
+                            // MSG91 documents retryChannel as optional when the widget has one default channel.
                             val raw = withContext(Dispatchers.IO) {
-                                OTPWidget.retryOTP(BuildConfig.MSG91_WIDGET_ID, BuildConfig.MSG91_WIDGET_TOKEN, reqId, 11)
+                                OTPWidget.retryOTP(BuildConfig.MSG91_WIDGET_ID, BuildConfig.MSG91_WIDGET_TOKEN, reqId, null)
                             }
                             val text = widgetResultText(raw)
-                            val newReqId = widgetField(text, "reqId", "reqid", "requestId", "request_id")
+                            val newReqId = widgetReqId(text)
                             if (newReqId.isNotBlank()) reqId = newReqId
-                            else error = widgetField(text, "error", "message").ifBlank { "Unable to resend OTP" }
+                            else error = widgetError(text, "Unable to resend OTP")
                         } catch (t: Throwable) { error = t.message ?: "Unable to resend OTP" }
                         finally { loading = false }
                     }
