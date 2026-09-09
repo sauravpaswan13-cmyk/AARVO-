@@ -11,8 +11,8 @@ android {
         applicationId = "com.aarvo"
         minSdk = 24
         targetSdk = 37
-        versionCode = 6
-        versionName = "1.5"
+        versionCode = 7
+        versionName = "1.6"
 
         fun buildConfigString(value: String): String =
             "\"" + value
@@ -83,6 +83,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("com.squareup.okhttp3:okhttp:5.1.0")
     implementation("com.razorpay:checkout:1.6.41")
-    implementation("com.msg91.lib:sendotp:1.0.1-rc")
+    implementation("com.msg91.lib:sendotp:1.0.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
