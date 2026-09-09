@@ -1,0 +1,1 @@
+CI uses Gradle 9.7.1 via gradle/actions/setup-gradle. The wrapper properties are retained for compatibility.
