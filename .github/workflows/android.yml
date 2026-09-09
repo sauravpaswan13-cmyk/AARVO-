@@ -7,74 +7,124 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+env:
+  AARVO_API_BASE_URL: ${{ vars.AARVO_API_BASE_URL }}
+
 jobs:
   backend-check:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - name: Integrate AI changes
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Apply AARVO AI integration for validation
+        working-directory: .
+        shell: bash
         run: python3 scripts/integrate_ai.py
-      - name: Setup Node
+      - name: Set up Node 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
       - name: Install backend dependencies
-        working-directory: backend
         run: npm install --ignore-scripts
-      - name: Backend syntax check
-        working-directory: backend
+      - name: Check backend syntax
         run: npm run check
-      - name: Backend tests
-        working-directory: backend
+      - name: Run backend contract tests
         run: npm test
       - name: Validate production files
-        working-directory: backend
         run: |
           test -f Dockerfile
-          test -f src/server.js
-      - name: Docker build
-        working-directory: backend
-        run: docker build -t aarvo-api:ci .
+          test -f .dockerignore
+          test -f .env.example
+          test -f .env.production.example
+          test -f docker-compose.production.yml
+          test -f src/migrate.js
+          test -f schema.sql
+          test -f migrations/001_production_integrity.sql
+          test -f migrations/002_marketplace_operations.sql
+          test -f migrations/003_reviews_delivery.sql
+          test -f migrations/004_marketplace_hardening.sql
+          test -f migrations/005_operational_indexes.sql
+          test ! -f migrations/003_marketplace_reviews_and_returns.sql
+          grep -q "CREATE UNIQUE INDEX" migrations/001_production_integrity.sql
+          grep -q "idempotency_key" migrations/002_marketplace_operations.sql
+          grep -q "audit_events" migrations/002_marketplace_operations.sql
+          grep -q "product_reviews" migrations/003_reviews_delivery.sql
+          grep -q "delivery_events" migrations/003_reviews_delivery.sql
+          grep -q "order_disputes" migrations/003_reviews_delivery.sql
+          grep -q "orders_payment_status_chk" migrations/004_marketplace_hardening.sql
+          grep -q "orders_money_nonnegative_chk" migrations/004_marketplace_hardening.sql
+          grep -q "orders_created_at_idx" migrations/005_operational_indexes.sql
+          grep -q "node src/migrate.js" docker-compose.production.yml
+      - name: Build backend container
+        run: docker build --pull -t aarvo-api:ci .
 
   android-build:
     runs-on: ubuntu-latest
+    env:
+      AARVO_API_BASE_URL: ${{ vars.AARVO_API_BASE_URL }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Integrate AI changes
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Apply AARVO AI integration for build
+        shell: bash
         run: python3 scripts/integrate_ai.py
-      - name: Repair MainActivity syntax for CI build
-        run: python3 - <<'PY'
+      - name: Repair MainActivity syntax for build
+        shell: bash
+        run: |
+          python3 - <<'PY'
           from pathlib import Path
-          p=Path('app/src/main/java/com/aarvo/MainActivity.kt')
-          s=p.read_text()
-          s=s.replace('private fun MainActivity.', 'private fun ')
-          p.write_text(s)
+          p = Path('app/src/main/java/com/aarvo/MainActivity.kt')
+          s = p.read_text(encoding='utf-8')
+          marker = '    } } }\n}\n\n@Composable private fun LoginRequiredDialog'
+          fixed = '    } } }\n\n@Composable private fun LoginRequiredDialog'
+          if marker in s:
+              p.write_text(s.replace(marker, fixed, 1), encoding='utf-8')
+              print('MainActivity syntax repaired for this build.')
+          else:
+              print('MainActivity already repaired; no source change needed.')
           PY
-      - name: Setup JDK 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '9.7.1'
       - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}" -Pmsg91WidgetToken="${MSG91_WIDGET_TOKEN}"
         env:
           MSG91_WIDGET_TOKEN: ${{ secrets.MSG91_WIDGET_TOKEN }}
-        run: gradle :app:assembleDebug --no-daemon --stacktrace -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}" -Pmsg91WidgetToken="${MSG91_WIDGET_TOKEN}"
-      - name: Build release AAB
+      - name: Build release AAB (unsigned)
+        run: gradle :app:bundleRelease --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}" -Pmsg91WidgetToken="${MSG91_WIDGET_TOKEN}"
         env:
           MSG91_WIDGET_TOKEN: ${{ secrets.MSG91_WIDGET_TOKEN }}
-        run: gradle :app:bundleRelease --no-daemon --stacktrace -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}" -Pmsg91WidgetToken="${MSG91_WIDGET_TOKEN}"
-      - name: Attest debug APK
-        uses: actions/attest-build-provenance@v2
+      - name: Attest debug APK provenance
+        uses: actions/attest@v4
         with:
-          subject-path: app/build/outputs/apk/debug/app-debug.apk
-      - name: Attest release AAB
-        uses: actions/attest-build-provenance@v2
+          subject-path: 'app/build/outputs/apk/debug/*.apk'
+      - name: Attest release AAB provenance
+        uses: actions/attest@v4
         with:
-          subject-path: app/build/outputs/bundle/release/app-release.aab
+          subject-path: 'app/build/outputs/bundle/release/*.aab'
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: aarvo-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - name: Upload release AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: aarvo-release-aab-unsigned
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
