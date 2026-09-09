@@ -12,6 +12,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  MSG91_WIDGET_TOKEN: ${{ secrets.MSG91_WIDGET_TOKEN }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -45,12 +48,12 @@ jobs:
         run: echo "AARVO production API defaults to https://aarvo-api.onrender.com"
 
       - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}"
+        run: gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}" -Pmsg91WidgetToken="${MSG91_WIDGET_TOKEN}"
         env:
           AARVO_API_BASE_URL: ${{ vars.AARVO_API_BASE_URL }}
 
       - name: Build release AAB
-        run: gradle :app:bundleRelease --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}"
+        run: gradle :app:bundleRelease --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}" -Pmsg91WidgetToken="${MSG91_WIDGET_TOKEN}"
         env:
           AARVO_API_BASE_URL: ${{ vars.AARVO_API_BASE_URL }}
 
