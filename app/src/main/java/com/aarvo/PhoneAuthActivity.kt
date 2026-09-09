@@ -104,11 +104,20 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                     OTPWidget.sendOTP(BuildConfig.MSG91_WIDGET_ID, BuildConfig.MSG91_WIDGET_TOKEN, "91$normalizedPhone")
                 }
                 val text = widgetResultText(raw)
-                val id = widgetField(text, "message", "reqId", "reqid", "requestId")
-                if (id.isBlank()) error = widgetField(text, "error", "message").ifBlank { "Unable to send OTP" }
-                else { reqId = id; otpMode = true }
-            } catch (t: Throwable) { error = t.message ?: "Unable to send OTP" }
-            finally { loading = false }
+                // MSG91 returns reqId separately from the human-readable message.
+                // Never treat the message text as the request ID.
+                val id = widgetField(text, "reqId", "reqid", "requestId", "request_id")
+                if (id.isBlank()) {
+                    error = widgetField(text, "error", "message").ifBlank { "Unable to send OTP" }
+                } else {
+                    reqId = id
+                    otpMode = true
+                }
+            } catch (t: Throwable) {
+                error = t.message ?: "Unable to send OTP"
+            } finally {
+                loading = false
+            }
         }
     }
 
@@ -142,9 +151,10 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                                 OTPWidget.verifyOTP(BuildConfig.MSG91_WIDGET_ID, BuildConfig.MSG91_WIDGET_TOKEN, reqId, otp)
                             }
                             val text = widgetResultText(raw)
-                            val accessToken = widgetField(text, "access-token", "accessToken", "access_token", "token", "message")
-                            if (accessToken.isBlank()) error = widgetField(text, "error", "message").ifBlank { "Invalid OTP" }
-                            else {
+                            val accessToken = widgetField(text, "access-token", "accessToken", "access_token", "token")
+                            if (accessToken.isBlank()) {
+                                error = widgetField(text, "error", "message").ifBlank { "Invalid OTP" }
+                            } else {
                                 val result = api.verifyMsg91AccessToken(normalizedPhone, accessToken)
                                 saveSession(prefs, result)
                                 val userRole = result.optJSONObject("user")?.optString("role", "BUYER")?.uppercase() ?: "BUYER"
@@ -164,9 +174,9 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                                 OTPWidget.retryOTP(BuildConfig.MSG91_WIDGET_ID, BuildConfig.MSG91_WIDGET_TOKEN, reqId, 11)
                             }
                             val text = widgetResultText(raw)
-                            val newReqId = widgetField(text, "message", "reqId", "reqid", "requestId")
+                            val newReqId = widgetField(text, "reqId", "reqid", "requestId", "request_id")
                             if (newReqId.isNotBlank()) reqId = newReqId
-                            else if (widgetField(text, "error").isNotBlank()) error = widgetField(text, "error")
+                            else error = widgetField(text, "error", "message").ifBlank { "Unable to resend OTP" }
                         } catch (t: Throwable) { error = t.message ?: "Unable to resend OTP" }
                         finally { loading = false }
                     }
