@@ -30,7 +30,10 @@ import androidx.compose.ui.unit.dp
 import com.aarvo.network.AarvoApiClient
 import com.aarvo.network.IndianPhoneValidator
 import com.aarvo.ui.theme.AarvoTheme
+import com.msg91.sendotp.OTPWidget
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 class PhoneAuthActivity : ComponentActivity() {
@@ -57,26 +60,100 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var otp by remember { mutableStateOf("") }
+    var reqId by remember { mutableStateOf("") }
     var seller by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    val widgetId = BuildConfig.MSG91_WIDGET_ID.trim()
+    val widgetToken = BuildConfig.MSG91_WIDGET_TOKEN.trim()
 
     fun sendPhoneOtp() {
         loading = true
         error = ""
         scope.launch {
             try {
+                if (widgetId.isBlank() || widgetToken.isBlank()) {
+                    error = "MSG91 OTP widget is not configured in this build."
+                    return@launch
+                }
                 val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
+                // Registration creates the AARVO user first; MSG91 itself handles OTP delivery.
                 if (registerMode) {
                     api.register(email, password, name, if (seller) "SELLER" else "BUYER", normalizedPhone)
-                } else {
-                    api.resendPhoneOtp(normalizedPhone)
                 }
+                val identifier = "91$normalizedPhone"
+                val result = withContext(Dispatchers.IO) {
+                    OTPWidget.sendOTP(widgetId, widgetToken, identifier)
+                }
+                val json = JSONObject(result)
+                if (json.optString("type").equals("error", true)) {
+                    throw IllegalStateException(json.optString("message", "MSG91 could not send OTP"))
+                }
+                reqId = json.optString("message").trim()
+                if (reqId.isBlank()) throw IllegalStateException("MSG91 did not return a request ID")
                 otp = ""
                 otpMode = true
             } catch (t: Throwable) {
                 error = t.message ?: "Unable to send OTP"
+            } finally {
+                loading = false
+            }
+        }
+    }
+
+    fun verifyWidgetOtp() {
+        loading = true
+        error = ""
+        scope.launch {
+            try {
+                val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
+                if (reqId.isBlank()) throw IllegalStateException("OTP request has expired. Please resend OTP.")
+                val result = withContext(Dispatchers.IO) {
+                    OTPWidget.verifyOTP(widgetId, widgetToken, reqId, otp)
+                }
+                val json = JSONObject(result)
+                if (json.optString("type").equals("error", true)) {
+                    throw IllegalStateException(json.optString("message", "Invalid OTP"))
+                }
+                val accessToken = listOf(
+                    json.optString("accessToken"),
+                    json.optString("access-token"),
+                    json.optString("token"),
+                    json.optString("message")
+                ).firstOrNull { it.isNotBlank() }
+                    ?: throw IllegalStateException("MSG91 verification did not return an access token")
+
+                val session = api.verifyMsg91AccessToken(normalizedPhone, accessToken)
+                saveSession(prefs, session)
+                val userRole = session.optJSONObject("user")?.optString("role", "BUYER")?.uppercase() ?: "BUYER"
+                if (userRole == "ADMIN") adminVerified = true else openApp()
+            } catch (t: Throwable) {
+                error = t.message ?: "OTP verification failed"
+            } finally {
+                loading = false
+            }
+        }
+    }
+
+    fun retryWidgetOtp() {
+        if (reqId.isBlank() || loading) return
+        loading = true
+        error = ""
+        scope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    // SMS is the widget's primary channel and is configured as a retry channel.
+                    OTPWidget.retryOTP(widgetId, widgetToken, reqId, 11)
+                }
+                val json = JSONObject(result)
+                if (json.optString("type").equals("error", true)) {
+                    throw IllegalStateException(json.optString("message", "Unable to resend OTP"))
+                }
+                val newReqId = json.optString("message").trim()
+                if (newReqId.isNotBlank()) reqId = newReqId
+            } catch (t: Throwable) {
+                error = t.message ?: "Unable to resend OTP"
             } finally {
                 loading = false
             }
@@ -104,31 +181,10 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 OutlinedTextField(otp, { otp = it.filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("6-digit OTP") })
                 if (error.isNotBlank()) { Spacer(Modifier.height(6.dp)); Text(error, color = MaterialTheme.colorScheme.error) }
                 Spacer(Modifier.height(12.dp))
-                Button(onClick = {
-                    loading = true; error = ""
-                    scope.launch {
-                        try {
-                            val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
-                            val result = api.verifyPhoneOtp(normalizedPhone, otp)
-                            saveSession(prefs, result)
-                            val userRole = result.optJSONObject("user")?.optString("role", "BUYER")?.uppercase() ?: "BUYER"
-                            if (userRole == "ADMIN") adminVerified = true else openApp()
-                        } catch (t: Throwable) { error = t.message ?: "OTP verification failed" }
-                        finally { loading = false }
-                    }
-                }, enabled = !loading && otp.length == 6, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                Button(onClick = { verifyWidgetOtp() }, enabled = !loading && otp.length == 6, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                     if (loading) CircularProgressIndicator() else Text("Verify & Continue", fontWeight = FontWeight.Bold)
                 }
-                TextButton(onClick = {
-                    if (!loading) scope.launch {
-                        loading = true; error = ""
-                        try {
-                            val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
-                            api.resendPhoneOtp(normalizedPhone)
-                        } catch (t: Throwable) { error = t.message ?: "Unable to resend OTP" }
-                        finally { loading = false }
-                    }
-                }) { Text("Resend OTP") }
+                TextButton(onClick = { retryWidgetOtp() }, enabled = !loading) { Text("Resend OTP") }
             } else {
                 Text(if (registerMode) "Create your AARVO account" else "Login with mobile OTP", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
