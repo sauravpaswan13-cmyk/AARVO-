@@ -1,0 +1,1 @@
+The CI workflow installs Gradle 9.7.1 directly with gradle/actions/setup-gradle@v4, so the Gradle wrapper binary is not required for CI builds.
