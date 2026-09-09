@@ -16,6 +16,13 @@ async function requestOtp({ endpoint, params, method, headers, body, signal }) {
 }
 
 export async function sendPhoneOtp({ phone, otp }) {
+  // AARVO now uses the MSG91 Secure OTP Widget on the Android client.
+  // In widget mode MSG91 generates, sends and verifies the OTP itself, so the
+  // legacy server-side sender must not block auth with template/sender config.
+  if (process.env.MSG91_WIDGET_MODE === 'true') {
+    return { delivered: false, widget: true };
+  }
+
   const authKey = process.env.MSG91_AUTH_KEY;
   const templateId = process.env.MSG91_TEMPLATE_ID;
   const senderId = process.env.MSG91_SENDER_ID;
@@ -28,8 +35,6 @@ export async function sendPhoneOtp({ phone, otp }) {
   const mobile = msg91Mobile(phone);
   let lastError;
 
-  // Retry only transient/network failures. Provider rejection is returned immediately
-  // so the login flow never reports an OTP as sent when MSG91 rejected it.
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
