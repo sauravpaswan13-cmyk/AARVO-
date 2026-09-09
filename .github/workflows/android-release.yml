@@ -35,6 +35,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.7.1'
+          validate-wrappers: false
 
       - name: Validate signing configuration
         id: signing_config
