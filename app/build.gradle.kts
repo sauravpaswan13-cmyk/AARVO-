@@ -13,9 +13,23 @@ android {
         targetSdk = 37
         versionCode = 5
         versionName = "1.4"
-        buildConfigField("String", "AARVO_API_BASE_URL", "\"${project.findProperty("aarvoApiBaseUrl") ?: "https://aarvo-api.onrender.com"}\"")
-        buildConfigField("String", "MSG91_WIDGET_ID", "\"${project.findProperty("msg91WidgetId") ?: "366968707564323239363235"}\"")
-        buildConfigField("String", "MSG91_WIDGET_TOKEN", "\"${project.findProperty("msg91WidgetToken") ?: ""}\"")
+
+        fun buildConfigString(value: String): String =
+            "\"" + value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\r", "\\r")
+                .replace("\n", "\\n") + "\""
+
+        val apiBaseUrl = project.findProperty("aarvoApiBaseUrl")?.toString()
+            ?: "https://aarvo-api.onrender.com"
+        val widgetId = project.findProperty("msg91WidgetId")?.toString()
+            ?: "366968707564323239363235"
+        val widgetToken = project.findProperty("msg91WidgetToken")?.toString() ?: ""
+
+        buildConfigField("String", "AARVO_API_BASE_URL", buildConfigString(apiBaseUrl))
+        buildConfigField("String", "MSG91_WIDGET_ID", buildConfigString(widgetId))
+        buildConfigField("String", "MSG91_WIDGET_TOKEN", buildConfigString(widgetToken))
     }
 
     val releaseStoreFile = providers.gradleProperty("aarvoReleaseStoreFile").orNull
