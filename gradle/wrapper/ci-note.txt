@@ -1,0 +1,1 @@
+Gradle 9.7.1 is installed by GitHub Actions using gradle/actions/setup-gradle@v4.
