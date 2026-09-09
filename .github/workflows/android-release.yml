@@ -31,6 +31,11 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      - name: Set up Gradle 9.7.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.7.1'
+
       - name: Validate signing configuration
         id: signing_config
         continue-on-error: true
@@ -81,8 +86,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          chmod +x ./gradlew
-          ./gradlew :app:assembleRelease :app:bundleRelease \
+          gradle :app:assembleRelease :app:bundleRelease \
             -PaarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-release.jks" \
             -PaarvoReleaseStorePassword="$STORE_PASSWORD" \
             -PaarvoReleaseKeyAlias="$KEY_ALIAS" \
@@ -102,9 +106,8 @@ jobs:
         if: steps.signed_build.outcome != 'success'
         run: |
           set -euo pipefail
-          chmod +x ./gradlew
           echo 'Release signing is unavailable or invalid; building an installable debug APK so the app remains testable.'
-          ./gradlew :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}"
+          gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}"
 
       - name: Upload signed APK
         if: steps.signed_build.outcome == 'success'
