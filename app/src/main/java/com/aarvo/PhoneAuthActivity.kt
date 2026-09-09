@@ -50,6 +50,19 @@ class PhoneAuthActivity : ComponentActivity() {
     }
 }
 
+private fun msg91RequestId(json: JSONObject): String = listOf(
+    json.optString("reqId"),
+    json.optString("requestId"),
+    json.optString("request_id"),
+    json.optString("message")
+).firstOrNull { it.isNotBlank() }?.trim().orEmpty()
+
+private fun msg91Error(json: JSONObject, fallback: String): String = listOf(
+    json.optString("message"),
+    json.optString("error"),
+    json.optString("description")
+).firstOrNull { it.isNotBlank() }?.trim() ?: fallback
+
 @Composable
 private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPreferences, openApp: () -> Unit) {
     var registerMode by remember { mutableStateOf(false) }
@@ -88,10 +101,12 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 }
                 val json = JSONObject(result)
                 if (json.optString("type").equals("error", true)) {
-                    throw IllegalStateException(json.optString("message", "MSG91 could not send OTP"))
+                    throw IllegalStateException(msg91Error(json, "MSG91 could not send OTP"))
                 }
-                reqId = json.optString("message").trim()
-                if (reqId.isBlank()) throw IllegalStateException("MSG91 did not return a request ID")
+                reqId = msg91RequestId(json)
+                if (reqId.isBlank()) {
+                    throw IllegalStateException("MSG91 did not return a request ID. Please try again.")
+                }
                 otp = ""
                 otpMode = true
             } catch (t: Throwable) {
@@ -114,7 +129,7 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 }
                 val json = JSONObject(result)
                 if (json.optString("type").equals("error", true)) {
-                    throw IllegalStateException(json.optString("message", "Invalid OTP"))
+                    throw IllegalStateException(msg91Error(json, "Invalid OTP"))
                 }
                 val accessToken = listOf(
                     json.optString("accessToken"),
@@ -148,9 +163,9 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 }
                 val json = JSONObject(result)
                 if (json.optString("type").equals("error", true)) {
-                    throw IllegalStateException(json.optString("message", "Unable to resend OTP"))
+                    throw IllegalStateException(msg91Error(json, "Unable to resend OTP"))
                 }
-                val newReqId = json.optString("message").trim()
+                val newReqId = msg91RequestId(json)
                 if (newReqId.isNotBlank()) reqId = newReqId
             } catch (t: Throwable) {
                 error = t.message ?: "Unable to resend OTP"
