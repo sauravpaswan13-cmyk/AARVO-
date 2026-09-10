@@ -13,8 +13,6 @@ if (!source.includes("import { sendPhoneOtp } from './otp-delivery.js';")) {
   );
 }
 
-// Keep the MSG91 module import in the transformed server so launcher.js does not
-// try to add a second registration. The route itself is registered directly below.
 if (!source.includes("import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';")) {
   source = source.replace(
     "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';",
@@ -66,8 +64,6 @@ if (start >= 0 && end > start) {
   source = source.slice(0, start) + route + source.slice(end);
 }
 
-// Register the MSG91 verification route directly in server.js. This removes the
-// fragile dependency on runtime source rewriting/registration order.
 if (!source.includes("POST /v1/auth/verify-msg91-token DIRECT")) {
   const listenMarker = "app.listen(PORT, '0.0.0.0', () => {";
   const directRoute = `app.post('/v1/auth/verify-msg91-token', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
@@ -92,7 +88,7 @@ if (!source.includes("POST /v1/auth/verify-msg91-token DIRECT")) {
   if (!userResult.rowCount) {
     const id = randomUUID();
     try {
-      userResult = await pool.query(`INSERT INTO users (id, display_name, role, phone, phone_verified, phone_verified_at) VALUES ($1, $2, 'BUYER', $3, true, now()) RETURNING id,email,display_name,role,phone,phone_verified`, [id, `AARVO User ${phone.slice(-4)}`, phone]);
+      userResult = await pool.query('INSERT INTO users (id, display_name, role, phone, phone_verified, phone_verified_at) VALUES ($1, $2, \'BUYER\', $3, true, now()) RETURNING id,email,display_name,role,phone,phone_verified', [id, 'AARVO User ' + phone.slice(-4), phone]);
     } catch (error) {
       if (error?.code === '23505') userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
       else { request.log.error({ err: error }, 'Unable to create AARVO user after MSG91 verification'); return reply.code(500).send({ error: 'USER_CREATE_FAILED' }); }
