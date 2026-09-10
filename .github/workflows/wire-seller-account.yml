@@ -1,0 +1,35 @@
+name: Wire Seller Account Entry
+
+on:
+  push:
+    paths:
+      - tools/wire-seller-account.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wire Account screen
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/aarvo/MainActivity.kt')
+          s = p.read_text()
+          old = 'if (role == "SELLER") item { Button(onClick = { section = "seller" }, modifier = Modifier.fillMaxWidth()) { Text("Seller Dashboard") } }'
+          new = 'item { Button(onClick = { activity.startActivity(Intent(activity, SellerAccountActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("Become a Seller") } }\n                if (role == "SELLER") item { Button(onClick = { section = "seller" }, modifier = Modifier.fillMaxWidth()) { Text("Seller Dashboard") } }'
+          if old not in s:
+              raise SystemExit('Target Account seller hook not found; no changes made.')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Commit wiring
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/aarvo/MainActivity.kt
+          git commit -m 'Wire customer Account to Seller Account onboarding'
+          git push
