@@ -89,7 +89,10 @@ class PhoneAuthActivity : ComponentActivity() {
                 while (keys.hasNext()) {
                     val key = keys.next()
                     val candidate = value.optString(key).trim()
-                    if ((key.contains("token", true) || key.contains("access", true)) && candidate.count { it == '.' } == 2 && candidate.length > 80) return candidate
+                    if (key.equals("access-token", true) || key.equals("access_token", true) || key.equals("accessToken", true) || key.equals("token", true)) {
+                        if (candidate.isNotBlank()) return candidate
+                    }
+                    if ((key.contains("token", true) || key.contains("access", true)) && candidate.isNotBlank()) return candidate
                     scan(value.opt(key))?.let { return it }
                 }
                 null
@@ -139,6 +142,14 @@ class PhoneAuthActivity : ComponentActivity() {
         val widgetToken = BuildConfig.MSG91_WIDGET_TOKEN
         val api = remember { AarvoApiClient { getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).getString("auth_token", null) } }
 
+        suspend fun finishMsg91Login(normalizedPhone: String, accessToken: String) {
+            val session = withContext(Dispatchers.IO) { api.verifyMsg91AccessToken(normalizedPhone, accessToken.trim()) }
+            val sessionToken = session.optString("token").trim()
+            if (sessionToken.isBlank()) throw IllegalStateException("AARVO server did not return a login token.")
+            saveSession(sessionToken, normalizedPhone)
+            openMain()
+        }
+
         fun sendPhoneOtp() {
             error = ""
             otp = ""
@@ -152,12 +163,16 @@ class PhoneAuthActivity : ComponentActivity() {
                     if (widgetId.isBlank() || widgetToken.isBlank()) throw IllegalStateException("MSG91 OTP is not configured in this build.")
                     val result = withContext(Dispatchers.IO) { OTPWidget.sendOTP(widgetId, widgetToken, "91$normalizedPhone") }
                     if (msg91IsError(result)) throw IllegalStateException(result)
+
+                    // MSG91 invisible OTP can return the final JWT directly from sendOTP.
+                    // It must still be sent to AARVO's server for access-token validation;
+                    // never store the MSG91 token as the app session token.
                     val immediateAccessToken = findMsg91AccessToken(result)
                     if (!immediateAccessToken.isNullOrBlank()) {
-                        saveSession(immediateAccessToken, normalizedPhone)
-                        openMain()
+                        finishMsg91Login(normalizedPhone, immediateAccessToken)
                         return@launch
                     }
+
                     val returnedReqId = msg91RequestId(result).orEmpty()
                     if (returnedReqId.isBlank()) throw IllegalStateException("MSG91 did not return a request ID. Please resend OTP.")
                     reqId = returnedReqId
@@ -182,11 +197,7 @@ class PhoneAuthActivity : ComponentActivity() {
                     if (msg91IsError(result)) throw IllegalStateException(result)
                     val accessToken = findMsg91AccessToken(result)
                         ?: throw IllegalStateException("MSG91 verification succeeded without an access token. Please try again.")
-                    val session = withContext(Dispatchers.IO) { api.verifyMsg91AccessToken(normalizedPhone, accessToken) }
-                    val sessionToken = session.optString("token").trim()
-                    if (sessionToken.isBlank()) throw IllegalStateException("AARVO server did not return a login token.")
-                    saveSession(sessionToken, normalizedPhone)
-                    openMain()
+                    finishMsg91Login(normalizedPhone, accessToken)
                 } catch (t: Throwable) {
                     error = t.message ?: "OTP verification failed."
                 } finally {
