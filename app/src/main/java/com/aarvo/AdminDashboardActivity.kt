@@ -1,5 +1,6 @@
 package com.aarvo
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,6 +21,14 @@ import com.aarvo.ui.theme.AarvoTheme
 class AdminDashboardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val prefs = getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)
+        val isAdmin = prefs.getBoolean("signed_in", false) &&
+            prefs.getString("user_role", "")?.uppercase() == "ADMIN" &&
+            !prefs.getString("auth_token", "").isNullOrBlank()
+        if (!isAdmin) {
+            finish()
+            return
+        }
         setContent {
             AarvoTheme {
                 Column(
