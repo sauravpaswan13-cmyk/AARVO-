@@ -1,0 +1,103 @@
+name: Apply AARVO Splash Design
+
+on:
+  push:
+    paths:
+      - tools/apply-splash-design.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply splash and welcome design
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('app/src/main/java/com/aarvo/MainActivity.kt')
+          s = p.read_text()
+          if 'import androidx.compose.ui.Alignment' not in s:
+              s = s.replace('import androidx.compose.ui.Modifier\n', 'import androidx.compose.ui.Alignment\nimport androidx.compose.ui.Modifier\n')
+          if 'import androidx.compose.ui.graphics.Color' not in s:
+              s = s.replace('import androidx.compose.ui.Modifier\n', 'import androidx.compose.ui.Modifier\nimport androidx.compose.ui.graphics.Color\n')
+          if 'import androidx.compose.foundation.background' not in s:
+              s = s.replace('import androidx.compose.foundation.layout.Arrangement\n', 'import androidx.compose.foundation.background\nimport androidx.compose.foundation.layout.Arrangement\n')
+          if 'import androidx.compose.foundation.layout.Box' not in s:
+              s = s.replace('import androidx.compose.foundation.layout.Arrangement\n', 'import androidx.compose.foundation.layout.Arrangement\nimport androidx.compose.foundation.layout.Box\n')
+          if 'import androidx.compose.ui.res.painterResource' not in s:
+              s = s.replace('import androidx.compose.ui.text.font.FontWeight\n', 'import androidx.compose.ui.res.painterResource\nimport androidx.compose.ui.text.font.FontWeight\n')
+          new_fn = r'''@Composable private fun OnboardingScreen(onDone: () -> Unit) {
+    var showSplash by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(1800)
+        showSplash = false
+    }
+    if (showSplash) {
+        Box(
+            modifier = Modifier.fillMaxSize().background(Color(0xFF16005C)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Icon(
+                    painter = painterResource(R.drawable.aarvo_logo),
+                    contentDescription = "AARVO logo",
+                    tint = Color.Unspecified,
+                    modifier = Modifier.height(150.dp).fillMaxWidth(0.55f)
+                )
+                Text("AARVO", color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.displayMedium)
+                Spacer(Modifier.height(8.dp))
+                Text("Shop Smart • Live Better", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(42.dp))
+                CircularProgressIndicator(color = Color.White)
+                Spacer(Modifier.height(14.dp))
+                Text("Loading your world...", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    } else {
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 34.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.aarvo_logo),
+                contentDescription = "AARVO logo",
+                tint = Color.Unspecified,
+                modifier = Modifier.height(88.dp).fillMaxWidth(0.38f)
+            )
+            Spacer(Modifier.height(8.dp))
+            Text("AARVO", color = Color(0xFF2E178C), fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.headlineLarge)
+            Text("Your One Stop Shopping Destination", color = Color(0xFF5D5D70), style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(18.dp))
+            Text("🛍️   🛍️   🛍️", style = MaterialTheme.typography.displaySmall)
+            Spacer(Modifier.height(26.dp))
+            Button(onClick = onDone, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Continue as Guest", fontWeight = FontWeight.Bold) }
+            Spacer(Modifier.height(10.dp))
+            androidx.compose.material3.OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Login / Sign Up", fontWeight = FontWeight.Bold) }
+            Spacer(Modifier.height(10.dp))
+            TextButton(onClick = onDone) { Text("Explore as Guest") }
+            Spacer(Modifier.height(28.dp))
+            Text("Secure Shopping  •  Trusted Support  •  Fast Delivery", color = Color(0xFF666070), style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+'''
+          pattern = r'@Composable private fun OnboardingScreen\(onDone: \(\) -> Unit\) \{.*?\n\}\n\n(?=@Composable private fun SignInScreen)'
+          s2, n = re.subn(pattern, new_fn, s, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit('OnboardingScreen target not found; no changes made.')
+          p.write_text(s2)
+          PY
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/aarvo/MainActivity.kt
+          git commit -m 'Apply premium AARVO splash and welcome entry design'
+          git push
