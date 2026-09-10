@@ -91,7 +91,6 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                     return@launch
                 }
                 val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
-                // Registration creates the AARVO user first; MSG91 itself handles OTP delivery.
                 if (registerMode) {
                     api.register(email, password, name, if (seller) "SELLER" else "BUYER", normalizedPhone)
                 }
@@ -131,12 +130,12 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 if (json.optString("type").equals("error", true)) {
                     throw IllegalStateException(msg91Error(json, "Invalid OTP"))
                 }
+                // MSG91 returns the server-verifiable JWT in the access-token field.
+                // Never use message/reqId as a fallback token.
                 val accessToken = listOf(
-                    json.optString("accessToken"),
                     json.optString("access-token"),
-                    json.optString("token"),
-                    json.optString("message")
-                ).firstOrNull { it.isNotBlank() }
+                    json.optString("accessToken")
+                ).firstOrNull { it.isNotBlank() }?.trim()
                     ?: throw IllegalStateException("MSG91 verification did not return an access token")
 
                 val session = api.verifyMsg91AccessToken(normalizedPhone, accessToken)
@@ -158,7 +157,6 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
         scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    // SMS is the widget's primary channel and is configured as a retry channel.
                     OTPWidget.retryOTP(widgetId, widgetToken, reqId, 11)
                 }
                 val json = JSONObject(result)
@@ -229,10 +227,6 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 if (!registerMode) {
                     Spacer(Modifier.height(4.dp))
                     TextButton(onClick = { registerMode = true; error = "" }, modifier = Modifier.fillMaxWidth()) { Text("New to AARVO? Create account") }
-                    TextButton(onClick = {
-                        prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", true).putString("user_name", "Guest").putString("user_role", "BUYER").remove("auth_token").apply()
-                        openApp()
-                    }, modifier = Modifier.fillMaxWidth()) { Text("Continue as Guest", fontWeight = FontWeight.Bold) }
                 } else {
                     TextButton(onClick = { registerMode = false; error = "" }) { Text("Already have an account? Login with OTP") }
                 }
