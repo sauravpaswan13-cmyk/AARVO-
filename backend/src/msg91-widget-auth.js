@@ -1,5 +1,25 @@
 import crypto from 'node:crypto';
 
+function findAccessToken(value) {
+  if (value == null) return null;
+  if (typeof value === 'string') {
+    const v = value.trim().replace(/^"|"$/g, '');
+    if (v.startsWith('eyJ') && v.split('.').length === 3) return v;
+    try { return findAccessToken(JSON.parse(v)); } catch { return null; }
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) { const token = findAccessToken(item); if (token) return token; }
+    return null;
+  }
+  if (typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) {
+      if (/^(access[-_]?token|jwt|token)$/i.test(key) && typeof item === 'string' && item.trim()) return item.trim();
+    }
+    for (const item of Object.values(value)) { const token = findAccessToken(item); if (token) return token; }
+  }
+  return null;
+}
+
 export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone }) {
   app.post('/v1/auth/verify-msg91-token', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
@@ -67,5 +87,50 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
     const refreshed = { ...user, phone_verified: true };
     request.log.info({ phoneLast4: phone.slice(-4), userId: user.id }, 'AARVO MSG91 login session created');
     return { user: refreshed, token: issueToken(refreshed), verified: true };
+  });
+
+  // Verify the OTP on AARVO's server so the Android client never needs the MSG91 authkey.
+  // MSG91's widget flow is: reqId -> verify OTP -> JWT access-token -> verify access-token.
+  app.post('/v1/auth/verify-msg91-otp', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+    const authKey = String(process.env.MSG91_AUTH_KEY || process.env.MSG91_AUTHKEY || process.env.MSG91_AUTH_KEY_ID || '').trim();
+    const phone = normalizePhone(request.body?.phone);
+    const reqId = String(request.body?.reqId || request.body?.requestId || '').trim();
+    const otp = String(request.body?.otp || '').trim();
+    if (!authKey) return reply.code(503).send({ error: 'MSG91_AUTH_NOT_CONFIGURED' });
+    if (!phone || !reqId || !/^\d{4,8}$/.test(otp)) return reply.code(400).send({ error: 'INVALID_MSG91_OTP' });
+
+    let response;
+    try {
+      response = await fetch('https://api.msg91.com/api/v5/widget/verifyOtp', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authkey: authKey },
+        body: JSON.stringify({ reqId, otp }),
+        signal: AbortSignal.timeout(10000)
+      });
+    } catch (error) {
+      request.log.error({ err: error }, 'MSG91 OTP verification request failed');
+      return reply.code(503).send({ error: 'MSG91_VERIFICATION_UNAVAILABLE' });
+    }
+
+    let result = {};
+    try { result = await response.json(); } catch { result = {}; }
+    if (!response.ok) {
+      request.log.warn({ providerHttpStatus: response.status }, 'MSG91 OTP verification rejected');
+      return reply.code(401).send({ error: 'MSG91_OTP_INVALID' });
+    }
+    const accessToken = findAccessToken(result);
+    if (!accessToken) {
+      request.log.warn({ providerHttpStatus: response.status }, 'MSG91 OTP verified without access token');
+      return reply.code(502).send({ error: 'MSG91_ACCESS_TOKEN_MISSING' });
+    }
+
+    const injected = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/verify-msg91-token',
+      payload: { phone, accessToken }
+    });
+    let payload = {};
+    try { payload = JSON.parse(injected.body || '{}'); } catch { payload = {}; }
+    return reply.code(injected.statusCode).send(payload);
   });
 }
