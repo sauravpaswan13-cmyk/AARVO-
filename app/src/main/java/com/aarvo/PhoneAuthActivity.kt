@@ -52,7 +52,6 @@ class PhoneAuthActivity : ComponentActivity() {
     }
 }
 
-/** MSG91 SDK responses may be JSONObject, JSONArray, or a JSON string containing either. */
 private fun parseMsg91Result(raw: String): Any? = runCatching { JSONTokener(raw.trim()).nextValue() }.getOrNull()
 
 private fun msg91RequestId(raw: String): String? {
@@ -62,8 +61,7 @@ private fun msg91RequestId(raw: String): String? {
             while (keys.hasNext()) {
                 val key = keys.next()
                 if (key.equals("reqId", true) || key.equals("requestId", true) || key.equals("request_id", true)) {
-                    val candidate = value.optString(key).trim()
-                    if (candidate.isNotBlank()) return candidate
+                    value.optString(key).trim().takeIf { it.isNotBlank() }?.let { return it }
                 }
                 scan(value.opt(key))?.let { return it }
             }
@@ -73,9 +71,8 @@ private fun msg91RequestId(raw: String): String? {
             for (i in 0 until value.length()) scan(value.opt(i))?.let { return it }
             null
         }
-        is String -> {
-            val candidate = value.trim()
-            if (candidate.isBlank()) null else runCatching { scan(JSONTokener(candidate).nextValue()) }.getOrNull()
+        is String -> value.trim().takeIf { it.isNotBlank() }?.let { nested ->
+            runCatching { scan(JSONTokener(nested).nextValue()) }.getOrNull()
         }
         else -> null
     }
@@ -84,13 +81,16 @@ private fun msg91RequestId(raw: String): String? {
 
 private fun msg91Error(raw: String, fallback: String): String {
     fun scan(value: Any?): String? = when (value) {
-        is JSONObject -> listOf(value.optString("message"), value.optString("error"), value.optString("description"))
-            .firstOrNull { it.isNotBlank() }?.trim()
-            ?: run {
-                val keys = value.keys()
-                while (keys.hasNext()) scan(value.opt(keys.next()))?.let { return@run it }
-                null
-            }
+        is JSONObject -> {
+            listOf("message", "error", "description", "msg")
+                .map { value.optString(it).trim() }
+                .firstOrNull { it.isNotBlank() }
+                ?: run {
+                    val keys = value.keys()
+                    while (keys.hasNext()) scan(value.opt(keys.next()))?.let { return@run it }
+                    null
+                }
+        }
         is JSONArray -> {
             for (i in 0 until value.length()) scan(value.opt(i))?.let { return it }
             null
@@ -127,15 +127,19 @@ private fun findMsg91AccessToken(raw: String): String? {
     return scan(parseMsg91Result(raw))
 }
 
+/** Only explicit provider failure states are errors. Do not treat a textual status like "success" as false. */
 private fun msg91IsError(raw: String): Boolean {
     val parsed = parseMsg91Result(raw)
     fun scan(value: Any?): Boolean = when (value) {
         is JSONObject -> {
             val type = value.optString("type").trim().lowercase()
-            val status = value.optString("status").trim().lowercase()
-            type in setOf("error", "failed", "failure") || status in setOf("error", "failed", "failure") ||
-                (value.optBoolean("success", true).not()) ||
-                (value.optBoolean("status", true).not())
+            val statusRaw = value.opt("status")
+            val statusText = value.optString("status").trim().lowercase()
+            val successRaw = value.opt("success")
+            val typeError = type in setOf("error", "failed", "failure")
+            val statusError = statusText in setOf("error", "failed", "failure", "false", "0") || statusRaw is Boolean && !statusRaw
+            val successError = successRaw is Boolean && !successRaw
+            typeError || statusError || successError
         }
         is JSONArray -> (0 until value.length()).any { scan(value.opt(it)) }
         is String -> runCatching { scan(JSONTokener(value.trim()).nextValue()) }.getOrDefault(false)
@@ -163,13 +167,15 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
     val widgetToken = BuildConfig.MSG91_WIDGET_TOKEN.trim()
 
     fun sendPhoneOtp() {
-        loading = true
         error = ""
+        otp = ""
+        reqId = ""
+        otpMode = true
+        loading = true
         scope.launch {
             try {
                 if (widgetId.isBlank() || widgetToken.isBlank()) {
-                    error = "MSG91 OTP widget is not configured in this build."
-                    return@launch
+                    throw IllegalStateException("MSG91 OTP widget is not configured in this build.")
                 }
                 val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
                 if (registerMode) {
@@ -182,13 +188,25 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 if (msg91IsError(result)) {
                     throw IllegalStateException(msg91Error(result, "MSG91 could not send OTP"))
                 }
+
+                // Some MSG91 flows can return the access token immediately. If so, finish login
+                // without waiting for a visible OTP screen. Otherwise keep the OTP screen open.
+                val immediateAccessToken = findMsg91AccessToken(result)
+                if (!immediateAccessToken.isNullOrBlank()) {
+                    val session = api.verifyMsg91AccessToken(normalizedPhone, immediateAccessToken)
+                    saveSession(prefs, session)
+                    val userRole = session.optJSONObject("user")?.optString("role", "BUYER")?.uppercase() ?: "BUYER"
+                    if (userRole == "ADMIN") adminVerified = true else openApp()
+                    return@launch
+                }
+
                 reqId = msg91RequestId(result).orEmpty()
                 if (reqId.isBlank()) {
-                    throw IllegalStateException("MSG91 did not return a request ID. Please try again.")
+                    throw IllegalStateException("MSG91 did not return a request ID. Please resend OTP.")
                 }
-                otp = ""
-                otpMode = true
             } catch (t: Throwable) {
+                otpMode = false
+                reqId = ""
                 error = t.message ?: "Unable to send OTP"
             } finally {
                 loading = false
@@ -197,12 +215,12 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
     }
 
     fun verifyWidgetOtp() {
+        if (loading || reqId.isBlank() || otp.length != 6) return
         loading = true
         error = ""
         scope.launch {
             try {
                 val normalizedPhone = IndianPhoneValidator.isValidOrThrow(phone)
-                if (reqId.isBlank()) throw IllegalStateException("OTP request has expired. Please resend OTP.")
                 val result = withContext(Dispatchers.IO) {
                     OTPWidget.verifyOTP(widgetId, widgetToken, reqId, otp)
                 }
@@ -236,8 +254,7 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 if (msg91IsError(result)) {
                     throw IllegalStateException(msg91Error(result, "Unable to resend OTP"))
                 }
-                val newReqId = msg91RequestId(result)
-                if (!newReqId.isNullOrBlank()) reqId = newReqId
+                msg91RequestId(result)?.takeIf { it.isNotBlank() }?.let { reqId = it }
             } catch (t: Throwable) {
                 error = t.message ?: "Unable to resend OTP"
             } finally {
@@ -264,13 +281,17 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 Spacer(Modifier.height(8.dp))
                 Text("OTP sent to +91 $phone")
                 Spacer(Modifier.height(12.dp))
-                OutlinedTextField(otp, { otp = it.filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("6-digit OTP") })
+                OutlinedTextField(otp, { otp = it.filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("6-digit OTP") }, enabled = true)
+                if (loading && reqId.isBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text("OTP request is being prepared… You can enter the OTP as soon as it arrives.")
+                }
                 if (error.isNotBlank()) { Spacer(Modifier.height(6.dp)); Text(error, color = MaterialTheme.colorScheme.error) }
                 Spacer(Modifier.height(12.dp))
-                Button(onClick = { verifyWidgetOtp() }, enabled = !loading && otp.length == 6, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                Button(onClick = { verifyWidgetOtp() }, enabled = !loading && reqId.isNotBlank() && otp.length == 6, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                     if (loading) CircularProgressIndicator() else Text("Verify & Continue", fontWeight = FontWeight.Bold)
                 }
-                TextButton(onClick = { retryWidgetOtp() }, enabled = !loading) { Text("Resend OTP") }
+                TextButton(onClick = { retryWidgetOtp() }, enabled = !loading && reqId.isNotBlank()) { Text("Resend OTP") }
             } else {
                 Text(if (registerMode) "Create your AARVO account" else "Login with mobile OTP", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
@@ -311,5 +332,11 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
 
 private fun saveSession(prefs: android.content.SharedPreferences, result: JSONObject) {
     val user = result.getJSONObject("user")
-    prefs.edit().putBoolean("signed_in", true).putBoolean("guest_mode", false).putString("user_name", user.optString("display_name", "AARVO User")).putString("user_role", user.optString("role", "BUYER")).putString("auth_token", result.getString("token")).apply()
+    prefs.edit()
+        .putBoolean("signed_in", true)
+        .putBoolean("guest_mode", false)
+        .putString("user_name", user.optString("display_name", "AARVO User"))
+        .putString("user_role", user.optString("role", "BUYER"))
+        .putString("auth_token", result.getString("token"))
+        .apply()
 }
