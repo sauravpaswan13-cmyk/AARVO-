@@ -18,6 +18,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.aarvo.network.AarvoApiClient
 import com.aarvo.network.Msg91ServerApi
 import com.msg91.sendotp.OTPWidget
 import kotlinx.coroutines.Dispatchers
@@ -99,12 +99,12 @@ class PhoneAuthActivity : ComponentActivity() {
         return bad(parsed) || (parsed == null && raw.lowercase().contains("error"))
     }
 
-    private fun saveSession(token: String, phone: String) {
+    private fun saveSession(token: String, phone: String, role: String) {
         getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).edit()
             .putBoolean("signed_in", true)
             .putBoolean("guest_mode", false)
             .putString("user_name", phone)
-            .putString("user_role", "BUYER")
+            .putString("user_role", role)
             .putString("auth_token", token)
             .commit()
     }
@@ -123,21 +123,23 @@ class PhoneAuthActivity : ComponentActivity() {
         var otp by remember { mutableStateOf("") }
         var reqId by remember { mutableStateOf("") }
         var otpMode by remember { mutableStateOf(false) }
+        var sellerMode by remember { mutableStateOf(false) }
         var loading by remember { mutableStateOf(false) }
         var error by remember { mutableStateOf("") }
 
         val widgetId = BuildConfig.MSG91_WIDGET_ID
         val widgetToken = BuildConfig.MSG91_WIDGET_TOKEN
-        val api = remember { AarvoApiClient { getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).getString("auth_token", null) } }
         val msg91ServerApi = remember { Msg91ServerApi() }
 
         suspend fun finishMsg91Login(normalizedPhone: String, requestId: String, enteredOtp: String) {
+            val requestedRole = if (sellerMode) "SELLER" else "BUYER"
             val session = withTimeout(20000) {
-                msg91ServerApi.verifyOtp(normalizedPhone, requestId, enteredOtp)
+                msg91ServerApi.verifyOtp(normalizedPhone, requestId, enteredOtp, requestedRole)
             }
             val sessionToken = session.optString("token").trim()
             if (sessionToken.isBlank()) throw IllegalStateException("AARVO server did not return a login token.")
-            saveSession(sessionToken, normalizedPhone)
+            val actualRole = session.optJSONObject("user")?.optString("role", requestedRole)?.uppercase() ?: requestedRole
+            saveSession(sessionToken, normalizedPhone, actualRole)
             openMain()
         }
 
@@ -205,18 +207,22 @@ class PhoneAuthActivity : ComponentActivity() {
         }
 
         Column(modifier = Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
-            Text("AARVO Login", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(18.dp))
+            Text(if (sellerMode) "AARVO Seller Account" else "AARVO Login", style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.height(8.dp))
             if (!otpMode) {
+                Text(if (sellerMode) "Create or access your seller account with your mobile number." else "Login securely with your mobile number.")
+                Spacer(Modifier.height(18.dp))
                 OutlinedTextField(value = phone, onValueChange = { phone = it.filter(Char::isDigit).take(10) }, label = { Text("Mobile number") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp))
                 Button(onClick = ::sendPhoneOtp, enabled = !loading && phone.filter(Char::isDigit).length == 10, modifier = Modifier.fillMaxWidth()) { if (loading) CircularProgressIndicator() else Text("Send OTP") }
+                Spacer(Modifier.height(4.dp))
+                TextButton(onClick = { sellerMode = !sellerMode; error = "" }) { Text(if (sellerMode) "Use as Buyer instead" else "Become a Seller") }
             } else {
-                Text("Enter the OTP")
+                Text("Enter the OTP sent to your mobile number.")
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(value = otp, onValueChange = { otp = it.filter(Char::isDigit).take(8) }, label = { Text("OTP") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp))
-                Button(onClick = ::verifyWidgetOtp, enabled = !loading && reqId.isNotBlank() && otp.length in 4..8, modifier = Modifier.fillMaxWidth()) { if (loading) CircularProgressIndicator() else Text("Verify OTP & Login") }
+                Button(onClick = ::verifyWidgetOtp, enabled = !loading && reqId.isNotBlank() && otp.length in 4..8, modifier = Modifier.fillMaxWidth()) { if (loading) CircularProgressIndicator() else Text(if (sellerMode) "Verify OTP & Create Seller Account" else "Verify OTP & Login") }
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = ::retryWidgetOtp, enabled = !loading && reqId.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Resend OTP") }
             }
