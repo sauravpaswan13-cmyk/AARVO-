@@ -31,6 +31,7 @@ import com.aarvo.network.AarvoApiClient
 import com.msg91.sendotp.OTPWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
@@ -82,7 +83,6 @@ class PhoneAuthActivity : ComponentActivity() {
         return scan(parseMsg91Result(raw))
     }
 
-    /** Only extract an access-token field from the VERIFY response. Never treat the widget token or send response token as a user token. */
     private fun findMsg91AccessToken(raw: String): String? {
         fun scan(value: Any?): String? = when (value) {
             is JSONObject -> {
@@ -179,20 +179,17 @@ class PhoneAuthActivity : ComponentActivity() {
                     if (normalizedPhone.length != 10) throw IllegalArgumentException("Enter a valid 10-digit mobile number.")
                     if (widgetId.isBlank() || widgetToken.isBlank()) throw IllegalStateException("MSG91 OTP is not configured in this build.")
 
-                    val result = withContext(Dispatchers.IO) {
-                        withTimeout(15000) { OTPWidget.sendOTP(widgetId, widgetToken, "91$normalizedPhone") }
+                    val result = withTimeout(15000) {
+                        runInterruptible(Dispatchers.IO) { OTPWidget.sendOTP(widgetId, widgetToken, "91$normalizedPhone") }
                     }
                     if (msg91IsError(result)) throw IllegalStateException(result)
-
                     val returnedReqId = msg91RequestId(result).orEmpty()
-                    if (returnedReqId.isBlank()) {
-                        throw IllegalStateException("MSG91 did not return a request ID. Please try Send OTP again.")
-                    }
+                    if (returnedReqId.isBlank()) throw IllegalStateException("MSG91 did not return a request ID. Please try Send OTP again.")
                     reqId = returnedReqId
                     otpMode = true
                 } catch (t: Throwable) {
                     otpMode = false
-                    error = t.message ?: "Unable to send OTP. Please try again."
+                    error = if (t is kotlinx.coroutines.TimeoutCancellationException) "MSG91 OTP request timed out. Please try again." else t.message ?: "Unable to send OTP. Please try again."
                 } finally {
                     loading = false
                 }
@@ -206,8 +203,8 @@ class PhoneAuthActivity : ComponentActivity() {
             scope.launch {
                 try {
                     val normalizedPhone = phone.filter(Char::isDigit).takeLast(10)
-                    val result = withContext(Dispatchers.IO) {
-                        withTimeout(15000) { OTPWidget.verifyOTP(widgetId, widgetToken, reqId, otp) }
+                    val result = withTimeout(15000) {
+                        runInterruptible(Dispatchers.IO) { OTPWidget.verifyOTP(widgetId, widgetToken, reqId, otp) }
                     }
                     if (msg91IsError(result)) throw IllegalStateException(result)
                     val accessToken = findMsg91AccessToken(result)
@@ -230,13 +227,13 @@ class PhoneAuthActivity : ComponentActivity() {
             loading = true
             scope.launch {
                 try {
-                    val result = withContext(Dispatchers.IO) {
-                        withTimeout(15000) { OTPWidget.retryOTP(widgetId, widgetToken, reqId, 11) }
+                    val result = withTimeout(15000) {
+                        runInterruptible(Dispatchers.IO) { OTPWidget.retryOTP(widgetId, widgetToken, reqId, 11) }
                     }
                     if (msg91IsError(result)) throw IllegalStateException(result)
                     msg91RequestId(result)?.let { reqId = it }
                 } catch (t: Throwable) {
-                    error = t.message ?: "Unable to resend OTP."
+                    error = if (t is kotlinx.coroutines.TimeoutCancellationException) "MSG91 resend timed out. Please try again." else t.message ?: "Unable to resend OTP."
                 } finally {
                     loading = false
                 }
@@ -247,33 +244,15 @@ class PhoneAuthActivity : ComponentActivity() {
             Text("AARVO Login", style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.height(18.dp))
             if (!otpMode) {
-                OutlinedTextField(
-                    value = phone,
-                    onValueChange = { phone = it.filter(Char::isDigit).take(10) },
-                    label = { Text("Mobile number") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                OutlinedTextField(value = phone, onValueChange = { phone = it.filter(Char::isDigit).take(10) }, label = { Text("Mobile number") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp))
-                Button(onClick = ::sendPhoneOtp, enabled = !loading && phone.filter(Char::isDigit).length == 10, modifier = Modifier.fillMaxWidth()) {
-                    if (loading) CircularProgressIndicator() else Text("Send OTP")
-                }
+                Button(onClick = ::sendPhoneOtp, enabled = !loading && phone.filter(Char::isDigit).length == 10, modifier = Modifier.fillMaxWidth()) { if (loading) CircularProgressIndicator() else Text("Send OTP") }
             } else {
                 Text("Enter the 6-digit OTP")
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = otp,
-                    onValueChange = { otp = it.filter(Char::isDigit).take(6) },
-                    label = { Text("OTP") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                OutlinedTextField(value = otp, onValueChange = { otp = it.filter(Char::isDigit).take(6) }, label = { Text("OTP") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp))
-                Button(onClick = ::verifyWidgetOtp, enabled = !loading && reqId.isNotBlank() && otp.length == 6, modifier = Modifier.fillMaxWidth()) {
-                    if (loading) CircularProgressIndicator() else Text("Verify OTP & Login")
-                }
+                Button(onClick = ::verifyWidgetOtp, enabled = !loading && reqId.isNotBlank() && otp.length == 6, modifier = Modifier.fillMaxWidth()) { if (loading) CircularProgressIndicator() else Text("Verify OTP & Login") }
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = ::retryWidgetOtp, enabled = !loading && reqId.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Resend OTP") }
             }
