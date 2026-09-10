@@ -26,9 +26,11 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
 
     let verification = {};
     try { verification = await response.json(); } catch { verification = {}; }
-    const providerType = String(verification.type || '').toLowerCase();
-    const providerStatus = String(verification.status || '').toLowerCase();
-    const verified = response.ok && !['false', '0', 'failed', 'failure', 'error'].includes(providerType || providerStatus);
+    const providerType = String(verification.type || '').trim().toLowerCase();
+    const providerStatus = String(verification.status || '').trim().toLowerCase();
+    const failedValues = ['false', '0', 'failed', 'failure', 'error', 'invalid', 'rejected'];
+    const failed = failedValues.includes(providerType) || failedValues.includes(providerStatus);
+    const verified = response.ok && !failed;
     if (!verified) {
       request.log.warn({ providerHttpStatus: response.status, providerType, providerStatus }, 'MSG91 access-token rejected');
       return reply.code(401).send({ error: 'MSG91_TOKEN_INVALID' });
