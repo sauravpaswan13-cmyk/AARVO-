@@ -217,6 +217,7 @@ class PhoneAuthActivity : ComponentActivity() {
                 Button(onClick = ::sendPhoneOtp, enabled = !loading && phone.filter(Char::isDigit).length == 10, modifier = Modifier.fillMaxWidth()) { if (loading) CircularProgressIndicator() else Text("Send OTP") }
                 Spacer(Modifier.height(4.dp))
                 TextButton(onClick = { sellerMode = !sellerMode; error = "" }) { Text(if (sellerMode) "Use as Buyer instead" else "Become a Seller") }
+                TextButton(onClick = { startActivity(Intent(this@PhoneAuthActivity, AdminLoginActivity::class.java)) }) { Text("Owner Admin Login") }
             } else {
                 Text("Enter the OTP sent to your mobile number.")
                 Spacer(Modifier.height(10.dp))
