@@ -144,5 +144,16 @@ if (!source.includes('admin-auth.js')) {
   );
 }
 
+if (!source.includes('hero-content.js')) {
+  source = source.replace(
+    "import { registerAdminAuth } from './admin-auth.js';",
+    "import { registerAdminAuth } from './admin-auth.js';\nimport { registerHeroContent } from './hero-content.js';"
+  );
+  source = source.replace(
+    "await registerAdminAuth({ app, pool, issueToken, verifyPassword });",
+    "await registerAdminAuth({ app, pool, issueToken, verifyPassword });\nawait registerHeroContent({ app, pool, requireRole });"
+  );
+}
+
 await fs.writeFile(runtimePath, source, 'utf8');
 await import(`${pathToFileURL(runtimePath).href}?v=${Date.now()}`);
