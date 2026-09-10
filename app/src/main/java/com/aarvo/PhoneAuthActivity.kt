@@ -84,15 +84,23 @@ class PhoneAuthActivity : ComponentActivity() {
     }
 
     private fun findMsg91AccessToken(raw: String): String? {
+        fun jwtCandidate(value: String): String? {
+            val v = value.trim().trim('"')
+            if (v.startsWith("eyJ") && v.count { it == '.' } == 2 && v.length > 40) return v
+            Regex("eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b").find(v)?.value?.let { return it }
+            return null
+        }
+
         fun scan(value: Any?): String? = when (value) {
             is JSONObject -> {
                 val keys = value.keys()
                 while (keys.hasNext()) {
                     val key = keys.next()
                     val candidate = value.optString(key).trim()
-                    if (key.equals("access-token", true) || key.equals("access_token", true) || key.equals("accessToken", true)) {
+                    if (key.equals("access-token", true) || key.equals("access_token", true) || key.equals("accessToken", true) || key.equals("token", true) || key.equals("jwt", true)) {
                         if (candidate.isNotBlank()) return candidate
                     }
+                    jwtCandidate(candidate)?.let { return it }
                 }
                 val nestedKeys = value.keys()
                 while (nestedKeys.hasNext()) {
@@ -105,10 +113,13 @@ class PhoneAuthActivity : ComponentActivity() {
                 for (i in 0 until value.length()) scan(value.opt(i))?.let { return it }
                 null
             }
-            is String -> runCatching { scan(JSONTokener(value.trim()).nextValue()) }.getOrNull()
+            is String -> {
+                jwtCandidate(value)?.let { return it }
+                runCatching { scan(JSONTokener(value.trim()).nextValue()) }.getOrNull()
+            }
             else -> null
         }
-        return scan(parseMsg91Result(raw))
+        return scan(parseMsg91Result(raw)) ?: jwtCandidate(raw)
     }
 
     private fun msg91IsError(raw: String): Boolean {
@@ -141,6 +152,7 @@ class PhoneAuthActivity : ComponentActivity() {
         startActivity(Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         })
+        finish()
     }
 
     @Composable
@@ -178,7 +190,6 @@ class PhoneAuthActivity : ComponentActivity() {
                     val normalizedPhone = phone.filter(Char::isDigit).takeLast(10)
                     if (normalizedPhone.length != 10) throw IllegalArgumentException("Enter a valid 10-digit mobile number.")
                     if (widgetId.isBlank() || widgetToken.isBlank()) throw IllegalStateException("MSG91 OTP is not configured in this build.")
-
                     val result = withTimeout(15000) {
                         runInterruptible(Dispatchers.IO) { OTPWidget.sendOTP(widgetId, widgetToken, "91$normalizedPhone") }
                     }
@@ -197,7 +208,7 @@ class PhoneAuthActivity : ComponentActivity() {
         }
 
         fun verifyWidgetOtp() {
-            if (loading || reqId.isBlank() || otp.length != 6) return
+            if (loading || reqId.isBlank() || otp.length !in 4..8) return
             error = ""
             loading = true
             scope.launch {
@@ -208,7 +219,7 @@ class PhoneAuthActivity : ComponentActivity() {
                     }
                     if (msg91IsError(result)) throw IllegalStateException(result)
                     val accessToken = findMsg91AccessToken(result)
-                        ?: throw IllegalStateException("MSG91 verification succeeded without an access token. Please try again.")
+                        ?: throw IllegalStateException("MSG91 verified the OTP but did not return an access token.")
                     finishMsg91Login(normalizedPhone, accessToken)
                 } catch (t: Throwable) {
                     error = when (t) {
@@ -248,11 +259,11 @@ class PhoneAuthActivity : ComponentActivity() {
                 Spacer(Modifier.height(12.dp))
                 Button(onClick = ::sendPhoneOtp, enabled = !loading && phone.filter(Char::isDigit).length == 10, modifier = Modifier.fillMaxWidth()) { if (loading) CircularProgressIndicator() else Text("Send OTP") }
             } else {
-                Text("Enter the 6-digit OTP")
+                Text("Enter the OTP")
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value = otp, onValueChange = { otp = it.filter(Char::isDigit).take(6) }, label = { Text("OTP") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = otp, onValueChange = { otp = it.filter(Char::isDigit).take(8) }, label = { Text("OTP") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp))
-                Button(onClick = ::verifyWidgetOtp, enabled = !loading && reqId.isNotBlank() && otp.length == 6, modifier = Modifier.fillMaxWidth()) { if (loading) CircularProgressIndicator() else Text("Verify OTP & Login") }
+                Button(onClick = ::verifyWidgetOtp, enabled = !loading && reqId.isNotBlank() && otp.length in 4..8, modifier = Modifier.fillMaxWidth()) { if (loading) CircularProgressIndicator() else Text("Verify OTP & Login") }
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = ::retryWidgetOtp, enabled = !loading && reqId.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Resend OTP") }
             }
