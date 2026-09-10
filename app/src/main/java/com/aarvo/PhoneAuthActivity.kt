@@ -34,7 +34,9 @@ import com.msg91.sendotp.OTPWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
 
 class PhoneAuthActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,8 +52,10 @@ class PhoneAuthActivity : ComponentActivity() {
     }
 }
 
-/** MSG91 SDK responses can wrap reqId/requestId/request_id inside a nested object. */
-private fun msg91RequestId(json: JSONObject): String? {
+/** MSG91 SDK responses may be JSONObject, JSONArray, or a JSON string containing either. */
+private fun parseMsg91Result(raw: String): Any? = runCatching { JSONTokener(raw.trim()).nextValue() }.getOrNull()
+
+private fun msg91RequestId(raw: String): String? {
     fun scan(value: Any?): String? = when (value) {
         is JSONObject -> {
             val keys = value.keys()
@@ -61,24 +65,44 @@ private fun msg91RequestId(json: JSONObject): String? {
                     val candidate = value.optString(key).trim()
                     if (candidate.isNotBlank()) return candidate
                 }
-                val found = scan(value.opt(key))
-                if (found != null) return found
+                scan(value.opt(key))?.let { return it }
             }
             null
         }
+        is JSONArray -> {
+            for (i in 0 until value.length()) scan(value.opt(i))?.let { return it }
+            null
+        }
+        is String -> {
+            val candidate = value.trim()
+            if (candidate.isBlank()) null else runCatching { scan(JSONTokener(candidate).nextValue()) }.getOrNull()
+        }
         else -> null
     }
-    return scan(json)
+    return scan(parseMsg91Result(raw))
 }
 
-private fun msg91Error(json: JSONObject, fallback: String): String = listOf(
-    json.optString("message"),
-    json.optString("error"),
-    json.optString("description")
-).firstOrNull { it.isNotBlank() }?.trim() ?: fallback
+private fun msg91Error(raw: String, fallback: String): String {
+    fun scan(value: Any?): String? = when (value) {
+        is JSONObject -> listOf(value.optString("message"), value.optString("error"), value.optString("description"))
+            .firstOrNull { it.isNotBlank() }?.trim()
+            ?: run {
+                val keys = value.keys()
+                while (keys.hasNext()) scan(value.opt(keys.next()))?.let { return@run it }
+                null
+            }
+        is JSONArray -> {
+            for (i in 0 until value.length()) scan(value.opt(i))?.let { return it }
+            null
+        }
+        is String -> value.trim().takeIf { it.isNotBlank() }
+        else -> null
+    }
+    return scan(parseMsg91Result(raw)) ?: fallback
+}
 
 /** MSG91 returns a JWT access-token after successful widget OTP verification. */
-private fun findMsg91AccessToken(json: JSONObject): String? {
+private fun findMsg91AccessToken(raw: String): String? {
     fun jwtCandidate(value: String?): String? {
         val v = value?.trim().orEmpty()
         return if (v.count { it == '.' } == 2 && v.length > 80) v else null
@@ -88,15 +112,36 @@ private fun findMsg91AccessToken(json: JSONObject): String? {
             val keys = value.keys()
             while (keys.hasNext()) {
                 val key = keys.next()
-                val found = jwtCandidate(value.optString(key)) ?: scan(value.opt(key))
-                if (found != null) return found
+                jwtCandidate(value.optString(key))?.let { return it }
+                scan(value.opt(key))?.let { return it }
             }
             null
         }
-        is String -> jwtCandidate(value)
+        is JSONArray -> {
+            for (i in 0 until value.length()) scan(value.opt(i))?.let { return it }
+            null
+        }
+        is String -> jwtCandidate(value) ?: runCatching { scan(JSONTokener(value.trim()).nextValue()) }.getOrNull()
         else -> null
     }
-    return scan(json)
+    return scan(parseMsg91Result(raw))
+}
+
+private fun msg91IsError(raw: String): Boolean {
+    val parsed = parseMsg91Result(raw)
+    fun scan(value: Any?): Boolean = when (value) {
+        is JSONObject -> {
+            val type = value.optString("type").trim().lowercase()
+            val status = value.optString("status").trim().lowercase()
+            type in setOf("error", "failed", "failure") || status in setOf("error", "failed", "failure") ||
+                (value.optBoolean("success", true).not()) ||
+                (value.optBoolean("status", true).not())
+        }
+        is JSONArray -> (0 until value.length()).any { scan(value.opt(it)) }
+        is String -> runCatching { scan(JSONTokener(value.trim()).nextValue()) }.getOrDefault(false)
+        else -> false
+    }
+    return scan(parsed)
 }
 
 @Composable
@@ -134,11 +179,10 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 val result = withContext(Dispatchers.IO) {
                     OTPWidget.sendOTP(widgetId, widgetToken, identifier)
                 }
-                val json = JSONObject(result)
-                if (json.optString("type").equals("error", true)) {
-                    throw IllegalStateException(msg91Error(json, "MSG91 could not send OTP"))
+                if (msg91IsError(result)) {
+                    throw IllegalStateException(msg91Error(result, "MSG91 could not send OTP"))
                 }
-                reqId = msg91RequestId(json).orEmpty()
+                reqId = msg91RequestId(result).orEmpty()
                 if (reqId.isBlank()) {
                     throw IllegalStateException("MSG91 did not return a request ID. Please try again.")
                 }
@@ -162,11 +206,10 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 val result = withContext(Dispatchers.IO) {
                     OTPWidget.verifyOTP(widgetId, widgetToken, reqId, otp)
                 }
-                val json = JSONObject(result)
-                if (json.optString("type").equals("error", true)) {
-                    throw IllegalStateException(msg91Error(json, "Invalid OTP"))
+                if (msg91IsError(result)) {
+                    throw IllegalStateException(msg91Error(result, "Invalid OTP"))
                 }
-                val accessToken = findMsg91AccessToken(json)
+                val accessToken = findMsg91AccessToken(result)
                     ?: throw IllegalStateException("MSG91 verification succeeded but did not return a JWT access token")
 
                 val session = api.verifyMsg91AccessToken(normalizedPhone, accessToken)
@@ -190,11 +233,10 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 val result = withContext(Dispatchers.IO) {
                     OTPWidget.retryOTP(widgetId, widgetToken, reqId, 11)
                 }
-                val json = JSONObject(result)
-                if (json.optString("type").equals("error", true)) {
-                    throw IllegalStateException(msg91Error(json, "Unable to resend OTP"))
+                if (msg91IsError(result)) {
+                    throw IllegalStateException(msg91Error(result, "Unable to resend OTP"))
                 }
-                val newReqId = msg91RequestId(json)
+                val newReqId = msg91RequestId(result)
                 if (!newReqId.isNullOrBlank()) reqId = newReqId
             } catch (t: Throwable) {
                 error = t.message ?: "Unable to resend OTP"
