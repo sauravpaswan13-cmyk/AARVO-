@@ -29,7 +29,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.aarvo.network.AarvoApiClient
 import com.aarvo.network.Msg91ServerApi
-import com.msg91.lib.sendotp.OTPWidget
+import com.msg91.sendotp.OTPWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
@@ -176,15 +176,9 @@ class PhoneAuthActivity : ComponentActivity() {
             scope.launch {
                 try {
                     val normalizedPhone = phone.filter(Char::isDigit).takeLast(10)
-                    // Do not call OTPWidget.verifyOTP() in the APK. The verified OTP is
-                    // sent over HTTPS to AARVO, where MSG91's secret authkey stays private.
                     finishMsg91Login(normalizedPhone, reqId, otp)
                 } catch (t: Throwable) {
-                    error = if (t is kotlinx.coroutines.TimeoutCancellationException) {
-                        "MSG91 verification timed out. Please try Verify OTP again."
-                    } else {
-                        t.message ?: "OTP verification failed."
-                    }
+                    error = if (t is kotlinx.coroutines.TimeoutCancellationException) "MSG91 verification timed out. Please try Verify OTP again." else t.message ?: "OTP verification failed."
                 } finally {
                     loading = false
                 }
