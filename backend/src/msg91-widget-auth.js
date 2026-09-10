@@ -3,11 +3,15 @@ import crypto from 'node:crypto';
 export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone }) {
   app.post('/v1/auth/verify-msg91-token', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
-    const authKey = String(process.env.MSG91_AUTH_KEY || process.env.MSG91_AUTHKEY || '').trim();
-    if (!authKey) return reply.code(503).send({ error: 'MSG91_AUTH_NOT_CONFIGURED' });
+    const authKey = String(process.env.MSG91_AUTH_KEY || process.env.MSG91_AUTHKEY || process.env.MSG91_AUTH_KEY_ID || '').trim();
+    if (!authKey) {
+      request.log.error('MSG91 auth key is not configured on AARVO API');
+      return reply.code(503).send({ error: 'MSG91_AUTH_NOT_CONFIGURED' });
+    }
 
     const phone = normalizePhone(request.body?.phone);
     const accessToken = String(request.body?.accessToken || '').trim();
+    request.log.info({ phoneLast4: phone ? phone.slice(-4) : '', accessTokenPresent: Boolean(accessToken) }, 'AARVO MSG91 verification started');
     if (!phone || !accessToken) return reply.code(400).send({ error: 'INVALID_MSG91_VERIFICATION' });
 
     const body = new URLSearchParams({ authkey: authKey, 'access-token': accessToken });
@@ -31,6 +35,7 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
     const failedValues = ['false', '0', 'failed', 'failure', 'error', 'invalid', 'rejected'];
     const failed = failedValues.includes(providerType) || failedValues.includes(providerStatus);
     const verified = response.ok && !failed;
+    request.log.info({ providerHttpStatus: response.status, providerType, providerStatus, verified }, 'AARVO MSG91 verification result');
     if (!verified) {
       request.log.warn({ providerHttpStatus: response.status, providerType, providerStatus }, 'MSG91 access-token rejected');
       return reply.code(401).send({ error: 'MSG91_TOKEN_INVALID' });
@@ -60,6 +65,7 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
     const user = userResult.rows[0];
     await pool.query('UPDATE users SET phone_verified=true,phone_verified_at=now() WHERE id=$1', [user.id]);
     const refreshed = { ...user, phone_verified: true };
+    request.log.info({ phoneLast4: phone.slice(-4), userId: user.id }, 'AARVO MSG91 login session created');
     return { user: refreshed, token: issueToken(refreshed), verified: true };
   });
 }
