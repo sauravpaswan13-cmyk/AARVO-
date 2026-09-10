@@ -130,11 +130,19 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 if (json.optString("type").equals("error", true)) {
                     throw IllegalStateException(msg91Error(json, "Invalid OTP"))
                 }
-                // MSG91 returns the server-verifiable JWT in the access-token field.
-                // Never use message/reqId as a fallback token.
+
+                // MSG91's Kotlin SDK returns the JWT access token in the successful
+                // verification response's `message` field. Some SDK/API variants use
+                // access-token/accessToken directly or inside `data`, so accept all
+                // known success shapes without ever treating an error response as a token.
+                val data = json.optJSONObject("data")
                 val accessToken = listOf(
                     json.optString("access-token"),
-                    json.optString("accessToken")
+                    json.optString("accessToken"),
+                    data?.optString("access-token").orEmpty(),
+                    data?.optString("accessToken").orEmpty(),
+                    json.optString("message"),
+                    data?.optString("message").orEmpty()
                 ).firstOrNull { it.isNotBlank() }?.trim()
                     ?: throw IllegalStateException("MSG91 verification did not return an access token")
 
