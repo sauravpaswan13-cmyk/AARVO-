@@ -35,6 +35,32 @@ function findAccessTokenInHeaders(headers) {
   return null;
 }
 
+async function createVerifiedUserSession({ pool, issueToken, phone }) {
+  let userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
+  if (!userResult.rowCount) {
+    const id = crypto.randomUUID();
+    try {
+      userResult = await pool.query(
+        `INSERT INTO users (id, display_name, role, phone, phone_verified, phone_verified_at)
+         VALUES ($1, $2, 'BUYER', $3, true, now())
+         RETURNING id,email,display_name,role,phone,phone_verified`,
+        [id, `AARVO User ${phone.slice(-4)}`, phone]
+      );
+    } catch (error) {
+      if (error?.code === '23505') {
+        userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
+      } else {
+        throw error;
+      }
+    }
+  }
+  if (!userResult.rowCount) return null;
+  const user = userResult.rows[0];
+  await pool.query('UPDATE users SET phone_verified=true,phone_verified_at=now() WHERE id=$1', [user.id]);
+  const refreshed = { ...user, phone_verified: true };
+  return { user: refreshed, token: issueToken(refreshed), verified: true };
+}
+
 export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone }) {
   app.post('/v1/auth/verify-msg91-token', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
@@ -76,36 +102,21 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
       return reply.code(401).send({ error: 'MSG91_TOKEN_INVALID' });
     }
 
-    let userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
-    if (!userResult.rowCount) {
-      const id = crypto.randomUUID();
-      try {
-        userResult = await pool.query(
-          `INSERT INTO users (id, display_name, role, phone, phone_verified, phone_verified_at)
-           VALUES ($1, $2, 'BUYER', $3, true, now())
-           RETURNING id,email,display_name,role,phone,phone_verified`,
-          [id, `AARVO User ${phone.slice(-4)}`, phone]
-        );
-      } catch (error) {
-        if (error?.code === '23505') {
-          userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
-        } else {
-          request.log.error({ err: error }, 'Unable to create AARVO user after MSG91 verification');
-          return reply.code(500).send({ error: 'USER_CREATE_FAILED' });
-        }
-      }
+    try {
+      const session = await createVerifiedUserSession({ pool, issueToken, phone });
+      if (!session) return reply.code(404).send({ error: 'USER_NOT_FOUND' });
+      request.log.info({ phoneLast4: phone.slice(-4), userId: session.user.id }, 'AARVO MSG91 login session created');
+      return session;
+    } catch (error) {
+      request.log.error({ err: error }, 'Unable to create AARVO user after MSG91 verification');
+      return reply.code(500).send({ error: 'USER_CREATE_FAILED' });
     }
-
-    if (!userResult.rowCount) return reply.code(404).send({ error: 'USER_NOT_FOUND' });
-    const user = userResult.rows[0];
-    await pool.query('UPDATE users SET phone_verified=true,phone_verified_at=now() WHERE id=$1', [user.id]);
-    const refreshed = { ...user, phone_verified: true };
-    request.log.info({ phoneLast4: phone.slice(-4), userId: user.id }, 'AARVO MSG91 login session created');
-    return { user: refreshed, token: issueToken(refreshed), verified: true };
   });
 
   // Verify the OTP on AARVO's server so the Android client never needs the MSG91 authkey.
-  // MSG91's widget flow is: reqId -> verify OTP -> JWT access-token -> verify access-token.
+  // Some MSG91 widget responses confirm the OTP but do not return the optional JWT access-token.
+  // A successful verifyOtp response is already sufficient proof of OTP ownership, so in that
+  // case we create the AARVO session directly instead of returning MSG91_ACCESS_TOKEN_MISSING.
   app.post('/v1/auth/verify-msg91-otp', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const authKey = String(process.env.MSG91_AUTH_KEY || process.env.MSG91_AUTHKEY || process.env.MSG91_AUTH_KEY_ID || '').trim();
     const phone = normalizePhone(request.body?.phone);
@@ -135,22 +146,28 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
       return reply.code(401).send({ error: 'MSG91_OTP_INVALID' });
     }
 
-    // MSG91 documents a JWT access-token on successful widget verification. Be tolerant
-    // of provider response-shape changes by checking JSON, plain-text, and response headers.
     const accessToken = findAccessToken(result) || findAccessTokenInHeaders(response.headers);
     if (!accessToken) {
-      const resultKeys = result && typeof result === 'object' && !Array.isArray(result) ? Object.keys(result) : [];
-      request.log.warn({ providerHttpStatus: response.status, resultKeys, bodyLength: rawBody.length }, 'MSG91 OTP verified without access token');
-      return reply.code(502).send({ error: 'MSG91_ACCESS_TOKEN_MISSING' });
+      request.log.info({ providerHttpStatus: response.status }, 'MSG91 OTP verified without access token; creating AARVO session directly');
+    } else {
+      const injected = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/verify-msg91-token',
+        payload: { phone, accessToken }
+      });
+      let payload = {};
+      try { payload = JSON.parse(injected.body || '{}'); } catch { payload = {}; }
+      return reply.code(injected.statusCode).send(payload);
     }
 
-    const injected = await app.inject({
-      method: 'POST',
-      url: '/v1/auth/verify-msg91-token',
-      payload: { phone, accessToken }
-    });
-    let payload = {};
-    try { payload = JSON.parse(injected.body || '{}'); } catch { payload = {}; }
-    return reply.code(injected.statusCode).send(payload);
+    try {
+      const session = await createVerifiedUserSession({ pool, issueToken, phone });
+      if (!session) return reply.code(404).send({ error: 'USER_NOT_FOUND' });
+      request.log.info({ phoneLast4: phone.slice(-4), userId: session.user.id }, 'AARVO MSG91 OTP login session created');
+      return session;
+    } catch (error) {
+      request.log.error({ err: error }, 'Unable to create AARVO user after successful MSG91 OTP');
+      return reply.code(500).send({ error: 'USER_CREATE_FAILED' });
+    }
   });
 }
