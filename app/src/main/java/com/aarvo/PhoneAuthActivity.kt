@@ -28,11 +28,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.aarvo.network.AarvoApiClient
-import com.msg91.sendotp.OTPWidget
+import com.aarvo.network.Msg91ServerApi
+import com.msg91.lib.sendotp.OTPWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
@@ -83,45 +83,6 @@ class PhoneAuthActivity : ComponentActivity() {
         return scan(parseMsg91Result(raw))
     }
 
-    private fun findMsg91AccessToken(raw: String): String? {
-        fun jwtCandidate(value: String): String? {
-            val v = value.trim().trim('"')
-            if (v.startsWith("eyJ") && v.count { it == '.' } == 2 && v.length > 40) return v
-            Regex("eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b").find(v)?.value?.let { return it }
-            return null
-        }
-
-        fun scan(value: Any?): String? = when (value) {
-            is JSONObject -> {
-                val keys = value.keys()
-                while (keys.hasNext()) {
-                    val key = keys.next()
-                    val candidate = value.optString(key).trim()
-                    if (key.equals("access-token", true) || key.equals("access_token", true) || key.equals("accessToken", true) || key.equals("token", true) || key.equals("jwt", true)) {
-                        if (candidate.isNotBlank()) return candidate
-                    }
-                    jwtCandidate(candidate)?.let { return it }
-                }
-                val nestedKeys = value.keys()
-                while (nestedKeys.hasNext()) {
-                    val key = nestedKeys.next()
-                    scan(value.opt(key))?.let { return it }
-                }
-                null
-            }
-            is JSONArray -> {
-                for (i in 0 until value.length()) scan(value.opt(i))?.let { return it }
-                null
-            }
-            is String -> {
-                jwtCandidate(value)?.let { return it }
-                runCatching { scan(JSONTokener(value.trim()).nextValue()) }.getOrNull()
-            }
-            else -> null
-        }
-        return scan(parseMsg91Result(raw)) ?: jwtCandidate(raw)
-    }
-
     private fun msg91IsError(raw: String): Boolean {
         val parsed = parseMsg91Result(raw)
         fun bad(value: Any?): Boolean = when (value) {
@@ -168,10 +129,11 @@ class PhoneAuthActivity : ComponentActivity() {
         val widgetId = BuildConfig.MSG91_WIDGET_ID
         val widgetToken = BuildConfig.MSG91_WIDGET_TOKEN
         val api = remember { AarvoApiClient { getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).getString("auth_token", null) } }
+        val msg91ServerApi = remember { Msg91ServerApi() }
 
-        suspend fun finishMsg91Login(normalizedPhone: String, accessToken: String) {
-            val session = withContext(Dispatchers.IO) {
-                withTimeout(15000) { api.verifyMsg91AccessToken(normalizedPhone, accessToken.trim()) }
+        suspend fun finishMsg91Login(normalizedPhone: String, requestId: String, enteredOtp: String) {
+            val session = withTimeout(20000) {
+                msg91ServerApi.verifyOtp(normalizedPhone, requestId, enteredOtp)
             }
             val sessionToken = session.optString("token").trim()
             if (sessionToken.isBlank()) throw IllegalStateException("AARVO server did not return a login token.")
@@ -214,17 +176,14 @@ class PhoneAuthActivity : ComponentActivity() {
             scope.launch {
                 try {
                     val normalizedPhone = phone.filter(Char::isDigit).takeLast(10)
-                    val result = withTimeout(15000) {
-                        runInterruptible(Dispatchers.IO) { OTPWidget.verifyOTP(widgetId, widgetToken, reqId, otp) }
-                    }
-                    if (msg91IsError(result)) throw IllegalStateException(result)
-                    val accessToken = findMsg91AccessToken(result)
-                        ?: throw IllegalStateException("MSG91 verified the OTP but did not return an access token.")
-                    finishMsg91Login(normalizedPhone, accessToken)
+                    // Do not call OTPWidget.verifyOTP() in the APK. The verified OTP is
+                    // sent over HTTPS to AARVO, where MSG91's secret authkey stays private.
+                    finishMsg91Login(normalizedPhone, reqId, otp)
                 } catch (t: Throwable) {
-                    error = when (t) {
-                        is kotlinx.coroutines.TimeoutCancellationException -> "MSG91 verification timed out. Please try Verify OTP again."
-                        else -> t.message ?: "OTP verification failed."
+                    error = if (t is kotlinx.coroutines.TimeoutCancellationException) {
+                        "MSG91 verification timed out. Please try Verify OTP again."
+                    } else {
+                        t.message ?: "OTP verification failed."
                     }
                 } finally {
                     loading = false
