@@ -3,7 +3,6 @@ package com.aarvo
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.util.Patterns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.msg91.sendotp.library.OTPWidget
+import com.msg91.sendotp.OTPWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -58,8 +57,6 @@ class PhoneAuthActivity : ComponentActivity() {
                         value.optString(key).trim().takeIf { looksLikeRequestId(it) }?.let { return it }
                     }
                 }
-                // Compatibility with older MSG91 response shapes where the opaque request id
-                // can be returned in "message".
                 value.optString("message").trim().takeIf { looksLikeRequestId(it) }?.let { return it }
                 val nestedKeys = value.keys()
                 while (nestedKeys.hasNext()) {
@@ -137,7 +134,6 @@ class PhoneAuthActivity : ComponentActivity() {
             otp = ""
             reqId = ""
             loading = true
-            // Important: do not show OTP UI until MSG91 has returned a usable request id.
             otpMode = false
             scope.launch {
                 try {
