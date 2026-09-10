@@ -32,21 +32,6 @@ android {
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach { compilerOptions.freeCompilerArgs.add("-opt-in=androidx.compose.material3.ExperimentalMaterial3Api") }
 }
 
-val patchLiveHero = tasks.register("patchLiveHero") {
-    doLast {
-        val sourceFile = file("src/main/java/com/aarvo/MainActivity.kt")
-        val source = sourceFile.readText()
-        val homeStart = source.indexOf("@Composable private fun HomeScreen(")
-        val bodyStart = source.indexOf("{ LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {", homeStart)
-        if (!source.contains("LiveHero(api") && homeStart >= 0 && bodyStart > homeStart) {
-            val insertAt = bodyStart + 2
-            sourceFile.writeText(source.substring(0, insertAt) + "item { LiveHero(api = AarvoApiClient(), modifier = Modifier.fillMaxWidth()) };" + source.substring(insertAt))
-        }
-    }
-}
-
-tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(patchLiveHero) }
-
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2026.08.00")
     implementation(composeBom)
