@@ -20,6 +20,21 @@ function findAccessToken(value) {
   return null;
 }
 
+function findAccessTokenInHeaders(headers) {
+  const candidates = [
+    headers.get('access-token'),
+    headers.get('access_token'),
+    headers.get('x-access-token'),
+    headers.get('authorization')
+  ];
+  for (const value of candidates) {
+    if (!value) continue;
+    const token = String(value).replace(/^Bearer\s+/i, '').trim();
+    if (token.startsWith('eyJ') && token.split('.').length === 3) return token;
+  }
+  return null;
+}
+
 export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone }) {
   app.post('/v1/auth/verify-msg91-token', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
@@ -112,15 +127,20 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
       return reply.code(503).send({ error: 'MSG91_VERIFICATION_UNAVAILABLE' });
     }
 
+    const rawBody = await response.text();
     let result = {};
-    try { result = await response.json(); } catch { result = {}; }
+    try { result = JSON.parse(rawBody || '{}'); } catch { result = rawBody; }
     if (!response.ok) {
       request.log.warn({ providerHttpStatus: response.status }, 'MSG91 OTP verification rejected');
       return reply.code(401).send({ error: 'MSG91_OTP_INVALID' });
     }
-    const accessToken = findAccessToken(result);
+
+    // MSG91 documents a JWT access-token on successful widget verification. Be tolerant
+    // of provider response-shape changes by checking JSON, plain-text, and response headers.
+    const accessToken = findAccessToken(result) || findAccessTokenInHeaders(response.headers);
     if (!accessToken) {
-      request.log.warn({ providerHttpStatus: response.status }, 'MSG91 OTP verified without access token');
+      const resultKeys = result && typeof result === 'object' && !Array.isArray(result) ? Object.keys(result) : [];
+      request.log.warn({ providerHttpStatus: response.status, resultKeys, bodyLength: rawBody.length }, 'MSG91 OTP verified without access token');
       return reply.code(502).send({ error: 'MSG91_ACCESS_TOKEN_MISSING' });
     }
 
