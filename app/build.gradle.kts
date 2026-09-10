@@ -24,7 +24,7 @@ android {
         val apiBaseUrl = project.findProperty("aarvoApiBaseUrl")?.toString()
             ?: "https://aarvo-api.onrender.com"
         val widgetId = project.findProperty("msg91WidgetId")?.toString()
-            ?: "366968707564323239363235"
+            ?: "366968715030323230313530"
         val widgetToken = project.findProperty("msg91WidgetToken")?.toString() ?: ""
 
         buildConfigField("String", "AARVO_API_BASE_URL", buildConfigString(apiBaseUrl))
