@@ -53,8 +53,7 @@ class PhoneAuthActivity : ComponentActivity() {
 private fun msg91RequestId(json: JSONObject): String = listOf(
     json.optString("reqId"),
     json.optString("requestId"),
-    json.optString("request_id"),
-    json.optString("message")
+    json.optString("request_id")
 ).firstOrNull { it.isNotBlank() }?.trim().orEmpty()
 
 private fun msg91Error(json: JSONObject, fallback: String): String = listOf(
@@ -62,6 +61,28 @@ private fun msg91Error(json: JSONObject, fallback: String): String = listOf(
     json.optString("error"),
     json.optString("description")
 ).firstOrNull { it.isNotBlank() }?.trim() ?: fallback
+
+/** MSG91 returns a JWT access-token after successful widget OTP verification. */
+private fun findMsg91AccessToken(json: JSONObject): String? {
+    fun jwtCandidate(value: String?): String? {
+        val v = value?.trim().orEmpty()
+        return if (v.count { it == '.' } == 2 && v.length > 80) v else null
+    }
+    fun scan(value: Any?): String? = when (value) {
+        is JSONObject -> {
+            val keys = value.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val found = jwtCandidate(value.optString(key)) ?: scan(value.opt(key))
+                if (found != null) return found
+            }
+            null
+        }
+        is String -> jwtCandidate(value)
+        else -> null
+    }
+    return scan(json)
+}
 
 @Composable
 private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPreferences, openApp: () -> Unit) {
@@ -130,21 +151,8 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 if (json.optString("type").equals("error", true)) {
                     throw IllegalStateException(msg91Error(json, "Invalid OTP"))
                 }
-
-                // MSG91's Kotlin SDK returns the JWT access token in the successful
-                // verification response's `message` field. Some SDK/API variants use
-                // access-token/accessToken directly or inside `data`, so accept all
-                // known success shapes without ever treating an error response as a token.
-                val data = json.optJSONObject("data")
-                val accessToken = listOf(
-                    json.optString("access-token"),
-                    json.optString("accessToken"),
-                    data?.optString("access-token").orEmpty(),
-                    data?.optString("accessToken").orEmpty(),
-                    json.optString("message"),
-                    data?.optString("message").orEmpty()
-                ).firstOrNull { it.isNotBlank() }?.trim()
-                    ?: throw IllegalStateException("MSG91 verification did not return an access token")
+                val accessToken = findMsg91AccessToken(json)
+                    ?: throw IllegalStateException("MSG91 verification succeeded but did not return a JWT access token")
 
                 val session = api.verifyMsg91AccessToken(normalizedPhone, accessToken)
                 saveSession(prefs, session)
