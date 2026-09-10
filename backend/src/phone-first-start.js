@@ -13,9 +13,8 @@ if (!source.includes("import { sendPhoneOtp } from './otp-delivery.js';")) {
   );
 }
 
-// Register MSG91 access-token verification directly in the runtime server.
-// This avoids relying on a second launcher transformation, which previously
-// left POST /v1/auth/verify-msg91-token unavailable on Render.
+// Keep the MSG91 module import in the transformed server so launcher.js does not
+// try to add a second registration. The route itself is registered directly below.
 if (!source.includes("import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';")) {
   source = source.replace(
     "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';",
@@ -67,11 +66,45 @@ if (start >= 0 && end > start) {
   source = source.slice(0, start) + route + source.slice(end);
 }
 
-if (!source.includes('await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });')) {
-  source = source.replace(
-    "app.listen(PORT, '0.0.0.0', () => {",
-    "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });\napp.listen(PORT, '0.0.0.0', () => {"
-  );
+// Register the MSG91 verification route directly in server.js. This removes the
+// fragile dependency on runtime source rewriting/registration order.
+if (!source.includes("POST /v1/auth/verify-msg91-token DIRECT")) {
+  const listenMarker = "app.listen(PORT, '0.0.0.0', () => {";
+  const directRoute = `app.post('/v1/auth/verify-msg91-token', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+  if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+  if (!process.env.MSG91_AUTH_KEY) return reply.code(503).send({ error: 'MSG91_AUTH_NOT_CONFIGURED' });
+  const phone = normalizePhone(request.body?.phone);
+  const accessToken = String(request.body?.accessToken || '').trim();
+  if (!phone || !accessToken) return reply.code(400).send({ error: 'INVALID_MSG91_VERIFICATION' });
+  const body = new URLSearchParams({ authkey: process.env.MSG91_AUTH_KEY, 'access-token': accessToken });
+  let response;
+  try {
+    response = await fetch('https://control.msg91.com/api/v5/widget/verifyAccessToken', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body, signal: AbortSignal.timeout(10000) });
+  } catch (error) {
+    request.log.error({ err: error }, 'MSG91 access-token verification request failed');
+    return reply.code(503).send({ error: 'MSG91_VERIFICATION_UNAVAILABLE' });
+  }
+  let verification = {};
+  try { verification = await response.json(); } catch { verification = {}; }
+  const verified = response.ok && !['false', '0', 'failed', 'failure', 'error'].includes(String(verification.type || verification.status || '').toLowerCase());
+  if (!verified) return reply.code(401).send({ error: 'MSG91_TOKEN_INVALID' });
+  let userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
+  if (!userResult.rowCount) {
+    const id = randomUUID();
+    try {
+      userResult = await pool.query(`INSERT INTO users (id, display_name, role, phone, phone_verified, phone_verified_at) VALUES ($1, $2, 'BUYER', $3, true, now()) RETURNING id,email,display_name,role,phone,phone_verified`, [id, `AARVO User ${phone.slice(-4)}`, phone]);
+    } catch (error) {
+      if (error?.code === '23505') userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
+      else { request.log.error({ err: error }, 'Unable to create AARVO user after MSG91 verification'); return reply.code(500).send({ error: 'USER_CREATE_FAILED' }); }
+    }
+  }
+  if (!userResult.rowCount) return reply.code(404).send({ error: 'USER_NOT_FOUND' });
+  const user = userResult.rows[0];
+  await pool.query('UPDATE users SET phone_verified=true,phone_verified_at=now() WHERE id=$1', [user.id]);
+  const refreshed = { ...user, phone_verified: true };
+  return { user: refreshed, token: issueToken(refreshed), verified: true };
+}); // POST /v1/auth/verify-msg91-token DIRECT\n\n`;
+  source = source.replace(listenMarker, directRoute + listenMarker);
 }
 
 await fs.writeFile(serverPath, source, 'utf8');
