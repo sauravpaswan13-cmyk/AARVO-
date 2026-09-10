@@ -135,7 +135,7 @@ if (!source.includes('msg91-widget-auth.js')) {
 
 if (!source.includes('admin-auth.js')) {
   source = source.replace(
-    "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';",
+    "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js'",
     "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';\nimport { registerAdminAuth } from './admin-auth.js';"
   );
   source = source.replace(
