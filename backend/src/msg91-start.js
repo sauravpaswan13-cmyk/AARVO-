@@ -19,5 +19,15 @@ if (!source.includes("POST /v1/auth/verify-msg91-token DIRECT")) {
   if (listenIndex >= 0) source = source.slice(0, listenIndex) + route + source.slice(listenIndex);
 }
 
+if (!source.includes("registerSellerOnboarding")) {
+  source = source.replace(
+    "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';",
+    "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';\nimport { registerSellerOnboarding } from './seller-onboarding.js';"
+  );
+  const route = "\nawait registerSellerOnboarding({ app, pool, requireRole, audit }); // SELLER ONBOARDING API\n";
+  const listenIndex = source.indexOf('app.listen(');
+  if (listenIndex >= 0) source = source.slice(0, listenIndex) + route + source.slice(listenIndex);
+}
+
 await fs.writeFile(serverPath, source, 'utf8');
 await import('./launcher.js');
