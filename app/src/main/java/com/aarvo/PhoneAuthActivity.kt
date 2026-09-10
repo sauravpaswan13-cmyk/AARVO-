@@ -7,7 +7,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,10 +18,16 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.aarvo.network.AarvoApiClient
 import com.msg91.sendotp.OTPWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -37,8 +42,7 @@ class PhoneAuthActivity : ComponentActivity() {
         setContent { PhoneAuthScreen() }
     }
 
-    private fun parseMsg91Result(raw: String): Any? =
-        runCatching { JSONTokener(raw.trim()).nextValue() }.getOrNull()
+    private fun parseMsg91Result(raw: String): Any? = runCatching { JSONTokener(raw.trim()).nextValue() }.getOrNull()
 
     private fun looksLikeRequestId(value: String): Boolean {
         val v = value.trim()
@@ -71,8 +75,7 @@ class PhoneAuthActivity : ComponentActivity() {
             }
             is String -> {
                 val nested = value.trim()
-                if (looksLikeRequestId(nested)) nested
-                else runCatching { scan(JSONTokener(nested).nextValue()) }.getOrNull()
+                if (looksLikeRequestId(nested)) nested else runCatching { scan(JSONTokener(nested).nextValue()) }.getOrNull()
             }
             else -> null
         }
@@ -107,13 +110,19 @@ class PhoneAuthActivity : ComponentActivity() {
     }
 
     private fun saveSession(token: String, phone: String) {
-        getSharedPreferences("aarvo_session", Context.MODE_PRIVATE).edit()
+        getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).edit()
             .putBoolean("signed_in", true)
             .putBoolean("guest_mode", false)
             .putString("user_name", phone)
-            .putString("role", "user")
+            .putString("user_role", "BUYER")
             .putString("auth_token", token)
             .apply()
+    }
+
+    private fun openMain() {
+        startActivity(Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        })
     }
 
     @Composable
@@ -128,6 +137,7 @@ class PhoneAuthActivity : ComponentActivity() {
 
         val widgetId = BuildConfig.MSG91_WIDGET_ID
         val widgetToken = BuildConfig.MSG91_WIDGET_TOKEN
+        val api = remember { AarvoApiClient { getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).getString("auth_token", null) } }
 
         fun sendPhoneOtp() {
             error = ""
@@ -140,15 +150,12 @@ class PhoneAuthActivity : ComponentActivity() {
                     val normalizedPhone = phone.filter(Char::isDigit).takeLast(10)
                     if (normalizedPhone.length != 10) throw IllegalArgumentException("Enter a valid 10-digit mobile number.")
                     if (widgetId.isBlank() || widgetToken.isBlank()) throw IllegalStateException("MSG91 OTP is not configured in this build.")
-                    val identifier = "91$normalizedPhone"
-                    val result = withContext(Dispatchers.IO) {
-                        OTPWidget.sendOTP(widgetId, widgetToken, identifier)
-                    }
+                    val result = withContext(Dispatchers.IO) { OTPWidget.sendOTP(widgetId, widgetToken, "91$normalizedPhone") }
                     if (msg91IsError(result)) throw IllegalStateException(result)
                     val immediateAccessToken = findMsg91AccessToken(result)
                     if (!immediateAccessToken.isNullOrBlank()) {
                         saveSession(immediateAccessToken, normalizedPhone)
-                        startActivity(Intent(this@PhoneAuthActivity, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK })
+                        openMain()
                         return@launch
                     }
                     val returnedReqId = msg91RequestId(result).orEmpty()
@@ -171,17 +178,15 @@ class PhoneAuthActivity : ComponentActivity() {
             scope.launch {
                 try {
                     val normalizedPhone = phone.filter(Char::isDigit).takeLast(10)
-                    val result = withContext(Dispatchers.IO) {
-                        OTPWidget.verifyOTP(widgetId, widgetToken, reqId, otp)
-                    }
+                    val result = withContext(Dispatchers.IO) { OTPWidget.verifyOTP(widgetId, widgetToken, reqId, otp) }
                     if (msg91IsError(result)) throw IllegalStateException(result)
                     val accessToken = findMsg91AccessToken(result)
                         ?: throw IllegalStateException("MSG91 verification succeeded without an access token. Please try again.")
-                    val session = withContext(Dispatchers.IO) {
-                        ApiClient.verifyMsg91AccessToken(normalizedPhone, accessToken)
-                    }
-                    saveSession(session.token, normalizedPhone)
-                    startActivity(Intent(this@PhoneAuthActivity, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK })
+                    val session = withContext(Dispatchers.IO) { api.verifyMsg91AccessToken(normalizedPhone, accessToken) }
+                    val sessionToken = session.optString("token").trim()
+                    if (sessionToken.isBlank()) throw IllegalStateException("AARVO server did not return a login token.")
+                    saveSession(sessionToken, normalizedPhone)
+                    openMain()
                 } catch (t: Throwable) {
                     error = t.message ?: "OTP verification failed."
                 } finally {
@@ -196,9 +201,7 @@ class PhoneAuthActivity : ComponentActivity() {
             loading = true
             scope.launch {
                 try {
-                    val result = withContext(Dispatchers.IO) {
-                        OTPWidget.retryOTP(widgetId, widgetToken, reqId, 11)
-                    }
+                    val result = withContext(Dispatchers.IO) { OTPWidget.retryOTP(widgetId, widgetToken, reqId, 11) }
                     if (msg91IsError(result)) throw IllegalStateException(result)
                     msg91RequestId(result)?.let { reqId = it }
                 } catch (t: Throwable) {
@@ -209,10 +212,7 @@ class PhoneAuthActivity : ComponentActivity() {
             }
         }
 
-        Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            verticalArrangement = Arrangement.Center
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
             Text("AARVO Login", style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.height(18.dp))
             if (!otpMode) {
@@ -241,12 +241,10 @@ class PhoneAuthActivity : ComponentActivity() {
                 )
                 Spacer(Modifier.height(12.dp))
                 Button(onClick = ::verifyWidgetOtp, enabled = !loading && reqId.isNotBlank() && otp.length == 6, modifier = Modifier.fillMaxWidth()) {
-                    if (loading) CircularProgressIndicator() else Text("Verify & Login")
+                    if (loading) CircularProgressIndicator() else Text("Verify OTP & Login")
                 }
                 Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-                    Button(onClick = ::retryWidgetOtp, enabled = !loading && reqId.isNotBlank()) { Text("Resend OTP") }
-                }
+                Button(onClick = ::retryWidgetOtp, enabled = !loading && reqId.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Resend OTP") }
             }
             if (error.isNotBlank()) {
                 Spacer(Modifier.height(12.dp))
