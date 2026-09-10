@@ -59,6 +59,32 @@ jobs:
           echo "MSG91_WIDGET_TOKEN is available (length: ${#TOKEN})"
           printf 'MSG91_WIDGET_TOKEN=%s\n' "$TOKEN" >> "$GITHUB_ENV"
 
+      - name: Repair MSG91 verify access-token parsing
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/aarvo/PhoneAuthActivity.kt')
+          s = p.read_text(encoding='utf-8')
+          old = '        return scan(parseMsg91Result(raw)) ?: jwtCandidate(raw)'
+          new = '''        val parsed = parseMsg91Result(raw)
+          if (parsed is JSONObject) {
+              val type = parsed.optString("type").trim().lowercase()
+              val status = parsed.optString("status").trim().lowercase()
+              val message = parsed.optString("message").trim()
+              val badValues = setOf("false", "0", "failed", "failure", "error", "invalid", "rejected")
+              val success = !badValues.contains(type) && !badValues.contains(status)
+              if (success && message.isNotBlank() && !message.equals("success", ignoreCase = true) && !message.equals("verified", ignoreCase = true)) {
+                  return message
+              }
+          }
+          return scan(parsed) ?: jwtCandidate(raw)'''
+          if old not in s:
+              raise SystemExit('MSG91 token parser patch marker not found')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          print('MSG91 verify response message/access-token parsing patched.')
+          PY
+
       - name: Verify production API configuration
         run: echo "AARVO production API defaults to https://aarvo-api.onrender.com"
 
