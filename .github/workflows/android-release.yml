@@ -17,6 +17,9 @@ on:
 permissions:
   contents: read
 
+env:
+  MSG91_WIDGET_TOKEN: ${{ secrets.MSG91_WIDGET_TOKEN }}
+
 jobs:
   release-android:
     runs-on: ubuntu-latest
@@ -36,6 +39,17 @@ jobs:
         with:
           gradle-version: '9.7.1'
           validate-wrappers: false
+
+      - name: Prepare MSG91 token
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN="${MSG91_WIDGET_TOKEN//$'\r'/}"
+          TOKEN="${TOKEN//$'\n'/}"
+          TOKEN="$(printf '%s' "$TOKEN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          test -n "$TOKEN" || { echo 'MSG91_WIDGET_TOKEN is empty or unavailable to this workflow.'; exit 1; }
+          echo "MSG91 widget token is available (length: ${#TOKEN})"
+          printf 'MSG91_WIDGET_TOKEN=%s\n' "$TOKEN" >> "$GITHUB_ENV"
 
       - name: Validate signing configuration
         id: signing_config
@@ -92,6 +106,7 @@ jobs:
             -PaarvoReleaseStorePassword="$STORE_PASSWORD" \
             -PaarvoReleaseKeyAlias="$KEY_ALIAS" \
             -PaarvoReleaseKeyPassword="$KEY_PASSWORD" \
+            -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN" \
             --stacktrace
 
       - name: Verify signed outputs
@@ -108,7 +123,9 @@ jobs:
         run: |
           set -euo pipefail
           echo 'Release signing is unavailable or invalid; building an installable debug APK so the app remains testable.'
-          gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}"
+          gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
+        env:
+          AARVO_API_BASE_URL: ${{ vars.AARVO_API_BASE_URL }}
 
       - name: Upload signed APK
         if: steps.signed_build.outcome == 'success'
