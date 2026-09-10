@@ -18,7 +18,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,198 +38,50 @@ import org.json.JSONObject
 import org.json.JSONTokener
 
 class PhoneAuthActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent { PhoneAuthScreen() }
-    }
+    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { PhoneAuthScreen() } }
 
-    private fun parseMsg91Result(raw: String): Any? = runCatching { JSONTokener(raw.trim()).nextValue() }.getOrNull()
-
-    private fun looksLikeRequestId(value: String): Boolean {
-        val v = value.trim()
-        if (v.length < 8 || v.length > 256) return false
-        if (v.count { it == '.' } == 2) return false
-        return v.matches(Regex("[A-Za-z0-9_-]+"))
-    }
-
-    private fun msg91RequestId(raw: String): String? {
-        fun scan(value: Any?): String? = when (value) {
-            is JSONObject -> {
-                val keys = value.keys()
-                while (keys.hasNext()) {
-                    val key = keys.next()
-                    if (key.equals("reqId", true) || key.equals("requestId", true) || key.equals("request_id", true)) {
-                        value.optString(key).trim().takeIf { looksLikeRequestId(it) }?.let { return it }
-                    }
-                }
-                val nestedKeys = value.keys()
-                while (nestedKeys.hasNext()) {
-                    val key = nestedKeys.next()
-                    scan(value.opt(key))?.let { return it }
-                }
-                null
-            }
-            is JSONArray -> {
-                for (i in 0 until value.length()) scan(value.opt(i))?.let { return it }
-                null
-            }
-            is String -> {
-                val nested = value.trim()
-                if (looksLikeRequestId(nested)) nested else runCatching { scan(JSONTokener(nested).nextValue()) }.getOrNull()
-            }
+    private fun parse(raw: String): Any? = runCatching { JSONTokener(raw.trim()).nextValue() }.getOrNull()
+    private fun looksLikeRequestId(v: String): Boolean = v.length in 8..256 && v.count { it == '.' } != 2 && v.matches(Regex("[A-Za-z0-9_-]+"))
+    private fun requestId(raw: String): String? {
+        fun scan(v: Any?): String? = when (v) {
+            is JSONObject -> { val keys = v.keys(); while (keys.hasNext()) { val k = keys.next(); if (k.equals("reqId", true) || k.equals("requestId", true) || k.equals("request_id", true)) v.optString(k).trim().takeIf(::looksLikeRequestId)?.let { return it } }; val nested = v.keys(); while (nested.hasNext()) scan(v.opt(nested.next()))?.let { return it }; null }
+            is JSONArray -> (0 until v.length()).forEach { scan(v.opt(it))?.let { return it } }.let { null }
+            is String -> v.trim().takeIf(::looksLikeRequestId) ?: runCatching { scan(parse(v)) }.getOrNull()
             else -> null
         }
-        return scan(parseMsg91Result(raw))
+        return scan(parse(raw))
     }
-
-    private fun msg91IsError(raw: String): Boolean {
-        val parsed = parseMsg91Result(raw)
-        fun bad(value: Any?): Boolean = when (value) {
-            is JSONObject -> {
-                val type = value.optString("type").trim().lowercase()
-                val status = value.optString("status").trim().lowercase()
-                val message = value.optString("message").trim().lowercase()
-                val badValues = setOf("false", "0", "failed", "failure", "error", "invalid", "rejected")
-                badValues.contains(type) || badValues.contains(status) || message.contains("authentication failure") || message.contains("invalid otp")
-            }
-            is JSONArray -> (0 until value.length()).any { bad(value.opt(it)) }
+    private fun isError(raw: String): Boolean {
+        val v = parse(raw)
+        fun bad(x: Any?): Boolean = when (x) {
+            is JSONObject -> { val type=x.optString("type").lowercase(); val status=x.optString("status").lowercase(); val msg=x.optString("message").lowercase(); setOf("false","0","failed","failure","error","invalid","rejected").contains(type) || setOf("false","0","failed","failure","error","invalid","rejected").contains(status) || msg.contains("authentication failure") || msg.contains("invalid otp") }
+            is JSONArray -> (0 until x.length()).any { bad(x.opt(it)) }
             else -> false
         }
-        return bad(parsed) || (parsed == null && raw.lowercase().contains("error"))
+        return bad(v) || (v == null && raw.lowercase().contains("error"))
     }
+    private fun saveSession(token: String, phone: String, role: String) { getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).edit().putBoolean("signed_in", true).putBoolean("guest_mode", false).putString("user_name", phone).putString("user_role", role).putString("auth_token", token).commit() }
+    private fun openMain() { startActivity(Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK }); finish() }
 
-    private fun saveSession(token: String, phone: String, role: String) {
-        getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).edit()
-            .putBoolean("signed_in", true)
-            .putBoolean("guest_mode", false)
-            .putString("user_name", phone)
-            .putString("user_role", role)
-            .putString("auth_token", token)
-            .commit()
-    }
+    @Composable private fun PhoneAuthScreen() {
+        val scope = rememberCoroutineScope(); var phone by remember { mutableStateOf("") }; var otp by remember { mutableStateOf("") }; var reqId by remember { mutableStateOf("") }; var otpMode by remember { mutableStateOf(false) }; var loading by remember { mutableStateOf(false) }; var error by remember { mutableStateOf("") }
+        val widgetId = BuildConfig.MSG91_WIDGET_ID; val widgetToken = BuildConfig.MSG91_WIDGET_TOKEN; val server = remember { Msg91ServerApi() }
 
-    private fun openMain() {
-        startActivity(Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        })
-        finish()
-    }
-
-    @Composable
-    private fun PhoneAuthScreen() {
-        val scope = rememberCoroutineScope()
-        var phone by remember { mutableStateOf("") }
-        var otp by remember { mutableStateOf("") }
-        var reqId by remember { mutableStateOf("") }
-        var otpMode by remember { mutableStateOf(false) }
-        var sellerMode by remember { mutableStateOf(false) }
-        var loading by remember { mutableStateOf(false) }
-        var error by remember { mutableStateOf("") }
-
-        val widgetId = BuildConfig.MSG91_WIDGET_ID
-        val widgetToken = BuildConfig.MSG91_WIDGET_TOKEN
-        val msg91ServerApi = remember { Msg91ServerApi() }
-
-        suspend fun finishMsg91Login(normalizedPhone: String, requestId: String, enteredOtp: String) {
-            val requestedRole = if (sellerMode) "SELLER" else "BUYER"
-            val session = withTimeout(20000) {
-                msg91ServerApi.verifyOtp(normalizedPhone, requestId, enteredOtp, requestedRole)
-            }
-            val sessionToken = session.optString("token").trim()
-            if (sessionToken.isBlank()) throw IllegalStateException("AARVO server did not return a login token.")
-            val actualRole = session.optJSONObject("user")?.optString("role", requestedRole)?.uppercase() ?: requestedRole
-            saveSession(sessionToken, normalizedPhone, actualRole)
-            openMain()
+        suspend fun verifyLogin() {
+            val normalized = phone.filter(Char::isDigit).takeLast(10)
+            val session = withTimeout(20000) { server.verifyOtp(normalized, reqId, otp, "BUYER") }
+            val token = session.optString("token").trim(); if (token.isBlank()) throw IllegalStateException("AARVO server did not return a login token.")
+            val role = session.optJSONObject("user")?.optString("role", "BUYER")?.uppercase() ?: "BUYER"
+            saveSession(token, normalized, role); openMain()
         }
+        fun sendOtp() { error=""; otp=""; reqId=""; loading=true; otpMode=false; scope.launch { try { val normalized=phone.filter(Char::isDigit).takeLast(10); if(normalized.length!=10) throw IllegalArgumentException("Enter a valid 10-digit mobile number."); if(widgetId.isBlank()||widgetToken.isBlank()) throw IllegalStateException("MSG91 OTP is not configured in this build."); val result=withTimeout(15000){runInterruptible(Dispatchers.IO){OTPWidget.sendOTP(widgetId,widgetToken,"91$normalized")}}; if(isError(result)) throw IllegalStateException(result); val id=requestId(result).orEmpty(); if(id.isBlank()) throw IllegalStateException("MSG91 did not return a request ID. Please try Send OTP again."); reqId=id; otpMode=true } catch(t:Throwable){otpMode=false; error=t.message ?: "Unable to send OTP. Please try again."} finally{loading=false} } }
+        fun resend() { if(reqId.isBlank()||loading)return; loading=true; error=""; scope.launch { try { val result=withTimeout(15000){runInterruptible(Dispatchers.IO){OTPWidget.retryOTP(widgetId,widgetToken,reqId,11)}}; if(isError(result)) throw IllegalStateException(result); requestId(result)?.let{reqId=it} } catch(t:Throwable){error=t.message ?: "Unable to resend OTP."} finally{loading=false} } }
 
-        fun sendPhoneOtp() {
-            error = ""
-            otp = ""
-            reqId = ""
-            loading = true
-            otpMode = false
-            scope.launch {
-                try {
-                    val normalizedPhone = phone.filter(Char::isDigit).takeLast(10)
-                    if (normalizedPhone.length != 10) throw IllegalArgumentException("Enter a valid 10-digit mobile number.")
-                    if (widgetId.isBlank() || widgetToken.isBlank()) throw IllegalStateException("MSG91 OTP is not configured in this build.")
-                    val result = withTimeout(15000) {
-                        runInterruptible(Dispatchers.IO) { OTPWidget.sendOTP(widgetId, widgetToken, "91$normalizedPhone") }
-                    }
-                    if (msg91IsError(result)) throw IllegalStateException(result)
-                    val returnedReqId = msg91RequestId(result).orEmpty()
-                    if (returnedReqId.isBlank()) throw IllegalStateException("MSG91 did not return a request ID. Please try Send OTP again.")
-                    reqId = returnedReqId
-                    otpMode = true
-                } catch (t: Throwable) {
-                    otpMode = false
-                    error = if (t is kotlinx.coroutines.TimeoutCancellationException) "MSG91 OTP request timed out. Please try again." else t.message ?: "Unable to send OTP. Please try again."
-                } finally {
-                    loading = false
-                }
-            }
-        }
-
-        fun verifyWidgetOtp() {
-            if (loading || reqId.isBlank() || otp.length !in 4..8) return
-            error = ""
-            loading = true
-            scope.launch {
-                try {
-                    val normalizedPhone = phone.filter(Char::isDigit).takeLast(10)
-                    finishMsg91Login(normalizedPhone, reqId, otp)
-                } catch (t: Throwable) {
-                    error = if (t is kotlinx.coroutines.TimeoutCancellationException) "MSG91 verification timed out. Please try Verify OTP again." else t.message ?: "OTP verification failed."
-                } finally {
-                    loading = false
-                }
-            }
-        }
-
-        fun retryWidgetOtp() {
-            if (reqId.isBlank() || loading) return
-            error = ""
-            loading = true
-            scope.launch {
-                try {
-                    val result = withTimeout(15000) {
-                        runInterruptible(Dispatchers.IO) { OTPWidget.retryOTP(widgetId, widgetToken, reqId, 11) }
-                    }
-                    if (msg91IsError(result)) throw IllegalStateException(result)
-                    msg91RequestId(result)?.let { reqId = it }
-                } catch (t: Throwable) {
-                    error = if (t is kotlinx.coroutines.TimeoutCancellationException) "MSG91 resend timed out. Please try again." else t.message ?: "Unable to resend OTP."
-                } finally {
-                    loading = false
-                }
-            }
-        }
-
-        Column(modifier = Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
-            Text(if (sellerMode) "AARVO Seller Account" else "AARVO Login", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(8.dp))
-            if (!otpMode) {
-                Text(if (sellerMode) "Create or access your seller account with your mobile number." else "Login securely with your mobile number.")
-                Spacer(Modifier.height(18.dp))
-                OutlinedTextField(value = phone, onValueChange = { phone = it.filter(Char::isDigit).take(10) }, label = { Text("Mobile number") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(12.dp))
-                Button(onClick = ::sendPhoneOtp, enabled = !loading && phone.filter(Char::isDigit).length == 10, modifier = Modifier.fillMaxWidth()) { if (loading) CircularProgressIndicator() else Text("Send OTP") }
-                Spacer(Modifier.height(4.dp))
-                TextButton(onClick = { sellerMode = !sellerMode; error = "" }) { Text(if (sellerMode) "Use as Buyer instead" else "Become a Seller") }
-                TextButton(onClick = { startActivity(Intent(this@PhoneAuthActivity, AdminLoginActivity::class.java)) }) { Text("Owner Admin Login") }
-            } else {
-                Text("Enter the OTP sent to your mobile number.")
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value = otp, onValueChange = { otp = it.filter(Char::isDigit).take(8) }, label = { Text("OTP") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(12.dp))
-                Button(onClick = ::verifyWidgetOtp, enabled = !loading && reqId.isNotBlank() && otp.length in 4..8, modifier = Modifier.fillMaxWidth()) { if (loading) CircularProgressIndicator() else Text(if (sellerMode) "Verify OTP & Create Seller Account" else "Verify OTP & Login") }
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = ::retryWidgetOtp, enabled = !loading && reqId.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Resend OTP") }
-            }
-            if (error.isNotBlank()) {
-                Spacer(Modifier.height(12.dp))
-                Text(error, color = MaterialTheme.colorScheme.error)
-            }
+        Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement=Arrangement.Center) {
+            Text("AARVO Login", style=MaterialTheme.typography.headlineMedium); Spacer(Modifier.height(8.dp))
+            if(!otpMode){ Text("Login securely with your mobile number."); Spacer(Modifier.height(18.dp)); OutlinedTextField(phone,{phone=it.filter(Char::isDigit).take(10)},label={Text("Mobile number")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Phone),modifier=Modifier.fillMaxWidth()); Spacer(Modifier.height(12.dp)); Button(::sendOtp,enabled=!loading&&phone.length==10,modifier=Modifier.fillMaxWidth()){if(loading)CircularProgressIndicator() else Text("Send OTP")} }
+            else { Text("Enter the OTP sent to your mobile number."); Spacer(Modifier.height(10.dp)); OutlinedTextField(otp,{otp=it.filter(Char::isDigit).take(8)},label={Text("OTP")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),modifier=Modifier.fillMaxWidth()); Spacer(Modifier.height(12.dp)); Button({loading=true;error="";scope.launch{try{verifyLogin()}catch(t:Throwable){error=t.message ?: "OTP verification failed."}finally{loading=false}}},enabled=!loading&&reqId.isNotBlank()&&otp.length in 4..8,modifier=Modifier.fillMaxWidth()){if(loading)CircularProgressIndicator() else Text("Verify OTP & Login")}; Spacer(Modifier.height(8.dp)); Button(::resend,enabled=!loading&&reqId.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text("Resend OTP")} }
+            if(error.isNotBlank()){Spacer(Modifier.height(12.dp));Text(error,color=MaterialTheme.colorScheme.error)}
         }
     }
 }
