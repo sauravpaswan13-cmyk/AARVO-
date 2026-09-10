@@ -35,17 +35,21 @@ function findAccessTokenInHeaders(headers) {
   return null;
 }
 
-async function createVerifiedUserSession({ pool, issueToken, phone }) {
+async function createVerifiedUserSession({ pool, issueToken, phone, requestedRole = 'BUYER' }) {
+  const role = String(requestedRole || 'BUYER').toUpperCase() === 'SELLER' ? 'SELLER' : 'BUYER';
   let userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
   if (!userResult.rowCount) {
     const id = crypto.randomUUID();
     try {
       userResult = await pool.query(
         `INSERT INTO users (id, display_name, role, phone, phone_verified, phone_verified_at)
-         VALUES ($1, $2, 'BUYER', $3, true, now())
+         VALUES ($1, $2, $3, $4, true, now())
          RETURNING id,email,display_name,role,phone,phone_verified`,
-        [id, `AARVO User ${phone.slice(-4)}`, phone]
+        [id, `AARVO User ${phone.slice(-4)}`, role, phone]
       );
+      if (role === 'SELLER') {
+        await pool.query('INSERT INTO seller_profiles(seller_id,phone) VALUES($1,$2) ON CONFLICT (seller_id) DO NOTHING', [id, phone]);
+      }
     } catch (error) {
       if (error?.code === '23505') {
         userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
@@ -55,10 +59,19 @@ async function createVerifiedUserSession({ pool, issueToken, phone }) {
     }
   }
   if (!userResult.rowCount) return null;
-  const user = userResult.rows[0];
-  await pool.query('UPDATE users SET phone_verified=true,phone_verified_at=now() WHERE id=$1', [user.id]);
-  const refreshed = { ...user, phone_verified: true };
-  return { user: refreshed, token: issueToken(refreshed), verified: true };
+  let user = userResult.rows[0];
+  if (role === 'SELLER' && user.role !== 'SELLER') {
+    const upgraded = await pool.query(
+      'UPDATE users SET role=$1, phone_verified=true, phone_verified_at=now() WHERE id=$2 RETURNING id,email,display_name,role,phone,phone_verified',
+      ['SELLER', user.id]
+    );
+    if (upgraded.rowCount) user = upgraded.rows[0];
+    await pool.query('INSERT INTO seller_profiles(seller_id,phone) VALUES($1,$2) ON CONFLICT (seller_id) DO NOTHING', [user.id, phone]);
+  } else {
+    await pool.query('UPDATE users SET phone_verified=true,phone_verified_at=now() WHERE id=$1', [user.id]);
+    user = { ...user, phone_verified: true };
+  }
+  return { user, token: issueToken(user), verified: true };
 }
 
 export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone }) {
@@ -103,7 +116,7 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
     }
 
     try {
-      const session = await createVerifiedUserSession({ pool, issueToken, phone });
+      const session = await createVerifiedUserSession({ pool, issueToken, phone, requestedRole: 'BUYER' });
       if (!session) return reply.code(404).send({ error: 'USER_NOT_FOUND' });
       request.log.info({ phoneLast4: phone.slice(-4), userId: session.user.id }, 'AARVO MSG91 login session created');
       return session;
@@ -122,8 +135,10 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
     const phone = normalizePhone(request.body?.phone);
     const reqId = String(request.body?.reqId || request.body?.requestId || '').trim();
     const otp = String(request.body?.otp || '').trim();
+    const requestedRole = String(request.body?.role || 'BUYER').trim().toUpperCase();
     if (!authKey) return reply.code(503).send({ error: 'MSG91_AUTH_NOT_CONFIGURED' });
     if (!phone || !reqId || !/^\d{4,8}$/.test(otp)) return reply.code(400).send({ error: 'INVALID_MSG91_OTP' });
+    if (!['BUYER', 'SELLER'].includes(requestedRole)) return reply.code(400).send({ error: 'INVALID_ROLE' });
 
     let response;
     try {
@@ -148,8 +163,8 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
 
     const accessToken = findAccessToken(result) || findAccessTokenInHeaders(response.headers);
     if (!accessToken) {
-      request.log.info({ providerHttpStatus: response.status }, 'MSG91 OTP verified without access token; creating AARVO session directly');
-    } else {
+      request.log.info({ providerHttpStatus: response.status, requestedRole }, 'MSG91 OTP verified without access token; creating AARVO session directly');
+    } else if (requestedRole === 'BUYER') {
       const injected = await app.inject({
         method: 'POST',
         url: '/v1/auth/verify-msg91-token',
@@ -161,9 +176,9 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
     }
 
     try {
-      const session = await createVerifiedUserSession({ pool, issueToken, phone });
+      const session = await createVerifiedUserSession({ pool, issueToken, phone, requestedRole });
       if (!session) return reply.code(404).send({ error: 'USER_NOT_FOUND' });
-      request.log.info({ phoneLast4: phone.slice(-4), userId: session.user.id }, 'AARVO MSG91 OTP login session created');
+      request.log.info({ phoneLast4: phone.slice(-4), userId: session.user.id, role: session.user.role }, 'AARVO MSG91 OTP login session created');
       return session;
     } catch (error) {
       request.log.error({ err: error }, 'Unable to create AARVO user after successful MSG91 OTP');
