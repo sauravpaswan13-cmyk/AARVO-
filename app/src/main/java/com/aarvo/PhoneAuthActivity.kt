@@ -32,6 +32,7 @@ import com.msg91.sendotp.OTPWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -133,7 +134,7 @@ class PhoneAuthActivity : ComponentActivity() {
             .putString("user_name", phone)
             .putString("user_role", "BUYER")
             .putString("auth_token", token)
-            .apply()
+            .commit()
     }
 
     private fun openMain() {
@@ -157,7 +158,9 @@ class PhoneAuthActivity : ComponentActivity() {
         val api = remember { AarvoApiClient { getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).getString("auth_token", null) } }
 
         suspend fun finishMsg91Login(normalizedPhone: String, accessToken: String) {
-            val session = withContext(Dispatchers.IO) { api.verifyMsg91AccessToken(normalizedPhone, accessToken.trim()) }
+            val session = withContext(Dispatchers.IO) {
+                withTimeout(15000) { api.verifyMsg91AccessToken(normalizedPhone, accessToken.trim()) }
+            }
             val sessionToken = session.optString("token").trim()
             if (sessionToken.isBlank()) throw IllegalStateException("AARVO server did not return a login token.")
             saveSession(sessionToken, normalizedPhone)
@@ -176,9 +179,9 @@ class PhoneAuthActivity : ComponentActivity() {
                     if (normalizedPhone.length != 10) throw IllegalArgumentException("Enter a valid 10-digit mobile number.")
                     if (widgetId.isBlank() || widgetToken.isBlank()) throw IllegalStateException("MSG91 OTP is not configured in this build.")
 
-                    // MSG91 Widget flow is strictly: Send OTP -> reqId -> Verify OTP -> access-token.
-                    // Do not interpret any token returned by Send OTP as a user access token.
-                    val result = withContext(Dispatchers.IO) { OTPWidget.sendOTP(widgetId, widgetToken, "91$normalizedPhone") }
+                    val result = withContext(Dispatchers.IO) {
+                        withTimeout(15000) { OTPWidget.sendOTP(widgetId, widgetToken, "91$normalizedPhone") }
+                    }
                     if (msg91IsError(result)) throw IllegalStateException(result)
 
                     val returnedReqId = msg91RequestId(result).orEmpty()
@@ -203,13 +206,18 @@ class PhoneAuthActivity : ComponentActivity() {
             scope.launch {
                 try {
                     val normalizedPhone = phone.filter(Char::isDigit).takeLast(10)
-                    val result = withContext(Dispatchers.IO) { OTPWidget.verifyOTP(widgetId, widgetToken, reqId, otp) }
+                    val result = withContext(Dispatchers.IO) {
+                        withTimeout(15000) { OTPWidget.verifyOTP(widgetId, widgetToken, reqId, otp) }
+                    }
                     if (msg91IsError(result)) throw IllegalStateException(result)
                     val accessToken = findMsg91AccessToken(result)
                         ?: throw IllegalStateException("MSG91 verification succeeded without an access token. Please try again.")
                     finishMsg91Login(normalizedPhone, accessToken)
                 } catch (t: Throwable) {
-                    error = t.message ?: "OTP verification failed."
+                    error = when (t) {
+                        is kotlinx.coroutines.TimeoutCancellationException -> "MSG91 verification timed out. Please try Verify OTP again."
+                        else -> t.message ?: "OTP verification failed."
+                    }
                 } finally {
                     loading = false
                 }
@@ -222,7 +230,9 @@ class PhoneAuthActivity : ComponentActivity() {
             loading = true
             scope.launch {
                 try {
-                    val result = withContext(Dispatchers.IO) { OTPWidget.retryOTP(widgetId, widgetToken, reqId, 11) }
+                    val result = withContext(Dispatchers.IO) {
+                        withTimeout(15000) { OTPWidget.retryOTP(widgetId, widgetToken, reqId, 11) }
+                    }
                     if (msg91IsError(result)) throw IllegalStateException(result)
                     msg91RequestId(result)?.let { reqId = it }
                 } catch (t: Throwable) {
