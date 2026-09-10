@@ -61,7 +61,6 @@ class PhoneAuthActivity : ComponentActivity() {
                         value.optString(key).trim().takeIf { looksLikeRequestId(it) }?.let { return it }
                     }
                 }
-                value.optString("message").trim().takeIf { looksLikeRequestId(it) }?.let { return it }
                 val nestedKeys = value.keys()
                 while (nestedKeys.hasNext()) {
                     val key = nestedKeys.next()
@@ -82,6 +81,7 @@ class PhoneAuthActivity : ComponentActivity() {
         return scan(parseMsg91Result(raw))
     }
 
+    /** Only extract an access-token field from the VERIFY response. Never treat the widget token or send response token as a user token. */
     private fun findMsg91AccessToken(raw: String): String? {
         fun scan(value: Any?): String? = when (value) {
             is JSONObject -> {
@@ -89,10 +89,13 @@ class PhoneAuthActivity : ComponentActivity() {
                 while (keys.hasNext()) {
                     val key = keys.next()
                     val candidate = value.optString(key).trim()
-                    if (key.equals("access-token", true) || key.equals("access_token", true) || key.equals("accessToken", true) || key.equals("token", true)) {
+                    if (key.equals("access-token", true) || key.equals("access_token", true) || key.equals("accessToken", true)) {
                         if (candidate.isNotBlank()) return candidate
                     }
-                    if ((key.contains("token", true) || key.contains("access", true)) && candidate.isNotBlank()) return candidate
+                }
+                val nestedKeys = value.keys()
+                while (nestedKeys.hasNext()) {
+                    val key = nestedKeys.next()
                     scan(value.opt(key))?.let { return it }
                 }
                 null
@@ -115,7 +118,7 @@ class PhoneAuthActivity : ComponentActivity() {
                 val status = value.optString("status").trim().lowercase()
                 val message = value.optString("message").trim().lowercase()
                 val badValues = setOf("false", "0", "failed", "failure", "error", "invalid", "rejected")
-                badValues.contains(type) || badValues.contains(status) || (message.contains("error") && !message.contains("success"))
+                badValues.contains(type) || badValues.contains(status) || message.contains("authentication failure") || message.contains("invalid otp")
             }
             is JSONArray -> (0 until value.length()).any { bad(value.opt(it)) }
             else -> false
@@ -172,18 +175,16 @@ class PhoneAuthActivity : ComponentActivity() {
                     val normalizedPhone = phone.filter(Char::isDigit).takeLast(10)
                     if (normalizedPhone.length != 10) throw IllegalArgumentException("Enter a valid 10-digit mobile number.")
                     if (widgetId.isBlank() || widgetToken.isBlank()) throw IllegalStateException("MSG91 OTP is not configured in this build.")
+
+                    // MSG91 Widget flow is strictly: Send OTP -> reqId -> Verify OTP -> access-token.
+                    // Do not interpret any token returned by Send OTP as a user access token.
                     val result = withContext(Dispatchers.IO) { OTPWidget.sendOTP(widgetId, widgetToken, "91$normalizedPhone") }
                     if (msg91IsError(result)) throw IllegalStateException(result)
 
-                    // Invisible OTP may return a JWT immediately. It must be validated by AARVO before login.
-                    val immediateAccessToken = findMsg91AccessToken(result)
-                    if (!immediateAccessToken.isNullOrBlank()) {
-                        finishMsg91Login(normalizedPhone, immediateAccessToken)
-                        return@launch
-                    }
-
                     val returnedReqId = msg91RequestId(result).orEmpty()
-                    if (returnedReqId.isBlank()) throw IllegalStateException("MSG91 did not return a request ID. Please resend OTP.")
+                    if (returnedReqId.isBlank()) {
+                        throw IllegalStateException("MSG91 did not return a request ID. Please try Send OTP again.")
+                    }
                     reqId = returnedReqId
                     otpMode = true
                 } catch (t: Throwable) {
