@@ -3,13 +3,14 @@ import crypto from 'node:crypto';
 export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone }) {
   app.post('/v1/auth/verify-msg91-token', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
-    if (!process.env.MSG91_AUTH_KEY) return reply.code(503).send({ error: 'MSG91_AUTH_NOT_CONFIGURED' });
+    const authKey = String(process.env.MSG91_AUTH_KEY || process.env.MSG91_AUTHKEY || '').trim();
+    if (!authKey) return reply.code(503).send({ error: 'MSG91_AUTH_NOT_CONFIGURED' });
 
     const phone = normalizePhone(request.body?.phone);
     const accessToken = String(request.body?.accessToken || '').trim();
     if (!phone || !accessToken) return reply.code(400).send({ error: 'INVALID_MSG91_VERIFICATION' });
 
-    const body = new URLSearchParams({ authkey: process.env.MSG91_AUTH_KEY, 'access-token': accessToken });
+    const body = new URLSearchParams({ authkey: authKey, 'access-token': accessToken });
     let response;
     try {
       response = await fetch('https://control.msg91.com/api/v5/widget/verifyAccessToken', {
@@ -25,13 +26,15 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
 
     let verification = {};
     try { verification = await response.json(); } catch { verification = {}; }
-    const verified = response.ok && !['false', '0', 'failed', 'failure', 'error'].includes(String(verification.type || verification.status || '').toLowerCase());
-    if (!verified) return reply.code(401).send({ error: 'MSG91_TOKEN_INVALID' });
+    const providerType = String(verification.type || '').toLowerCase();
+    const providerStatus = String(verification.status || '').toLowerCase();
+    const verified = response.ok && !['false', '0', 'failed', 'failure', 'error'].includes(providerType || providerStatus);
+    if (!verified) {
+      request.log.warn({ providerHttpStatus: response.status, providerType, providerStatus }, 'MSG91 access-token rejected');
+      return reply.code(401).send({ error: 'MSG91_TOKEN_INVALID' });
+    }
 
     let userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
-
-    // OTP login must also work for a phone number that has not previously been
-    // registered. Create a normal BUYER account after MSG91 has verified the phone.
     if (!userResult.rowCount) {
       const id = crypto.randomUUID();
       try {
@@ -42,7 +45,6 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
           [id, `AARVO User ${phone.slice(-4)}`, phone]
         );
       } catch (error) {
-        // Another request may have created the same phone concurrently.
         if (error?.code === '23505') {
           userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
         } else {
