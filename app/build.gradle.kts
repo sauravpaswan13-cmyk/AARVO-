@@ -36,9 +36,11 @@ val patchLiveHero = tasks.register("patchLiveHero") {
     doLast {
         val sourceFile = file("src/main/java/com/aarvo/MainActivity.kt")
         val source = sourceFile.readText()
-        val marker = "{ LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {"
-        if (!source.contains("LiveHero(api") && source.contains(marker)) {
-            sourceFile.writeText(source.replaceFirst(marker, "{ LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { LiveHero(api = api, modifier = Modifier.fillMaxWidth()) };"))
+        val homeStart = source.indexOf("@Composable private fun HomeScreen(")
+        val bodyStart = source.indexOf("{ LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {", homeStart)
+        if (!source.contains("LiveHero(api") && homeStart >= 0 && bodyStart > homeStart) {
+            val insertAt = bodyStart + 2
+            sourceFile.writeText(source.substring(0, insertAt) + "item { LiveHero(api = AarvoApiClient(), modifier = Modifier.fillMaxWidth()) };" + source.substring(insertAt))
         }
     }
 }
