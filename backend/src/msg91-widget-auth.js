@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+
 export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone }) {
   app.post('/v1/auth/verify-msg91-token', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
@@ -26,7 +28,30 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
     const verified = response.ok && !['false', '0', 'failed', 'failure', 'error'].includes(String(verification.type || verification.status || '').toLowerCase());
     if (!verified) return reply.code(401).send({ error: 'MSG91_TOKEN_INVALID' });
 
-    const userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
+    let userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
+
+    // OTP login must also work for a phone number that has not previously been
+    // registered. Create a normal BUYER account after MSG91 has verified the phone.
+    if (!userResult.rowCount) {
+      const id = crypto.randomUUID();
+      try {
+        userResult = await pool.query(
+          `INSERT INTO users (id, display_name, role, phone, phone_verified, phone_verified_at)
+           VALUES ($1, $2, 'BUYER', $3, true, now())
+           RETURNING id,email,display_name,role,phone,phone_verified`,
+          [id, `AARVO User ${phone.slice(-4)}`, phone]
+        );
+      } catch (error) {
+        // Another request may have created the same phone concurrently.
+        if (error?.code === '23505') {
+          userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
+        } else {
+          request.log.error({ err: error }, 'Unable to create AARVO user after MSG91 verification');
+          return reply.code(500).send({ error: 'USER_CREATE_FAILED' });
+        }
+      }
+    }
+
     if (!userResult.rowCount) return reply.code(404).send({ error: 'USER_NOT_FOUND' });
     const user = userResult.rows[0];
     await pool.query('UPDATE users SET phone_verified=true,phone_verified_at=now() WHERE id=$1', [user.id]);
