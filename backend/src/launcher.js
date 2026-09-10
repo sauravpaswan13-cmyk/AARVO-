@@ -21,7 +21,7 @@ if (!source.includes('registerMarketplaceCompletion')) {
 if (!source.includes("commission-rules.js")) {
   source = source.replace(
     "import { registerSettlementCompletion } from './settlement-completion.js';",
-    "import { registerSettlementCompletion } from './settlement-completion.js';\nimport { commissionBpsForCategory, commissionPaise } from './commission-rules.js';"
+    "import { registerSettlementCompletion } from './settlement-completion.js';\nimport { commissionBpsForCategory, commissionPaise } from './commission-rules.js'"
   );
   source = source.replace("const PLATFORM_FEE_BPS = Number(process.env.PLATFORM_FEE_BPS || 0);", "const PLATFORM_FEE_BPS = 0;");
   source = source.replace("SELECT id,seller_id,price_paise,stock_quantity,is_published FROM products WHERE id=ANY($1::bigint[]) FOR UPDATE", "SELECT id,seller_id,category,price_paise,stock_quantity,is_published FROM products WHERE id=ANY($1::bigint[]) FOR UPDATE");
@@ -71,7 +71,7 @@ if (refundStart >= 0 && refundEnd > refundStart) {
 if (!source.includes("otp-delivery.js")) {
   source = source.replace(
     "import { registerSettlementCompletion } from './settlement-completion.js';",
-    "import { registerSettlementCompletion } from './settlement-completion.js';\nimport { sendPhoneOtp } from './otp-delivery.js';"
+    "import { registerSettlementCompletion } from './settlement-completion.js';\nimport { sendPhoneOtp } from './otp-delivery.js'"
   );
   const otpStart = source.indexOf("app.post('/v1/auth/resend-phone-otp'");
   const otpEnd = otpStart >= 0 ? source.indexOf("\napp.post('/v1/ai/assistant'", otpStart) : -1;
@@ -125,11 +125,22 @@ if (!source.includes('AARVO_LOGIN_OTP_ENABLED')) {
 if (!source.includes('msg91-widget-auth.js')) {
   source = source.replace(
     "import { registerSettlementCompletion } from './settlement-completion.js';",
-    "import { registerSettlementCompletion } from './settlement-completion.js';\nimport { registerMsg91WidgetAuth } from './msg91-widget-auth.js';"
+    "import { registerSettlementCompletion } from './settlement-completion.js';\nimport { registerMsg91WidgetAuth } from './msg91-widget-auth.js'"
   );
   source = source.replace(
     "app.listen(PORT, '0.0.0.0', () => {",
     "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });\napp.listen(PORT, '0.0.0.0', () => {"
+  );
+}
+
+if (!source.includes('admin-auth.js')) {
+  source = source.replace(
+    "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';",
+    "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';\nimport { registerAdminAuth } from './admin-auth.js';"
+  );
+  source = source.replace(
+    "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });",
+    "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });\nawait registerAdminAuth({ app, pool, issueToken, verifyPassword });"
   );
 }
 
