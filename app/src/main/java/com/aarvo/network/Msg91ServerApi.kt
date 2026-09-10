@@ -18,11 +18,12 @@ class Msg91ServerApi {
         .build()
     private val json = "application/json; charset=utf-8".toMediaType()
 
-    suspend fun verifyOtp(phone: String, reqId: String, otp: String): JSONObject = withContext(Dispatchers.IO) {
+    suspend fun verifyOtp(phone: String, reqId: String, otp: String, role: String = "BUYER"): JSONObject = withContext(Dispatchers.IO) {
         val payload = JSONObject()
             .put("phone", phone)
             .put("reqId", reqId)
             .put("otp", otp)
+            .put("role", role.uppercase())
         val request = Request.Builder()
             .url(BuildConfig.AARVO_API_BASE_URL.trimEnd('/') + "/v1/auth/verify-msg91-otp")
             .post(payload.toString().toRequestBody(json))
