@@ -108,8 +108,19 @@ class PhoneAuthActivity : ComponentActivity() {
     }
 
     private fun msg91IsError(raw: String): Boolean {
-        val lower = raw.lowercase()
-        return lower.contains("error") && !lower.contains("success")
+        val parsed = parseMsg91Result(raw)
+        fun bad(value: Any?): Boolean = when (value) {
+            is JSONObject -> {
+                val type = value.optString("type").trim().lowercase()
+                val status = value.optString("status").trim().lowercase()
+                val message = value.optString("message").trim().lowercase()
+                val badValues = setOf("false", "0", "failed", "failure", "error", "invalid", "rejected")
+                badValues.contains(type) || badValues.contains(status) || (message.contains("error") && !message.contains("success"))
+            }
+            is JSONArray -> (0 until value.length()).any { bad(value.opt(it)) }
+            else -> false
+        }
+        return bad(parsed) || (parsed == null && raw.lowercase().contains("error"))
     }
 
     private fun saveSession(token: String, phone: String) {
@@ -164,9 +175,7 @@ class PhoneAuthActivity : ComponentActivity() {
                     val result = withContext(Dispatchers.IO) { OTPWidget.sendOTP(widgetId, widgetToken, "91$normalizedPhone") }
                     if (msg91IsError(result)) throw IllegalStateException(result)
 
-                    // MSG91 invisible OTP can return the final JWT directly from sendOTP.
-                    // It must still be sent to AARVO's server for access-token validation;
-                    // never store the MSG91 token as the app session token.
+                    // Invisible OTP may return a JWT immediately. It must be validated by AARVO before login.
                     val immediateAccessToken = findMsg91AccessToken(result)
                     if (!immediateAccessToken.isNullOrBlank()) {
                         finishMsg91Login(normalizedPhone, immediateAccessToken)
