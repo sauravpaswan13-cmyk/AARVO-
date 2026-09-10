@@ -50,11 +50,26 @@ class PhoneAuthActivity : ComponentActivity() {
     }
 }
 
-private fun msg91RequestId(json: JSONObject): String = listOf(
-    json.optString("reqId"),
-    json.optString("requestId"),
-    json.optString("request_id")
-).firstOrNull { it.isNotBlank() }?.trim().orEmpty()
+/** MSG91 SDK responses can wrap reqId/requestId/request_id inside a nested object. */
+private fun msg91RequestId(json: JSONObject): String? {
+    fun scan(value: Any?): String? = when (value) {
+        is JSONObject -> {
+            val keys = value.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                if (key.equals("reqId", true) || key.equals("requestId", true) || key.equals("request_id", true)) {
+                    val candidate = value.optString(key).trim()
+                    if (candidate.isNotBlank()) return candidate
+                }
+                val found = scan(value.opt(key))
+                if (found != null) return found
+            }
+            null
+        }
+        else -> null
+    }
+    return scan(json)
+}
 
 private fun msg91Error(json: JSONObject, fallback: String): String = listOf(
     json.optString("message"),
@@ -123,7 +138,7 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                 if (json.optString("type").equals("error", true)) {
                     throw IllegalStateException(msg91Error(json, "MSG91 could not send OTP"))
                 }
-                reqId = msg91RequestId(json)
+                reqId = msg91RequestId(json).orEmpty()
                 if (reqId.isBlank()) {
                     throw IllegalStateException("MSG91 did not return a request ID. Please try again.")
                 }
@@ -180,7 +195,7 @@ private fun PhoneAuthScreen(api: AarvoApiClient, prefs: android.content.SharedPr
                     throw IllegalStateException(msg91Error(json, "Unable to resend OTP"))
                 }
                 val newReqId = msg91RequestId(json)
-                if (newReqId.isNotBlank()) reqId = newReqId
+                if (!newReqId.isNullOrBlank()) reqId = newReqId
             } catch (t: Throwable) {
                 error = t.message ?: "Unable to resend OTP"
             } finally {
