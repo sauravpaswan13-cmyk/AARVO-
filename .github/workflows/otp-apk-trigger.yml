@@ -1,0 +1,47 @@
+name: AARVO OTP APK Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build APK
+        env:
+          MSG91_WIDGET_TOKEN: ${{ secrets.MSG91_WIDGET_TOKEN }}
+        run: |
+          if [ -z "$MSG91_WIDGET_TOKEN" ]; then
+            echo "MSG91_WIDGET_TOKEN GitHub Actions secret is missing."
+            exit 1
+          fi
+          ./gradlew assembleDebug -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN" --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: aarvo-otp-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
