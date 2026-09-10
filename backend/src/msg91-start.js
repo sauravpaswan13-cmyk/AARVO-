@@ -29,5 +29,16 @@ if (!source.includes("registerSellerOnboarding")) {
   if (listenIndex >= 0) source = source.slice(0, listenIndex) + route + source.slice(listenIndex);
 }
 
+if (!source.includes("order-action-reasons.js")) {
+  source = source.replace(
+    "import { registerSellerOnboarding } from './seller-onboarding.js';",
+    "import { registerSellerOnboarding } from './seller-onboarding.js';\nimport { enforceOrderActionReasons } from './order-action-reasons.js';"
+  );
+  source = source.replace(
+    "const route = \"\\nawait registerSellerOnboarding({ app, pool, requireRole, audit }); // SELLER ONBOARDING API\\n\";",
+    "source = enforceOrderActionReasons(source);\n  const route = \"\\nawait registerSellerOnboarding({ app, pool, requireRole, audit }); // SELLER ONBOARDING API\\n\";"
+  );
+}
+
 await fs.writeFile(serverPath, source, 'utf8');
 await import('./launcher.js');
