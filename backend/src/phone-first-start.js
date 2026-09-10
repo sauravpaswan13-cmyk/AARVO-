@@ -68,11 +68,13 @@ if (!source.includes("POST /v1/auth/verify-msg91-token DIRECT")) {
   const listenMarker = "app.listen(PORT, '0.0.0.0', () => {";
   const directRoute = `app.post('/v1/auth/verify-msg91-token', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
   if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
-  if (!process.env.MSG91_AUTH_KEY) return reply.code(503).send({ error: 'MSG91_AUTH_NOT_CONFIGURED' });
+  if (!JWT_SECRET) return reply.code(503).send({ error: 'AUTH_NOT_CONFIGURED' });
+  const authKey = String(process.env.MSG91_AUTH_KEY || process.env.MSG91_AUTHKEY || process.env.MSG91_AUTH_KEY_ID || '').trim();
+  if (!authKey) return reply.code(503).send({ error: 'MSG91_AUTH_NOT_CONFIGURED' });
   const phone = normalizePhone(request.body?.phone);
   const accessToken = String(request.body?.accessToken || '').trim();
   if (!phone || !accessToken) return reply.code(400).send({ error: 'INVALID_MSG91_VERIFICATION' });
-  const body = new URLSearchParams({ authkey: process.env.MSG91_AUTH_KEY, 'access-token': accessToken });
+  const body = new URLSearchParams({ authkey: authKey, 'access-token': accessToken });
   let response;
   try {
     response = await fetch('https://control.msg91.com/api/v5/widget/verifyAccessToken', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body, signal: AbortSignal.timeout(10000) });
@@ -82,7 +84,11 @@ if (!source.includes("POST /v1/auth/verify-msg91-token DIRECT")) {
   }
   let verification = {};
   try { verification = await response.json(); } catch { verification = {}; }
-  const verified = response.ok && !['false', '0', 'failed', 'failure', 'error'].includes(String(verification.type || verification.status || '').toLowerCase());
+  const providerType = String(verification.type || '').trim().toLowerCase();
+  const providerStatus = String(verification.status || '').trim().toLowerCase();
+  const failedValues = ['false', '0', 'failed', 'failure', 'error', 'invalid', 'rejected'];
+  const failed = failedValues.includes(providerType) || failedValues.includes(providerStatus);
+  const verified = response.ok && !failed;
   if (!verified) return reply.code(401).send({ error: 'MSG91_TOKEN_INVALID' });
   let userResult = await pool.query('SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1', [phone]);
   if (!userResult.rowCount) {
