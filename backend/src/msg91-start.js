@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { enforceOrderActionReasons } from './order-action-reasons.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const serverPath = path.join(here, 'server.js');
@@ -11,8 +12,7 @@ const imports = [
   "import { registerMarketplaceCompletion } from './marketplace-completion.js';",
   "import { registerCartCompletion } from './cart-completion.js';",
   "import { registerSettlementCompletion } from './settlement-completion.js';",
-  "import { registerSellerOnboarding } from './seller-onboarding.js';",
-  "import { enforceOrderActionReasons } from './order-action-reasons.js';"
+  "import { registerSellerOnboarding } from './seller-onboarding.js';"
 ];
 const cryptoImport = "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';";
 for (const statement of imports) {
