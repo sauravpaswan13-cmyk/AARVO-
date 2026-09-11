@@ -33,9 +33,7 @@ if (!source.includes("POST /v1/auth/verify-msg91-token DIRECT")) {
   );
 }
 
-if (!source.includes("order-action-reasons.js")) {
-  source = enforceOrderActionReasons(source);
-}
+source = enforceOrderActionReasons(source);
 
 await fs.writeFile(serverPath, source, 'utf8');
 await import('./launcher.js');
