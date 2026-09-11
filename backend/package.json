@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/phone-first-start.js",
-    "check": "node --check src/server.js && node --check src/marketplace-completion.js && node --check src/launcher.js && node --check src/phone-first-start.js",
+    "start": "node src/boot.js",
+    "check": "node --check src/server.js && node --check src/marketplace-completion.js && node --check src/launcher.js && node --check src/phone-first-start.js && node --check src/boot.js",
     "test": "node --test tests/*.test.js",
     "bootstrap:admin": "node src/bootstrap-admin.js"
   },
