@@ -7,11 +7,18 @@ const serverPath = path.join(here, 'server.js');
 const runtimePath = path.join(here, '.aarvo-runtime-server.mjs');
 let source = await fs.readFile(serverPath, 'utf8');
 
-if (!source.includes('registerMarketplaceCompletion')) {
+const marketplaceImport = "import { registerMarketplaceCompletion } from './marketplace-completion.js';";
+const cartImport = "import { registerCartCompletion } from './cart-completion.js';";
+const settlementImport = "import { registerSettlementCompletion } from './settlement-completion.js';";
+
+if (!source.includes(marketplaceImport)) {
   source = source.replace(
     "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';",
-    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\nimport { registerMarketplaceCompletion } from './marketplace-completion.js';\nimport { registerCartCompletion } from './cart-completion.js';\nimport { registerSettlementCompletion } from './settlement-completion.js'"
+    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\n" + marketplaceImport + "\n" + cartImport + "\n" + settlementImport
   );
+}
+
+if (!source.includes('await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });')) {
   source = source.replace(
     "app.listen(PORT, '0.0.0.0', () => {",
     "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\napp.listen(PORT, '0.0.0.0', () => {"
