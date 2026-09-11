@@ -107,6 +107,7 @@ jobs:
             -PaarvoReleaseKeyAlias="$KEY_ALIAS" \
             -PaarvoReleaseKeyPassword="$KEY_PASSWORD" \
             -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN" \
+            -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" \
             --stacktrace
 
       - name: Verify signed outputs
@@ -123,9 +124,7 @@ jobs:
         run: |
           set -euo pipefail
           echo 'Release signing is unavailable or invalid; building an installable debug APK so the app remains testable.'
-          gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
-        env:
-          AARVO_API_BASE_URL: ${{ vars.AARVO_API_BASE_URL }}
+          gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
 
       - name: Upload signed APK
         if: steps.signed_build.outcome == 'success'
