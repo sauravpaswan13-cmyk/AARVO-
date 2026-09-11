@@ -3,6 +3,9 @@ name: Premium AARVO Welcome Screen
 on:
   push:
     branches: [main]
+    paths:
+      - 'app/src/main/java/com/aarvo/MainActivity.kt'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -20,7 +23,6 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           path = Path('app/src/main/java/com/aarvo/MainActivity.kt')
           text = path.read_text()
@@ -43,40 +45,19 @@ jobs:
                 horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text(
-                    "AARVO",
-                    style = MaterialTheme.typography.displayMedium,
-                    fontWeight = FontWeight.ExtraBold
-                )
-                Text(
-                    "Welcome to AARVO",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "Premium shopping, made simple.",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    "Explore products without verification. Sign in with your mobile number when you are ready to order.",
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                Text("AARVO", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.ExtraBold)
+                Text("Welcome to AARVO", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("Premium shopping, made simple.", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Explore products without verification. Sign in with your mobile number when you are ready to order.", style = MaterialTheme.typography.bodyLarge)
                 Spacer(Modifier.height(8.dp))
                 Button(
                     onClick = onDone,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(58.dp),
+                    modifier = Modifier.fillMaxWidth().height(58.dp),
                     contentPadding = PaddingValues(horizontal = 22.dp, vertical = 14.dp)
                 ) {
                     Text("Continue to AARVO", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
-                Text(
-                    "Login / Sign Up with OTP is available inside the app",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
+                Text("Login / Sign Up with OTP is available inside the app", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
             }
         }
     }
@@ -84,13 +65,7 @@ jobs:
 
 '''
           text = text[:start] + new_block + text[end:]
-
-          # Fix the existing no-op wishlist handler from the account upgrade patch.
-          text = text.replace(
-              '{ dialog = "coupons"; dialog = null }',
-              '{ dialog = "wishlist" }',
-              1
-          )
+          text = text.replace('{ dialog = "coupons"; dialog = null }', '{ dialog = "wishlist" }', 1)
           path.write_text(text)
           print('Premium welcome screen patched')
           PY
