@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -14,6 +15,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -51,17 +54,40 @@ class PhoneAuthActivity : ComponentActivity() {
         fun sendOtp(){error="";otp="";reqId="";loading=true;otpMode=false;scope.launch{try{val normalized=phone.filter(Char::isDigit).takeLast(10);if(normalized.length!=10)throw IllegalArgumentException("Enter a valid 10-digit mobile number.");if(widgetId.isBlank()||widgetToken.isBlank())throw IllegalStateException("MSG91 OTP is not configured in this build.");val result=withTimeout(15000){runInterruptible(Dispatchers.IO){OTPWidget.sendOTP(widgetId,widgetToken,"91$normalized")}};if(isError(result))throw IllegalStateException(result);val id=requestId(result).orEmpty();if(id.isBlank())throw IllegalStateException("MSG91 did not return a request ID. Please try Send OTP again.");reqId=id;otpMode=true}catch(t:Throwable){otpMode=false;error=t.message?:"Unable to send OTP. Please try again."}finally{loading=false}}}
         fun resend(){if(reqId.isBlank()||loading)return;loading=true;error="";scope.launch{try{val result=withTimeout(15000){runInterruptible(Dispatchers.IO){OTPWidget.retryOTP(widgetId,widgetToken,reqId,11)}};if(isError(result))throw IllegalStateException(result);requestId(result)?.let{reqId=it}}catch(t:Throwable){error=t.message?:"Unable to resend OTP."}finally{loading=false}}}
 
-        Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background){
-            Column(Modifier.fillMaxSize().padding(horizontal=22.dp),verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally){
-                Text("AARVO",fontSize=34.sp,fontWeight=FontWeight.ExtraBold,letterSpacing=2.sp,color=MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(6.dp));Text(if(!otpMode)"Welcome back" else "Verify your mobile",fontSize=25.sp,fontWeight=FontWeight.Bold)
-                Spacer(Modifier.height(5.dp));Text(if(!otpMode)"Sign in securely to continue shopping" else "Enter the verification code sent to your mobile",color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=14.sp)
-                Spacer(Modifier.height(24.dp))
-                Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(22.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface),elevation=CardDefaults.cardElevation(defaultElevation=5.dp)){
-                    Column(Modifier.padding(20.dp)){if(!otpMode){Text("Mobile number",fontWeight=FontWeight.SemiBold,fontSize=14.sp);Spacer(Modifier.height(9.dp));Row(Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant),verticalAlignment=Alignment.CenterVertically){Text("🇮🇳  +91",Modifier.padding(start=16.dp),fontWeight=FontWeight.SemiBold);VerticalDivider(Modifier.height(30.dp).padding(start=12.dp,end=12.dp));OutlinedTextField(phone,{phone=it.filter(Char::isDigit).take(10)},placeholder={Text("Enter mobile number")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Phone),modifier=Modifier.weight(1f),colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=MaterialTheme.colorScheme.primary,unfocusedBorderColor=androidx.compose.ui.graphics.Color.Transparent,focusedContainerColor=androidx.compose.ui.graphics.Color.Transparent,unfocusedContainerColor=androidx.compose.ui.graphics.Color.Transparent))};Spacer(Modifier.height(16.dp));Button(::sendOtp,enabled=!loading&&phone.length==10,shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().height(52.dp)){if(loading)CircularProgressIndicator(Modifier.size(22.dp),strokeWidth=2.dp)else Text("Continue",fontWeight=FontWeight.Bold,fontSize=16.sp)}}else{Text("One-time password",fontWeight=FontWeight.SemiBold,fontSize=14.sp);Spacer(Modifier.height(9.dp));OutlinedTextField(otp,{otp=it.filter(Char::isDigit).take(8)},placeholder={Text("Enter OTP")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth(),colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=MaterialTheme.colorScheme.primary));Spacer(Modifier.height(16.dp));Button({loading=true;error="";scope.launch{try{verifyLogin()}catch(t:Throwable){error=t.message?:"OTP verification failed."}finally{loading=false}}},enabled=!loading&&reqId.isNotBlank()&&otp.length in 4..8,shape=RoundedCornerShape(14.dp),modifier=Modifier.fillMaxWidth().height(52.dp)){if(loading)CircularProgressIndicator(Modifier.size(22.dp),strokeWidth=2.dp)else Text("Verify & Login",fontWeight=FontWeight.Bold,fontSize=16.sp)}Spacer(Modifier.height(8.dp));TextButton(::resend,enabled=!loading&&reqId.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text("Resend OTP")}}}
+        val purple=Color(0xFF4B16D8);val deepPurple=Color(0xFF32108E);val orange=Color(0xFFFF7A00);val page=Color(0xFFF7F5FF);val soft=Color(0xFFF0ECFF)
+        Surface(Modifier.fillMaxSize(),color=page){
+            Column(Modifier.fillMaxSize().padding(horizontal=20.dp,vertical=28.dp),horizontalAlignment=Alignment.CenterHorizontally){
+                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+                    Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(orange,purple))),contentAlignment=Alignment.Center){Text("A",color=Color.White,fontSize=27.sp,fontWeight=FontWeight.ExtraBold)}
+                    Spacer(Modifier.width(12.dp));Column{Text("AARVO",fontSize=27.sp,fontWeight=FontWeight.ExtraBold,color=deepPurple,letterSpacing=1.6.sp);Text("Shop Smart • Live Better",fontSize=11.sp,color=Color(0xFF77718B))}
                 }
-                Spacer(Modifier.height(16.dp));Text("Your mobile number is securely protected",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                if(error.isNotBlank()){Spacer(Modifier.height(10.dp));Text(error,color=MaterialTheme.colorScheme.error,fontSize=13.sp)}
+                Spacer(Modifier.height(38.dp))
+                Column(Modifier.fillMaxWidth()){Text(if(!otpMode)"Welcome back" else "Verify your mobile",fontSize=30.sp,fontWeight=FontWeight.ExtraBold,color=Color(0xFF171329));Spacer(Modifier.height(7.dp));Text(if(!otpMode)"Login securely with your mobile number" else "Enter the OTP sent to your mobile number",fontSize=14.sp,color=Color(0xFF706A80))}
+                Spacer(Modifier.height(22.dp))
+                Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(28.dp),colors=CardDefaults.cardColors(containerColor=Color.White),elevation=CardDefaults.cardElevation(defaultElevation=8.dp)){
+                    Column(Modifier.padding(22.dp)){
+                        if(!otpMode){
+                            Text("Mobile number",fontSize=14.sp,fontWeight=FontWeight.Bold,color=Color(0xFF28223B));Spacer(Modifier.height(10.dp))
+                            Row(Modifier.fillMaxWidth().height(62.dp).clip(RoundedCornerShape(18.dp)).background(soft).border(1.dp,purple.copy(alpha=.16f),RoundedCornerShape(18.dp)),verticalAlignment=Alignment.CenterVertically){
+                                Column(Modifier.width(82.dp).padding(start=16.dp)){Text("INDIA",fontSize=10.sp,fontWeight=FontWeight.Bold,color=Color(0xFF817A93));Text("+91",fontSize=17.sp,fontWeight=FontWeight.ExtraBold,color=deepPurple)}
+                                Box(Modifier.width(1.dp).height(34.dp).background(Color(0xFFD8D1EE)));Spacer(Modifier.width(8.dp))
+                                OutlinedTextField(phone,{phone=it.filter(Char::isDigit).take(10)},placeholder={Text("Enter 10-digit mobile number",color=Color(0xFF9A94A7),fontSize=14.sp)},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Phone),modifier=Modifier.weight(1f),colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=purple,unfocusedBorderColor=Color.Transparent,focusedContainerColor=Color.Transparent,unfocusedContainerColor=Color.Transparent,focusedTextColor=Color(0xFF211A32),unfocusedTextColor=Color(0xFF211A32),cursorColor=purple))
+                            }
+                            Spacer(Modifier.height(18.dp))
+                            Button(::sendOtp,enabled=!loading&&phone.length==10,shape=RoundedCornerShape(17.dp),colors=ButtonDefaults.buttonColors(containerColor=purple,disabledContainerColor=Color(0xFFD8D2E7)),modifier=Modifier.fillMaxWidth().height(56.dp)){if(loading)CircularProgressIndicator(Modifier.size(22.dp),strokeWidth=2.dp,color=Color.White)else Text("Continue",fontWeight=FontWeight.ExtraBold,fontSize=16.sp)}
+                            Spacer(Modifier.height(14.dp));Text("New to AARVO? Your account is created securely after verification.",fontSize=11.sp,color=Color(0xFF827B90))
+                        }else{
+                            Text("One-time password",fontSize=14.sp,fontWeight=FontWeight.Bold,color=Color(0xFF28223B));Spacer(Modifier.height(10.dp))
+                            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(soft).padding(horizontal=4.dp)){OutlinedTextField(otp,{otp=it.filter(Char::isDigit).take(8)},placeholder={Text("Enter OTP")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number),shape=RoundedCornerShape(16.dp),modifier=Modifier.fillMaxWidth(),colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=purple,unfocusedBorderColor=Color.Transparent,focusedContainerColor=Color.Transparent,unfocusedContainerColor=Color.Transparent,focusedTextColor=Color(0xFF211A32),unfocusedTextColor=Color(0xFF211A32),cursorColor=purple))}
+                            Spacer(Modifier.height(18.dp));Button({loading=true;error="";scope.launch{try{verifyLogin()}catch(t:Throwable){error=t.message?:"OTP verification failed."}finally{loading=false}}},enabled=!loading&&reqId.isNotBlank()&&otp.length in 4..8,shape=RoundedCornerShape(17.dp),colors=ButtonDefaults.buttonColors(containerColor=purple,disabledContainerColor=Color(0xFFD8D2E7)),modifier=Modifier.fillMaxWidth().height(56.dp)){if(loading)CircularProgressIndicator(Modifier.size(22.dp),strokeWidth=2.dp,color=Color.White)else Text("Verify & Login",fontWeight=FontWeight.ExtraBold,fontSize=16.sp)}
+                            Spacer(Modifier.height(5.dp));TextButton(::resend,enabled=!loading&&reqId.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text("Resend OTP",fontWeight=FontWeight.Bold,color=purple)}
+                        }
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                Row(horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically){Text("✓ Secure",fontSize=11.sp,fontWeight=FontWeight.Bold,color=Color(0xFF5F586D));Text("•",color=orange);Text("✓ Fast",fontSize=11.sp,fontWeight=FontWeight.Bold,color=Color(0xFF5F586D));Text("•",color=orange);Text("✓ Trusted",fontSize=11.sp,fontWeight=FontWeight.Bold,color=Color(0xFF5F586D))}
+                Spacer(Modifier.height(10.dp));Text("Your mobile number is securely protected",fontSize=11.sp,color=Color(0xFF8A8495))
+                if(error.isNotBlank()){Spacer(Modifier.height(8.dp));Text(error,color=MaterialTheme.colorScheme.error,fontSize=12.sp)}
             }
         }
     }
