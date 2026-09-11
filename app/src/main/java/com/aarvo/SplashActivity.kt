@@ -49,15 +49,10 @@ class SplashActivity : ComponentActivity() {
         root.addView(loading, LinearLayout.LayoutParams(-1,-2))
         setContentView(root)
 
-        // AARVO opens directly into shopping without requiring verification.
-        // Login/OTP remains available from Account and is required at purchase time.
+        // Show the reference-style Welcome screen after splash.
+        // Users can continue as Guest without verification or choose Login / Sign Up for OTP.
         Handler(Looper.getMainLooper()).postDelayed({
-            getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).edit()
-                .putBoolean("onboarded", true)
-                .putBoolean("signed_in", false)
-                .putBoolean("guest_mode", true)
-                .apply()
-            startActivity(Intent(this, MainActivity::class.java))
+            startActivity(Intent(this, WelcomeActivity::class.java))
             finish()
         }, 1500L)
     }
