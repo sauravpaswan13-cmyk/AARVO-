@@ -60,17 +60,13 @@ jobs:
           printf 'MSG91_WIDGET_TOKEN=%s\n' "$TOKEN" >> "$GITHUB_ENV"
 
       - name: Verify production API configuration
-        run: echo "AARVO production API defaults to https://aarvo-api.onrender.com"
+        run: echo "AARVO production API pinned to https://aarvo-api.onrender.com"
 
       - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
-        env:
-          AARVO_API_BASE_URL: ${{ vars.AARVO_API_BASE_URL }}
+        run: gradle --no-daemon :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
 
       - name: Build release AAB
-        run: gradle --no-daemon :app:bundleRelease --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
-        env:
-          AARVO_API_BASE_URL: ${{ vars.AARVO_API_BASE_URL }}
+        run: gradle --no-daemon :app:bundleRelease --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
