@@ -132,5 +132,13 @@ await registerSellerOnboarding({ app, pool, requireRole, audit }); // MARKETPLAC
   source = source.replace(listenMarker, registrations + listenMarker);
 }
 
+// Render health-check compatibility: older service configuration used /healthz while
+// the current server exposes /health. Keep both paths valid without changing auth/OTP.
+if (!source.includes("HEALTH COMPATIBILITY ROUTE")) {
+  const listenMarker = "app.listen(PORT, '0.0.0.0', () => {";
+  const healthRoute = `app.get('/healthz', async (_request, reply) => reply.send({ ok: true, service: 'aarvo-api' })); // HEALTH COMPATIBILITY ROUTE\n`;
+  source = source.replace(listenMarker, healthRoute + listenMarker);
+}
+
 await fs.writeFile(serverPath, source, 'utf8');
 await import('./launcher.js');
