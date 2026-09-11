@@ -21,16 +21,20 @@ for (const statement of imports) {
   }
 }
 
-if (!source.includes("POST /v1/auth/verify-msg91-token DIRECT")) {
-  source = source.replace(
-    "app.listen(PORT, '0.0.0.0', () => {",
-    "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone }); // POST /v1/auth/verify-msg91-token DIRECT\n" +
+// Do not use a comment marker as the guard: an earlier runtime patch can leave the marker
+// behind while the actual registration statement is missing. Check the executable call itself.
+const msg91Registration = "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });";
+if (!source.includes(msg91Registration)) {
+  const listenMarker = "app.listen(PORT, '0.0.0.0', () => {";
+  const registrationBlock =
+    msg91Registration + "\n" +
     "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\n" +
     "await registerCartCompletion({ app, pool, requireRole, audit });\n" +
     "await registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\n" +
     "await registerSellerOnboarding({ app, pool, requireRole, audit }); // SELLER ONBOARDING API\n" +
-    "app.listen(PORT, '0.0.0.0', () => {"
-  );
+    listenMarker;
+  if (!source.includes(listenMarker)) throw new Error('AARVO server listen marker not found');
+  source = source.replace(listenMarker, registrationBlock);
 }
 
 source = enforceOrderActionReasons(source);
