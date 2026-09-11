@@ -1,68 +1,71 @@
 package com.aarvo
 
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.Gravity
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import com.aarvo.ui.theme.AarvoTheme
-import kotlinx.coroutines.delay
 
 class SplashActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            AarvoTheme {
-                LaunchedEffect(Unit) {
-                    delay(1800)
-                    startActivity(Intent(this@SplashActivity, WelcomeActivity::class.java))
-                    finish()
-                }
-                Box(
-                    Modifier.fillMaxSize().background(
-                        Brush.verticalGradient(listOf(Color(0xFF14005A), Color(0xFF3600A8), Color(0xFF17005F)))
-                    ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.aarvo_logo),
-                            contentDescription = "AARVO logo",
-                            tint = Color.Unspecified,
-                            modifier = Modifier.height(150.dp).fillMaxWidth(0.55f)
-                        )
-                        Text("AARVO", color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.displayMedium)
-                        Spacer(Modifier.height(8.dp))
-                        Text("Shop Smart • Live Better", color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(42.dp))
-                        CircularProgressIndicator(color = Color.White)
-                        Spacer(Modifier.height(14.dp))
-                        Text("Loading your world...", color = Color.White.copy(alpha = .92f), style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-            }
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(32, 32, 32, 32)
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.rgb(20, 0, 90), Color.rgb(54, 0, 168), Color.rgb(23, 0, 95))
+            )
         }
+
+        val title = TextView(this).apply {
+            text = "AARVO"
+            setTextColor(Color.WHITE)
+            textSize = 42f
+            gravity = Gravity.CENTER
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        }
+        root.addView(title, LinearLayout.LayoutParams(-1, -2))
+
+        val tagline = TextView(this).apply {
+            text = "Shop Smart • Live Better"
+            setTextColor(Color.WHITE)
+            textSize = 17f
+            gravity = Gravity.CENTER
+            setPadding(0, 10, 0, 0)
+        }
+        root.addView(tagline, LinearLayout.LayoutParams(-1, -2))
+
+        val progress = ProgressBar(this).apply { isIndeterminate = true }
+        val progressParams = LinearLayout.LayoutParams(64, 64).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            topMargin = 42
+        }
+        root.addView(progress, progressParams)
+
+        val loading = TextView(this).apply {
+            text = "Loading your world..."
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            gravity = Gravity.CENTER
+            alpha = 0.92f
+            setPadding(0, 14, 0, 0)
+        }
+        root.addView(loading, LinearLayout.LayoutParams(-1, -2))
+
+        setContentView(root)
+
+        Handler(Looper.getMainLooper()).postDelayed({
+            startActivity(Intent(this, WelcomeActivity::class.java))
+            finish()
+        }, 1500L)
     }
 }
