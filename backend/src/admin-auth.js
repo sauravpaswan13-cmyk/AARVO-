@@ -16,7 +16,19 @@ export function registerAdminAuth({ app, pool, issueToken, verifyPassword }) {
     if (!result.rowCount) return reply.code(401).send({ error: 'INVALID_ADMIN_CREDENTIALS' });
 
     const user = result.rows[0];
-    if (!verifyPassword(password, user.password_hash)) return reply.code(401).send({ error: 'INVALID_ADMIN_CREDENTIALS' });
+    let passwordValid = verifyPassword(password, user.password_hash);
+
+    // Older bootstrap-admin.js stored the scrypt hash with an extra leading
+    // colon: :salt:hash. Accept that legacy format and migrate it in place.
+    if (!passwordValid && String(user.password_hash || '').startsWith(':')) {
+      const legacyHash = String(user.password_hash).slice(1);
+      passwordValid = verifyPassword(password, legacyHash);
+      if (passwordValid) {
+        await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2', [legacyHash, user.id]);
+      }
+    }
+
+    if (!passwordValid) return reply.code(401).send({ error: 'INVALID_ADMIN_CREDENTIALS' });
     if (String(user.role).toUpperCase() !== 'ADMIN') return reply.code(403).send({ error: 'ADMIN_ROLE_REQUIRED' });
 
     const { password_hash: _passwordHash, ...safeUser } = user;
