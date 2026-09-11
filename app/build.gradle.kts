@@ -10,8 +10,8 @@ android {
         applicationId = "com.aarvo"
         minSdk = 24
         targetSdk = 37
-        versionCode = 8
-        versionName = "1.7"
+        versionCode = 9
+        versionName = "1.8"
         fun buildConfigString(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "\\r").replace("\n", "\\n") + "\""
         val apiBaseUrl = project.findProperty("aarvoApiBaseUrl")?.toString() ?: "https://aarvo-api.onrender.com"
         val widgetId = project.findProperty("msg91WidgetId")?.toString() ?: "366968715030323230313530"
@@ -32,20 +32,20 @@ android {
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach { compilerOptions.freeCompilerArgs.add("-opt-in=androidx.compose.material3.ExperimentalMaterial3Api") }
 }
 
-// Inject the live hero only inside HomeScreen's LazyColumn content lambda.
-// This keeps the existing MainActivity source untouched and avoids fragile global replacements.
+// Build-time injection keeps the existing compact MainActivity source stable while
+// placing the premium shopping header and live hero at the top of HomeScreen.
 val patchLiveHero = tasks.register("patchLiveHero") {
     doLast {
         val sourceFile = file("src/main/java/com/aarvo/MainActivity.kt")
         val source = sourceFile.readText()
-        if (source.contains("LiveHero(api")) return@doLast
+        if (source.contains("PremiumHomeHeader()")) return@doLast
         val homeStart = source.indexOf("@Composable private fun HomeScreen(")
         if (homeStart < 0) return@doLast
         val lazyColumnStart = source.indexOf("LazyColumn(", homeStart)
         if (lazyColumnStart < 0) return@doLast
         val lambdaOpen = source.indexOf('{', lazyColumnStart)
         if (lambdaOpen < 0) return@doLast
-        val injection = " item { LiveHero(api = AarvoApiClient(), modifier = Modifier.fillMaxWidth()) };"
+        val injection = " item { PremiumHomeHeader() }; item { LiveHero(api = AarvoApiClient(), modifier = Modifier.fillMaxWidth()) };"
         sourceFile.writeText(source.substring(0, lambdaOpen + 1) + injection + source.substring(lambdaOpen + 1))
     }
 }
