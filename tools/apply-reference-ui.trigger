@@ -1,1 +1,1 @@
-apply reference UI - 15 screen premium pass 2026-09-10
+startup crash fix - Splash and Welcome made runtime-safe 2026-09-11
