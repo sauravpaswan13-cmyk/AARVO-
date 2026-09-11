@@ -13,11 +13,20 @@ if (!source.includes("import { sendPhoneOtp } from './otp-delivery.js';")) {
   );
 }
 
-if (!source.includes("import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';")) {
-  source = source.replace(
-    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';",
-    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\nimport { registerMsg91WidgetAuth } from './msg91-widget-auth.js';"
-  );
+const registrationImports = [
+  "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';",
+  "import { registerMarketplaceCompletion } from './marketplace-completion.js';",
+  "import { registerCartCompletion } from './cart-completion.js';",
+  "import { registerSettlementCompletion } from './settlement-completion.js';",
+  "import { registerSellerOnboarding } from './seller-onboarding.js';"
+];
+for (const statement of registrationImports) {
+  if (!source.includes(statement)) {
+    source = source.replace(
+      "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';",
+      "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\n" + statement
+    );
+  }
 }
 
 const start = source.indexOf("app.post('/v1/auth/resend-phone-otp'");
@@ -107,6 +116,20 @@ if (!source.includes("POST /v1/auth/verify-msg91-token DIRECT")) {
   return { user: refreshed, token: issueToken(refreshed), verified: true };
 }); // POST /v1/auth/verify-msg91-token DIRECT\n\n`;
   source = source.replace(listenMarker, directRoute + listenMarker);
+}
+
+// Render starts this wrapper (backend/package.json -> npm start), so marketplace routes
+// must be registered here as well. Without this, /v1/addresses and the other completion
+// routes can return 404 even though the route modules exist in the repository.
+if (!source.includes("MARKETPLACE COMPLETION ROUTES DIRECT")) {
+  const listenMarker = "app.listen(PORT, '0.0.0.0', () => {";
+  const registrations = `await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });
+await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });
+await registerCartCompletion({ app, pool, requireRole, audit });
+await registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });
+await registerSellerOnboarding({ app, pool, requireRole, audit }); // MARKETPLACE COMPLETION ROUTES DIRECT
+`;
+  source = source.replace(listenMarker, registrations + listenMarker);
 }
 
 await fs.writeFile(serverPath, source, 'utf8');
