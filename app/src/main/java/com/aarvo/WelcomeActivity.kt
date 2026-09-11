@@ -69,13 +69,13 @@ class WelcomeActivity : ComponentActivity() {
 
         root.addView(ShoppingBagsView(this), LinearLayout.LayoutParams(250, 155).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = 10; bottomMargin = 6 })
 
-        // Reference-style primary entry: browsing is available without verification.
-        val enter = Button(this).apply {
-            text = "Enter AARVO"; textSize = 16f; setTypeface(typeface, Typeface.BOLD); setTextColor(Color.WHITE); isAllCaps = false; minHeight = 56
+        // Reference-style welcome screen: guest browsing first, login available separately.
+        val guest = Button(this).apply {
+            text = "Continue as Guest"; textSize = 16f; setTypeface(typeface, Typeface.BOLD); setTextColor(Color.WHITE); isAllCaps = false; minHeight = 56
             background = GradientDrawable().apply { cornerRadius = 18f; setColor(Color.rgb(83,34,211)) }
             setOnClickListener { enterApp() }
         }
-        root.addView(enter, LinearLayout.LayoutParams(-1, 56).apply { bottomMargin = 10 })
+        root.addView(guest, LinearLayout.LayoutParams(-1, 56).apply { bottomMargin = 10 })
 
         val login = Button(this).apply {
             text = "Login / Sign Up"; textSize = 16f; setTypeface(typeface, Typeface.BOLD); setTextColor(Color.rgb(65,35,170)); isAllCaps = false; minHeight = 56
@@ -85,7 +85,7 @@ class WelcomeActivity : ComponentActivity() {
         root.addView(login, LinearLayout.LayoutParams(-1, 56).apply { bottomMargin = 10 })
 
         root.addView(TextView(this).apply {
-            text = "Browse freely • Login when you want to buy or use account features"; textSize = 12f; setTextColor(Color.rgb(102,96,112)); gravity = Gravity.CENTER; setPadding(4, 0, 4, 0)
+            text = "Explore freely • Login when you want to buy or use account features"; textSize = 12f; setTextColor(Color.rgb(102,96,112)); gravity = Gravity.CENTER; setPadding(4, 0, 4, 0)
         }, LinearLayout.LayoutParams(-1, -2))
 
         root.addView(TextView(this).apply {
