@@ -89,7 +89,7 @@ const hashPassword = async (password) => {
     });
   });
 
-  return `scrypt:${salt}:${derivedKey.toString('hex')}`;
+  return `:${salt}:${derivedKey.toString('hex')}`;
 };
 
 const run = async () => {
