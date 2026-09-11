@@ -16,7 +16,7 @@ async function requestOtp({ endpoint, params, method, headers, body, signal }) {
 }
 
 export async function sendPhoneOtp({ phone, otp }) {
-  // AARVO now uses the MSG91 Secure OTP Widget on the Android client.
+  // AARVO uses the MSG91 Secure OTP Widget on the Android client.
   // In widget mode MSG91 generates, sends and verifies the OTP itself, so the
   // legacy server-side sender must not block auth with template/sender config.
   if (process.env.MSG91_WIDGET_MODE === 'true') {
@@ -61,7 +61,9 @@ export async function sendPhoneOtp({ phone, otp }) {
         const params = new URLSearchParams({
           authkey: authKey,
           mobile,
-          message: `Your AARVO verification code is ${otp}. It expires in 10 minutes.`,
+          // Keep the brand visible in the SMS body when the legacy MSG91 path is used.
+          // The actual SMS sender/header remains controlled by MSG91/DLT approval.
+          message: `AARVO OTP: ${otp}. This code expires in 10 minutes.`,
           sender: senderId,
           otp: String(otp),
           otp_length: '6',
