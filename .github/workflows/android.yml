@@ -12,9 +12,6 @@ permissions:
   id-token: write
   attestations: write
 
-env:
-  AARVO_API_BASE_URL: ${{ vars.AARVO_API_BASE_URL }}
-
 jobs:
   backend-check:
     runs-on: ubuntu-latest
@@ -68,8 +65,6 @@ jobs:
 
   android-build:
     runs-on: ubuntu-latest
-    env:
-      AARVO_API_BASE_URL: ${{ vars.AARVO_API_BASE_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -102,11 +97,11 @@ jobs:
           gradle-version: '9.7.1'
           validate-wrappers: false
       - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}" -Pmsg91WidgetToken="${MSG91_WIDGET_TOKEN}"
+        run: gradle :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="${MSG91_WIDGET_TOKEN}"
         env:
           MSG91_WIDGET_TOKEN: ${{ secrets.MSG91_WIDGET_TOKEN }}
       - name: Build release AAB (unsigned)
-        run: gradle :app:bundleRelease --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="${AARVO_API_BASE_URL:-https://aarvo-api.onrender.com}" -Pmsg91WidgetToken="${MSG91_WIDGET_TOKEN}"
+        run: gradle :app:bundleRelease --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="${MSG91_WIDGET_TOKEN}"
         env:
           MSG91_WIDGET_TOKEN: ${{ secrets.MSG91_WIDGET_TOKEN }}
       - name: Attest debug APK provenance
