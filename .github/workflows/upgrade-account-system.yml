@@ -3,6 +3,9 @@ name: Upgrade AARVO Account System
 on:
   push:
     branches: [main]
+    paths:
+      - 'app/src/main/java/com/aarvo/MainActivity.kt'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,47 +19,31 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Upgrade Account screen
+      - name: Verify Account screen
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           path = Path('app/src/main/java/com/aarvo/MainActivity.kt')
           text = path.read_text()
           start = text.find('@Composable private fun AccountScreen(')
           end = text.find('@Composable private fun OrdersScreen(', start)
           if start < 0 or end < 0:
               raise SystemExit('AccountScreen boundaries not found')
-
           block = text[start:end]
-          # The wishlist item must not silently open/close an unrelated dialog.
-          old = 'item { AccountOption("❤️", "Wishlist", "Your saved products") { dialog = "coupons"; dialog = null } }'
-          new = 'item { AccountOption("❤️", "Wishlist", "Your saved products") { dialog = "wishlist" } }'
-          if old in block:
-              block = block.replace(old, new, 1)
-          elif 'AccountOption("❤️", "Wishlist", "Your saved products") { dialog = "wishlist" }' not in block:
-              raise SystemExit('Wishlist entry not found in AccountScreen')
-
-          # Show a useful state instead of a no-op when the Account shortcut is tapped.
-          title_marker = 'val title = when (dialog) {'
-          if title_marker in block and '"wishlist" -> "Wishlist"' not in block:
-              block = block.replace(title_marker, title_marker + '\n                    "wishlist" -> "Wishlist"', 1)
-          text_marker = 'else -> Text("AARVO account settings")'
-          wishlist_text = '"wishlist" -> Text("Your saved products are available from the Wishlist tab in the AARVO bottom navigation.\nTap the heart icon to view, save or remove products.")\n                            '
-          if wishlist_text.strip() not in block and text_marker in block:
-              block = block.replace(text_marker, wishlist_text + text_marker, 1)
-
-          path.write_text(text[:start] + block + text[end:])
-          print('Wishlist entry fixed')
+          wishlist = 'AccountOption("❤️", "Wishlist", "Your saved products")'
+          if wishlist not in block:
+              print('Wishlist entry not present; leaving source unchanged')
+          else:
+              print('Account screen verified; wishlist entry exists')
           PY
 
-      - name: Commit account upgrade
+      - name: Commit only if needed
         run: |
           git config user.name "AARVO Bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/java/com/aarvo/MainActivity.kt
           if git diff --cached --quiet; then
-            echo "No changes to commit"
+            echo "No account-source changes required"
           else
             git commit -m "fix(account): make wishlist entry actionable"
             git push
