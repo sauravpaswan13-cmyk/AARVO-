@@ -5,20 +5,19 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Checkroom
-import androidx.compose.material.icons.filled.Devices
-import androidx.compose.material.icons.filled.LocalGroceryStore
-import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.Sell
-import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -55,11 +54,11 @@ fun PremiumHomeHeader() {
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            QuickCategory("Mobiles", Icons.Default.Smartphone)
-            QuickCategory("Fashion", Icons.Default.Checkroom)
-            QuickCategory("Electronics", Icons.Default.Devices)
-            QuickCategory("Grocery", Icons.Default.LocalGroceryStore)
-            QuickCategory("Deals", Icons.Default.Sell)
+            QuickCategory("Mobiles", Icons.Default.Search)
+            QuickCategory("Fashion", Icons.Default.Favorite)
+            QuickCategory("Electronics", Icons.Default.Info)
+            QuickCategory("Grocery", Icons.Default.Home)
+            QuickCategory("Deals", Icons.Default.Star)
         }
     }
 }
