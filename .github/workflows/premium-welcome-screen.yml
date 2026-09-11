@@ -1,0 +1,108 @@
+name: Premium AARVO Welcome Screen
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  premium-welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Upgrade Welcome Entry UI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('app/src/main/java/com/aarvo/MainActivity.kt')
+          text = path.read_text()
+
+          start = text.find('@Composable private fun OnboardingScreen(')
+          end = text.find('@Composable private fun SignInScreen(', start)
+          if start < 0 or end < 0:
+              raise SystemExit('Welcome screen boundaries not found')
+
+          new_block = r'''@Composable private fun OnboardingScreen(onDone: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(horizontal = 22.dp, vertical = 28.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Card(Modifier.fillMaxWidth()) {
+            Column(
+                Modifier.padding(horizontal = 24.dp, vertical = 30.dp),
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    "AARVO",
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    "Welcome to AARVO",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Premium shopping, made simple.",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    "Explore products without verification. Sign in with your mobile number when you are ready to order.",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = onDone,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(58.dp),
+                    contentPadding = PaddingValues(horizontal = 22.dp, vertical = 14.dp)
+                ) {
+                    Text("Continue to AARVO", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+                Text(
+                    "Login / Sign Up with OTP is available inside the app",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+'''
+          text = text[:start] + new_block + text[end:]
+
+          # Fix the existing no-op wishlist handler from the account upgrade patch.
+          text = text.replace(
+              '{ dialog = "coupons"; dialog = null }',
+              '{ dialog = "wishlist" }',
+              1
+          )
+          path.write_text(text)
+          print('Premium welcome screen patched')
+          PY
+
+      - name: Commit UI changes
+        run: |
+          git config user.name "AARVO Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/aarvo/MainActivity.kt
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "feat(ui): premium welcome entry and account wishlist action"
+            git push
+          fi
