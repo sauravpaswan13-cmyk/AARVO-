@@ -2,68 +2,103 @@ package com.aarvo
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.view.Gravity
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import com.aarvo.ui.theme.AarvoTheme
 
 class WelcomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { AarvoTheme { WelcomeScreen() } }
-    }
 
-    @Composable
-    private fun WelcomeScreen() {
-        Column(
-            Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 34.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.aarvo_logo),
-                contentDescription = "AARVO logo",
-                tint = Color.Unspecified,
-                modifier = Modifier.height(88.dp).fillMaxWidth(0.38f)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(28, 40, 28, 32)
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.WHITE, Color.rgb(248, 246, 255))
             )
-            Spacer(Modifier.height(8.dp))
-            Text("AARVO", color = Color(0xFF2E178C), fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.headlineLarge)
-            Text("Your One Stop Shopping Destination", color = Color(0xFF5D5D70), style = MaterialTheme.typography.bodyMedium)
-            Spacer(Modifier.height(18.dp))
-            Text("🛍️   🛍️   🛍️", style = MaterialTheme.typography.displaySmall)
-            Spacer(Modifier.height(26.dp))
-            Button(onClick = { enterGuest() }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                Text("Continue as Guest", fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(10.dp))
-            OutlinedButton(onClick = { openLogin() }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                Text("Login / Sign Up", fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(10.dp))
-            TextButton(onClick = { enterGuest() }) { Text("Explore as Guest") }
-            Spacer(Modifier.height(28.dp))
-            Text("Secure Shopping  •  Trusted Support  •  Fast Delivery", color = Color(0xFF666070), style = MaterialTheme.typography.bodySmall)
         }
+
+        val title = TextView(this).apply {
+            text = "AARVO"
+            textSize = 38f
+            setTextColor(Color.rgb(46, 23, 140))
+            gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.BOLD)
+        }
+        root.addView(title, LinearLayout.LayoutParams(-1, -2))
+
+        val subtitle = TextView(this).apply {
+            text = "Your One Stop Shopping Destination"
+            textSize = 15f
+            setTextColor(Color.rgb(93, 93, 112))
+            gravity = Gravity.CENTER
+            setPadding(0, 6, 0, 0)
+        }
+        root.addView(subtitle, LinearLayout.LayoutParams(-1, -2))
+
+        val bags = TextView(this).apply {
+            text = "🛍️   🛍️   🛍️"
+            textSize = 30f
+            gravity = Gravity.CENTER
+            setPadding(0, 24, 0, 26)
+        }
+        root.addView(bags, LinearLayout.LayoutParams(-1, -2))
+
+        val guest = Button(this).apply {
+            text = "Continue as Guest"
+            textSize = 16f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                cornerRadius = 18f
+                setColor(Color.rgb(46, 23, 140))
+            }
+            setOnClickListener { enterGuest() }
+        }
+        root.addView(guest, LinearLayout.LayoutParams(-1, 56).apply { bottomMargin = 12 })
+
+        val login = Button(this).apply {
+            text = "Login / Sign Up"
+            textSize = 16f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.rgb(46, 23, 140))
+            background = GradientDrawable().apply {
+                cornerRadius = 18f
+                setColor(Color.WHITE)
+                setStroke(3, Color.rgb(46, 23, 140))
+            }
+            setOnClickListener { openLogin() }
+        }
+        root.addView(login, LinearLayout.LayoutParams(-1, 56).apply { bottomMargin = 10 })
+
+        val explore = TextView(this).apply {
+            text = "Explore as Guest"
+            textSize = 15f
+            setTextColor(Color.rgb(46, 23, 140))
+            gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, 10, 0, 18)
+            setOnClickListener { enterGuest() }
+        }
+        root.addView(explore, LinearLayout.LayoutParams(-1, -2))
+
+        val trust = TextView(this).apply {
+            text = "Secure Shopping  •  Trusted Support  •  Fast Delivery"
+            textSize = 12f
+            setTextColor(Color.rgb(102, 96, 112))
+            gravity = Gravity.CENTER
+        }
+        root.addView(trust, LinearLayout.LayoutParams(-1, -2))
+
+        setContentView(root)
     }
 
     private fun prefs() = getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)
