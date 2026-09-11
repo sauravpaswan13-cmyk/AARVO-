@@ -1,5 +1,6 @@
 package com.aarvo
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Color
@@ -18,7 +19,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 
-private class AarvoSplashLogoView(context: android.content.Context) : View(context) {
+private class AarvoSplashLogoView(context: Context) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 22f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -47,6 +48,17 @@ class SplashActivity : ComponentActivity() {
         val loading = TextView(this).apply { text="Loading your world..."; setTextColor(Color.WHITE); textSize=14f; gravity=Gravity.CENTER; alpha=.92f; setPadding(0,12,0,0) }
         root.addView(loading, LinearLayout.LayoutParams(-1,-2))
         setContentView(root)
-        Handler(Looper.getMainLooper()).postDelayed({ startActivity(Intent(this, WelcomeActivity::class.java)); finish() },1500L)
+
+        // AARVO opens directly into shopping without requiring verification.
+        // Login/OTP remains available from Account and is required at purchase time.
+        Handler(Looper.getMainLooper()).postDelayed({
+            getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).edit()
+                .putBoolean("onboarded", true)
+                .putBoolean("signed_in", false)
+                .putBoolean("guest_mode", true)
+                .apply()
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
+        }, 1500L)
     }
 }
