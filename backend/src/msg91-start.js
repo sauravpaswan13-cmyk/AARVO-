@@ -6,38 +6,35 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const serverPath = path.join(here, 'server.js');
 let source = await fs.readFile(serverPath, 'utf8');
 
-if (!source.includes("import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';")) {
-  source = source.replace(
-    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';",
-    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\nimport { registerMsg91WidgetAuth } from './msg91-widget-auth.js';"
-  );
+const imports = [
+  "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';",
+  "import { registerMarketplaceCompletion } from './marketplace-completion.js';",
+  "import { registerCartCompletion } from './cart-completion.js';",
+  "import { registerSettlementCompletion } from './settlement-completion.js';",
+  "import { registerSellerOnboarding } from './seller-onboarding.js';",
+  "import { enforceOrderActionReasons } from './order-action-reasons.js';"
+];
+const cryptoImport = "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';";
+for (const statement of imports) {
+  if (!source.includes(statement)) {
+    source = source.replace(cryptoImport, `${cryptoImport}\n${statement}`);
+  }
 }
 
 if (!source.includes("POST /v1/auth/verify-msg91-token DIRECT")) {
-  const route = "\nawait registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone }); // POST /v1/auth/verify-msg91-token DIRECT\n";
-  const listenIndex = source.indexOf('app.listen(');
-  if (listenIndex >= 0) source = source.slice(0, listenIndex) + route + source.slice(listenIndex);
-}
-
-if (!source.includes("registerSellerOnboarding")) {
   source = source.replace(
-    "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';",
-    "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';\nimport { registerSellerOnboarding } from './seller-onboarding.js';"
+    "app.listen(PORT, '0.0.0.0', () => {",
+    "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone }); // POST /v1/auth/verify-msg91-token DIRECT\n" +
+    "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\n" +
+    "await registerCartCompletion({ app, pool, requireRole, audit });\n" +
+    "await registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\n" +
+    "await registerSellerOnboarding({ app, pool, requireRole, audit }); // SELLER ONBOARDING API\n" +
+    "app.listen(PORT, '0.0.0.0', () => {"
   );
-  const route = "\nawait registerSellerOnboarding({ app, pool, requireRole, audit }); // SELLER ONBOARDING API\n";
-  const listenIndex = source.indexOf('app.listen(');
-  if (listenIndex >= 0) source = source.slice(0, listenIndex) + route + source.slice(listenIndex);
 }
 
 if (!source.includes("order-action-reasons.js")) {
-  source = source.replace(
-    "import { registerSellerOnboarding } from './seller-onboarding.js';",
-    "import { registerSellerOnboarding } from './seller-onboarding.js';\nimport { enforceOrderActionReasons } from './order-action-reasons.js';"
-  );
-  source = source.replace(
-    "const route = \"\\nawait registerSellerOnboarding({ app, pool, requireRole, audit }); // SELLER ONBOARDING API\\n\";",
-    "source = enforceOrderActionReasons(source);\n  const route = \"\\nawait registerSellerOnboarding({ app, pool, requireRole, audit }); // SELLER ONBOARDING API\\n\";"
-  );
+  source = enforceOrderActionReasons(source);
 }
 
 await fs.writeFile(serverPath, source, 'utf8');
