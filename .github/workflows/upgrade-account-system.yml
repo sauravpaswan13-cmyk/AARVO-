@@ -20,7 +20,6 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           path = Path('app/src/main/java/com/aarvo/MainActivity.kt')
           text = path.read_text()
@@ -29,158 +28,26 @@ jobs:
           if start < 0 or end < 0:
               raise SystemExit('AccountScreen boundaries not found')
 
-          new_block = r'''@Composable private fun AccountScreen(padding: PaddingValues, userName: String, role: String, api: AarvoApiClient, activity: MainActivity, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit) {
-    var section by remember { mutableStateOf("account") }
-    var dialog by remember { mutableStateOf<String?>(null) }
-    val settings = remember { activity.getSharedPreferences("aarvo_account_settings", Context.MODE_PRIVATE) }
-    var notifications by remember { mutableStateOf(settings.getBoolean("notifications", true)) }
-    var offers by remember { mutableStateOf(settings.getBoolean("offers", true)) }
-    var language by remember { mutableStateOf(settings.getString("language", "English") ?: "English") }
+          block = text[start:end]
+          # The wishlist item must not silently open/close an unrelated dialog.
+          old = 'item { AccountOption("❤️", "Wishlist", "Your saved products") { dialog = "coupons"; dialog = null } }'
+          new = 'item { AccountOption("❤️", "Wishlist", "Your saved products") { dialog = "wishlist" } }'
+          if old in block:
+              block = block.replace(old, new, 1)
+          elif 'AccountOption("❤️", "Wishlist", "Your saved products") { dialog = "wishlist" }' not in block:
+              raise SystemExit('Wishlist entry not found in AccountScreen')
 
-    when (section) {
-        "orders" -> OrdersScreen(padding, api) { section = "account" }
-        "seller" -> SellerDashboardScreen(padding, api) { section = "account" }
-        else -> {
-            if (dialog != null) {
-                val title = when (dialog) {
-                    "payments" -> "Payment Methods"
-                    "coupons" -> "Coupons & Offers"
-                    "notifications" -> "Notification Preferences"
-                    "security" -> "Security & Login"
-                    "settings" -> "App Settings"
-                    "help" -> "Help & Support"
-                    "legal" -> "Legal"
-                    "language" -> "Language"
-                    "delete" -> "Delete Account"
-                    "rate" -> "Rate AARVO"
-                    else -> "AARVO"
-                }
-                AlertDialog(
-                    onDismissRequest = { dialog = null },
-                    title = { Text(title) },
-                    text = {
-                        when (dialog) {
-                            "payments" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Your secure payment methods are managed during checkout.")
-                                Text("Cards, UPI and other supported methods are processed by the payment gateway; AARVO does not store raw card details.", style = MaterialTheme.typography.bodySmall)
-                            }
-                            "coupons" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Coupons and promotional offers will appear here when available.")
-                                Text("You can also apply eligible offers during checkout.", style = MaterialTheme.typography.bodySmall)
-                            }
-                            "notifications" -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                TextButton(onClick = { notifications = !notifications; settings.edit().putBoolean("notifications", notifications).apply() }, modifier = Modifier.fillMaxWidth()) { Text(if (notifications) "✓ Order & account notifications" else "Order & account notifications") }
-                                TextButton(onClick = { offers = !offers; settings.edit().putBoolean("offers", offers).apply() }, modifier = Modifier.fillMaxWidth()) { Text(if (offers) "✓ Offers & shopping alerts" else "Offers & shopping alerts") }
-                            }
-                            "security" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Mobile-number OTP is the primary AARVO sign-in verification.")
-                                Button(onClick = { dialog = null; onLogin() }, modifier = Modifier.fillMaxWidth()) { Text("Login / Verify Mobile with OTP") }
-                                Text("Never share an OTP with anyone.", style = MaterialTheme.typography.bodySmall)
-                            }
-                            "settings" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Notifications: ${if (notifications) "On" else "Off"}")
-                                Text("Offers: ${if (offers) "On" else "Off"}")
-                                Text("Language: $language")
-                                TextButton(onClick = { dialog = "language" }) { Text("Change language") }
-                            }
-                            "language" -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                listOf("English", "हिन्दी").forEach { item ->
-                                    TextButton(onClick = { language = item; settings.edit().putString("language", item).apply(); dialog = null }, modifier = Modifier.fillMaxWidth()) { Text(if (language == item) "✓ $item" else item) }
-                                }
-                            }
-                            "help" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("AARVO Help Centre")
-                                Text("For order, payment, return and account issues, use My Orders or contact AARVO support.")
-                                Text("Customer support integration can be connected to the production support channel next.", style = MaterialTheme.typography.bodySmall)
-                            }
-                            "legal" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Terms of Service")
-                                Text("Privacy Policy")
-                                Text("Return & Refund Policy")
-                                Text("These legal pages will be connected to the final production URLs before release.", style = MaterialTheme.typography.bodySmall)
-                            }
-                            "rate" -> Text("Thank you for using AARVO. App rating will open the Play Store listing after the production package is published.")
-                            "delete" -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Account deletion is a permanent action.")
-                                Text("The production delete-account API must be enabled before this button can perform a destructive operation.", style = MaterialTheme.typography.bodySmall)
-                            }
-                            else -> Text("AARVO account settings")
-                        }
-                    },
-                    confirmButton = { TextButton(onClick = { dialog = null }) { Text("Done") } }
-                )
-            }
+          # Show a useful state instead of a no-op when the Account shortcut is tapped.
+          title_marker = 'val title = when (dialog) {'
+          if title_marker in block and '"wishlist" -> "Wishlist"' not in block:
+              block = block.replace(title_marker, title_marker + '\n                    "wishlist" -> "Wishlist"', 1)
+          text_marker = 'else -> Text("AARVO account settings")'
+          wishlist_text = '"wishlist" -> Text("Your saved products are available from the Wishlist tab in the AARVO bottom navigation.\nTap the heart icon to view, save or remove products.")\n                            '
+          if wishlist_text.strip() not in block and text_marker in block:
+              block = block.replace(text_marker, wishlist_text + text_marker, 1)
 
-            LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                item {
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("My Account", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                            Text(if (guestMode) "Browse AARVO without verification" else userName.ifBlank { "AARVO Customer" }, style = MaterialTheme.typography.titleMedium)
-                            if (!guestMode) Text("Premium shopping • orders • addresses • security", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-
-                if (guestMode) {
-                    item { Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text("Login / Sign Up with OTP") } }
-                    item { Text("You can browse and shop products first. Login is required when you purchase.", style = MaterialTheme.typography.bodySmall) }
-                } else {
-                    item { AccountSectionTitle("Your Activity") }
-                    item { AccountOption("📦", "My Orders", "Track orders, view details and returns") { section = "orders" } }
-                    item { AccountOption("❤️", "Wishlist", "Your saved products") { dialog = "coupons"; dialog = null } }
-                    item { AccountOption("📍", "Manage Addresses", "Home, work and other delivery addresses") { activity.startActivity(Intent(activity, AddressBookActivity::class.java)) } }
-
-                    item { AccountSectionTitle("Payments & Shopping") }
-                    item { AccountOption("💳", "Payment Methods", "Secure payment options") { dialog = "payments" } }
-                    item { AccountOption("🎟️", "Coupons & Offers", "Deals and eligible shopping offers") { dialog = "coupons" } }
-
-                    item { AccountSectionTitle("Account Settings") }
-                    item { AccountOption("🔔", "Notifications", "Order updates and offer preferences") { dialog = "notifications" } }
-                    item { AccountOption("🔐", "Security & Login", "Mobile OTP and sign-in security") { dialog = "security" } }
-                    item { AccountOption("⚙️", "App Settings", "Preferences and language") { dialog = "settings" } }
-                    item { AccountOption("🌐", "Language", language) { dialog = "language" } }
-
-                    item { AccountSectionTitle("Help & Information") }
-                    item { AccountOption("❓", "Help Centre", "Orders, payments, returns and account help") { dialog = "help" } }
-                    item { AccountOption("📞", "Contact Us", "Get help from AARVO support") { dialog = "help" } }
-                    item { AccountOption("📄", "Terms & Privacy", "Terms, privacy and refund policies") { dialog = "legal" } }
-                    item { AccountOption("⭐", "Rate AARVO", "Tell us what you think") { dialog = "rate" } }
-
-                    item { AccountSectionTitle("Seller") }
-                    item { AccountOption("🏪", "Become a Seller", "Start selling on AARVO") { activity.startActivity(Intent(activity, SellerAccountActivity::class.java)) } }
-                    if (role == "SELLER") item { AccountOption("📊", "Seller Dashboard", "Products, inventory and seller orders") { section = "seller" } }
-
-                    item { AccountSectionTitle("Account Actions") }
-                    item { TextButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) { Text("Log out") } }
-                    item { TextButton(onClick = { dialog = "delete" }, modifier = Modifier.fillMaxWidth()) { Text("Delete Account") } }
-                    item { Text("AARVO • Secure marketplace", style = MaterialTheme.typography.bodySmall) }
-                }
-            }
-        }
-    }
-}
-
-@Composable private fun AccountSectionTitle(title: String) { Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp)) }
-
-@Composable private fun AccountOption(icon: String, title: String, subtitle: String, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(14.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(icon, style = MaterialTheme.typography.titleLarge)
-                Column(Modifier.weight(1f)) {
-                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(subtitle, style = MaterialTheme.typography.bodySmall)
-                }
-                Text("›", style = MaterialTheme.typography.titleLarge)
-            }
-        }
-    }
-}
-
-'''
-          path.write_text(text[:start] + new_block + text[end:])
-          print('AccountScreen upgraded')
+          path.write_text(text[:start] + block + text[end:])
+          print('Wishlist entry fixed')
           PY
 
       - name: Commit account upgrade
@@ -191,6 +58,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "feat(account): add premium customer account center"
+            git commit -m "fix(account): make wishlist entry actionable"
             git push
           fi
