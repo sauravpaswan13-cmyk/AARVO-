@@ -9,6 +9,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Shader
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -44,7 +45,7 @@ class WelcomeActivity : ComponentActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(28, 24, 28, 30)
+            setPadding(28, 24, 28, 26)
             setBackgroundColor(Color.WHITE)
         }
         root.addView(AarvoMarkView(this), LinearLayout.LayoutParams(112, 82).apply { gravity = Gravity.CENTER_HORIZONTAL })
@@ -55,23 +56,23 @@ class WelcomeActivity : ComponentActivity() {
             text = "Your One Stop Shopping Destination"; textSize = 14f; setTextColor(Color.rgb(80,78,105)); gravity = Gravity.CENTER; setPadding(0, 5, 0, 4)
         }, LinearLayout.LayoutParams(-1, -2))
         root.addView(ShoppingBagsView(this), LinearLayout.LayoutParams(250, 145).apply { gravity = Gravity.CENTER_HORIZONTAL })
-        root.addView(View(this), LinearLayout.LayoutParams(1, 14))
+        root.addView(View(this), LinearLayout.LayoutParams(1, 10))
 
-        val enter = Button(this).apply {
-            text = "Enter AARVO"; textSize = 16f; setTypeface(typeface, Typeface.BOLD); setTextColor(Color.WHITE); isAllCaps = false; minHeight = 56; setPadding(18, 0, 18, 0)
-            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 18f; setColor(Color.rgb(83,34,211)) }
+        val guest = Button(this).apply {
+            text = "Continue as Guest"; textSize = 16f; setTypeface(typeface, Typeface.BOLD); setTextColor(Color.WHITE); isAllCaps = false; minHeight = 56; setPadding(18, 0, 18, 0)
+            background = GradientDrawable().apply { cornerRadius = 18f; setColor(Color.rgb(83,34,211)) }
             setOnClickListener { enterApp() }
         }
-        root.addView(enter, LinearLayout.LayoutParams(-1, 56).apply { bottomMargin = 12 })
+        root.addView(guest, LinearLayout.LayoutParams(-1, 56).apply { bottomMargin = 10 })
 
         val login = Button(this).apply {
             text = "Login / Sign Up"; textSize = 16f; setTypeface(typeface, Typeface.BOLD); setTextColor(Color.rgb(65,35,170)); isAllCaps = false; minHeight = 56; setPadding(18, 0, 18, 0)
-            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = 18f; setColor(Color.WHITE); setStroke(3, Color.rgb(105,56,222)) }
+            background = GradientDrawable().apply { cornerRadius = 18f; setColor(Color.WHITE); setStroke(3, Color.rgb(105,56,222)) }
             setOnClickListener { openLogin() }
         }
-        root.addView(login, LinearLayout.LayoutParams(-1, 56).apply { bottomMargin = 12 })
+        root.addView(login, LinearLayout.LayoutParams(-1, 56).apply { bottomMargin = 9 })
         root.addView(TextView(this).apply {
-            text = "Browse freely • Login only when you need account features or checkout"; textSize = 12f; setTextColor(Color.rgb(102,96,112)); gravity = Gravity.CENTER; setPadding(4, 0, 4, 0)
+            text = "Guest browsing • Login when you want to buy or use account features"; textSize = 12f; setTextColor(Color.rgb(102,96,112)); gravity = Gravity.CENTER; setPadding(4, 0, 4, 0)
         }, LinearLayout.LayoutParams(-1, -2))
         setContentView(root)
     }
