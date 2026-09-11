@@ -41,19 +41,86 @@ private class ShoppingBagsView(context: Context) : View(context) {
 class WelcomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_HORIZONTAL;setPadding(28,30,28,24);setBackgroundColor(Color.WHITE)}
-        root.addView(AarvoMarkView(this),LinearLayout.LayoutParams(112,92).apply{gravity=Gravity.CENTER_HORIZONTAL})
-        root.addView(TextView(this).apply{text="AARVO";textSize=30f;setTextColor(Color.rgb(42,40,125));gravity=Gravity.CENTER;setTypeface(typeface,Typeface.BOLD);letterSpacing=.03f},LinearLayout.LayoutParams(-1,-2))
-        root.addView(TextView(this).apply{text="Your One Stop Shopping Destination";textSize=14f;setTextColor(Color.rgb(80,78,105));gravity=Gravity.CENTER;setPadding(0,5,0,4)},LinearLayout.LayoutParams(-1,-2))
-        root.addView(ShoppingBagsView(this),LinearLayout.LayoutParams(250,155).apply{gravity=Gravity.CENTER_HORIZONTAL})
-        val enter=Button(this).apply{text="Enter AARVO";textSize=16f;setTypeface(typeface,Typeface.BOLD);setTextColor(Color.WHITE);background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=18f;setColor(Color.rgb(83,34,211))};setOnClickListener{enterApp()}}
-        root.addView(enter,LinearLayout.LayoutParams(-1,56).apply{bottomMargin=12})
-        val login=Button(this).apply{text="Login / Sign Up";textSize=16f;setTypeface(typeface,Typeface.BOLD);setTextColor(Color.rgb(65,35,170));background=android.graphics.drawable.GradientDrawable().apply{cornerRadius=18f;setColor(Color.WHITE);setStroke(3,Color.rgb(105,56,222))};setOnClickListener{openLogin()}}
-        root.addView(login,LinearLayout.LayoutParams(-1,56).apply{bottomMargin=10})
-        root.addView(TextView(this).apply{text="Browse products freely • Login when you are ready to buy";textSize=12f;setTextColor(Color.rgb(102,96,112));gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2))
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(28, 24, 28, 30)
+            setBackgroundColor(Color.WHITE)
+        }
+
+        root.addView(AarvoMarkView(this), LinearLayout.LayoutParams(112, 82).apply { gravity = Gravity.CENTER_HORIZONTAL })
+        root.addView(TextView(this).apply {
+            text = "AARVO"
+            textSize = 30f
+            setTextColor(Color.rgb(42,40,125))
+            gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.BOLD)
+            letterSpacing = .03f
+        }, LinearLayout.LayoutParams(-1, -2))
+        root.addView(TextView(this).apply {
+            text = "Your One Stop Shopping Destination"
+            textSize = 14f
+            setTextColor(Color.rgb(80,78,105))
+            gravity = Gravity.CENTER
+            setPadding(0, 5, 0, 4)
+        }, LinearLayout.LayoutParams(-1, -2))
+        root.addView(ShoppingBagsView(this), LinearLayout.LayoutParams(250, 145).apply { gravity = Gravity.CENTER_HORIZONTAL })
+
+        // Keep the entry actions clearly separated from the artwork so the labels never look pushed into the top area.
+        root.addView(View(this), LinearLayout.LayoutParams(1, 14))
+
+        val enter = Button(this).apply {
+            text = "Enter AARVO"
+            textSize = 16f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            isAllCaps = false
+            minHeight = 56
+            setPadding(18, 0, 18, 0)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 18f
+                setColor(Color.rgb(83,34,211))
+            }
+            setOnClickListener { enterApp() }
+        }
+        root.addView(enter, LinearLayout.LayoutParams(-1, 56).apply { bottomMargin = 12 })
+
+        val login = Button(this).apply {
+            text = "Login / Sign Up"
+            textSize = 16f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.rgb(65,35,170))
+            isAllCaps = false
+            minHeight = 56
+            setPadding(18, 0, 18, 0)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 18f
+                setColor(Color.WHITE)
+                setStroke(3, Color.rgb(105,56,222))
+            }
+            setOnClickListener { openLogin() }
+        }
+        root.addView(login, LinearLayout.LayoutParams(-1, 56).apply { bottomMargin = 12 })
+
+        root.addView(TextView(this).apply {
+            text = "Browse products freely • Login when you are ready to buy"
+            textSize = 12f
+            setTextColor(Color.rgb(102,96,112))
+            gravity = Gravity.CENTER
+            setPadding(4, 0, 4, 0)
+        }, LinearLayout.LayoutParams(-1, -2))
+
         setContentView(root)
     }
-    private fun prefs()=getSharedPreferences("aarvo_prefs",Context.MODE_PRIVATE)
-    private fun enterApp(){prefs().edit().putBoolean("onboarded",true).putBoolean("guest_mode",true).putBoolean("signed_in",false).apply();startActivity(Intent(this,MainActivity::class.java));finish()}
-    private fun openLogin(){prefs().edit().putBoolean("onboarded",true).putBoolean("guest_mode",false).apply();startActivity(Intent(this,PhoneAuthActivity::class.java));finish()}
+
+    private fun prefs() = getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)
+    private fun enterApp() {
+        prefs().edit().putBoolean("onboarded",true).putBoolean("guest_mode",true).putBoolean("signed_in",false).apply()
+        startActivity(Intent(this,MainActivity::class.java)); finish()
+    }
+    private fun openLogin() {
+        prefs().edit().putBoolean("onboarded",true).putBoolean("guest_mode",false).apply()
+        startActivity(Intent(this,PhoneAuthActivity::class.java)); finish()
+    }
 }
