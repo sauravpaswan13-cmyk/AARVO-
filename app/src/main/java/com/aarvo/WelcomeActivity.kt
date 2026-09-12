@@ -28,7 +28,7 @@ class WelcomeActivity : ComponentActivity() {
             setBackgroundColor(Color.WHITE)
         }
 
-        // Reference-style AARVO signature: logo + wordmark.
+        // Premium AARVO signature: logo + wordmark.
         val brand = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -64,8 +64,9 @@ class WelcomeActivity : ComponentActivity() {
             bottomMargin = 2
         })
 
-        val guest = Button(this).apply {
-            text = "👤   Continue as Guest"
+        // Entry does not require verification. Login remains available inside the app.
+        val continueShopping = Button(this).apply {
+            text = "🛍   Continue Shopping"
             textSize = 18f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.WHITE)
@@ -77,7 +78,7 @@ class WelcomeActivity : ComponentActivity() {
             setPadding(12, 0, 12, 0)
             setOnClickListener { enterApp() }
         }
-        root.addView(guest, LinearLayout.LayoutParams(-1, 72).apply { bottomMargin = 14 })
+        root.addView(continueShopping, LinearLayout.LayoutParams(-1, 72).apply { bottomMargin = 14 })
 
         val login = Button(this).apply {
             text = "🔒   Login / Sign Up"
@@ -96,8 +97,8 @@ class WelcomeActivity : ComponentActivity() {
         root.addView(login, LinearLayout.LayoutParams(-1, 72).apply { bottomMargin = 12 })
 
         root.addView(TextView(this).apply {
-            text = "Explore as Guest"
-            textSize = 17f
+            text = "Shop freely now • Login whenever you need"
+            textSize = 14f
             setTextColor(Color.rgb(81, 34, 201))
             gravity = Gravity.CENTER
             setTypeface(typeface, Typeface.NORMAL)
@@ -147,7 +148,6 @@ class WelcomeActivity : ComponentActivity() {
             val cx = w / 2f
             val base = h * .86f
 
-            // soft backdrop
             paint.style = Paint.Style.FILL
             paint.color = Color.rgb(248, 247, 255)
             canvas.drawOval(cx - w * .36f, h * .14f, cx + w * .36f, h * .86f, paint)
@@ -156,7 +156,6 @@ class WelcomeActivity : ComponentActivity() {
             drawBag(canvas, cx + w * .02f, base - 12, w * .25f, h * .55f, Color.rgb(241, 22, 117), Color.rgb(255, 86, 150), true)
             drawBag(canvas, cx + w * .24f, base - 5, w * .19f, h * .44f, Color.rgb(82, 25, 210), Color.rgb(124, 66, 240), true)
 
-            // decorative shopping icons
             paint.color = Color.rgb(245, 35, 105)
             canvas.drawCircle(cx - w * .34f, h * .40f, 28f, paint)
             paint.color = Color.WHITE
