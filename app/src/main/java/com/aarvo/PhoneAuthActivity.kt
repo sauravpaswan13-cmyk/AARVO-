@@ -34,7 +34,8 @@ import org.json.JSONTokener
 class PhoneAuthActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { PhoneAuthScreen() }
+        val prefillPhone = intent.getStringExtra("prefill_phone").orEmpty()
+        setContent { PhoneAuthScreen(prefillPhone) }
     }
 
     private fun parse(raw: String): Any? = runCatching { JSONTokener(raw.trim()).nextValue() }.getOrNull()
@@ -60,12 +61,7 @@ class PhoneAuthActivity : ComponentActivity() {
                         if (nested != null) return nested
                     }
                 }
-                is JSONArray -> {
-                    for (i in 0 until value.length()) {
-                        val nested = scan(value.opt(i))
-                        if (nested != null) return nested
-                    }
-                }
+                is JSONArray -> for (i in 0 until value.length()) scan(value.opt(i))?.let { return it }
                 is String -> {
                     val candidate = value.trim()
                     if (looksLikeRequestId(candidate)) return candidate
@@ -110,9 +106,9 @@ class PhoneAuthActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun PhoneAuthScreen() {
+    private fun PhoneAuthScreen(prefillPhone: String) {
         val scope = rememberCoroutineScope()
-        var phone by remember { mutableStateOf("") }
+        var phone by remember { mutableStateOf(prefillPhone.filter(Char::isDigit).take(10)) }
         var otp by remember { mutableStateOf("") }
         var reqId by remember { mutableStateOf("") }
         var otpMode by remember { mutableStateOf(false) }
