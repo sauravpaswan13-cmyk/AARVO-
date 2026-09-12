@@ -22,11 +22,10 @@ class WelcomeActivity : ComponentActivity() {
     private val muted = Color.rgb(103, 98, 118)
     private val violet = Color.rgb(91, 33, 214)
     private val magenta = Color.rgb(232, 34, 119)
-    private val orange = Color.rgb(255, 145, 16)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(this, false)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.rgb(248, 246, 252)
         window.navigationBarColor = Color.rgb(248, 246, 252)
 
@@ -37,12 +36,11 @@ class WelcomeActivity : ComponentActivity() {
             setBackgroundColor(Color.rgb(248, 246, 252))
         }
 
-        // Strong premium brand header.
         root.addView(TextView(this).apply {
             text = "AARVO"
             textSize = 42f
             setTextColor(ink)
-            setTypeface(typeface, Typeface.create(Typeface.DEFAULT, Typeface.BOLD))
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             letterSpacing = .10f
             gravity = Gravity.CENTER
         }, LinearLayout.LayoutParams(-1, 62))
@@ -51,7 +49,7 @@ class WelcomeActivity : ComponentActivity() {
             text = "SHOP  •  DISCOVER  •  LOVE"
             textSize = 11f
             setTextColor(violet)
-            setTypeface(typeface, Typeface.BOLD)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             letterSpacing = .20f
             gravity = Gravity.CENTER
         }, LinearLayout.LayoutParams(-1, 30))
@@ -60,7 +58,7 @@ class WelcomeActivity : ComponentActivity() {
             text = "Everything you want.\nOne premium destination."
             textSize = 27f
             setTextColor(ink)
-            setTypeface(typeface, Typeface.BOLD)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             gravity = Gravity.CENTER
             setPadding(0, 10, 0, 0)
         }, LinearLayout.LayoutParams(-1, 88))
@@ -80,7 +78,7 @@ class WelcomeActivity : ComponentActivity() {
         val continueShopping = Button(this).apply {
             text = "CONTINUE SHOPPING   ›"
             textSize = 16f
-            setTypeface(typeface, Typeface.BOLD)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             setTextColor(Color.WHITE)
             isAllCaps = false
             background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
@@ -93,7 +91,7 @@ class WelcomeActivity : ComponentActivity() {
         val login = Button(this).apply {
             text = "LOGIN / SIGN UP"
             textSize = 15f
-            setTypeface(typeface, Typeface.BOLD)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
             setTextColor(violet)
             isAllCaps = false
             background = GradientDrawable().apply {
@@ -110,7 +108,7 @@ class WelcomeActivity : ComponentActivity() {
             textSize = 11f
             setTextColor(muted)
             gravity = Gravity.CENTER
-            setTypeface(typeface, Typeface.BOLD)
+            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
         }, LinearLayout.LayoutParams(-1, 30))
 
         setContentView(root)
