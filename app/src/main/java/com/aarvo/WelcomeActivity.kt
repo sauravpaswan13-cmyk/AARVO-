@@ -12,114 +12,106 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.core.view.WindowCompat
 
 class WelcomeActivity : ComponentActivity() {
+    private val ink = Color.rgb(18, 16, 32)
+    private val muted = Color.rgb(103, 98, 118)
+    private val violet = Color.rgb(91, 33, 214)
+    private val magenta = Color.rgb(232, 34, 119)
+    private val orange = Color.rgb(255, 145, 16)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(this, false)
+        window.statusBarColor = Color.rgb(248, 246, 252)
+        window.navigationBarColor = Color.rgb(248, 246, 252)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(30, 30, 30, 22)
-            setBackgroundColor(Color.WHITE)
+            setPadding(24, 44, 24, 20)
+            setBackgroundColor(Color.rgb(248, 246, 252))
         }
 
-        // Premium AARVO signature: logo + wordmark.
-        val brand = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
-        val logo = ImageView(this).apply {
-            setImageResource(R.drawable.aarvo_logo)
-            scaleType = ImageView.ScaleType.CENTER_INSIDE
-            contentDescription = "AARVO logo"
-        }
-        brand.addView(logo, LinearLayout.LayoutParams(76, 76))
-        brand.addView(TextView(this).apply {
+        // Strong premium brand header.
+        root.addView(TextView(this).apply {
             text = "AARVO"
-            textSize = 36f
-            setTextColor(Color.rgb(31, 27, 110))
-            setTypeface(typeface, Typeface.BOLD)
-            letterSpacing = .035f
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(8, 0, 0, 0)
-        }, LinearLayout.LayoutParams(-2, 76))
-        root.addView(brand)
+            textSize = 42f
+            setTextColor(ink)
+            setTypeface(typeface, Typeface.create(Typeface.DEFAULT, Typeface.BOLD))
+            letterSpacing = .10f
+            gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(-1, 62))
 
         root.addView(TextView(this).apply {
-            text = "Your One Stop Shopping Destination"
-            textSize = 16f
-            setTextColor(Color.rgb(28, 32, 70))
+            text = "SHOP  •  DISCOVER  •  LOVE"
+            textSize = 11f
+            setTextColor(violet)
+            setTypeface(typeface, Typeface.BOLD)
+            letterSpacing = .20f
             gravity = Gravity.CENTER
-            setPadding(0, 8, 0, 0)
-        }, LinearLayout.LayoutParams(-1, 48))
+        }, LinearLayout.LayoutParams(-1, 30))
 
-        // Large clean shopping-bag artwork, matching the supplied reference composition.
-        root.addView(ShoppingBagsView(this), LinearLayout.LayoutParams(-1, 390).apply {
-            topMargin = 12
-            bottomMargin = 2
+        root.addView(TextView(this).apply {
+            text = "Everything you want.\nOne premium destination."
+            textSize = 27f
+            setTextColor(ink)
+            setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setPadding(0, 10, 0, 0)
+        }, LinearLayout.LayoutParams(-1, 88))
+
+        root.addView(ShoppingBagsView(this), LinearLayout.LayoutParams(-1, 360).apply {
+            topMargin = 8
+            bottomMargin = 8
         })
 
-        // Entry does not require verification. Login remains available inside the app.
+        root.addView(TextView(this).apply {
+            text = "No verification needed to start shopping"
+            textSize = 14f
+            setTextColor(muted)
+            gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(-1, 34))
+
         val continueShopping = Button(this).apply {
-            text = "🛍   Continue Shopping"
-            textSize = 18f
+            text = "CONTINUE SHOPPING   ›"
+            textSize = 16f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.WHITE)
             isAllCaps = false
-            background = GradientDrawable().apply {
-                cornerRadius = 28f
-                setColor(Color.rgb(96, 31, 235))
-            }
-            setPadding(12, 0, 12, 0)
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(violet, magenta)).apply { cornerRadius = 30f }
+            elevation = 8f
             setOnClickListener { enterApp() }
         }
-        root.addView(continueShopping, LinearLayout.LayoutParams(-1, 72).apply { bottomMargin = 14 })
+        root.addView(continueShopping, LinearLayout.LayoutParams(-1, 62).apply { topMargin = 10; bottomMargin = 10 })
 
         val login = Button(this).apply {
-            text = "🔒   Login / Sign Up"
-            textSize = 18f
+            text = "LOGIN / SIGN UP"
+            textSize = 15f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.rgb(76, 34, 196))
+            setTextColor(violet)
             isAllCaps = false
             background = GradientDrawable().apply {
-                cornerRadius = 28f
-                setColor(Color.WHITE)
-                setStroke(3, Color.rgb(102, 43, 230))
+                cornerRadius = 30f
+                setColor(Color.TRANSPARENT)
+                setStroke(2, violet)
             }
-            setPadding(12, 0, 12, 0)
             setOnClickListener { openLogin() }
         }
-        root.addView(login, LinearLayout.LayoutParams(-1, 72).apply { bottomMargin = 12 })
+        root.addView(login, LinearLayout.LayoutParams(-1, 58).apply { bottomMargin = 8 })
 
         root.addView(TextView(this).apply {
-            text = "Shop freely now • Login whenever you need"
-            textSize = 14f
-            setTextColor(Color.rgb(81, 34, 201))
+            text = "Secure shopping  •  Fast delivery  •  Easy returns"
+            textSize = 11f
+            setTextColor(muted)
             gravity = Gravity.CENTER
-            setTypeface(typeface, Typeface.NORMAL)
-        }, LinearLayout.LayoutParams(-1, 42))
-
-        val features = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, 12, 0, 0)
-        }
-        val items = listOf("✓\nSecure\nShopping", "▣\nFast\nDelivery", "♧\n24/7\nSupport", "☆\nBest\nPrices")
-        items.forEach { item ->
-            features.addView(TextView(this).apply {
-                text = item
-                textSize = 12f
-                setTextColor(Color.rgb(35, 31, 103))
-                gravity = Gravity.CENTER
-                setTypeface(typeface, Typeface.NORMAL)
-            }, LinearLayout.LayoutParams(0, 82, 1f))
-        }
-        root.addView(features, LinearLayout.LayoutParams(-1, 92))
+            setTypeface(typeface, Typeface.BOLD)
+        }, LinearLayout.LayoutParams(-1, 30))
 
         setContentView(root)
     }
@@ -149,52 +141,54 @@ class WelcomeActivity : ComponentActivity() {
             val base = h * .86f
 
             paint.style = Paint.Style.FILL
-            paint.color = Color.rgb(248, 247, 255)
-            canvas.drawOval(cx - w * .36f, h * .14f, cx + w * .36f, h * .86f, paint)
+            paint.color = Color.rgb(237, 232, 248)
+            canvas.drawOval(cx - w * .39f, h * .08f, cx + w * .39f, h * .91f, paint)
 
-            drawBag(canvas, cx - w * .23f, base - 18, w * .27f, h * .52f, Color.rgb(255, 180, 10), Color.rgb(255, 222, 60), true)
-            drawBag(canvas, cx + w * .02f, base - 12, w * .25f, h * .55f, Color.rgb(241, 22, 117), Color.rgb(255, 86, 150), true)
-            drawBag(canvas, cx + w * .24f, base - 5, w * .19f, h * .44f, Color.rgb(82, 25, 210), Color.rgb(124, 66, 240), true)
+            drawBag(canvas, cx - w * .22f, base, w * .28f, h * .52f, Color.rgb(255, 159, 12), Color.rgb(255, 198, 43))
+            drawBag(canvas, cx + w * .02f, base + 4, w * .27f, h * .57f, Color.rgb(232, 34, 119), Color.rgb(255, 73, 145))
+            drawBag(canvas, cx + w * .25f, base + 8, w * .20f, h * .46f, Color.rgb(91, 33, 214), Color.rgb(122, 66, 238))
 
-            paint.color = Color.rgb(245, 35, 105)
-            canvas.drawCircle(cx - w * .34f, h * .40f, 28f, paint)
+            paint.color = magenta()
+            canvas.drawCircle(cx - w * .34f, h * .34f, 30f, paint)
             paint.color = Color.WHITE
-            paint.textSize = 32f
+            paint.textSize = 30f
             paint.typeface = Typeface.DEFAULT_BOLD
-            canvas.drawText("%", cx - w * .34f - 15, h * .40f + 11, paint)
+            canvas.drawText("%", cx - w * .34f - 15, h * .34f + 10, paint)
 
-            paint.color = Color.rgb(111, 58, 231)
-            canvas.drawRoundRect(cx + w * .32f - 35, h * .32f, cx + w * .32f + 35, h * .32f + 70, 18f, 18f, paint)
+            paint.color = violet()
+            canvas.drawRoundRect(cx + w * .32f - 34, h * .23f, cx + w * .32f + 34, h * .23f + 68, 18f, 18f, paint)
             paint.color = Color.WHITE
             paint.textSize = 34f
-            canvas.drawText("♡", cx + w * .32f - 18, h * .32f + 45, paint)
+            canvas.drawText("♡", cx + w * .32f - 18, h * .23f + 45, paint)
         }
 
-        private fun drawBag(canvas: Canvas, x: Float, bottom: Float, bagW: Float, bagH: Float, body: Int, top: Int, handle: Boolean) {
+        private fun violet() = Color.rgb(91, 33, 214)
+        private fun magenta() = Color.rgb(232, 34, 119)
+
+        private fun drawBag(canvas: Canvas, x: Float, bottom: Float, bagW: Float, bagH: Float, body: Int, top: Int) {
             val left = x - bagW / 2f
             val right = x + bagW / 2f
             val topY = bottom - bagH
             paint.style = Paint.Style.FILL
             paint.color = body
-            canvas.drawRoundRect(left, topY + 28, right, bottom, 10f, 10f, paint)
+            canvas.drawRoundRect(left, topY + 30, right, bottom, 14f, 14f, paint)
 
             paint.color = top
-            canvas.drawRect(left, topY + 28, right, topY + 58, paint)
-            paint.color = Color.argb(35, 255, 255, 255)
-            canvas.drawRect(left + bagW * .18f, topY + 28, left + bagW * .25f, bottom - 5, paint)
-            canvas.drawRect(left + bagW * .52f, topY + 28, left + bagW * .59f, bottom - 5, paint)
+            canvas.drawRect(left, topY + 30, right, topY + 58, paint)
 
-            if (handle) {
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 10f
-                paint.strokeCap = Paint.Cap.ROUND
-                paint.color = top
-                val path = Path()
-                path.moveTo(x - bagW * .28f, topY + 38)
-                path.cubicTo(x - bagW * .26f, topY - 65, x + bagW * .26f, topY - 65, x + bagW * .28f, topY + 38)
-                canvas.drawPath(path, paint)
-                paint.style = Paint.Style.FILL
-            }
+            paint.color = Color.argb(42, 255, 255, 255)
+            canvas.drawRect(left + bagW * .18f, topY + 30, left + bagW * .24f, bottom - 6, paint)
+            canvas.drawRect(left + bagW * .52f, topY + 30, left + bagW * .58f, bottom - 6, paint)
+
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 9f
+            paint.strokeCap = Paint.Cap.ROUND
+            paint.color = top
+            val path = Path()
+            path.moveTo(x - bagW * .28f, topY + 39)
+            path.cubicTo(x - bagW * .26f, topY - 62, x + bagW * .26f, topY - 62, x + bagW * .28f, topY + 39)
+            canvas.drawPath(path, paint)
+            paint.style = Paint.Style.FILL
         }
     }
 }
