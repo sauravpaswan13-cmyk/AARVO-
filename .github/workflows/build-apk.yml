@@ -25,6 +25,9 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Apply reference clone UI
+        run: python3 scripts/apply_reference_clone.py
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -71,13 +74,13 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: AARVO-debug-apk
+          name: AARVO-reference-clone-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
       - name: Upload release AAB
         uses: actions/upload-artifact@v4
         with:
-          name: AARVO-release-aab-unsigned
+          name: AARVO-reference-clone-release-aab-unsigned
           path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
