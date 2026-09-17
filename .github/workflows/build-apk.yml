@@ -83,3 +83,5 @@ jobs:
           name: AARVO-mobile-entry-release-aab-unsigned
           path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
+
+      # Keep the Android SDK setup limited to packages that still exist on current runners.
