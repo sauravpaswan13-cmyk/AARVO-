@@ -123,7 +123,7 @@ account = r'''@Composable private fun AccountScreen(padding: PaddingValues, user
 }
 
 @Composable private fun AccountRow(icon: String, title: String, subtitle: String, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), onClick = onClick) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(icon, fontSize = 22.sp)
             Spacer(Modifier.size(12.dp))
