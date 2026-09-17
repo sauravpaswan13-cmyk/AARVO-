@@ -130,10 +130,11 @@ class PhoneAuthActivity : ComponentActivity() {
         }
 
         fun sendOtp() {
-            error = ""; otp = ""; reqId = ""; loading = true; otpMode = false
+            error = ""; otp = ""; reqId = ""; loading = true
+            if (initialPhone.length != 10) otpMode = false
             scope.launch {
                 try {
-                    val normalized = phone.filter(Char::isDigit).takeLast(10)
+                    val normalized = phone.filter(Char::isDigit).take(10)
                     if (normalized.length != 10) throw IllegalArgumentException("Enter a valid 10-digit mobile number.")
                     if (widgetId.isBlank() || widgetToken.isBlank()) throw IllegalStateException("MSG91 OTP is not configured in this build.")
                     val result = withTimeout(15000) {
