@@ -1,0 +1,15 @@
+name: AARVO Build Trigger
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm build trigger
+        run: echo "AARVO build trigger active for main"
