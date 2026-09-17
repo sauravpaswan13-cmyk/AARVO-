@@ -20,37 +20,75 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 
 private class AarvoSplashLogoView(context: Context) : View(context) {
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 22f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 18f
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val w = width.toFloat(); val h = height.toFloat()
-        paint.shader = LinearGradient(0f, h, w, 0f, intArrayOf(Color.rgb(255,174,0), Color.rgb(255,104,31), Color.rgb(235,38,111), Color.rgb(93,40,205)), null, Shader.TileMode.CLAMP)
-        val a = Path().apply { moveTo(w*0.20f,h*0.82f); lineTo(w*0.50f,h*0.12f); lineTo(w*0.82f,h*0.82f) }
+        val w = width.toFloat()
+        val h = height.toFloat()
+        paint.shader = LinearGradient(0f, h, w, 0f, Color.rgb(255, 226, 111), Color.rgb(255, 177, 0), Shader.TileMode.CLAMP)
+        val a = Path().apply {
+            moveTo(w * .20f, h * .82f)
+            lineTo(w * .50f, h * .12f)
+            lineTo(w * .82f, h * .82f)
+        }
         canvas.drawPath(a, paint)
-        paint.style = Paint.Style.FILL; paint.shader = null; paint.color = Color.WHITE
-        canvas.drawCircle(w*0.50f,h*0.48f,w*0.09f,paint)
-        paint.style = Paint.Style.STROKE; paint.shader = LinearGradient(0f, 0f, w, h, Color.rgb(255,186,0), Color.rgb(255,57,126), Shader.TileMode.CLAMP); paint.strokeWidth = 16f
-        canvas.drawLine(w*0.31f,h*0.55f,w*0.69f,h*0.55f,paint)
+        paint.style = Paint.Style.FILL
+        paint.shader = null
+        paint.color = Color.WHITE
+        canvas.drawCircle(w * .50f, h * .48f, w * .075f, paint)
+        paint.style = Paint.Style.STROKE
+        paint.shader = LinearGradient(0f, 0f, w, h, Color.rgb(255, 231, 126), Color.rgb(255, 178, 0), Shader.TileMode.CLAMP)
+        paint.strokeWidth = 13f
+        canvas.drawLine(w * .31f, h * .55f, w * .69f, h * .55f, paint)
     }
 }
 
 class SplashActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(32,32,32,32); setBackgroundColor(Color.rgb(39,0,116)) }
-        root.addView(AarvoSplashLogoView(this), LinearLayout.LayoutParams(170,150).apply { gravity = Gravity.CENTER })
-        val title = TextView(this).apply { text = "AARVO"; setTextColor(Color.WHITE); textSize = 44f; gravity = Gravity.CENTER; setTypeface(typeface, Typeface.BOLD) }
-        root.addView(title, LinearLayout.LayoutParams(-1,-2))
-        val tagline = TextView(this).apply { text = "Shop Smart  •  Live Better"; setTextColor(Color.WHITE); textSize = 17f; gravity = Gravity.CENTER; setPadding(0,8,0,0) }
-        root.addView(tagline, LinearLayout.LayoutParams(-1,-2))
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(32, 32, 32, 32)
+            setBackgroundColor(Color.rgb(3, 22, 18))
+        }
+        root.addView(AarvoSplashLogoView(this), LinearLayout.LayoutParams(180, 160).apply { gravity = Gravity.CENTER })
+        val title = TextView(this).apply {
+            text = "AARVO"
+            setTextColor(Color.rgb(255, 204, 54))
+            textSize = 44f
+            gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.BOLD)
+            letterSpacing = .08f
+        }
+        root.addView(title, LinearLayout.LayoutParams(-1, -2))
+        val tagline = TextView(this).apply {
+            text = "BETTER CHOICE  •  BRIGHTER LIFE"
+            setTextColor(Color.WHITE)
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setPadding(0, 10, 0, 0)
+            letterSpacing = .10f
+        }
+        root.addView(tagline, LinearLayout.LayoutParams(-1, -2))
         val progress = ProgressBar(this).apply { isIndeterminate = true }
-        root.addView(progress, LinearLayout.LayoutParams(58,58).apply { gravity=Gravity.CENTER_HORIZONTAL; topMargin=40 })
-        val loading = TextView(this).apply { text="Loading your world..."; setTextColor(Color.WHITE); textSize=14f; gravity=Gravity.CENTER; alpha=.92f; setPadding(0,12,0,0) }
-        root.addView(loading, LinearLayout.LayoutParams(-1,-2))
+        root.addView(progress, LinearLayout.LayoutParams(48, 48).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = 44 })
+        val loading = TextView(this).apply {
+            text = "Preparing your AARVO experience..."
+            setTextColor(Color.rgb(173, 194, 186))
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setPadding(0, 12, 0, 0)
+        }
+        root.addView(loading, LinearLayout.LayoutParams(-1, -2))
         setContentView(root)
 
-        // Show the reference-style Welcome screen after splash.
-        // Users can continue as Guest without verification or choose Login / Sign Up for OTP.
         Handler(Looper.getMainLooper()).postDelayed({
             startActivity(Intent(this, WelcomeActivity::class.java))
             finish()
