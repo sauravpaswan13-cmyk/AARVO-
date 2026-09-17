@@ -108,11 +108,12 @@ class PhoneAuthActivity : ComponentActivity() {
     @Composable
     private fun PhoneAuthScreen(prefillPhone: String) {
         val scope = rememberCoroutineScope()
-        var phone by remember { mutableStateOf(prefillPhone.filter(Char::isDigit).take(10)) }
+        val initialPhone = prefillPhone.filter(Char::isDigit).take(10)
+        var phone by remember { mutableStateOf(initialPhone) }
         var otp by remember { mutableStateOf("") }
         var reqId by remember { mutableStateOf("") }
-        var otpMode by remember { mutableStateOf(false) }
-        var loading by remember { mutableStateOf(false) }
+        var otpMode by remember { mutableStateOf(initialPhone.length == 10) }
+        var loading by remember { mutableStateOf(initialPhone.length == 10) }
         var error by remember { mutableStateOf("") }
         val widgetId = BuildConfig.MSG91_WIDGET_ID
         val widgetToken = BuildConfig.MSG91_WIDGET_TOKEN
@@ -140,10 +141,14 @@ class PhoneAuthActivity : ComponentActivity() {
                     }
                     if (isError(result)) throw IllegalStateException(result)
                     val id = requestId(result).orEmpty()
-                    if (id.isBlank()) throw IllegalStateException("MSG91 did not return a request ID. Please try Send OTP again.")
+                    if (id.isBlank()) throw IllegalStateException("MSG91 did not return a request ID. Please try again.")
                     reqId = id; otpMode = true
                 } catch (t: Throwable) {
-                    otpMode = false; error = t.message ?: "Unable to send OTP. Please try again."
+                    otpMode = true
+                    val message = t.message.orEmpty()
+                    error = if (message.contains("IPBlocked", true) || message.contains("IP Block", true)) {
+                        "OTP service has temporarily blocked this network after repeated requests. Please wait and try again; no new OTP request will be sent automatically."
+                    } else message.ifBlank { "Unable to send OTP. Please try again." }
                 } finally { loading = false }
             }
         }
@@ -158,9 +163,18 @@ class PhoneAuthActivity : ComponentActivity() {
                     }
                     if (isError(result)) throw IllegalStateException(result)
                     requestId(result)?.let { reqId = it }
-                } catch (t: Throwable) { error = t.message ?: "Unable to resend OTP." }
+                } catch (t: Throwable) {
+                    val message = t.message.orEmpty()
+                    error = if (message.contains("IPBlocked", true) || message.contains("IP Block", true)) {
+                        "OTP service has temporarily blocked this network. Please wait before requesting another OTP."
+                    } else message.ifBlank { "Unable to resend OTP." }
+                }
                 finally { loading = false }
             }
+        }
+
+        LaunchedEffect(initialPhone) {
+            if (initialPhone.length == 10 && reqId.isBlank()) sendOtp()
         }
 
         val purple = Color(0xFF4B16D8)
@@ -204,6 +218,8 @@ class PhoneAuthActivity : ComponentActivity() {
                             Spacer(Modifier.height(14.dp)); Text("New to AARVO? Your account is created securely after verification.", fontSize = 11.sp, color = Color(0xFF827B90))
                         } else {
                             Text("One-time password", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF28223B)); Spacer(Modifier.height(10.dp))
+                            Text("+91 $phone", fontSize = 13.sp, color = Color(0xFF706A80), fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(10.dp))
                             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(soft).padding(horizontal = 4.dp)) {
                                 OutlinedTextField(otp, { otp = it.filter(Char::isDigit).take(8) }, placeholder = { Text("Enter OTP") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = purple, unfocusedBorderColor = Color.Transparent, focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, focusedTextColor = Color(0xFF211A32), unfocusedTextColor = Color(0xFF211A32), cursorColor = purple))
                             }
