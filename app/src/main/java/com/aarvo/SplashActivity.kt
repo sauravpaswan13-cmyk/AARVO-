@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,17 +39,25 @@ class SplashActivity : ComponentActivity() {
                     val prefs = getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)
                     val signedIn = prefs.getBoolean("signed_in", false) &&
                             !prefs.getString("auth_token", null).isNullOrBlank()
-                    startActivity(
-                        Intent(
-                            this@SplashActivity,
-                            if (signedIn) MainActivity::class.java else WelcomeActivity::class.java
-                        )
-                    )
-                    finish()
+                    if (signedIn) {
+                        try {
+                            startActivity(Intent(this@SplashActivity, MainActivity::class.java))
+                            finish()
+                        } catch (_: Exception) {
+                            prefs.edit().remove("signed_in").remove("auth_token").apply()
+                            startActivity(Intent(this@SplashActivity, WelcomeActivity::class.java))
+                            finish()
+                        }
+                    } else {
+                        startActivity(Intent(this@SplashActivity, WelcomeActivity::class.java))
+                        finish()
+                    }
                 }
                 Box(
                     Modifier.fillMaxSize().background(
-                        Brush.verticalGradient(listOf(Color(0xFF14005A), Color(0xFF3600A8), Color(0xFF17005F)))
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF14005A), Color(0xFF3600A8), Color(0xFF17005F))
+                        )
                     ),
                     contentAlignment = Alignment.Center
                 ) {
@@ -56,10 +65,10 @@ class SplashActivity : ComponentActivity() {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Icon(
+                        Image(
                             painter = painterResource(R.drawable.aarvo_logo),
                             contentDescription = "AARVO logo",
-                            tint = Color.Unspecified,
+                            contentScale = ContentScale.Fit,
                             modifier = Modifier.height(150.dp).fillMaxWidth(0.55f)
                         )
                         Text("AARVO", color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.displayMedium)
