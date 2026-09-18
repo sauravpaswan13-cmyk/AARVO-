@@ -1,126 +1,200 @@
 package com.aarvo
 
+import android.content.Context
 import android.content.Intent
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.view.Gravity
+import android.view.View
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 class WelcomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MobileEntryScreen() }
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(30, 30, 30, 22)
+            setBackgroundColor(Color.WHITE)
+        }
+
+        // Reference-style AARVO signature: logo + wordmark.
+        val brand = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        val logo = ImageView(this).apply {
+            setImageResource(R.drawable.aarvo_logo)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            contentDescription = "AARVO logo"
+        }
+        brand.addView(logo, LinearLayout.LayoutParams(76, 76))
+        brand.addView(TextView(this).apply {
+            text = "AARVO"
+            textSize = 36f
+            setTextColor(Color.rgb(31, 27, 110))
+            setTypeface(typeface, Typeface.BOLD)
+            letterSpacing = .035f
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(8, 0, 0, 0)
+        }, LinearLayout.LayoutParams(-2, 76))
+        root.addView(brand)
+
+        root.addView(TextView(this).apply {
+            text = "Your One Stop Shopping Destination"
+            textSize = 16f
+            setTextColor(Color.rgb(28, 32, 70))
+            gravity = Gravity.CENTER
+            setPadding(0, 8, 0, 0)
+        }, LinearLayout.LayoutParams(-1, 48))
+
+        // Large clean shopping-bag artwork, matching the supplied reference composition.
+        root.addView(ShoppingBagsView(this), LinearLayout.LayoutParams(-1, 390).apply {
+            topMargin = 12
+            bottomMargin = 2
+        })
+
+        val guest = Button(this).apply {
+            text = "👤   Continue as Guest"
+            textSize = 18f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            isAllCaps = false
+            background = GradientDrawable().apply {
+                cornerRadius = 28f
+                setColor(Color.rgb(96, 31, 235))
+            }
+            setPadding(12, 0, 12, 0)
+            setOnClickListener { enterApp() }
+        }
+        root.addView(guest, LinearLayout.LayoutParams(-1, 72).apply { bottomMargin = 14 })
+
+        val login = Button(this).apply {
+            text = "🔒   Login / Sign Up"
+            textSize = 18f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.rgb(76, 34, 196))
+            isAllCaps = false
+            background = GradientDrawable().apply {
+                cornerRadius = 28f
+                setColor(Color.WHITE)
+                setStroke(3, Color.rgb(102, 43, 230))
+            }
+            setPadding(12, 0, 12, 0)
+            setOnClickListener { openLogin() }
+        }
+        root.addView(login, LinearLayout.LayoutParams(-1, 72).apply { bottomMargin = 12 })
+
+        root.addView(TextView(this).apply {
+            text = "Explore as Guest"
+            textSize = 17f
+            setTextColor(Color.rgb(81, 34, 201))
+            gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.NORMAL)
+        }, LinearLayout.LayoutParams(-1, 42))
+
+        val features = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 12, 0, 0)
+        }
+        val items = listOf("✓\nSecure\nShopping", "▣\nFast\nDelivery", "♧\n24/7\nSupport", "☆\nBest\nPrices")
+        items.forEach { item ->
+            features.addView(TextView(this).apply {
+                text = item
+                textSize = 12f
+                setTextColor(Color.rgb(35, 31, 103))
+                gravity = Gravity.CENTER
+                setTypeface(typeface, Typeface.NORMAL)
+            }, LinearLayout.LayoutParams(0, 82, 1f))
+        }
+        root.addView(features, LinearLayout.LayoutParams(-1, 92))
+
+        setContentView(root)
     }
 
-    @Composable
-    private fun MobileEntryScreen() {
-        var phone by remember { mutableStateOf("") }
-        val purple = Color(0xFF4B16D8)
-        val deepPurple = Color(0xFF32108E)
-        val orange = Color(0xFFFF7A00)
-        val page = Color(0xFFF7F5FF)
-        val soft = Color(0xFFF0ECFF)
-        val ink = Color(0xFF171329)
-        val muted = Color(0xFF706A80)
+    private fun prefs() = getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)
 
-        Surface(Modifier.fillMaxSize(), color = page) {
-            Column(
-                Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier.size(48.dp).clip(RoundedCornerShape(15.dp))
-                            .background(Brush.linearGradient(listOf(orange, purple))),
-                        contentAlignment = Alignment.Center
-                    ) { Text("A", color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.ExtraBold) }
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text("AARVO", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = deepPurple, letterSpacing = 1.7.sp)
-                        Text("Shop Smart • Live Better", fontSize = 11.sp, color = Color(0xFF77718B))
-                    }
-                }
+    private fun enterApp() {
+        prefs().edit().putBoolean("onboarded", true).putBoolean("guest_mode", true).putBoolean("signed_in", false).apply()
+        startActivity(Intent(this, MainActivity::class.java))
+        finish()
+    }
 
-                Spacer(Modifier.height(62.dp))
-                Column(Modifier.fillMaxWidth()) {
-                    Text("Enter your mobile number", fontSize = 29.sp, fontWeight = FontWeight.ExtraBold, color = ink)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Use your mobile number to continue securely with AARVO", fontSize = 14.sp, color = muted)
-                }
-                Spacer(Modifier.height(26.dp))
+    private fun openLogin() {
+        prefs().edit().putBoolean("onboarded", true).putBoolean("guest_mode", false).apply()
+        startActivity(Intent(this, PhoneAuthActivity::class.java))
+        finish()
+    }
 
-                Card(
-                    Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                ) {
-                    Column(Modifier.padding(22.dp)) {
-                        Text("Mobile number", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF28223B))
-                        Spacer(Modifier.height(10.dp))
-                        Row(
-                            Modifier.fillMaxWidth().height(62.dp).clip(RoundedCornerShape(18.dp)).background(soft),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.width(82.dp).padding(start = 16.dp)) {
-                                Text("INDIA", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF817A93))
-                                Text("+91", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = deepPurple)
-                            }
-                            Box(Modifier.width(1.dp).height(34.dp).background(Color(0xFFD8D1EE)))
-                            Spacer(Modifier.width(8.dp))
-                            OutlinedTextField(
-                                value = phone,
-                                onValueChange = { phone = it.filter(Char::isDigit).take(10) },
-                                placeholder = { Text("Enter 10-digit mobile number", color = Color(0xFF9A94A7), fontSize = 14.sp) },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                                modifier = Modifier.weight(1f),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = purple,
-                                    unfocusedBorderColor = Color.Transparent,
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent,
-                                    focusedTextColor = ink,
-                                    unfocusedTextColor = ink,
-                                    cursorColor = purple
-                                )
-                            )
-                        }
-                        Spacer(Modifier.height(18.dp))
-                        Button(
-                            onClick = {
-                                startActivity(Intent(this@WelcomeActivity, PhoneAuthActivity::class.java).apply {
-                                    putExtra("prefill_phone", phone)
-                                })
-                            },
-                            enabled = phone.length == 10,
-                            shape = RoundedCornerShape(17.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = purple, disabledContainerColor = Color(0xFFD8D2E7)),
-                            modifier = Modifier.fillMaxWidth().height(56.dp)
-                        ) {
-                            Text("Continue to Verification", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-                        }
-                        Spacer(Modifier.height(14.dp))
-                        Text("Your existing OTP verification will be used on the next screen.", fontSize = 11.sp, color = muted)
-                    }
-                }
+    private class ShoppingBagsView(context: Context) : View(context) {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-                Spacer(Modifier.weight(1f))
-                Text("Secure mobile verification • Protected by AARVO", fontSize = 11.sp, color = Color(0xFF8A8495))
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val w = width.toFloat()
+            val h = height.toFloat()
+            val cx = w / 2f
+            val base = h * .86f
+
+            // soft backdrop
+            paint.style = Paint.Style.FILL
+            paint.color = Color.rgb(248, 247, 255)
+            canvas.drawOval(cx - w * .36f, h * .14f, cx + w * .36f, h * .86f, paint)
+
+            drawBag(canvas, cx - w * .23f, base - 18, w * .27f, h * .52f, Color.rgb(255, 180, 10), Color.rgb(255, 222, 60), true)
+            drawBag(canvas, cx + w * .02f, base - 12, w * .25f, h * .55f, Color.rgb(241, 22, 117), Color.rgb(255, 86, 150), true)
+            drawBag(canvas, cx + w * .24f, base - 5, w * .19f, h * .44f, Color.rgb(82, 25, 210), Color.rgb(124, 66, 240), true)
+
+            // decorative shopping icons
+            paint.color = Color.rgb(245, 35, 105)
+            canvas.drawCircle(cx - w * .34f, h * .40f, 28f, paint)
+            paint.color = Color.WHITE
+            paint.textSize = 32f
+            paint.typeface = Typeface.DEFAULT_BOLD
+            canvas.drawText("%", cx - w * .34f - 15, h * .40f + 11, paint)
+
+            paint.color = Color.rgb(111, 58, 231)
+            canvas.drawRoundRect(cx + w * .32f - 35, h * .32f, cx + w * .32f + 35, h * .32f + 70, 18f, 18f, paint)
+            paint.color = Color.WHITE
+            paint.textSize = 34f
+            canvas.drawText("♡", cx + w * .32f - 18, h * .32f + 45, paint)
+        }
+
+        private fun drawBag(canvas: Canvas, x: Float, bottom: Float, bagW: Float, bagH: Float, body: Int, top: Int, handle: Boolean) {
+            val left = x - bagW / 2f
+            val right = x + bagW / 2f
+            val topY = bottom - bagH
+            paint.style = Paint.Style.FILL
+            paint.color = body
+            canvas.drawRoundRect(left, topY + 28, right, bottom, 10f, 10f, paint)
+
+            paint.color = top
+            canvas.drawRect(left, topY + 28, right, topY + 58, paint)
+            paint.color = Color.argb(35, 255, 255, 255)
+            canvas.drawRect(left + bagW * .18f, topY + 28, left + bagW * .25f, bottom - 5, paint)
+            canvas.drawRect(left + bagW * .52f, topY + 28, left + bagW * .59f, bottom - 5, paint)
+
+            if (handle) {
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = 10f
+                paint.strokeCap = Paint.Cap.ROUND
+                paint.color = top
+                val path = Path()
+                path.moveTo(x - bagW * .28f, topY + 38)
+                path.cubicTo(x - bagW * .26f, topY - 65, x + bagW * .26f, topY - 65, x + bagW * .28f, topY + 38)
+                canvas.drawPath(path, paint)
+                paint.style = Paint.Style.FILL
             }
         }
     }
