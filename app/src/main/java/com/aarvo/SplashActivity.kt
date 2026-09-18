@@ -94,12 +94,8 @@ class SplashActivity : ComponentActivity() {
             val signedIn = prefs.getBoolean("signed_in", false) &&
                     !prefs.getString("auth_token", null).isNullOrBlank()
 
-            // Skip the old Welcome/Guest screen and use the existing mobile
-            // number + OTP verification flow for signed-out users.
-            startActivity(Intent(
-                this,
-                if (signedIn) MainActivity::class.java else PhoneAuthActivity::class.java
-            ))
+            // Keep the Welcome screen with both Guest and Login options.
+            startActivity(Intent(this, if (signedIn) MainActivity::class.java else WelcomeActivity::class.java))
             finish()
         }, 1500L)
     }
