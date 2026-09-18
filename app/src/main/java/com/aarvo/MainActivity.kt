@@ -69,12 +69,12 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
-    private lateinit var razorpayCheckout: Checkout
+    private var razorpayCheckout: Checkout? = null
     private var paymentCallback: ((String?, String?) -> Unit)? = null
     private val authRefresh = mutableIntStateOf(0)
-    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); razorpayCheckout = Checkout(); setContent { AarvoTheme { AarvoRoot(this, applicationContext, authRefresh.intValue) } } }
+    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { AarvoTheme { AarvoRoot(this, applicationContext, authRefresh.intValue) } } }
     override fun onResume() { super.onResume(); authRefresh.intValue++ }
-    fun startRazorpayPayment(options: JSONObject, callback: (String?, String?) -> Unit) { PaymentBridge.clear(); paymentCallback = callback; try { razorpayCheckout.setKeyID(options.getString("key")); razorpayCheckout.open(this, options) } catch (t: Throwable) { paymentCallback = null; callback(null, t.message ?: "Unable to open payment checkout") } }
+    fun startRazorpayPayment(options: JSONObject, callback: (String?, String?) -> Unit) { PaymentBridge.clear(); paymentCallback = callback; try { val checkout = Checkout(); razorpayCheckout = checkout; checkout.setKeyID(options.getString("key")); checkout.open(this, options) } catch (t: Throwable) { paymentCallback = null; callback(null, t.message ?: "Unable to open payment checkout") } }
     override fun onPaymentSuccess(razorpayPaymentId: String?, paymentData: PaymentData?) { PaymentBridge.capture(paymentData); val callback = paymentCallback; paymentCallback = null; callback?.invoke(razorpayPaymentId, null) }
     override fun onPaymentError(code: Int, description: String?, paymentData: PaymentData?) { PaymentBridge.capture(paymentData); val callback = paymentCallback; paymentCallback = null; callback?.invoke(null, description ?: "Payment failed (code $code)") }
 }
