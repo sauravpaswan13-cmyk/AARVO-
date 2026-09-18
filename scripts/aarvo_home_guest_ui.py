@@ -31,7 +31,7 @@ marker = 'item { PremiumHomeHeader() }; item { LiveHero(api = AarvoApiClient(), 
 replacement = 'item { HomeSearchFirst(query, onQueryChange) }; item { PremiumHomeHeader() }; item { LiveHero(api = AarvoApiClient(), modifier = Modifier.fillMaxWidth()) };'
 s = s.replace(marker, replacement, 1)
 
-pattern = r'@Composable private fun HomeScreen\\(.*?\\n\\n@Composable private fun ProductCard'
+pattern = r'@Composable private fun HomeScreen\(.*?\n\n@Composable private fun ProductCard'
 match = re.search(pattern, s, re.S)
 if match:
     home = '''@Composable private fun HomeScreen(padding: PaddingValues, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit, onFilter: () -> Unit, sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean) {
