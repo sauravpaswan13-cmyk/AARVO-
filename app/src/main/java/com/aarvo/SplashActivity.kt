@@ -1,5 +1,6 @@
 package com.aarvo
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -34,7 +35,15 @@ class SplashActivity : ComponentActivity() {
             AarvoTheme {
                 LaunchedEffect(Unit) {
                     delay(1800)
-                    startActivity(Intent(this@SplashActivity, WelcomeActivity::class.java))
+                    val prefs = getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)
+                    val signedIn = prefs.getBoolean("signed_in", false) &&
+                            !prefs.getString("auth_token", null).isNullOrBlank()
+                    startActivity(
+                        Intent(
+                            this@SplashActivity,
+                            if (signedIn) MainActivity::class.java else WelcomeActivity::class.java
+                        )
+                    )
                     finish()
                 }
                 Box(
