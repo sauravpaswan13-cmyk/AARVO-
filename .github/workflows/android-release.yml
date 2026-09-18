@@ -119,12 +119,29 @@ jobs:
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
           echo 'Signed APK verified.'
 
-      - name: Build installable debug APK fallback
+      - name: Prepare stable test signing fallback
+        id: test_signing
         if: steps.signed_build.outcome != 'success'
         run: |
           set -euo pipefail
-          echo 'Release signing is unavailable or invalid; building an installable debug APK so the app remains testable.'
-          gradle :app:assembleDebug --stacktrace -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
+          base64 --decode .github/aarvo-test-release.jks.b64 > "$RUNNER_TEMP/aarvo-test-release.jks"
+          test -s "$RUNNER_TEMP/aarvo-test-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/aarvo-test-release.jks" -storepass android -alias androiddebugkey >/dev/null
+
+      - name: Build stable install-test APK
+        id: test_build
+        if: steps.signed_build.outcome != 'success'
+        run: |
+          set -euo pipefail
+          gradle :app:assembleRelease \
+            -PaarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-test-release.jks" \
+            -PaarvoReleaseStorePassword="android" \
+            -PaarvoReleaseKeyAlias="androiddebugkey" \
+            -PaarvoReleaseKeyPassword="android" \
+            -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN" \
+            -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" \
+            --stacktrace
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
 
       - name: Upload signed APK
         if: steps.signed_build.outcome == 'success'
@@ -142,16 +159,16 @@ jobs:
           path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
 
-      - name: Upload installable debug APK fallback
+      - name: Upload stable install-test APK
         if: steps.signed_build.outcome != 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: aarvo-debug-apk-fallback
-          path: app/build/outputs/apk/debug/*.apk
+          name: aarvo-install-test-apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
       - name: Cleanup signing material
         if: always()
-        run: rm -f "$RUNNER_TEMP/aarvo-release.jks"
+        run: rm -f "$RUNNER_TEMP/aarvo-release.jks" "$RUNNER_TEMP/aarvo-test-release.jks"
 
-# Triggered by the AARVO APK build request on 2026-09-12.
+# Stable install-test signing is used only when production signing secrets are unavailable; production signing remains preferred.
