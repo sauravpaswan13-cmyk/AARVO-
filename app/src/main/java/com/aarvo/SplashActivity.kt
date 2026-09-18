@@ -68,7 +68,7 @@ class SplashActivity : ComponentActivity() {
                         Spacer(Modifier.height(42.dp))
                         CircularProgressIndicator(color = Color.White)
                         Spacer(Modifier.height(14.dp))
-                        Text("Loading your world...", color = Color.White.copy(alpha = .92f), style = MaterialTheme.typography.bodyMedium)
+                        Text("Loading your world...", color = Color.White, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
