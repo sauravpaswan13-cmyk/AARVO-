@@ -21,6 +21,8 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Use the official Gradle 9.7.1 distribution directly for this CI build.
+      # The repository's legacy wrapper JAR is not trusted/validated in this job.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
