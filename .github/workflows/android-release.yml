@@ -119,29 +119,11 @@ jobs:
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
           echo 'Signed APK verified.'
 
-      - name: Prepare stable test signing fallback
-        id: test_signing
+      - name: Require production signing
         if: steps.signed_build.outcome != 'success'
         run: |
-          set -euo pipefail
-          base64 --decode .github/aarvo-test-release.jks.b64 > "$RUNNER_TEMP/aarvo-test-release.jks"
-          test -s "$RUNNER_TEMP/aarvo-test-release.jks"
-          keytool -list -keystore "$RUNNER_TEMP/aarvo-test-release.jks" -storepass android -alias androiddebugkey >/dev/null
-
-      - name: Build stable install-test APK
-        id: test_build
-        if: steps.signed_build.outcome != 'success'
-        run: |
-          set -euo pipefail
-          gradle :app:assembleRelease \
-            -PaarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-test-release.jks" \
-            -PaarvoReleaseStorePassword="android" \
-            -PaarvoReleaseKeyAlias="androiddebugkey" \
-            -PaarvoReleaseKeyPassword="android" \
-            -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN" \
-            -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" \
-            --stacktrace
-          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
+          echo 'Production signing is unavailable. Add AARVO_KEYSTORE_BASE64, AARVO_KEYSTORE_PASSWORD, AARVO_KEY_ALIAS and AARVO_KEY_PASSWORD in GitHub Actions secrets.'
+          exit 1
 
       - name: Upload signed APK
         if: steps.signed_build.outcome == 'success'
@@ -169,6 +151,6 @@ jobs:
 
       - name: Cleanup signing material
         if: always()
-        run: rm -f "$RUNNER_TEMP/aarvo-release.jks" "$RUNNER_TEMP/aarvo-test-release.jks"
+        run: rm -f "$RUNNER_TEMP/aarvo-release.jks"
 
 # Stable install-test signing is used only when production signing secrets are unavailable; production signing remains preferred.
