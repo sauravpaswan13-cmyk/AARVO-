@@ -5,7 +5,7 @@ p = Path('app/src/main/java/com/aarvo/MainActivity.kt')
 s = p.read_text(encoding='utf-8')
 
 old_call = '!onboarded -> OnboardingScreen { prefs.edit().putBoolean("onboarded", true).apply(); onboarded = true }'
-new_call = '!onboarded -> OnboardingScreen(onDone = { prefs.edit().putBoolean("onboarded", true).apply(); onboarded = true }, onGuest = { prefs.edit().putBoolean("onboarded", true).putBoolean("guest_mode", true).apply(); onboarded = true; guestMode = true })'
+new_call = '''!onboarded -> OnboardingScreen(onLogin = { prefs.edit().putBoolean("onboarded", true).apply(); activity.startActivity(Intent(activity, PhoneAuthActivity::class.java)) }, onGuest = { prefs.edit().putBoolean("onboarded", true).putBoolean("guest_mode", true).apply(); onboarded = true; guestMode = true })'''
 s = s.replace(old_call, new_call)
 
 old_fn = '''@Composable private fun OnboardingScreen(onDone: () -> Unit) { Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) { Text("AARVO", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold); Spacer(Modifier.height(12.dp)); Text("Shop smart. Live better.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Spacer(Modifier.height(8.dp)); Text("A real marketplace for buyers and sellers, with server-authoritative products, orders and payments."); Spacer(Modifier.height(24.dp)); Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("Get started") } } }'''
