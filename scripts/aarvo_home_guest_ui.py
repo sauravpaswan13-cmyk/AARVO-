@@ -25,7 +25,7 @@ imports = [
 anchor = 'import androidx.compose.foundation.layout.Arrangement'
 for imp in reversed(imports):
     if imp not in s:
-        s = s.replace(anchor, imp + '\\n' + anchor, 1)
+        s = s.replace(anchor, imp + '\n' + anchor, 1)
 
 marker = 'item { PremiumHomeHeader() }; item { LiveHero(api = AarvoApiClient(), modifier = Modifier.fillMaxWidth()) };'
 replacement = 'item { HomeSearchFirst(query, onQueryChange) }; item { PremiumHomeHeader() }; item { LiveHero(api = AarvoApiClient(), modifier = Modifier.fillMaxWidth()) };'
