@@ -13,6 +13,9 @@ new_fn = '''@Composable private fun OnboardingScreen(onDone: () -> Unit, onGuest
 s = s.replace(old_fn, new_fn)
 
 imports = [
+    'import androidx.compose.foundation.layout.Box',
+    'import androidx.compose.foundation.layout.size',
+    'import androidx.compose.foundation.layout.width',
     'import androidx.compose.foundation.background',
     'import androidx.compose.foundation.clickable',
     'import androidx.compose.foundation.shape.CircleShape',
