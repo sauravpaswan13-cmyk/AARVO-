@@ -90,7 +90,16 @@ class SplashActivity : ComponentActivity() {
         setContentView(root)
 
         Handler(Looper.getMainLooper()).postDelayed({
-            startActivity(Intent(this, WelcomeActivity::class.java))
+            val prefs = getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)
+            val signedIn = prefs.getBoolean("signed_in", false) &&
+                    !prefs.getString("auth_token", null).isNullOrBlank()
+
+            // Skip the old Welcome/Guest screen and use the existing mobile
+            // number + OTP verification flow for signed-out users.
+            startActivity(Intent(
+                this,
+                if (signedIn) MainActivity::class.java else PhoneAuthActivity::class.java
+            ))
             finish()
         }, 1500L)
     }
