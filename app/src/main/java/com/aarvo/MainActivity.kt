@@ -90,14 +90,28 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     val api = remember { AarvoApiClient { prefs.getString("auth_token", null) } }
     val openOtpLogin = { prefs.edit().putBoolean("onboarded", true).apply(); activity.startActivity(Intent(activity, PhoneAuthActivity::class.java)) }
     when {
-        !onboarded -> OnboardingScreen { prefs.edit().putBoolean("onboarded", true).apply(); onboarded = true }
         guestMode -> AarvoApp(userName.ifBlank { "Guest" }, role, api, activity, wishlistStore, true, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply(); signedIn = false; guestMode = false })
-        !signedIn -> { LaunchedEffect(Unit) { openOtpLogin() } }
-        else -> AarvoApp(userName, role, api, activity, wishlistStore, false, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply(); signedIn = false; guestMode = false })
+        signedIn -> AarvoApp(userName, role, api, activity, wishlistStore, false, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply(); signedIn = false; guestMode = false })
+        else -> OnboardingScreen(
+            onLogin = openOtpLogin,
+            onGuest = { prefs.edit().putBoolean("onboarded", true).putBoolean("guest_mode", true).apply(); onboarded = true; guestMode = true }
+        )
     }
 }
 
-@Composable private fun OnboardingScreen(onDone: () -> Unit) { Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) { Text("AARVO", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold); Spacer(Modifier.height(12.dp)); Text("Shop smart. Live better.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Spacer(Modifier.height(8.dp)); Text("A real marketplace for buyers and sellers, with server-authoritative products, orders and payments."); Spacer(Modifier.height(24.dp)); Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("Get started") } } }
+@Composable private fun OnboardingScreen(onLogin: () -> Unit, onGuest: () -> Unit) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 32.dp), verticalArrangement = Arrangement.Center) {
+        Text("AARVO", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(12.dp))
+        Text("Shop smart. Live better.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(10.dp))
+        Text("Browse products freely or continue with your AARVO account.")
+        Spacer(Modifier.height(28.dp))
+        Button(onClick = onLogin, modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("Login / Continue") }
+        Spacer(Modifier.height(14.dp))
+        androidx.compose.material3.OutlinedButton(onClick = onGuest, modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("Continue as Guest") }
+    }
+}
 
 @Composable private fun SignInScreen(api: AarvoApiClient, onSignedIn: (String, String, String) -> Unit) {
     var name by remember { mutableStateOf("") }; var email by remember { mutableStateOf("") }; var password by remember { mutableStateOf("") }; var seller by remember { mutableStateOf(false) }; var phone by remember { mutableStateOf("") }; var registerMode by remember { mutableStateOf(false) }; var loading by remember { mutableStateOf(false) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope()
