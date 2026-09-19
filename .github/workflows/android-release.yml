@@ -78,7 +78,17 @@ jobs:
           KEY_ALIAS: ${{ secrets.AARVO_KEY_ALIAS }}
         run: |
           set -euo pipefail
-          keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          echo "Checking release keystore with configured alias..."
+          set +e
+          KEYTOOL_OUTPUT="$(keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" 2>&1)"
+          STATUS=$?
+          set -e
+          if [ "$STATUS" -ne 0 ]; then
+            echo "Keystore validation failed. Exact keytool error:"
+            printf '%s\n' "$KEYTOOL_OUTPUT"
+            echo "The keystore file itself was restored successfully; this points to the store password or configured alias."
+            exit "$STATUS"
+          fi
           echo 'Release keystore and signing alias verified.'
 
       - name: Build signed release APK and AAB
