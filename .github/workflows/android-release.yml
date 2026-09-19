@@ -144,3 +144,5 @@ jobs:
       - name: Cleanup signing material
         if: always()
         run: rm -f "$RUNNER_TEMP/aarvo-release.jks"
+
+# Trigger production release verification after signing workflow hardening.
