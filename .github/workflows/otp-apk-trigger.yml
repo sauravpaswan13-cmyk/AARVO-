@@ -36,19 +36,57 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build APK
+      - name: Prepare signing configuration
         env:
+          KEYSTORE_B64: ${{ secrets.AARVO_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.AARVO_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AARVO_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
           MSG91_WIDGET_TOKEN: ${{ secrets.MSG91_WIDGET_TOKEN }}
         run: |
-          if [ -z "$MSG91_WIDGET_TOKEN" ]; then
-            echo "MSG91_WIDGET_TOKEN GitHub Actions secret is missing."
-            exit 1
-          fi
-          ./gradlew assembleDebug -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN" --stacktrace
+          set -euo pipefail
+          test -n "$KEYSTORE_B64" || { echo "AARVO_KEYSTORE_BASE64 is missing"; exit 1; }
+          test -n "$STORE_PASSWORD" || { echo "AARVO_KEYSTORE_PASSWORD is missing"; exit 1; }
+          test -n "$KEY_ALIAS" || { echo "AARVO_KEY_ALIAS is missing"; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "AARVO_KEY_PASSWORD is missing"; exit 1; }
+          test -n "$MSG91_WIDGET_TOKEN" || { echo "MSG91_WIDGET_TOKEN is missing"; exit 1; }
+          printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]' | base64 --ignore-garbage --decode > "$RUNNER_TEMP/aarvo-release.jks"
+          test -s "$RUNNER_TEMP/aarvo-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/aarvo-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
 
-      - name: Upload APK
+      - name: Build production signed release APK
+        env:
+          STORE_PASSWORD: ${{ secrets.AARVO_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AARVO_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
+          MSG91_WIDGET_TOKEN: ${{ secrets.MSG91_WIDGET_TOKEN }}
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleRelease \
+            -PaarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-release.jks" \
+            -PaarvoReleaseStorePassword="$STORE_PASSWORD" \
+            -PaarvoReleaseKeyAlias="$KEY_ALIAS" \
+            -PaarvoReleaseKeyPassword="$KEY_PASSWORD" \
+            -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN" \
+            -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" \
+            --stacktrace
+
+      - name: Verify production APK
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
+          "$APKSIGNER" verify --verbose "$APK"
+          echo "Production signed APK verified: $APK"
+
+      - name: Upload production APK
         uses: actions/upload-artifact@v4
         with:
-          name: aarvo-reference-clone-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: aarvo-production-signed-apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+      - name: Cleanup signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/aarvo-release.jks"
