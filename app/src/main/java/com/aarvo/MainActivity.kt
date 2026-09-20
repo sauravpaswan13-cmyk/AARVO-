@@ -263,7 +263,32 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
 
 @Composable private fun WishlistScreen(padding: PaddingValues, products: List<Product>, wishlist: Set<Int>, onToggle: (Int) -> Unit, onOpen: (Product) -> Unit, onAdd: (Product) -> Unit) { val saved = products.filter { it.id in wishlist }; LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Text("My Wishlist", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(if (saved.isEmpty()) "No saved products yet. Tap the heart on any product to save it." else "${saved.size} saved product${if (saved.size == 1) "" else "s"}.") }; if (saved.isEmpty()) item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Icon(Icons.Default.FavoriteBorder, "Wishlist empty"); Spacer(Modifier.height(8.dp)); Text("Your wishlist is ready for products you want to compare or buy later.") } } } else items(saved, key = { it.id }) { product -> ProductCard(product, true, onAdd, onOpen, onToggle) } } }
 
-@Composable private fun HomeScreen(padding: PaddingValues, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit, onFilter: () -> Unit, sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean) { LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Text("Shop smart. Live better.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("Live marketplace • smart discovery") }; item { OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Search products, brands & categories") }) }; item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = onFilter) { Text("Filters & Sort") }; if (sortMode != "Relevance") Text("• $sortMode", style = MaterialTheme.typography.bodySmall); if (minRating > 0) Text("• ${minRating}★+", style = MaterialTheme.typography.bodySmall); if (maxPrice != null) Text("• ≤ ₹${maxPrice / 100}", style = MaterialTheme.typography.bodySmall); if (inStockOnly) Text("• In stock", style = MaterialTheme.typography.bodySmall) } }; item { Text("Categories", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(categories) { item -> TextButton(onClick = { onCategoryChange(item) }) { Text(if (item == selectedCategory) "✓ $item" else item) } } } }; if (loading) item { CircularProgressIndicator() }; if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }; if (!loading && error.isBlank() && products.isEmpty()) item { Text("No products match your current search or filters.") }; items(products, key = { it.id }) { product -> ProductCard(product, product.id in wishlist, onAdd, onOpen, onToggleWishlist) } } }
+@Composable private fun HomeScreen(padding: PaddingValues, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit, onFilter: () -> Unit, sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean) {
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item { PremiumHomeHeader() }
+        item { HomeSearchFirst(query, onQueryChange) }
+        item { LiveHero(api = AarvoApiClient(), modifier = Modifier.fillMaxWidth()) }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onFilter) { Text("Filters & Sort") }
+                if (sortMode != "Relevance") Text("• \$sortMode", style = MaterialTheme.typography.bodySmall)
+                if (minRating > 0) Text("• \${minRating}★+", style = MaterialTheme.typography.bodySmall)
+                if (maxPrice != null) Text("• ≤ ₹\${maxPrice / 100}", style = MaterialTheme.typography.bodySmall)
+                if (inStockOnly) Text("• In stock", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        item {
+            Text("Categories", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(categories) { item -> TextButton(onClick = { onCategoryChange(item) }) { Text(if (item == selectedCategory) "✓ $item" else item) } }
+            }
+        }
+        if (loading) item { CircularProgressIndicator() }
+        if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }
+        if (!loading && error.isBlank() && products.isEmpty()) item { Text("No products match your current search or filters.") }
+        items(products, key = { it.id }) { product -> ProductCard(product, product.id in wishlist, onAdd, onOpen, onToggleWishlist) }
+    }
+}
 
 @Composable private fun ProductCard(product: Product, isSaved: Boolean, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, onToggleWishlist: (Int) -> Unit) { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("${product.emoji}  ${product.name}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)); IconButton(onClick = { onToggleWishlist(product.id) }) { Icon(if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Wishlist") } }; Text(product.category, style = MaterialTheme.typography.bodySmall); Text(product.displayPrice, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = { onOpen(product) }) { Text("View details") }; TextButton(onClick = { onAdd(product) }) { Text("Add to cart") } } } } }
 
