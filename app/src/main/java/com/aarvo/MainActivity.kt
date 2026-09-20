@@ -5,6 +5,12 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -156,10 +162,74 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
 
 @Composable private fun WishlistScreen(padding: PaddingValues, products: List<Product>, wishlist: Set<Int>, onToggle: (Int) -> Unit, onOpen: (Product) -> Unit, onAdd: (Product) -> Unit) { val saved = products.filter { it.id in wishlist }; LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Text("My Wishlist", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(if (saved.isEmpty()) "No saved products yet. Tap the heart on any product to save it." else "${saved.size} saved product${if (saved.size == 1) "" else "s"}.") }; if (saved.isEmpty()) item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Icon(Icons.Default.FavoriteBorder, "Wishlist empty"); Spacer(Modifier.height(8.dp)); Text("Your wishlist is ready for products you want to compare or buy later.") } } } else items(saved, key = { it.id }) { product -> ProductCard(product, true, onAdd, onOpen, onToggle) } } }
 
-@Composable private fun HomeScreen(padding: PaddingValues, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit, onFilter: () -> Unit, sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean) { LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Text("Shop smart. Live better.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("Live marketplace • smart discovery") }; item { OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Search products, brands & categories") }) }; item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = onFilter) { Text("Filters & Sort") }; if (sortMode != "Relevance") Text("• $sortMode", style = MaterialTheme.typography.bodySmall); if (minRating > 0) Text("• ${minRating}★+", style = MaterialTheme.typography.bodySmall); if (maxPrice != null) Text("• ≤ ₹${maxPrice / 100}", style = MaterialTheme.typography.bodySmall); if (inStockOnly) Text("• In stock", style = MaterialTheme.typography.bodySmall) } }; item { Text("Categories", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { items(categories) { item -> TextButton(onClick = { onCategoryChange(item) }) { Text(if (item == selectedCategory) "✓ $item" else item) } } } }; if (loading) item { CircularProgressIndicator() }; if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }; if (!loading && error.isBlank() && products.isEmpty()) item { Text("No products match your current search or filters.") }; items(products, key = { it.id }) { product -> ProductCard(product, product.id in wishlist, onAdd, onOpen, onToggleWishlist) } } }
+@Composable private fun HomeScreen(padding: PaddingValues, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit, onFilter: () -> Unit, sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean) {
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Image(painterResource(R.drawable.aarvo_logo), "AARVO logo", Modifier.size(42.dp))
+                Spacer(Modifier.size(6.dp))
+                Text("AARVO", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF22236D), modifier = Modifier.weight(1f))
+                Text("AI", fontWeight = FontWeight.Bold, color = Color(0xFF22236D))
+            }
+        }
+        item { OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Search for products, brands and more...") }) }
+        item {
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.padding(18.dp)) {
+                    Text("Big Savings", fontSize = 23.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    Text("Bigger Smiles!", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Up to 70% OFF", color = Color.White)
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = { if (categories.size > 1) onCategoryChange(categories[1]) }, shape = RoundedCornerShape(12.dp), colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF4B16D7))) { Text("Shop Now", fontWeight = FontWeight.Bold) }
+                }
+            }
+        }
+        item {
+            Text("Categories", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                items(categories) { item ->
+                    Card(shape = RoundedCornerShape(16.dp), onClick = { onCategoryChange(item) }) {
+                        Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(if (item == "All") "🛍️" else "🛒", fontSize = 25.sp)
+                            Text(item, fontSize = 11.sp, fontWeight = if (item == selectedCategory) FontWeight.Bold else FontWeight.Normal)
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Top Deals", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                TextButton(onClick = onFilter) { Text("View All") }
+            }
+        }
+        if (loading) item { CircularProgressIndicator() }
+        if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }
+        if (!loading && error.isBlank() && products.isEmpty()) item { Text("No products available yet.") }
+        items(products, key = { it.id }) { product -> ProductCard(product, product.id in wishlist, onAdd, onOpen, onToggleWishlist) }
+    }
+}
 
-@Composable private fun ProductCard(product: Product, isSaved: Boolean, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, onToggleWishlist: (Int) -> Unit) { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("${product.emoji}  ${product.name}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)); IconButton(onClick = { onToggleWishlist(product.id) }) { Icon(if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Wishlist") } }; Text(product.category, style = MaterialTheme.typography.bodySmall); Text(product.displayPrice, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = { onOpen(product) }) { Text("View details") }; TextButton(onClick = { onAdd(product) }) { Text("Add to cart") } } } } }
-
+@Composable private fun ProductCard(product: Product, isSaved: Boolean, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, onToggleWishlist: (Int) -> Unit) {
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+        Column(Modifier.padding(12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(product.emoji, fontSize = 48.sp, modifier = Modifier.padding(4.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(product.name, fontWeight = FontWeight.Bold, maxLines = 2)
+                    Text(product.category, fontSize = 11.sp, color = Color.Gray)
+                    Text("★ ${product.rating}", color = Color(0xFFE58B00), fontWeight = FontWeight.Bold)
+                }
+                IconButton(onClick = { onToggleWishlist(product.id) }) { Icon(if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Wishlist") }
+            }
+            Text(product.displayPrice, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+            Text(product.description, maxLines = 2, fontSize = 12.sp, color = Color.Gray)
+            Spacer(Modifier.height(6.dp))
+            Button(onClick = { onAdd(product) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF5A16E8))) { Text("Add to Cart", fontWeight = FontWeight.Bold) }
+            TextButton(onClick = { onOpen(product) }, modifier = Modifier.fillMaxWidth()) { Text("View details") }
+        }
+    }
+}
 @Composable private fun ProductDetailsScreen(product: Product, isSaved: Boolean, onBack: () -> Unit, onToggleWishlist: () -> Unit, onAdd: (Product) -> Unit) { Scaffold(topBar = { TopAppBar(title = { Text("Product details") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { padding -> Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { Text("${product.emoji}  ${product.name}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(product.category); Text(product.displayPrice, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description); Text("Stock available: ${product.stockQuantity}"); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { onAdd(product) }) { Text("Add to cart") }; TextButton(onClick = onToggleWishlist) { Text(if (isSaved) "Remove from wishlist" else "Save to wishlist") } } } } }
 
 @Composable private fun CartScreen(padding: PaddingValues, items: List<Product>, onIncrement: (Product) -> Unit, onDecrement: (Product) -> Unit, onRemoveAll: (Int) -> Unit, quantityOf: (Int) -> Int, onClear: () -> Unit, onCheckout: () -> Unit) { val totalPaise = items.sumOf { it.pricePaise }; val groupedItems = items.distinctBy { it.id }; LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Your Cart", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); if (items.isNotEmpty()) TextButton(onClick = onClear) { Text("Clear") } } }; if (items.isEmpty()) item { Text("Your cart is empty. Add something you like from Home.") } else { items(groupedItems) { product -> val quantity = quantityOf(product.id); Card(Modifier.fillMaxWidth()) { Column(Modifier.fillMaxWidth().padding(14.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text(product.name, fontWeight = FontWeight.SemiBold); Text(product.displayPrice) }; IconButton(onClick = { onRemoveAll(product.id) }) { Icon(Icons.Default.Delete, "Remove all") } }; Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { IconButton(onClick = { onDecrement(product) }, enabled = quantity > 0) { Text("−", style = MaterialTheme.typography.titleLarge) }; Text(quantity.toString(), Modifier.padding(horizontal = 12.dp), fontWeight = FontWeight.Bold); IconButton(onClick = { onIncrement(product) }, enabled = quantity < product.stockQuantity) { Text("+") } }; Text("Subtotal: ${formatPaise(product.pricePaise * quantity)}") } } } }; item { Text("Total: ${formatPaise(totalPaise)}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Button(onClick = onCheckout, modifier = Modifier.fillMaxWidth()) { Text("Proceed to secure checkout") } } } }
@@ -224,23 +294,54 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
     when (section) {
         "orders" -> OrdersScreen(padding, api) { section = "account" }
         "seller" -> SellerDashboardScreen(padding, api) { section = "account" }
-        else -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { Text("My Account", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(if (guestMode) "Guest browsing" else userName) }
+        else -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Image(painterResource(R.drawable.aarvo_logo), "AARVO logo", Modifier.size(44.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Column(Modifier.weight(1f)) { Text("AARVO", fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF22236D)); Text("My Account", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+                }
+            }
+            item {
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("👤", fontSize = 38.sp)
+                        Spacer(Modifier.size(12.dp))
+                        Column(Modifier.weight(1f)) { Text(if (guestMode) "Guest User" else userName.ifBlank { "AARVO User" }, fontWeight = FontWeight.Bold, fontSize = 18.sp); Text(if (guestMode) "Browse as guest" else "✓ Verified account", fontSize = 12.sp, color = Color(0xFF4B16D7)) }
+                        if (guestMode) TextButton(onClick = onLogin) { Text("Login") }
+                    }
+                }
+            }
             if (guestMode) {
-                item { Text("Browse products and keep items in your cart. Login is only required when you purchase.") }
-                item { Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text("Login / Sign Up with OTP") } }
+                item { Text("Browse freely. Login when you want to buy or use account features.", color = Color.Gray) }
+                item { Button(onClick = onLogin, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(18.dp), colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF5A16E8))) { Text("Login / Sign Up with OTP", fontWeight = FontWeight.Bold) } }
             } else {
-                item { Button(onClick = { activity.startActivity(Intent(activity, AddressBookActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("Delivery Addresses") } }
-                item { Button(onClick = { section = "orders" }, modifier = Modifier.fillMaxWidth()) { Text("My Orders & Tracking") } }
-                item { Button(onClick = { activity.startActivity(Intent(activity, SellerAccountActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("Become a Seller") } }
-                if (role == "SELLER") item { Button(onClick = { section = "seller" }, modifier = Modifier.fillMaxWidth()) { Text("Seller Dashboard") } }
-                item { Text("Buyer payments are server-verified before an order becomes confirmed.", style = MaterialTheme.typography.bodySmall) }
-                item { TextButton(onClick = onSignOut) { Text("Sign out") } }
+                item { AccountRow("📦", "My Orders", "Orders & Tracking") { section = "orders" } }
+                item { AccountRow("❤️", "Wishlist", "Saved products") { } }
+                item { AccountRow("📍", "Address Book", "Delivery addresses") { activity.startActivity(Intent(activity, AddressBookActivity::class.java)) } }
+                item { AccountRow("💳", "Payment Methods", "Secure payments") { } }
+                item { AccountRow("⭐", "My Reviews & Ratings", "Your shopping feedback") { } }
+                item { AccountRow("❓", "Help & Support", "Get help with AARVO") { } }
+                item { AccountRow("⚙️", "Settings", "Account preferences") { } }
+                item { Button(onClick = { activity.startActivity(Intent(activity, SellerAccountActivity::class.java)) }, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(18.dp), colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF5A16E8))) { Text("Become a Seller", fontWeight = FontWeight.Bold) } }
+                if (role == "SELLER") item { Button(onClick = { section = "seller" }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) { Text("Seller Dashboard") } }
+                item { Text("Buyer payments are server-verified before an order becomes confirmed.", style = MaterialTheme.typography.bodySmall, color = Color.Gray) }
+                item { TextButton(onClick = onSignOut) { Text("Sign out", color = Color.Red, fontWeight = FontWeight.Bold) } }
             }
         }
     }
 }
 
+@Composable private fun AccountRow(icon: String, title: String, subtitle: String, onClick: () -> Unit) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(icon, fontSize = 22.sp)
+            Spacer(Modifier.size(12.dp))
+            Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.SemiBold); Text(subtitle, fontSize = 11.sp, color = Color.Gray) }
+            Text("›", fontSize = 26.sp, color = Color.Gray)
+        }
+    }
+}
 @Composable private fun OrdersScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) { var orders by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); fun reload() { scope.launch { loading = true; error = ""; try { val a = api.orders(); orders = buildList { for (i in 0 until a.length()) add(a.getJSONObject(i)) } } catch (t: Throwable) { error = t.message ?: "Unable to load orders" } finally { loading = false } } }; LaunchedEffect(Unit) { reload() }; Scaffold(topBar = { TopAppBar(title = { Text("My Orders") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { inner -> LazyColumn(Modifier.fillMaxSize().padding(inner), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { if (loading) item { CircularProgressIndicator() }; if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }; if (!loading && orders.isEmpty()) item { Text("No orders yet.") }; items(orders, key = { it.optString("id") }) { order -> OrderCard(order, api, ::reload) } } } }
 
 @Composable private fun OrderCard(order: JSONObject, api: AarvoApiClient, reload: () -> Unit) { var busy by remember { mutableStateOf(false) }; var detail by remember { mutableStateOf<JSONObject?>(null) }; var actionError by remember { mutableStateOf("") }; var reviewOpen by remember { mutableStateOf(false) }; var disputeOpen by remember { mutableStateOf(false) }; val scope = rememberCoroutineScope(); val status = order.optString("status", "PENDING"); val payment = order.optString("payment_status", "PENDING"); val id = order.optString("id"); if (reviewOpen) ReviewDialog(api, id, detail, { reviewOpen = false; reload() }); if (disputeOpen) DisputeDialog(api, id, { disputeOpen = false; reload() }); Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { Text("Order #$id", fontWeight = FontWeight.Bold); Text(formatPaise(order.optLong("total_paise", 0L)), style = MaterialTheme.typography.titleLarge); Text("Payment: $payment"); Text("Status: $status"); order.optJSONObject("tracking_json")?.let { Text("Tracking: ${it.optString("status", "Not updated")} ${it.optString("carrier", "")}") }; if (actionError.isNotBlank()) Text(actionError, color = MaterialTheme.colorScheme.error); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = { scope.launch { busy = true; actionError = ""; try { detail = api.order(id) } catch (t: Throwable) { actionError = t.message ?: "Unable to load order details" } finally { busy = false } } }, enabled = !busy) { Text(if (busy) "Loading..." else "View details") }; if (status !in setOf("CANCELLED", "DELIVERED")) TextButton(onClick = { scope.launch { busy = true; actionError = ""; try { api.cancelOrder(id); reload() } catch (t: Throwable) { actionError = t.message ?: "Unable to cancel order" } finally { busy = false } } }, enabled = !busy) { Text("Cancel") }; if (status == "DELIVERED") TextButton(onClick = { reviewOpen = true }, enabled = !busy) { Text("Review") }; if (status != "CANCELLED") TextButton(onClick = { disputeOpen = true }, enabled = !busy) { Text("Report issue") } }; detail?.let { d -> Text("Items: ${d.optJSONArray("items")?.length() ?: 0}"); Text("Delivery status: ${d.optJSONObject("tracking")?.optString("status", status) ?: status}"); d.optJSONArray("trackingEvents")?.let { events -> Text("Tracking events: ${events.length()}") } } } } }
