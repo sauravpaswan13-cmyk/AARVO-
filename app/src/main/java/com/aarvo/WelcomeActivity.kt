@@ -9,70 +9,89 @@ import android.os.Bundle
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.Space
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 
 class WelcomeActivity : ComponentActivity() {
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(28, 40, 28, 32)
+            setPadding(dp(24), dp(28), dp(24), dp(28))
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.WHITE, Color.rgb(248, 244, 255), Color.rgb(242, 238, 255))
+                intArrayOf(
+                    Color.WHITE,
+                    Color.rgb(249, 246, 255),
+                    Color.rgb(241, 237, 255)
+                )
             )
         }
+
+        root.addView(Space(this), LinearLayout.LayoutParams(1, 0, 0.22f))
 
         root.addView(TextView(this).apply {
             text = "AARVO"
             textSize = 44f
-            setTextColor(Color.rgb(45, 20, 130))
+            setTextColor(Color.rgb(54, 24, 145))
             setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER
-            letterSpacing = .04f
-        }, LinearLayout.LayoutParams(-1, 90))
+            letterSpacing = .055f
+        }, LinearLayout.LayoutParams(-1, dp(62)))
 
         root.addView(TextView(this).apply {
             text = "Your One Stop Shopping Destination"
-            textSize = 17f
-            setTextColor(Color.rgb(54, 45, 92))
+            textSize = 16f
+            setTextColor(Color.rgb(78, 69, 108))
             gravity = Gravity.CENTER
-        }, LinearLayout.LayoutParams(-1, 56))
+            setTypeface(typeface, Typeface.NORMAL)
+        }, LinearLayout.LayoutParams(-1, dp(34)))
 
-        val spacer = TextView(this)
-        root.addView(spacer, LinearLayout.LayoutParams(1, 0, 1f))
+        root.addView(Space(this), LinearLayout.LayoutParams(1, 0, 0.50f))
 
         val guest = Button(this).apply {
             text = "Guest"
-            textSize = 20f
+            textSize = 18f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.WHITE)
             isAllCaps = false
+            stateListAnimator = null
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(Color.rgb(91, 22, 232), Color.rgb(137, 30, 242), Color.rgb(232, 47, 151))
-            ).apply { cornerRadius = 30f }
+                intArrayOf(
+                    Color.rgb(88, 24, 224),
+                    Color.rgb(128, 37, 239),
+                    Color.rgb(225, 53, 157)
+                )
+            ).apply { cornerRadius = dp(18).toFloat() }
             setOnClickListener { enterGuest() }
         }
-        root.addView(guest, LinearLayout.LayoutParams(-1, 64).apply { bottomMargin = 16 })
+        root.addView(guest, LinearLayout.LayoutParams(-1, dp(58)).apply {
+            bottomMargin = dp(14)
+        })
 
         val login = Button(this).apply {
             text = "Login / Sign Up"
-            textSize = 20f
+            textSize = 18f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.rgb(83, 28, 196))
+            setTextColor(Color.rgb(83, 30, 190))
             isAllCaps = false
+            stateListAnimator = null
             background = GradientDrawable().apply {
-                cornerRadius = 30f
+                cornerRadius = dp(18).toFloat()
                 setColor(Color.WHITE)
-                setStroke(3, Color.rgb(103, 42, 225))
+                setStroke(dp(2), Color.rgb(105, 48, 220))
             }
             setOnClickListener { openLogin() }
         }
-        root.addView(login, LinearLayout.LayoutParams(-1, 64))
+        root.addView(login, LinearLayout.LayoutParams(-1, dp(58)))
+
+        root.addView(Space(this), LinearLayout.LayoutParams(1, 0, 0.18f))
 
         setContentView(root)
     }
