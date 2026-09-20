@@ -78,7 +78,7 @@ fun LiveHero(api: AarvoApiClient, modifier: Modifier = Modifier) {
 
     when {
         loading -> Box(
-            modifier.fillMaxWidth().height(205.dp),
+            modifier.fillMaxWidth().height(180.dp),
             contentAlignment = Alignment.Center
         ) { CircularProgressIndicator() }
 
@@ -90,7 +90,7 @@ fun LiveHero(api: AarvoApiClient, modifier: Modifier = Modifier) {
                 modifier = modifier
                     .fillMaxWidth()
                     .height(205.dp)
-                    .clip(RoundedCornerShape(24.dp))
+                    .clip(RoundedCornerShape(18.dp))
                     .clickable(enabled = slide.optString("cta_target").isNotBlank()) {
                         // Target routing can be wired by the host screen later;
                         // the hero remains tappable only when an admin target exists.
