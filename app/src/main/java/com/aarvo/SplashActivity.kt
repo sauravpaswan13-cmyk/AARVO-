@@ -14,8 +14,8 @@ import androidx.activity.ComponentActivity
 
 /**
  * Crash-safe launcher.
- * The old welcome/onboarding screen is intentionally bypassed.
- * AARVO now opens directly to the mobile-number verification screen.
+ * Shows the AARVO splash briefly, then opens the simple Welcome Entry.
+ * OTP/login is handled only after the user chooses Login / Sign Up.
  */
 class SplashActivity : ComponentActivity() {
     private val handler = Handler(Looper.getMainLooper())
@@ -55,7 +55,7 @@ class SplashActivity : ComponentActivity() {
 
         handler.postDelayed({
             if (!isFinishing && !isDestroyed) {
-                startActivity(Intent(this, PhoneAuthActivity::class.java))
+                startActivity(Intent(this, WelcomeActivity::class.java))
                 finish()
             }
         }, 900L)
