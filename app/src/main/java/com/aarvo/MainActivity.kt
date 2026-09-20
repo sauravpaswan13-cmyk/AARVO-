@@ -269,7 +269,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
         // followed by AARVO identity, quick categories, live offers and products.
         item { HomeSearchFirst(query, onQueryChange) }
         item { PremiumHomeHeader() }
-        item { LiveHero(api = api, modifier = Modifier.fillMaxWidth()) }
+        item { LiveHero(api = AarvoApiClient(), modifier = Modifier.fillMaxWidth()) }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onFilter) { Text("Filters & Sort") }
