@@ -18,6 +18,7 @@ const guestBrowse = read('app/src/main/java/com/aarvo/GuestBrowseActivity.kt');
 const phoneAuth = read('app/src/main/java/com/aarvo/PhoneAuthActivity.kt');
 const addressBook = read('app/src/main/java/com/aarvo/AddressBookActivity.kt');
 const adminLogin = read('app/src/main/java/com/aarvo/AdminLoginActivity.kt');
+const manifest = read('app/src/main/AndroidManifest.xml');
 
 
 test('internal marketplace completion gate preserves the existing entry, auth and management flows', () => {
@@ -27,6 +28,8 @@ test('internal marketplace completion gate preserves the existing entry, auth an
   assert.match(phoneAuth, /MSG91|OTP|Verify/i);
   assert.match(addressBook, /AddressBookScreen/);
   assert.match(adminLogin, /AdminDashboardActivity/);
+  assert.match(manifest, /android:name="\\.AdminLoginActivity"/);
+  assert.match(manifest, /android:name="\\.AdminDashboardActivity"/);
 
   assert.match(androidMain, /HomeScreen\\(/);
   assert.match(androidMain, /HomeScreen\(/);
