@@ -117,7 +117,7 @@ private fun WelcomeScreen(onBrowse: () -> Unit, onLogin: () -> Unit) {
             OutlinedButton(onClick = onLogin, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(13.dp)) {
                 Icon(Icons.Default.Lock, contentDescription = null); Spacer(Modifier.size(8.dp)); Text("Login / Sign Up", fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(6.dp)); Text("Browse freely • Login when you need account features or checkout", fontSize = 11.sp, color = Color(0xFF666070), fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(6.dp)); Text("Shopping Trolley • Browse freely • Login when you need account features or checkout", fontSize = 11.sp, color = Color(0xFF666070), fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) { TrustItem(Icons.Default.Lock, "Secure"); TrustItem(Icons.Default.Person, "Trusted Shopping"); TrustItem(Icons.Default.Lock, "Safe Payments") }
         }
