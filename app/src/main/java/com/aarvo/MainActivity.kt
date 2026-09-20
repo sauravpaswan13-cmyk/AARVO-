@@ -5,7 +5,9 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
+import androidx.compose.material3.BorderStroke
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -50,7 +53,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -100,16 +107,110 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 }
 
 @Composable private fun OnboardingScreen(onLogin: () -> Unit, onGuest: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 32.dp), verticalArrangement = Arrangement.Center) {
-        Text("AARVO", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(12.dp))
-        Text("Shop smart. Live better.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(10.dp))
-        Text("Browse products freely or continue with your AARVO account.")
-        Spacer(Modifier.height(28.dp))
-        Button(onClick = onLogin, modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("Login / Continue") }
-        Spacer(Modifier.height(14.dp))
-        androidx.compose.material3.OutlinedButton(onClick = onGuest, modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("Continue as Guest") }
+    val scheme = MaterialTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        scheme.primaryContainer,
+                        scheme.background,
+                        scheme.secondaryContainer.copy(alpha = 0.45f)
+                    )
+                )
+            )
+            .padding(horizontal = 22.dp, vertical = 28.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(30.dp),
+                color = scheme.surface.copy(alpha = 0.97f),
+                tonalElevation = 8.dp,
+                shadowElevation = 10.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Surface(
+                        modifier = Modifier.size(92.dp),
+                        shape = CircleShape,
+                        color = scheme.primaryContainer,
+                        border = BorderStroke(1.dp, scheme.primary.copy(alpha = 0.16f))
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painter = painterResource(R.drawable.aarvo_logo),
+                                contentDescription = "AARVO logo",
+                                tint = Color.Unspecified,
+                                modifier = Modifier.size(68.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    Text(
+                        "AARVO",
+                        color = scheme.primary,
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 1.5.sp
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Shop smart. Live better.",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = scheme.onSurface
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Discover products, explore freely, and sign in only when you need your AARVO account.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = scheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    Button(
+                        onClick = onLogin,
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Default.Person, contentDescription = null)
+                        Spacer(Modifier.size(9.dp))
+                        Text("Login / Sign Up", fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = onGuest,
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.5.dp, scheme.primary.copy(alpha = 0.55f))
+                    ) {
+                        Icon(Icons.Default.ShoppingCart, contentDescription = null)
+                        Spacer(Modifier.size(9.dp))
+                        Text("Continue as Guest", fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("SECURE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = scheme.primary)
+                        Text("  •  ", fontSize = 10.sp, color = scheme.onSurfaceVariant)
+                        Text("SIMPLE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = scheme.primary)
+                        Text("  •  ", fontSize = 10.sp, color = scheme.onSurfaceVariant)
+                        Text("AARVO", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = scheme.primary)
+                    }
+                }
+            }
+        }
     }
 }
 
