@@ -14,10 +14,21 @@ const workflow = read('.github/workflows/android.yml');
 const dockerfile = read('backend/Dockerfile');
 const migrationRunner = read('backend/src/migrate.js');
 const envExample = read('backend/.env.production.example');
+const guestBrowse = read('app/src/main/java/com/aarvo/GuestBrowseActivity.kt');
+const phoneAuth = read('app/src/main/java/com/aarvo/PhoneAuthActivity.kt');
+const addressBook = read('app/src/main/java/com/aarvo/AddressBookActivity.kt');
+const adminLogin = read('app/src/main/java/com/aarvo/AdminLoginActivity.kt');
 
 
-test('internal marketplace completion gate covers buyer, seller, money, deployment and provenance contracts', () => {
+test('internal marketplace completion gate preserves the existing entry, auth and management flows', () => {
   assert.match(androidMain, /Create your AARVO account/);
+  assert.match(androidMain, /Continue as Guest/);
+  assert.match(guestBrowse, /Shopping Trolley|Shopping trolley|trolley/i);
+  assert.match(phoneAuth, /MSG91|OTP|Verify/i);
+  assert.match(addressBook, /AddressBookScreen/);
+  assert.match(adminLogin, /AdminDashboardActivity/);
+
+  assert.match(androidMain, /HomeScreen\\(/);
   assert.match(androidMain, /HomeScreen\(/);
   assert.match(androidMain, /CartScreen\(/);
   assert.match(androidMain, /CheckoutDialog\(/);
