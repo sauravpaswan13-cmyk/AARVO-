@@ -264,10 +264,12 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
 @Composable private fun WishlistScreen(padding: PaddingValues, products: List<Product>, wishlist: Set<Int>, onToggle: (Int) -> Unit, onOpen: (Product) -> Unit, onAdd: (Product) -> Unit) { val saved = products.filter { it.id in wishlist }; LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Text("My Wishlist", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(if (saved.isEmpty()) "No saved products yet. Tap the heart on any product to save it." else "${saved.size} saved product${if (saved.size == 1) "" else "s"}.") }; if (saved.isEmpty()) item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Icon(Icons.Default.FavoriteBorder, "Wishlist empty"); Spacer(Modifier.height(8.dp)); Text("Your wishlist is ready for products you want to compare or buy later.") } } } else items(saved, key = { it.id }) { product -> ProductCard(product, true, onAdd, onOpen, onToggle) } } }
 
 @Composable private fun HomeScreen(padding: PaddingValues, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit, onFilter: () -> Unit, sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean) {
-    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item { PremiumHomeHeader() }
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Marketplace layout: search is the first interactive element on Home,
+        // followed by AARVO identity, quick categories, live offers and products.
         item { HomeSearchFirst(query, onQueryChange) }
-        item { LiveHero(api = AarvoApiClient(), modifier = Modifier.fillMaxWidth()) }
+        item { PremiumHomeHeader() }
+        item { LiveHero(api = api, modifier = Modifier.fillMaxWidth()) }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onFilter) { Text("Filters & Sort") }
