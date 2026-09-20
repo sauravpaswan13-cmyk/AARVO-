@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -75,4 +76,18 @@ private fun QuickCategory(label: String, icon: androidx.compose.ui.graphics.vect
             Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
         }
     }
+}
+
+
+@Composable
+fun HomeSearchFirst(query: String, onQueryChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        singleLine = true,
+        shape = RoundedCornerShape(16.dp),
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+        placeholder = { Text("Search for products, brands and more") }
+    )
 }
