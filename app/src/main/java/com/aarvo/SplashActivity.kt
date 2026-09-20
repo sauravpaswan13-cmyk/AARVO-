@@ -29,11 +29,15 @@ class SplashActivity : ComponentActivity() {
         root.addView(TextView(this).apply {
             text = "AARVO"
             textSize = 48f
-            setTextColor(Color.WHITE)
+            setTextColor(Color.rgb(255, 215, 90))
             setTypeface(typeface, android.graphics.Typeface.BOLD)
             gravity = Gravity.CENTER
-            letterSpacing = .05f
-        }, LinearLayout.LayoutParams(-1, 90))
+            letterSpacing = .06f
+            includeFontPadding = true
+        }, LinearLayout.LayoutParams(-1, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = 8
+            bottomMargin = 2
+        })
 
         root.addView(TextView(this).apply {
             text = "Shop Smart  •  Live Better"
