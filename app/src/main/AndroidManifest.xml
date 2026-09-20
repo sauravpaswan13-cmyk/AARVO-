@@ -22,5 +22,7 @@
         <activity android:name=".AarvoAiActivity" android:exported="false" />
         <activity android:name=".AddressBookActivity" android:exported="false" />
         <activity android:name=".SellerAccountActivity" android:exported="false" />
+        <activity android:name=".AdminLoginActivity" android:exported="false" />
+        <activity android:name=".AdminDashboardActivity" android:exported="false" />
     </application>
 </manifest>
