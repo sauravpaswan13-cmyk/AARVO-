@@ -28,10 +28,9 @@ test('internal marketplace completion gate preserves the existing entry, auth an
   assert.match(phoneAuth, /MSG91|OTP|Verify/i);
   assert.match(addressBook, /AddressBookScreen/);
   assert.match(adminLogin, /AdminDashboardActivity/);
-  assert.match(manifest, /android:name="\\.AdminLoginActivity"/);
-  assert.match(manifest, /android:name="\\.AdminDashboardActivity"/);
+  assert.match(manifest, /android:name="\.AdminLoginActivity"/);
+  assert.match(manifest, /android:name="\.AdminDashboardActivity"/);
 
-  assert.match(androidMain, /HomeScreen\\(/);
   assert.match(androidMain, /HomeScreen\(/);
   assert.match(androidMain, /CartScreen\(/);
   assert.match(androidMain, /CheckoutDialog\(/);
