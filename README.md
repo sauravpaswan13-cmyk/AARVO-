@@ -62,3 +62,5 @@ Before external launch dependencies are connected, internal work is treated as c
 ## Important launch gate
 
 The Android UI alone cannot make AARVO a real marketplace. Before accepting real customer money, the production backend, payment/payout account, seller verification, shipping integration, security configuration and legal policies must be connected and tested end-to-end. Until that gate is passed, no build should be marketed as a live shopping service.
+
+<!-- CI trigger: rebuilt after the home hero API reference fix. -->
