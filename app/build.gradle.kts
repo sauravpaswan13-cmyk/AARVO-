@@ -45,7 +45,7 @@ val patchLiveHero = tasks.register("patchLiveHero") {
         if (lazyColumnStart < 0) return@doLast
         val lambdaOpen = source.indexOf('{', lazyColumnStart)
         if (lambdaOpen < 0) return@doLast
-        val injection = " item { PremiumHomeHeader() }; item { LiveHero(api = AarvoApiClient(), modifier = Modifier.fillMaxWidth()) };"
+        val injection = " item { PremiumHomeHeader() }; item { HomeSearchFirst(query, onQueryChange) }; item { LiveHero(api = AarvoApiClient(), modifier = Modifier.fillMaxWidth()) };"
         sourceFile.writeText(source.substring(0, lambdaOpen + 1) + injection + source.substring(lambdaOpen + 1))
     }
 }
