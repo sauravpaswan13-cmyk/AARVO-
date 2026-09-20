@@ -52,7 +52,17 @@ class WelcomeActivity : ComponentActivity() {
             setTypeface(typeface, Typeface.NORMAL)
         }, LinearLayout.LayoutParams(-1, dp(34)))
 
-        root.addView(Space(this), LinearLayout.LayoutParams(1, 0, 0.50f))
+        root.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            val trolley = TextView(this@WelcomeActivity).apply {
+                text = "🛒"
+                textSize = 88f
+                gravity = Gravity.CENTER
+                includeFontPadding = true
+            }
+            addView(trolley, LinearLayout.LayoutParams(-1, dp(118)))
+        }, LinearLayout.LayoutParams(-1, 0, 0.50f))
 
         val guest = Button(this).apply {
             text = "Guest"
