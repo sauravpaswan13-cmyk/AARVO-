@@ -56,16 +56,13 @@ class WelcomeActivity : ComponentActivity() {
             setPadding(0, 8, 0, 0)
         }, LinearLayout.LayoutParams(-1, 48))
 
-        // Clean premium welcome area: no bags, icons, offers or extra feature blocks.
-        root.addView(LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-        }, LinearLayout.LayoutParams(-1, 0).apply {
+        // Intentionally empty: the welcome entry contains only the two actions.
+        root.addView(LinearLayout(this), LinearLayout.LayoutParams(-1, 0).apply {
             weight = 1f
         })
 
         val guest = Button(this).apply {
-            text = "Continue as Guest"
+            text = "Guest"
             textSize = 17f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.WHITE)
