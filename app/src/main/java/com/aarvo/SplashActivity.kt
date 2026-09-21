@@ -60,7 +60,7 @@ class SplashActivity : ComponentActivity() {
         setContentView(root)
 
         Handler(Looper.getMainLooper()).postDelayed({
-            startActivity(Intent(this, WelcomeActivity::class.java))
+            startActivity(Intent(this, PhoneAuthActivity::class.java))
             finish()
         }, 1600)
     }
