@@ -410,8 +410,8 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
 
 @Composable private fun AccountScreen(padding: PaddingValues, userName: String, role: String, api: AarvoApiClient, activity: MainActivity, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit) {
     var section by remember { mutableStateOf("account") }
-    var showProfile by remember { mutableStateOf(false) }
-    if (showProfile) ProfileDialog(api) { showProfile = false }
+    var showProfile by remember { mutableStateOf(false) }; var showSupport by remember { mutableStateOf(false) }
+    if (showProfile) ProfileDialog(api) { showProfile = false }; if (showSupport) SupportDialog(api) { showSupport = false }
     when (section) {
         "orders" -> OrdersScreen(padding, api) { section = "account" }
         "seller" -> SellerDashboardScreen(padding, api) { section = "account" }
@@ -501,7 +501,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
                         Text("More", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     item {
-                        AccountOptionRow(Icons.Default.Person, "Help & Support", "Get help with your AARVO orders and account") { }
+                        AccountOptionRow(Icons.Default.Person, "Help & Support", "Get help with your AARVO orders and account") { showSupport = true }
                     }
                     item {
                         AccountOptionRow(Icons.Default.Home, "Payment & Security", "Secure checkout and account protection") { }
@@ -530,6 +530,24 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
             }
         }
     }
+}
+
+@Composable private fun SupportDialog(api: AarvoApiClient, onDone: () -> Unit) {
+    var subject by remember { mutableStateOf("") }
+    var details by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    AlertDialog(onDismissRequest = { if (!busy) onDone() }, title = { Text("AARVO Help & Support") },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(subject, { subject = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Subject") })
+            OutlinedTextField(details, { details = it }, Modifier.fillMaxWidth(), minLines = 4, label = { Text("Describe your issue") })
+            if (message.isNotBlank()) Text(message, color = if (message.startsWith("Ticket")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+        } },
+        confirmButton = { Button(onClick = {
+            scope.launch { busy = true; message = ""; try { val result = api.createSupportTicket(subject, details); message = "Ticket #" + result.optString("id") + " created successfully." } catch (t: Throwable) { message = t.message ?: "Unable to create support ticket" } finally { busy = false } }
+        }, enabled = !busy && subject.trim().isNotBlank() && details.trim().length >= 5) { Text(if (busy) "Sending..." else "Create Ticket") } },
+        dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text("Close") } })
 }
 
 @Composable private fun AccountOptionRow(
