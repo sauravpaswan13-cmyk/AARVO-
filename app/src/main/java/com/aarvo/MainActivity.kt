@@ -1,5 +1,7 @@
 package com.aarvo
 
+// CI verification marker: account settings UI update requires Android build validation.
+
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
