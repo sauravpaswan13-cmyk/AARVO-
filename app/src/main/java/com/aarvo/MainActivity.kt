@@ -478,7 +478,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
                         }
                     }
                     item {
-                        AccountOptionRow(Icons.Default.Favorite, "Wishlist", "Your saved products") { }
+                        AccountOptionRow(Icons.Default.Favorite, "Wishlist", "Your saved products") { section = "wishlist" }
                     }
                     item {
                         Text("Sell on AARVO", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
