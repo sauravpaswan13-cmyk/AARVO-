@@ -16,7 +16,7 @@ const riderImport = "import { registerRiderDelivery } from './rider-delivery.js'
 
 if (!source.includes(marketplaceImport)) {
   source = source.replace(
-    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';",
+    "import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';",
     "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\n" + marketplaceImport + "\n" + cartImport + "\n" + settlementImport + "\n" + gapImport + "\n" + sellerImport + "\n" + riderImport
   );
 }
@@ -92,7 +92,7 @@ if (!source.includes("otp-delivery.js")) {
   if (!phone) return reply.code(400).send({ error: 'INVALID_PHONE' });
   const user = await pool.query('SELECT id FROM users WHERE phone=$1', [phone]);
   if (!user.rowCount) return reply.code(404).send({ error: 'USER_NOT_FOUND' });
-  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  const otp = String(randomInt(100000, 1000000));
   const otpHash = hashPassword(otp);
   await pool.query('UPDATE phone_verification_challenges SET verified_at=COALESCE(verified_at,now()) WHERE phone=$1 AND verified_at IS NULL', [phone]);
   try { await sendPhoneOtp({ phone, otp }); }
@@ -119,7 +119,7 @@ if (!source.includes('AARVO_LOGIN_OTP_ENABLED')) {
   if (!result.rowCount || !verifyPassword(String(password || ''), result.rows[0].password_hash)) return reply.code(401).send({ error: 'INVALID_CREDENTIALS' });
   const user = result.rows[0];
   if (!user.phone) return reply.code(400).send({ error: 'PHONE_REQUIRED_FOR_OTP' });
-  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  const otp = String(randomInt(100000, 1000000));
   const otpHash = hashPassword(otp);
   await pool.query('UPDATE phone_verification_challenges SET verified_at=COALESCE(verified_at,now()) WHERE phone=$1 AND verified_at IS NULL', [user.phone]);
   try { await sendPhoneOtp({ phone: user.phone, otp }); }
