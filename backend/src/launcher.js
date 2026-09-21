@@ -10,18 +10,20 @@ let source = await fs.readFile(serverPath, 'utf8');
 const marketplaceImport = "import { registerMarketplaceCompletion } from './marketplace-completion.js';";
 const cartImport = "import { registerCartCompletion } from './cart-completion.js';";
 const settlementImport = "import { registerSettlementCompletion } from './settlement-completion.js';";
+const gapImport = "import { registerMarketplaceGapCompletion } from './marketplace-gap-completion.js';";
 
 if (!source.includes(marketplaceImport)) {
   source = source.replace(
     "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';",
-    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\n" + marketplaceImport + "\n" + cartImport + "\n" + settlementImport
+    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\n" + marketplaceImport + "\n" + cartImport + "\n" + settlementImport + "\n" + gapImport
   );
 }
 
 if (!source.includes('await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });')) {
   source = source.replace(
     "app.listen(PORT, '0.0.0.0', () => {",
-    "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\napp.listen(PORT, '0.0.0.0', () => {"
+    "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });
+await registerMarketplaceGapCompletion({ app, pool, requireRole, audit });\napp.listen(PORT, '0.0.0.0', () => {"
   );
 }
 
