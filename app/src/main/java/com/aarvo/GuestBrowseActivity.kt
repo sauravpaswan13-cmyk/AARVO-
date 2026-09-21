@@ -4,6 +4,12 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -26,7 +33,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -102,24 +108,99 @@ private fun SplashScreen() {
 @Composable
 private fun WelcomeScreen(onBrowse: () -> Unit, onLogin: () -> Unit) {
     Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(painter = painterResource(R.drawable.aarvo_logo), contentDescription = "AARVO logo", tint = Color.Unspecified, modifier = Modifier.size(58.dp))
                 Spacer(Modifier.size(7.dp)); Text("AARVO", color = Color(0xFF22236D), fontSize = 31.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
             }
-            Spacer(Modifier.height(5.dp)); Text("Your One Stop Shopping Destination", color = Color(0xFF3D3D5B), fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(20.dp)); Surface(modifier = Modifier.size(width = 210.dp, height = 164.dp), color = Color(0xFFF7F2FF), shape = RoundedCornerShape(28.dp)) { Box(contentAlignment = Alignment.Center) { Text("🛍️", fontSize = 82.sp) } }
-            Spacer(Modifier.height(24.dp))
-            Button(onClick = onBrowse, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(13.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5A16E8), contentColor = Color.White)) {
+            Spacer(Modifier.height(5.dp))
+            Text("Your One Stop Shopping Destination", color = Color(0xFF3D3D5B), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(14.dp))
+
+            // Premium trolley scene: the trolley stays in place while it gently rocks forward.
+            TrolleyMarketScene()
+
+            Spacer(Modifier.height(18.dp))
+            Button(
+                onClick = onBrowse,
+                modifier = Modifier.fillMaxWidth().height(54.dp),
+                shape = RoundedCornerShape(13.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5A16E8), contentColor = Color.White)
+            ) {
                 Icon(Icons.Default.Person, contentDescription = null); Spacer(Modifier.size(8.dp)); Text("Enter AARVO", fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(10.dp))
-            OutlinedButton(onClick = onLogin, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(13.dp)) {
+            OutlinedButton(
+                onClick = onLogin,
+                modifier = Modifier.fillMaxWidth().height(54.dp),
+                shape = RoundedCornerShape(13.dp)
+            ) {
                 Icon(Icons.Default.Lock, contentDescription = null); Spacer(Modifier.size(8.dp)); Text("Login / Sign Up", fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(6.dp)); Text("Shopping Trolley • Browse freely • Login when you need account features or checkout", fontSize = 11.sp, color = Color(0xFF666070), fontWeight = FontWeight.Medium)
+            Spacer(Modifier.height(6.dp))
+            Text("Shopping Trolley • Browse freely • Login when you need account features or checkout", fontSize = 11.sp, color = Color(0xFF666070), fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) { TrustItem(Icons.Default.Lock, "Secure"); TrustItem(Icons.Default.Person, "Trusted Shopping"); TrustItem(Icons.Default.Lock, "Safe Payments") }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                TrustItem(Icons.Default.Lock, "Secure"); TrustItem(Icons.Default.Person, "Trusted Shopping"); TrustItem(Icons.Default.Lock, "Safe Payments")
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrolleyMarketScene() {
+    val transition = rememberInfiniteTransition(label = "trolley_motion")
+    val trolleyOffset by transition.animateFloat(
+        initialValue = -2f,
+        targetValue = 2f,
+        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse),
+        label = "trolley_offset"
+    )
+    var slide by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1500)
+            slide = (slide + 1) % 4
+        }
+    }
+    val marketItems = listOf("👕", "👜", "📱", "👟")
+
+    Surface(
+        modifier = Modifier.size(width = 290.dp, height = 178.dp),
+        color = Color(0xFFF8F3FF),
+        shape = RoundedCornerShape(30.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).offset(x = trolleyOffset.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // A soft, repeating market trail sits behind the trolley.
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    marketItems.forEachIndexed { index, item ->
+                        val active = index == slide
+                        Surface(
+                            color = if (active) Color.White else Color.White.copy(alpha = .62f),
+                            shape = CircleShape,
+                            modifier = Modifier.size(if (active) 48.dp else 40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(item, fontSize = if (active) 27.sp else 22.sp)
+                            }
+                        }
+                    }
+                }
+                Text("🛒", fontSize = 78.sp)
+            }
         }
     }
 }
