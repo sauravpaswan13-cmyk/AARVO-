@@ -46,7 +46,7 @@ const safeSignatureEqual = (expected, received) => { const a = Buffer.from(Strin
 const audit = async (client, actor, entityType, entityId, action, metadata = {}) => client.query('INSERT INTO audit_events(actor_id,actor_role,entity_type,entity_id,action,metadata) VALUES($1,$2,$3,$4,$5,$6)', [actor?.sub || null, actor?.role || null, entityType, String(entityId), action, JSON.stringify(metadata)]);
 const normalizeStatus = (value) => String(value || '').trim().toUpperCase();
 
-app.get('/health', async () => ({ service: 'aarvo-api', status: 'ok', database: Boolean(pool), auth: Boolean(JWT_SECRET), payments: Boolean(razorpay), webhooks: Boolean(RAZORPAY_WEBHOOK_SECRET) }));
+app.get('/health', async () => ({ service: 'aarvo-api', status: 'ok', database: Boolean(pool), auth: Boolean(JWT_SECRET), payments: Boolean(razorpay), webhooks: Boolean(RAZORPAY_WEBHOOK_SECRET) }));\napp.get('/healthz', async (_request, reply) => reply.send({ service: 'aarvo-api', status: 'ok', database: Boolean(pool), auth: Boolean(JWT_SECRET), payments: Boolean(razorpay), webhooks: Boolean(RAZORPAY_WEBHOOK_SECRET) }));
 
 app.post('/v1/auth/register', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
   if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
