@@ -79,3 +79,42 @@ test('seller onboarding is reachable from Android and wired to the protected bac
   assert.match(sellerOnboarding, /api\.sellerOnboarding\(\)/);
   assert.match(sellerOnboarding, /api\.saveSellerOnboarding\(/);
 });
+
+test('final internal marketplace scope is wired end-to-end before release build', () => {
+  const rider = read('backend/src/rider-delivery.js');
+  const seller = read('backend/src/seller-onboarding.js');
+  const gap = read('backend/src/marketplace-gap-completion.js');
+  const cart = read('backend/src/cart-completion.js');
+  const launcher = read('backend/src/launcher.js');
+
+  assert.match(apiClient, /serverCart\(\)/);
+  assert.match(apiClient, /setServerCartItem\(/);
+  assert.match(apiClient, /updateServerCartItem\(/);
+  assert.match(apiClient, /removeServerCartItem\(/);
+  assert.match(apiClient, /cancelOrder\(/);
+  assert.match(apiClient, /returnOrder\(/);
+  assert.match(apiClient, /invoice\(/);
+  assert.match(apiClient, /notifications\(/);
+  assert.match(apiClient, /createSupportTicket\(/);
+
+  assert.match(androidMain, /cancelOrder\(/);
+  assert.match(androidMain, /returnOrder\(/);
+  assert.match(androidMain, /invoice\(/);
+  assert.match(androidMain, /createSupportTicket\(/);
+
+  assert.match(gap, /return-request/);
+  assert.match(gap, /recently-viewed/);
+  assert.match(gap, /support\/tickets/);
+  assert.match(gap, /notifications/);
+  assert.match(cart, /v1\/checkout/);
+
+  assert.match(seller, /seller\/onboarding/);
+  assert.match(seller, /admin\/sellers\/onboarding/);
+  assert.match(rider, /rider\/deliveries/);
+  assert.match(rider, /admin\/deliveries\/assign/);
+
+  assert.match(launcher, /marketplace-gap-completion/);
+  assert.match(launcher, /cart-completion/);
+  assert.match(launcher, /seller-onboarding/);
+  assert.match(launcher, /rider-delivery/);
+});
