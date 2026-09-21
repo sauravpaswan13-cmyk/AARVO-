@@ -8,6 +8,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const read = (relativePath) => fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
 
 const androidMain = read('app/src/main/java/com/aarvo/MainActivity.kt');
+const adminDashboard = read('app/src/main/java/com/aarvo/AdminDashboardActivity.kt');
 const apiClient = read('app/src/main/java/com/aarvo/network/AarvoApiClient.kt');
 const productModel = read('app/src/main/java/com/aarvo/data/Product.kt');
 const workflow = read('.github/workflows/android.yml');
@@ -44,7 +45,7 @@ test('internal marketplace completion gate preserves the existing entry, auth an
   assert.match(androidMain, /api\.openDispute\(/);
   assert.match(androidMain, /api\.updateInventory\(/);
   assert.match(androidMain, /api\.updateOrderTracking\(/);
-  assert.match(androidMain, /adminRefundOrder\(/);
+  assert.match(adminDashboard, /adminRefundOrder\(/);
 
   assert.match(apiClient, /URI\(baseUrl\)/);
   assert.match(apiClient, /uri\.scheme\.equals\("https", ignoreCase = true\)/);
