@@ -98,6 +98,7 @@ class AarvoApiClient(
     suspend fun adminCreateRider(name: String, phone: String, password: String): JSONObject = post("/v1/admin/riders", JSONObject().put("displayName",name.trim()).put("phone",phone.trim()).put("password",password))
     suspend fun adminAssignRider(orderId: String, riderId: String): JSONObject = post("/v1/admin/orders/"+orderId.trim()+"/assign-rider", JSONObject().put("riderId",riderId.trim()))
     suspend fun adminResolveDispute(id: String, status: String, resolution: String): JSONObject = post("/v1/admin/disputes/"+id.trim()+"/resolve", JSONObject().put("status",status).put("resolution",resolution))
+    suspend fun adminRefundOrder(orderId: String, amountPaise: Long? = null): JSONObject { require(orderId.trim().isNotBlank()) { "Order ID is required" }; val payload=JSONObject(); if(amountPaise!=null) { require(amountPaise>0) { "Refund amount must be positive" }; payload.put("amountPaise",amountPaise) }; return post("/v1/admin/orders/"+orderId.trim()+"/refund",payload) }
     suspend fun riderAssignments(): JSONArray = get("/v1/rider/assignments")
     suspend fun riderNotifications(): JSONArray = get("/v1/rider/notifications")
     suspend fun riderUpdateAssignment(id: String, status: String): JSONObject = post("/v1/rider/assignments/"+id.trim()+"/status", JSONObject().put("status",status.trim().uppercase()))
