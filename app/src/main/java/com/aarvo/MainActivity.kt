@@ -449,6 +449,11 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
                         item {
                             AccountOptionRow(Icons.Default.ShoppingCart, "Seller Dashboard", "Products, inventory, orders and fulfilment") { section = "seller" }
                         }
+                        item {
+                            AccountOptionRow(Icons.Default.Person, "Seller Business Onboarding", "Business, tax, pickup and return details") {
+                                activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java))
+                            }
+                        }
                     }
                     item {
                         Text("More", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
