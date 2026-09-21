@@ -119,9 +119,9 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         signedIn && role != "ADMIN" && role != "RIDER" -> AarvoApp(userName, role, api, activity, wishlistStore, false, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply(); signedIn = false; guestMode = false })
         !onboarded -> OnboardingScreen(
             onLogin = openOtpLogin,
-            onGuest = { prefs.edit().putBoolean("onboarded", true).putBoolean("guest_mode", true).apply(); onboarded = true; guestMode = true }
+            onGuest = { prefs.edit().putBoolean("onboarded", true).putBoolean("guest_mode", true).putBoolean("signed_in", false).putString("user_role", "BUYER").remove("auth_token").apply(); onboarded = true; signedIn = false; role = "BUYER"; guestMode = true }
         )
-        else -> OnboardingScreen(onLogin = openOtpLogin, onGuest = { prefs.edit().putBoolean("onboarded", true).putBoolean("guest_mode", true).putBoolean("signed_in", false).putString("user_role", "BUYER").apply(); onboarded = true; guestMode = true })
+        else -> OnboardingScreen(onLogin = openOtpLogin, onGuest = { prefs.edit().putBoolean("onboarded", true).putBoolean("guest_mode", true).putBoolean("signed_in", false).putString("user_role", "BUYER").remove("auth_token").apply(); onboarded = true; signedIn = false; role = "BUYER"; guestMode = true })
     }
 }
 
