@@ -12,6 +12,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -153,54 +155,82 @@ private fun WelcomeScreen(onBrowse: () -> Unit, onLogin: () -> Unit) {
 
 @Composable
 private fun TrolleyMarketScene() {
-    val transition = rememberInfiniteTransition(label = "trolley_motion")
-    val trolleyOffset by transition.animateFloat(
-        initialValue = -2f,
-        targetValue = 2f,
-        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse),
-        label = "trolley_offset"
+    val transition = rememberInfiniteTransition(label = "trolley_market_motion")
+
+    // Trolley remains at the same place and gently rocks as if moving forward.
+    val trolleyTilt by transition.animateFloat(
+        initialValue = -2.2f,
+        targetValue = 2.2f,
+        animationSpec = infiniteRepeatable(
+            tween(650, easing = LinearEasing),
+            RepeatMode.Reverse
+        ),
+        label = "trolley_tilt"
     )
-    var slide by remember { mutableStateOf(0) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1500)
-            slide = (slide + 1) % 4
-        }
-    }
+
+    // The market trail visibly slides behind the trolley.
+    val marketSlide by transition.animateFloat(
+        initialValue = -42f,
+        targetValue = 42f,
+        animationSpec = infiniteRepeatable(
+            tween(1800, easing = LinearEasing),
+            RepeatMode.Reverse
+        ),
+        label = "market_slide"
+    )
+
     val marketItems = listOf("👕", "👜", "📱", "👟")
 
     Surface(
-        modifier = Modifier.size(width = 290.dp, height = 178.dp),
+        modifier = Modifier
+            .size(width = 290.dp, height = 178.dp)
+            .clip(RoundedCornerShape(30.dp)),
         color = Color(0xFFF8F3FF),
         shape = RoundedCornerShape(30.dp)
     ) {
         Box(contentAlignment = Alignment.Center) {
+            // One clear horizontal market lane behind the trolley.
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).offset(x = trolleyOffset.dp),
-                horizontalArrangement = Arrangement.End,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 82.dp)
+                    .offset(x = marketSlide.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // A soft, repeating market trail sits behind the trolley.
-                Row(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    marketItems.forEachIndexed { index, item ->
-                        val active = index == slide
-                        Surface(
-                            color = if (active) Color.White else Color.White.copy(alpha = .62f),
-                            shape = CircleShape,
-                            modifier = Modifier.size(if (active) 48.dp else 40.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(item, fontSize = if (active) 27.sp else 22.sp)
-                            }
+                marketItems.forEach { item ->
+                    Surface(
+                        color = Color.White.copy(alpha = .92f),
+                        shape = CircleShape,
+                        modifier = Modifier.size(47.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(item, fontSize = 26.sp)
                         }
                     }
                 }
-                Text("🛒", fontSize = 78.sp)
             }
+
+            // Fixed trolley: only its tiny tilt changes, never its position.
+            Text(
+                text = "🛒",
+                fontSize = 80.sp,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 10.dp)
+                    .rotate(trolleyTilt)
+            )
+
+            // Subtle motion trail makes the forward-moving effect obvious.
+            Text(
+                text = "•  •  •",
+                color = Color(0xFF7A4BE8).copy(alpha = .45f),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 72.dp, top = 58.dp)
+            )
         }
     }
 }
