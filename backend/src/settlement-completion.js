@@ -25,9 +25,6 @@ export async function registerSettlementCompletion({ app, pool, requireRole, aud
     }
     const gatewayAccountId = account.rows[0].gateway_account_id;
 
-    // Serialize concurrent payout requests for this seller so two requests cannot
-    // both spend the same settlement balance before their ledger rows are written.
-    const lock = await pool.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`seller-payout:${sellerId}`]);
 
     const candidates = await pool.query(`
       SELECT sl.id, sl.order_id, sl.amount_paise, o.gateway_payment_id,
