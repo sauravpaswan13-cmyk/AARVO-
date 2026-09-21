@@ -32,26 +32,6 @@ android {
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach { compilerOptions.freeCompilerArgs.add("-opt-in=androidx.compose.material3.ExperimentalMaterial3Api") }
 }
 
-// Build-time injection keeps the existing compact MainActivity source stable while
-// placing the premium shopping header and live hero at the top of HomeScreen.
-val patchLiveHero = tasks.register("patchLiveHero") {
-    doLast {
-        val sourceFile = file("src/main/java/com/aarvo/MainActivity.kt")
-        val source = sourceFile.readText()
-        if (source.contains("PremiumHomeHeader()")) return@doLast
-        val homeStart = source.indexOf("@Composable private fun HomeScreen(")
-        if (homeStart < 0) return@doLast
-        val lazyColumnStart = source.indexOf("LazyColumn(", homeStart)
-        if (lazyColumnStart < 0) return@doLast
-        val lambdaOpen = source.indexOf('{', lazyColumnStart)
-        if (lambdaOpen < 0) return@doLast
-        val injection = " item { PremiumHomeHeader() }; item { HomeSearchFirst(query, onQueryChange) }; item { LiveHero(api = AarvoApiClient(), modifier = Modifier.fillMaxWidth()) };"
-        sourceFile.writeText(source.substring(0, lambdaOpen + 1) + injection + source.substring(lambdaOpen + 1))
-    }
-}
-
-tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(patchLiveHero) }
-
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2026.08.00")
     implementation(composeBom)
