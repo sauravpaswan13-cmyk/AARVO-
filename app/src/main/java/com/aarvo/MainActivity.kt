@@ -529,7 +529,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
         if(loading) CircularProgressIndicator()
         OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),label={Text("Full name")},singleLine=true)
         OutlinedTextField(email,{email=it},Modifier.fillMaxWidth(),label={Text("Email (optional)")},singleLine=true)
-        OutlinedTextField(phone,{},{Modifier.fillMaxWidth()},label={Text("Verified mobile")},singleLine=true,enabled=false)
+        OutlinedTextField(phone,{},Modifier.fillMaxWidth(),label={Text("Verified mobile")},singleLine=true,enabled=false)
         if(message.isNotBlank()) Text(message,color=MaterialTheme.colorScheme.error)
     }},confirmButton={Button(onClick={scope.launch{saving=true;message="";try{api.updateProfile(name,email);onDone()}catch(t:Throwable){message=t.message?:"Unable to save profile"}finally{saving=false}}},enabled=!loading&&!saving&&name.isNotBlank()){Text(if(saving)"Saving..." else "Save changes")}},dismissButton={TextButton(onClick=onDone,enabled=!saving){Text("Close")}})}
 }
