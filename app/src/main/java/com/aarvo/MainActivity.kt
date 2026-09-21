@@ -447,7 +447,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
                         AccountOptionRow(Icons.Default.Home, "Payment & Security", "Secure checkout and account protection") { }
                     }
                     item {
-                        HorizontalDivider()
+                        androidx.compose.material3.HorizontalDivider()
                         TextButton(
                             onClick = onSignOut,
                             modifier = Modifier.fillMaxWidth().height(56.dp)
@@ -457,7 +457,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
                     }
                 } else {
                     item {
-                        HorizontalDivider()
+                        androidx.compose.material3.HorizontalDivider()
                         Text("Guest Account", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     item {
@@ -504,7 +504,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
             Text("›", fontSize = 28.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-    HorizontalDivider()
+    androidx.compose.material3.HorizontalDivider()
 }
 
 @Composable private fun OrdersScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) { var orders by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); fun reload() { scope.launch { loading = true; error = ""; try { val a = api.orders(); orders = buildList { for (i in 0 until a.length()) add(a.getJSONObject(i)) } } catch (t: Throwable) { error = t.message ?: "Unable to load orders" } finally { loading = false } } }; LaunchedEffect(Unit) { reload() }; Scaffold(topBar = { TopAppBar(title = { Text("My Orders") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { inner -> LazyColumn(Modifier.fillMaxSize().padding(inner), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { if (loading) item { CircularProgressIndicator() }; if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }; if (!loading && orders.isEmpty()) item { Text("No orders yet.") }; items(orders, key = { it.optString("id") }) { order -> OrderCard(order, api, ::reload) } } } }
