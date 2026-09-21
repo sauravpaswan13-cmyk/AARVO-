@@ -59,6 +59,21 @@ class AarvoApiClient(
     suspend fun productImageDelete(productId: Int, imageId: Long): JSONObject { require(productId > 0) { "Product ID is required" }; require(imageId > 0) { "Image ID is required" }; return delete("/v1/seller/products/$productId/images/$imageId") }
     suspend fun sellerOrders(): JSONArray = get("/v1/seller/orders")
     suspend fun updateOrderTracking(orderId: String, status: String, trackingCode: String = "", carrier: String = "", note: String = ""): JSONObject { require(orderId.trim().isNotBlank()) { "Order ID is required" }; require(status.trim().isNotBlank()) { "Tracking status is required" }; return post("/v1/orders/${orderId.trim()}/tracking", JSONObject().put("status", status.trim().uppercase()).put("trackingCode", trackingCode.trim()).put("carrier", carrier.trim()).put("note", note.trim())) }
+
+    suspend fun profile(): JSONObject = getObject("/v1/profile")
+    suspend fun updateProfile(displayName: String, email: String): JSONObject = put("/v1/profile", JSONObject().put("displayName",displayName.trim()).put("email",email.trim()))
+    suspend fun adminSellers(): JSONArray = get("/v1/admin/sellers")
+    suspend fun adminRiders(): JSONArray = get("/v1/admin/riders")
+    suspend fun adminOrders(): JSONArray = get("/v1/admin/orders")
+    suspend fun adminDisputes(): JSONArray = get("/v1/admin/disputes")
+    suspend fun adminVerifySeller(id: String, verified: Boolean): JSONObject = post("/v1/admin/sellers/"+id.trim()+"/verify", JSONObject().put("verified",verified))
+    suspend fun adminCreateRider(name: String, phone: String, password: String): JSONObject = post("/v1/admin/riders", JSONObject().put("displayName",name.trim()).put("phone",phone.trim()).put("password",password))
+    suspend fun adminAssignRider(orderId: String, riderId: String): JSONObject = post("/v1/admin/orders/"+orderId.trim()+"/assign-rider", JSONObject().put("riderId",riderId.trim()))
+    suspend fun adminResolveDispute(id: String, status: String, resolution: String): JSONObject = post("/v1/admin/disputes/"+id.trim()+"/resolve", JSONObject().put("status",status).put("resolution",resolution))
+    suspend fun riderAssignments(): JSONArray = get("/v1/rider/assignments")
+    suspend fun riderNotifications(): JSONArray = get("/v1/rider/notifications")
+    suspend fun riderUpdateAssignment(id: String, status: String): JSONObject = post("/v1/rider/assignments/"+id.trim()+"/status", JSONObject().put("status",status.trim().uppercase()))
+
     private suspend fun get(path: String): JSONArray = withContext(Dispatchers.IO) { JSONArray(execute(Request.Builder().url(buildUrl(path)).applyAuth().get().build())) }
     private suspend fun getObject(path: String): JSONObject = withContext(Dispatchers.IO) { JSONObject(execute(Request.Builder().url(buildUrl(path)).applyAuth().get().build())) }
     private suspend fun post(path: String, payload: JSONObject): JSONObject = withContext(Dispatchers.IO) { JSONObject(execute(Request.Builder().url(buildUrl(path)).applyAuth().post(payload.toString().toRequestBody(jsonMediaType)).build())) }
