@@ -23,9 +23,7 @@ if (!source.includes(marketplaceImport)) {
 if (!source.includes('await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });')) {
   source = source.replace(
     "app.listen(PORT, '0.0.0.0', () => {",
-    "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });
-await registerMarketplaceGapCompletion({ app, pool, requireRole, audit });
-await registerSellerOnboarding({ app, pool, requireRole, audit });\napp.listen(PORT, '0.0.0.0', () => {"
+    "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\nawait registerMarketplaceGapCompletion({ app, pool, requireRole, audit });\nawait registerSellerOnboarding({ app, pool, requireRole, audit });\napp.listen(PORT, '0.0.0.0', () => {"
   );
 }
 
