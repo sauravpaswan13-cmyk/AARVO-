@@ -86,6 +86,15 @@ test('cart regression never exceeds server-provided stock and serializes mutatio
   assert.match(androidMain, /enabled = quantity < product\.stockQuantity/);
 });
 
+test('post-order completion contracts expose returns, invoices, support and notifications', () => {
+  assert.match(apiClient, /requestReturn\(/);
+  assert.match(apiClient, /invoice\(/);
+  assert.match(apiClient, /notifications\(\)/);
+  assert.match(apiClient, /createSupportTicket\(/);
+  assert.match(apiClient, /markProductViewed\(/);
+  assert.match(apiClient, /recentlyViewed\(\)/);
+});
+
 test('seller marketplace UI remains connected to product, inventory and fulfillment APIs', () => {
   assert.match(androidMain, /SellerDashboardScreen\(/);
   assert.match(androidMain, /api\.sellerProducts\(\)/);
