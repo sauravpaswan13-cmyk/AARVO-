@@ -93,7 +93,7 @@ class PhoneAuthActivity : ComponentActivity() {
 
     private fun saveSession(token: String, phone: String, role: String) {
         getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).edit()
-            .putBoolean("signed_in", true).putBoolean("guest_mode", false)
+            .putBoolean("onboarded", true).putBoolean("signed_in", true).putBoolean("guest_mode", false)
             .putString("user_name", phone).putString("user_role", role)
             .putString("auth_token", token).commit()
     }
