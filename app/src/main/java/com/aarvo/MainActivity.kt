@@ -358,21 +358,151 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
     when (section) {
         "orders" -> OrdersScreen(padding, api) { section = "account" }
         "seller" -> SellerDashboardScreen(padding, api) { section = "account" }
-        else -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { Text("My Account", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(if (guestMode) "Guest browsing" else userName) }
-            if (guestMode) {
-                item { Text("Browse products and keep items in your cart. Login is only required when you purchase.") }
-                item { Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text("Login / Sign Up with OTP") } }
-            } else {
-                item { Button(onClick = { activity.startActivity(Intent(activity, AddressBookActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("Delivery Addresses") } }
-                item { Button(onClick = { section = "orders" }, modifier = Modifier.fillMaxWidth()) { Text("My Orders & Tracking") } }
-                item { Button(onClick = { activity.startActivity(Intent(activity, SellerAccountActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("Become a Seller") } }
-                if (role == "SELLER") item { Button(onClick = { section = "seller" }, modifier = Modifier.fillMaxWidth()) { Text("Seller Dashboard") } }
-                item { Text("Buyer payments are server-verified before an order becomes confirmed.", style = MaterialTheme.typography.bodySmall) }
-                item { TextButton(onClick = onSignOut) { Text("Sign out") } }
+        else -> {
+            LazyColumn(
+                Modifier.fillMaxSize().padding(padding),
+                contentPadding = PaddingValues(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Column(Modifier.padding(horizontal = 20.dp, vertical = 22.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    modifier = Modifier.size(56.dp),
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surface
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))
+                                    }
+                                }
+                                Spacer(Modifier.size(14.dp))
+                                Column {
+                                    Text(
+                                        if (guestMode) "Welcome to AARVO" else userName.ifBlank { "AARVO Customer" },
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                    Text(
+                                        if (guestMode) "Login to manage your account" else "Manage your AARVO account",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            if (guestMode) {
+                                Spacer(Modifier.height(16.dp))
+                                Button(onClick = onLogin, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp)) {
+                                    Text("Login / Sign Up with OTP", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!guestMode) {
+                    item {
+                        Text("My Account", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    item {
+                        AccountOptionRow(Icons.Default.Person, "My Profile", "Personal details and account information") { }
+                    }
+                    item {
+                        AccountOptionRow(Icons.Default.ShoppingCart, "My Orders & Tracking", "View orders, delivery status and order history") { section = "orders" }
+                    }
+                    item {
+                        AccountOptionRow(Icons.Default.Home, "Saved Addresses", "Add, edit and manage delivery addresses") {
+                            activity.startActivity(Intent(activity, AddressBookActivity::class.java))
+                        }
+                    }
+                    item {
+                        AccountOptionRow(Icons.Default.Favorite, "Wishlist", "Your saved products") { }
+                    }
+                    item {
+                        Text("Sell on AARVO", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    item {
+                        AccountOptionRow(Icons.Default.Person, "Become a Seller", "Create your store and start selling") {
+                            activity.startActivity(Intent(activity, SellerAccountActivity::class.java))
+                        }
+                    }
+                    if (role == "SELLER") {
+                        item {
+                            AccountOptionRow(Icons.Default.ShoppingCart, "Seller Dashboard", "Products, inventory, orders and fulfilment") { section = "seller" }
+                        }
+                    }
+                    item {
+                        Text("More", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    item {
+                        AccountOptionRow(Icons.Default.Person, "Help & Support", "Get help with your AARVO orders and account") { }
+                    }
+                    item {
+                        AccountOptionRow(Icons.Default.Home, "Payment & Security", "Secure checkout and account protection") { }
+                    }
+                    item {
+                        HorizontalDivider()
+                        TextButton(
+                            onClick = onSignOut,
+                            modifier = Modifier.fillMaxWidth().height(56.dp)
+                        ) {
+                            Text("Sign out", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                } else {
+                    item {
+                        HorizontalDivider()
+                        Text("Guest Account", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    item {
+                        AccountOptionRow(Icons.Default.ShoppingCart, "Cart & Shopping", "Browse products and keep items in your cart") { }
+                    }
+                    item {
+                        AccountOptionRow(Icons.Default.Home, "Delivery Addresses", "Login when you are ready to purchase") { onLogin() }
+                    }
+                }
             }
         }
     }
+}
+
+@Composable private fun AccountOptionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    androidx.compose.material3.Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.Transparent
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(42.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                }
+            }
+            Spacer(Modifier.size(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text("›", fontSize = 28.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    HorizontalDivider()
 }
 
 @Composable private fun OrdersScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) { var orders by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); fun reload() { scope.launch { loading = true; error = ""; try { val a = api.orders(); orders = buildList { for (i in 0 until a.length()) add(a.getJSONObject(i)) } } catch (t: Throwable) { error = t.message ?: "Unable to load orders" } finally { loading = false } } }; LaunchedEffect(Unit) { reload() }; Scaffold(topBar = { TopAppBar(title = { Text("My Orders") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { inner -> LazyColumn(Modifier.fillMaxSize().padding(inner), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { if (loading) item { CircularProgressIndicator() }; if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }; if (!loading && orders.isEmpty()) item { Text("No orders yet.") }; items(orders, key = { it.optString("id") }) { order -> OrderCard(order, api, ::reload) } } } }
