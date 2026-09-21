@@ -8,7 +8,7 @@ let source = await fs.readFile(serverPath, 'utf8');
 
 if (!source.includes("import { sendPhoneOtp } from './otp-delivery.js';")) {
   source = source.replace(
-    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';",
+    "import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';",
     "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\nimport { sendPhoneOtp } from './otp-delivery.js';"
   );
 }
@@ -55,7 +55,7 @@ if (start >= 0 && end > start) {
   if (!result.rowCount) return reply.code(404).send({ error: 'USER_NOT_FOUND' });
 
   const user = result.rows[0];
-  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  const otp = String(randomInt(100000, 1000000));
   const otpHash = hashPassword(otp);
   await pool.query('UPDATE phone_verification_challenges SET verified_at=COALESCE(verified_at,now()) WHERE phone=$1 AND verified_at IS NULL', [phone]);
   try {
