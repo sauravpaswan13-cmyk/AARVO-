@@ -77,7 +77,7 @@ class WelcomeActivity : ComponentActivity() {
 
         // Repeated shopping items create a continuous market ribbon behind the trolley.
         listOf("👕", "👜", "📱", "👟", "⌚", "🎧", "👕", "👜").forEach { item ->
-            addView(TextView(this@WelcomeActivity).apply {
+            lane.addView(TextView(this@WelcomeActivity).apply {
                 text = item
                 textSize = 25f
                 gravity = Gravity.CENTER
