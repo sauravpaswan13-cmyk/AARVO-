@@ -44,6 +44,7 @@ test('internal marketplace completion gate preserves the existing entry, auth an
   assert.match(androidMain, /api\.openDispute\(/);
   assert.match(androidMain, /api\.updateInventory\(/);
   assert.match(androidMain, /api\.updateOrderTracking\(/);
+  assert.match(androidMain, /adminRefundOrder\(/);
 
   assert.match(apiClient, /URI\(baseUrl\)/);
   assert.match(apiClient, /uri\.scheme\.equals\("https", ignoreCase = true\)/);
@@ -96,6 +97,7 @@ test('final internal marketplace scope is wired end-to-end before release build'
   assert.match(apiClient, /invoice\(/);
   assert.match(apiClient, /notifications\(/);
   assert.match(apiClient, /createSupportTicket\(/);
+  assert.match(apiClient, /adminRefundOrder\(/);
 
   assert.match(androidMain, /cancelOrder\(/);
   assert.match(androidMain, /returnOrder\(/);
