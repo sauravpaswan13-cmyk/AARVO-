@@ -1,5 +1,4 @@
 name: AARVO CI
-# CI retrigger after restoring core marketplace APIs
 
 on:
   workflow_dispatch:
