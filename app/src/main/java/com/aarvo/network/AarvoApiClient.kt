@@ -34,6 +34,23 @@ class AarvoApiClient(
     suspend fun productReviews(productId: Int): JSONArray { require(productId > 0) { "Product ID must be positive" }; return get("/v1/products/$productId/reviews") }
     suspend fun productImages(productId: Int): JSONArray { require(productId > 0) { "Product ID must be positive" }; return get("/v1/products/$productId/images") }
     suspend fun heroSlides(): JSONArray = get("/v1/home/hero")
+    suspend fun serverCart(): JSONArray = get("/v1/cart")
+    suspend fun setServerCartItem(productId: Int, quantity: Int): JSONObject {
+        require(productId > 0) { "Product ID must be positive" }
+        require(quantity in 1..100) { "Cart quantity must be between 1 and 100" }
+        return post("/v1/cart/items", JSONObject().put("productId", productId).put("quantity", quantity))
+    }
+    suspend fun updateServerCartItem(productId: Int, quantity: Int): JSONObject {
+        require(productId > 0) { "Product ID must be positive" }
+        require(quantity in 1..100) { "Cart quantity must be between 1 and 100" }
+        return patch("/v1/cart/items/$productId", JSONObject().put("quantity", quantity))
+    }
+    suspend fun removeServerCartItem(productId: Int): JSONObject {
+        require(productId > 0) { "Product ID must be positive" }
+        return delete("/v1/cart/items/$productId")
+    }
+    suspend fun clearServerCart(): JSONObject = delete("/v1/cart")
+
     suspend fun createOrder(items: JSONArray, address: JSONObject, idempotencyKey: String = UUID.randomUUID().toString()): JSONObject = withContext(Dispatchers.IO) { require(!tokenProvider().isNullOrBlank()) { "Login or verify your mobile number before purchasing." }; require(items.length() > 0) { "Order must contain at least one item" }; require(address.length() > 0) { "Delivery address is required" }; require(idempotencyKey.length in 8..128) { "Invalid idempotency key" }; val response = execute(Request.Builder().url(buildUrl("/v1/orders")).applyAuth().header("Idempotency-Key", idempotencyKey).post(JSONObject().put("items", items).put("address", address).toString().toRequestBody(jsonMediaType)).build()); JSONObject(response) }
     suspend fun orders(): JSONArray = get("/v1/orders")
     suspend fun order(orderId: String): JSONObject { require(orderId.trim().isNotBlank()) { "Order ID is required" }; return getObject("/v1/orders/${orderId.trim()}") }
