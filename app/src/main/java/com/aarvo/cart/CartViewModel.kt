@@ -24,8 +24,9 @@ class CartViewModel(
             val array = JSONArray(saved)
             val ids = buildList {
                 for (i in 0 until array.length()) {
-                    val id = array.getJSONObject(i).optInt("productId")
-                    val quantity = array.getJSONObject(i).optInt("quantity")
+                    val row = array.getJSONObject(i)
+                    val id = row.optInt("productId")
+                    val quantity = row.optInt("quantity")
                     if (id > 0 && quantity > 0) repeat(quantity) { add(id) }
                 }
             }
@@ -93,6 +94,8 @@ class CartViewModel(
     fun decrement(product: Product) = remove(product)
     fun quantity(productId: Int): Int = _items.value.count { it.id == productId }
     fun distinctItems(): List<Product> = _items.value.distinctBy { it.id }
+
+    // Each entry in _items represents one unit, so totals must include quantity.
     fun totalPaise(): Long = _items.value.sumOf { it.pricePaise }
 
     @Synchronized
