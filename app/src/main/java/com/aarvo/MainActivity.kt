@@ -316,7 +316,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         0 -> HomeScreen(padding, api, query, { query = it }, availableCategories, category, { category = it }, visibleProducts, recentlyViewed, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { showFilters = true }, sortMode, minRating, maxPrice, inStockOnly)
         1 -> CartScreen(padding, cartItems, allProducts, saveForLater, { product -> cartViewModel.increment(product); syncAuthenticatedCart() }, { product -> cartViewModel.decrement(product); syncAuthenticatedCart() }, { id -> cartViewModel.removeAll(id); syncAuthenticatedCart() }, cartViewModel::quantity, { cartViewModel.clear(); if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } } }, { product -> cartViewModel.removeAll(product.id); saveForLater = saveForLaterStore.toggle(product.id); syncAuthenticatedCart() }, { product -> saveForLater = saveForLaterStore.remove(product.id); cartViewModel.add(product); syncAuthenticatedCart() }, { id -> saveForLater = saveForLaterStore.remove(id) }) { if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" } }
         2 -> WishlistScreen(padding, allProducts, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { selectedProduct = it }, cartViewModel::add)
-        else -> AccountScreen(padding, userName, role, api, activity, guestMode, onLogin, onSignOut, { section = "wishlist" }, { section = "notifications" })
+        else -> AccountScreen(padding, userName, role, api, activity, guestMode, onLogin, onSignOut, { selectedTab = 2 }, { /* notifications opened from account can be added without leaving account */ })
     } } }
 
 @Composable private fun NotificationsScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) {
@@ -361,7 +361,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
                 Text("Recently Viewed", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(recentlyViewed, key = { it.id }) { product ->
-                        Card(Modifier.size(width = 190.dp, height = 150.dp), onClick = { onOpen(product) }) {
+                        Card(onClick = { onOpen(product) }, modifier = Modifier.size(width = 190.dp, height = 150.dp)) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                 Text("${product.emoji}  ${product.name}", fontWeight = FontWeight.SemiBold, maxLines = 2)
                                 Text(product.category, style = MaterialTheme.typography.bodySmall)
@@ -453,8 +453,6 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
     if (showProfile) ProfileDialog(api) { showProfile = false }; if (showSupport) SupportDialog(api) { showSupport = false }
     when (section) {
         "orders" -> OrdersScreen(padding, api) { section = "account" }
-        "wishlist" -> WishlistScreen(padding, products, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { selectedProduct = it }, cartViewModel::add)
-        "notifications" -> NotificationsScreen(padding, api) { section = "account" }
         "seller" -> SellerDashboardScreen(padding, api) { section = "account" }
         else -> {
             LazyColumn(
