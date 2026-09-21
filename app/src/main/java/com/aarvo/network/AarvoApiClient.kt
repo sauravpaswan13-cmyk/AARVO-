@@ -88,6 +88,8 @@ class AarvoApiClient(
 
     suspend fun profile(): JSONObject = getObject("/v1/profile")
     suspend fun updateProfile(displayName: String, email: String): JSONObject = put("/v1/profile", JSONObject().put("displayName",displayName.trim()).put("email",email.trim()))
+    suspend fun adminSellerOnboarding(status: String = ""): JSONArray = get("/v1/admin/sellers/onboarding" + if (status.isBlank()) "" else "?status=" + status.trim().uppercase())
+    suspend fun adminReviewSellerOnboarding(sellerId: String, decision: String, reason: String = ""): JSONObject = post("/v1/admin/sellers/".plus(sellerId.trim()).plus("/onboarding/review"), JSONObject().put("decision", decision.trim().uppercase()).put("reason", reason.trim()))
     suspend fun adminSellers(): JSONArray = get("/v1/admin/sellers")
     suspend fun adminRiders(): JSONArray = get("/v1/admin/riders")
     suspend fun adminOrders(): JSONArray = get("/v1/admin/orders")
