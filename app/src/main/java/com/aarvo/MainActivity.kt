@@ -278,7 +278,16 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
             allProducts = emptyList()
         }
     }
-    LaunchedEffect(api, guestMode, role, allProducts) {\n        if (!guestMode && role == "BUYER" && allProducts.isNotEmpty()) {\n            recentlyViewed = runCatching {\n                val rows = api.recentlyViewed()\n                val ids = (0 until rows.length()).map { rows.getJSONObject(it).optInt("productId", rows.getJSONObject(it).optInt("product_id", 0)) }.filter { it > 0 }\n                ids.mapNotNull { id -> allProducts.firstOrNull { it.id == id } }.distinctBy { it.id }.take(10)\n            }.getOrDefault(emptyList())\n        } else recentlyViewed = emptyList()\n    }\n    LaunchedEffect(query, category, api) { loading = true; error = ""; try { products = api.products(query, category).toProductList() } catch (t: Throwable) { products = emptyList(); error = t.message ?: "Unable to load products." } finally { loading = false } }
+    LaunchedEffect(api, guestMode, role, allProducts) {
+        if (!guestMode && role == "BUYER" && allProducts.isNotEmpty()) {
+            recentlyViewed = runCatching {
+                val rows = api.recentlyViewed()
+                val ids = (0 until rows.length()).map { rows.getJSONObject(it).optInt("productId", rows.getJSONObject(it).optInt("product_id", 0)) }.filter { it > 0 }
+                ids.mapNotNull { id -> allProducts.firstOrNull { it.id == id } }.distinctBy { it.id }.take(10)
+            }.getOrDefault(emptyList())
+        } else recentlyViewed = emptyList()
+    }
+    LaunchedEffect(query, category, api) { loading = true; error = ""; try { products = api.products(query, category).toProductList() } catch (t: Throwable) { products = emptyList(); error = t.message ?: "Unable to load products." } finally { loading = false } }
     val visibleProducts = remember(products, sortMode, minRating, maxPrice, inStockOnly) { products.filter { (minRating <= 0.0 || it.rating >= minRating) && (maxPrice == null || it.pricePaise <= maxPrice!!) && (!inStockOnly || it.stockQuantity > 0) }.let { list -> when (sortMode) { "Price: Low to High" -> list.sortedBy { it.pricePaise }; "Price: High to Low" -> list.sortedByDescending { it.pricePaise }; "Rating: High to Low" -> list.sortedByDescending { it.rating }; else -> list } } }
     fun syncAuthenticatedCart() {
         if (guestMode || role != "BUYER") return
@@ -347,7 +356,30 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
                 if (inStockOnly) Text("• In stock", style = MaterialTheme.typography.bodySmall)
             }
         }
-        if (recentlyViewed.isNotEmpty()) {\n            item {\n                Text("Recently Viewed", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)\n                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {\n                    items(recentlyViewed, key = { it.id }) { product ->\n                        Card(Modifier.size(width = 190.dp, height = 150.dp), onClick = { onOpen(product) }) {\n                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {\n                                Text("${product.emoji}  ${product.name}", fontWeight = FontWeight.SemiBold, maxLines = 2)\n                                Text(product.category, style = MaterialTheme.typography.bodySmall)\n                                Text(product.displayPrice, fontWeight = FontWeight.Bold)\n                                Text("View again", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        item {\n            Text("Categories", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)\n            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                items(categories) { item -> TextButton(onClick = { onCategoryChange(item) }) { Text(if (item == selectedCategory) "✓ $item" else item) } }\n            }\n        }\n        if (loading) item { CircularProgressIndicator() }
+        if (recentlyViewed.isNotEmpty()) {
+            item {
+                Text("Recently Viewed", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(recentlyViewed, key = { it.id }) { product ->
+                        Card(Modifier.size(width = 190.dp, height = 150.dp), onClick = { onOpen(product) }) {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Text("${product.emoji}  ${product.name}", fontWeight = FontWeight.SemiBold, maxLines = 2)
+                                Text(product.category, style = MaterialTheme.typography.bodySmall)
+                                Text(product.displayPrice, fontWeight = FontWeight.Bold)
+                                Text("View again", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Text("Categories", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(categories) { item -> TextButton(onClick = { onCategoryChange(item) }) { Text(if (item == selectedCategory) "✓ $item" else item) } }
+            }
+        }
+        if (loading) item { CircularProgressIndicator() }
         if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }
         if (!loading && error.isBlank() && products.isEmpty()) item { Text("No products match your current search or filters.") }
         items(products, key = { it.id }) { product -> ProductCard(product, product.id in wishlist, onAdd, { scope.launch { runCatching { api.markProductViewed(product.id) }; onOpen(product) } }, onToggleWishlist) }
