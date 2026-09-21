@@ -4,11 +4,18 @@ import re
 PATH = Path('app/src/main/java/com/aarvo/MainActivity.kt')
 text = PATH.read_text()
 
-imports = '''import androidx.compose.foundation.Image\nimport androidx.compose.foundation.shape.RoundedCornerShape\nimport androidx.compose.ui.Alignment\nimport androidx.compose.ui.graphics.Color\nimport androidx.compose.ui.res.painterResource\nimport androidx.compose.ui.unit.sp\n'''
-anchor = 'import androidx.compose.foundation.layout.Arrangement\n'
-if 'import androidx.compose.foundation.Image' not in text:
-    text = text.replace(anchor, imports + anchor, 1)
-
+imports = [
+    'import androidx.compose.foundation.Image',
+    'import androidx.compose.foundation.shape.RoundedCornerShape',
+    'import androidx.compose.ui.Alignment',
+    'import androidx.compose.ui.graphics.Color',
+    'import androidx.compose.ui.res.painterResource',
+    'import androidx.compose.ui.unit.sp'
+]
+anchor = 'import androidx.compose.foundation.layout.Arrangement\\n'
+for imp in imports:
+    if imp not in text:
+        text = text.replace(anchor, imp + '\\n' + anchor, 1)
 home = r'''@Composable private fun HomeScreen(padding: PaddingValues, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit, onFilter: () -> Unit, sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean) {
     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
