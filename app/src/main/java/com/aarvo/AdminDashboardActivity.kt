@@ -1,55 +1,19 @@
 package com.aarvo
-
 import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.aarvo.network.AarvoApiClient
 import com.aarvo.ui.theme.AarvoTheme
-
-class AdminDashboardActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        val prefs = getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)
-        val isAdmin = prefs.getBoolean("signed_in", false) &&
-            prefs.getString("user_role", "")?.uppercase() == "ADMIN" &&
-            !prefs.getString("auth_token", "").isNullOrBlank()
-        if (!isAdmin) {
-            finish()
-            return
-        }
-        setContent {
-            AarvoTheme {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text("AARVO Admin", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Role: ADMIN", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text("You are signed in with the AARVO administrator account.")
-                            Text("Admin-only backend permissions are enforced server-side.", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    Text("Admin controls", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Seller approval, catalog moderation, categories/brands, orders and refunds can be connected here as their admin APIs are enabled.")
-                    Button(onClick = { finish() }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Continue to AARVO")
-                    }
-                }
-            }
-        }
-    }
-}
+import kotlinx.coroutines.launch
+import org.json.JSONObject
+class AdminDashboardActivity:ComponentActivity(){override fun onCreate(b:Bundle?){super.onCreate(b);val p=getSharedPreferences("aarvo_prefs",Context.MODE_PRIVATE);val api=AarvoApiClient{p.getString("auth_token",null)};if(p.getString("user_role","")?.uppercase()!="ADMIN"){finish();return};setContent{AarvoTheme{AdminScreen(api,::finish)}}}}
+@Composable private fun AdminScreen(api:AarvoApiClient,onBack:()->Unit){var sellers by remember{mutableStateOf<List<JSONObject>>(emptyList())};var riders by remember{mutableStateOf<List<JSONObject>>(emptyList())};var orders by remember{mutableStateOf<List<JSONObject>>(emptyList())};var issues by remember{mutableStateOf<List<JSONObject>>(emptyList())};var msg by remember{mutableStateOf("")};var name by remember{mutableStateOf("")};var phone by remember{mutableStateOf("")};var pass by remember{mutableStateOf("")};val scope=rememberCoroutineScope();fun reload(){scope.launch{try{sellers=api.adminSellers().toList();riders=api.adminRiders().toList();orders=api.adminOrders().toList();issues=api.adminDisputes().toList()}catch(t:Throwable){msg=t.message?:"Admin data unavailable"}}};LaunchedEffect(Unit){reload()};LazyColumn(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Text("AARVO Admin Control Center",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text("Seller • Order • Rider • Issue management")};item{Text("Create delivery rider",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)};item{OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),label={Text("Rider name")},singleLine=true)};item{OutlinedTextField(phone,{phone=it.filter(Char::isDigit).take(10)},Modifier.fillMaxWidth(),label={Text("Mobile")},singleLine=true)};item{OutlinedTextField(pass,{pass=it},Modifier.fillMaxWidth(),label={Text("Password (8+)")},singleLine=true)};item{Button(onClick={scope.launch{try{api.adminCreateRider(name,phone,pass);msg="Rider created";name="";phone="";pass="";reload()}catch(t:Throwable){msg=t.message?:"Create failed"}}},enabled=name.isNotBlank()&&phone.length==10&&pass.length>=8,modifier=Modifier.fillMaxWidth()){Text("Create Rider")}};item{if(msg.isNotBlank())Text(msg,color=MaterialTheme.colorScheme.error)};item{Text("Sellers: "+sellers.size,style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)};items(sellers){s->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text(s.optString("display_name"),fontWeight=FontWeight.Bold);Text(s.optString("phone"));if(!s.optBoolean("verified"))TextButton(onClick={scope.launch{try{api.adminVerifySeller(s.optString("seller_id"),true);reload()}catch(t:Throwable){msg="Seller verification failed"}}}){Text("Verify seller")}else Text("Verified")}}};item{Text("Riders: "+riders.size,style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)};items(riders){r->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text(r.optString("display_name"),fontWeight=FontWeight.Bold);Text(r.optString("phone"))}}};item{Text("Orders: "+orders.size,style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)};items(orders){o->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text("Order #"+o.optString("id"),fontWeight=FontWeight.Bold);Text(o.optString("status")+" • ₹"+(o.optLong("total_paise")/100));if(riders.isNotEmpty())Button(onClick={scope.launch{try{api.adminAssignRider(o.optString("id"),riders[0].optString("rider_id"));msg="Rider assigned";reload()}catch(t:Throwable){msg="Assignment failed"}}},enabled=o.optString("status")=="PAID"||o.optString("status")=="PACKED"||o.optString("status")=="SHIPPED"){Text("Assign rider")}}}};item{Text("Issues: "+issues.size,style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)};items(issues){d->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text("Order #"+d.optString("order_id"),fontWeight=FontWeight.Bold);Text(d.optString("reason")+" • "+d.optString("status"));if(d.optString("status")=="OPEN")TextButton(onClick={scope.launch{try{api.adminResolveDispute(d.optString("id"),"UNDER_REVIEW","Admin review started");reload()}catch(t:Throwable){msg="Issue update failed"}}}){Text("Review")}}}};item{Button(onClick=onBack,modifier=Modifier.fillMaxWidth()){Text("Continue")}}}}
