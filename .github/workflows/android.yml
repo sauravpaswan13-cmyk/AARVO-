@@ -1,4 +1,5 @@
 name: AARVO CI
+# CI retrigger after restoring core marketplace APIs
 
 on:
   workflow_dispatch:
@@ -118,12 +119,3 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: aarvo-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-      - name: Upload release AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: aarvo-release-aab-unsigned
-          path: app/build/outputs/bundle/release/*.aab
-          if-no-files-found: error
