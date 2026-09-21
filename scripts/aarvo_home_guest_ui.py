@@ -85,10 +85,6 @@ if match:
     }
 }
 
-@Composable private fun HomeSearchFirst(query: String, onQueryChange: (String) -> Unit) {
-    OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Search for products, brands and more...") })
-}
-
 @Composable private fun ProductCard'''
     s = s[:match.start()] + home + s[match.end():]
 
