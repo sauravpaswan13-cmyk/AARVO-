@@ -21,5 +21,5 @@ test('CI produces both debug APK and release AAB artifacts', () => {
   assert.match(workflow, /assembleDebug/);
   assert.match(workflow, /bundleRelease/);
   assert.match(workflow, /aarvo-debug-apk/);
-  assert.match(workflow, /aarvo-release-aab-unsigned/);
+  assert.match(workflow, /aarvo-release-aab/);
 });
