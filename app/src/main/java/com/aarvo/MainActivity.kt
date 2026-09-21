@@ -69,7 +69,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aarvo.cart.CartViewModel
 import com.aarvo.data.Product
 import com.aarvo.network.AarvoApiClient
@@ -87,7 +86,14 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     private var razorpayCheckout: Checkout? = null
     private var paymentCallback: ((String?, String?) -> Unit)? = null
     private val authRefresh = mutableIntStateOf(0)
-    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { AarvoTheme { AarvoRoot(this, applicationContext, authRefresh.intValue) } } }
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            AarvoTheme {
+                AarvoRoot(this@MainActivity, applicationContext, authRefresh.intValue)
+            }
+        }
+    }
     override fun onResume() { super.onResume(); authRefresh.intValue++ }
     fun startRazorpayPayment(options: JSONObject, callback: (String?, String?) -> Unit) { PaymentBridge.clear(); paymentCallback = callback; try { val checkout = Checkout(); razorpayCheckout = checkout; checkout.setKeyID(options.getString("key")); checkout.open(this, options) } catch (t: Throwable) { paymentCallback = null; callback(null, t.message ?: "Unable to open payment checkout") } }
     override fun onPaymentSuccess(razorpayPaymentId: String?, paymentData: PaymentData?) { PaymentBridge.capture(paymentData); val callback = paymentCallback; paymentCallback = null; callback?.invoke(razorpayPaymentId, null) }
@@ -238,7 +244,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     }
 }
 
-@Composable private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activity: MainActivity, wishlistStore: WishlistStore, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit, cartViewModel: CartViewModel = viewModel()) {
+@Composable private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activity: MainActivity, wishlistStore: WishlistStore, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit, cartViewModel: CartViewModel = remember { CartViewModel() }) {
     var selectedTab by remember { mutableIntStateOf(0) }; var query by remember { mutableStateOf("") }; var category by remember { mutableStateOf("All") }; var sortMode by remember { mutableStateOf("Relevance") }; var minRating by remember { mutableStateOf(0.0) }; var maxPrice by remember { mutableStateOf<Long?>(null) }; var inStockOnly by remember { mutableStateOf(false) }; var showFilters by remember { mutableStateOf(false) }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }; var wishlist by remember { mutableStateOf(wishlistStore.load()) }; var showCheckout by remember { mutableStateOf(false) }; var showLoginRequired by remember { mutableStateOf(false) }; var checkoutLoading by remember { mutableStateOf(false) }; var checkoutMessage by remember { mutableStateOf("") }; var products by remember { mutableStateOf<List<Product>>(emptyList()) }; var allProducts by remember { mutableStateOf<List<Product>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val cartItems by cartViewModel.items.collectAsState(); val scope = rememberCoroutineScope()
     LaunchedEffect(api) { try { allProducts = api.products("", "All").toProductList() } catch (_: Throwable) { allProducts = emptyList() } }
