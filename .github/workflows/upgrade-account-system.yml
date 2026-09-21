@@ -9,117 +9,19 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  upgrade-account:
+  verify-account-source:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Upgrade customer account center
+      - name: Verify account center source
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('app/src/main/java/com/aarvo/MainActivity.kt')
-          text = path.read_text()
-          start = text.find('@Composable private fun AccountScreen(')
-          end = text.find('@Composable private fun OrdersScreen(', start)
-          if start < 0 or end < 0:
-              raise SystemExit('AccountScreen boundaries not found')
-          new_block = r'''@Composable private fun AccountScreen(padding: PaddingValues, userName: String, role: String, api: AarvoApiClient, activity: MainActivity, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit) {
-    var section by remember { mutableStateOf("account") }
-    var dialog by remember { mutableStateOf<String?>(null) }
-    var notifications by remember { mutableStateOf(true) }
-    var marketing by remember { mutableStateOf(false) }
-    var language by remember { mutableStateOf("English") }
-    var darkMode by remember { mutableStateOf(false) }
-    val prefs = remember { activity.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
-    val savedName = prefs.getString("user_name", userName).orEmpty()
-    if (dialog != null) {
-        AlertDialog(onDismissRequest = { dialog = null }, title = { Text(dialog!!) }, text = {
-            when (dialog) {
-                "Notifications & Preferences" -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Control the updates you receive from AARVO.")
-                    TextButton(onClick = { notifications = !notifications }) { Text("Order updates: ${if (notifications) "ON" else "OFF"}") }
-                    TextButton(onClick = { marketing = !marketing }) { Text("Offers & promotions: ${if (marketing) "ON" else "OFF"}") }
-                }
-                "App Settings" -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Your basic preferences are kept on this device.")
-                    TextButton(onClick = { darkMode = !darkMode }) { Text("Dark appearance: ${if (darkMode) "ON" else "OFF"}") }
-                    TextButton(onClick = { dialog = "Language" }) { Text("Language: $language") }
-                }
-                "Language" -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("English", "हिन्दी").forEach { item -> TextButton(onClick = { language = item; dialog = null }) { Text(if (language == item) "✓ $item" else item) } }
-                }
-                "Profile & Edit Profile" -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Account name")
-                    Text(savedName.ifBlank { "AARVO Customer" }, fontWeight = FontWeight.Bold)
-                    Text("Mobile number remains protected as the OTP identity. Profile editing beyond the display name will be connected to the server account service.")
-                }
-                "Security & Login" -> Text("AARVO uses server authentication and mobile OTP. Never share an OTP, password or session token with anyone.")
-                "Saved Payment Methods" -> Text("For safety, AARVO does not display or store raw card credentials. Payment instruments are handled by the secure checkout provider when available.")
-                "Coupons & Offers" -> Text("Eligible coupons and offers will be applied during checkout. Invalid or expired coupons are rejected by the server.")
-                "Help Centre / Customer Support" -> Text("For order help, keep your order ID ready. Use the Contact Us option for delivery, return, refund or account support.")
-                "Contact Us" -> Text("AARVO Support: include your registered mobile number and order ID when contacting support. Do not send OTPs or passwords.")
-                "Terms • Privacy • Refund Policy" -> Text("AARVO terms, privacy and refund rules are part of the production legal layer. Real-money payment and refund actions remain server-authoritative.")
-                "Rate AARVO" -> Text("Thank you for using AARVO. Store rating becomes available after the app is published to the store.")
-                "Delete Account" -> Text("Account deletion is permanent. Request deletion through AARVO support so account data and active orders can be handled safely.")
-                else -> Text("AARVO account option")
-            }
-        }, confirmButton = { Button(onClick = { dialog = null }) { Text("Done") } })
-    }
-    when (section) {
-        "orders" -> OrdersScreen(padding, api) { section = "account" }
-        "seller" -> SellerDashboardScreen(padding, api) { section = "account" }
-        else -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item { Text("My Account", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold); Text(if (guestMode) "Guest browsing" else savedName.ifBlank { "AARVO Customer" }, style = MaterialTheme.typography.titleMedium) }
-            if (guestMode) item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Browse freely", fontWeight = FontWeight.Bold); Text("Products and cart are available without verification. Login is required only when you purchase."); Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text("Login / Sign Up with OTP") } } } }
-            item { Text("Orders & Shopping", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-            item { Button(onClick = { section = "orders" }, modifier = Modifier.fillMaxWidth()) { Text("My Orders & Tracking") } }
-            item { Button(onClick = { section = "account"; dialog = "Wishlist is available from the Wishlist tab." }, modifier = Modifier.fillMaxWidth()) { Text("Wishlist") } }
-            item { Button(onClick = { activity.startActivity(Intent(activity, AddressBookActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("Manage Delivery Addresses") } }
-            item { Text("Account & Payments", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-            item { Button(onClick = { dialog = "Saved Payment Methods" }, modifier = Modifier.fillMaxWidth()) { Text("Saved Payment Methods") } }
-            item { Button(onClick = { dialog = "Coupons & Offers" }, modifier = Modifier.fillMaxWidth()) { Text("Coupons & Offers") } }
-            item { Button(onClick = { dialog = "Notifications & Preferences" }, modifier = Modifier.fillMaxWidth()) { Text("Notifications & Preferences") } }
-            item { Text("Profile & Security", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-            item { Button(onClick = { dialog = "Profile & Edit Profile" }, modifier = Modifier.fillMaxWidth()) { Text("Profile & Edit Profile") } }
-            item { Button(onClick = { dialog = "Security & Login" }, modifier = Modifier.fillMaxWidth()) { Text("Security & Login") } }
-            item { Button(onClick = { dialog = "App Settings" }, modifier = Modifier.fillMaxWidth()) { Text("App Settings") } }
-            item { Button(onClick = { dialog = "Language" }, modifier = Modifier.fillMaxWidth()) { Text("Language") } }
-            item { Text("Help & Legal", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-            item { Button(onClick = { dialog = "Help Centre / Customer Support" }, modifier = Modifier.fillMaxWidth()) { Text("Help Centre / Customer Support") } }
-            item { Button(onClick = { dialog = "Contact Us" }, modifier = Modifier.fillMaxWidth()) { Text("Contact Us") } }
-            item { Button(onClick = { dialog = "Terms • Privacy • Refund Policy" }, modifier = Modifier.fillMaxWidth()) { Text("Terms • Privacy • Refund Policy") } }
-            item { Button(onClick = { dialog = "Rate AARVO" }, modifier = Modifier.fillMaxWidth()) { Text("Rate AARVO") } }
-            item { Text("Seller", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-            item { Button(onClick = { activity.startActivity(Intent(activity, SellerAccountActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("Become a Seller") } }
-            if (role == "SELLER") item { Button(onClick = { section = "seller" }, modifier = Modifier.fillMaxWidth()) { Text("Seller Dashboard") } }
-            item { Text("Buyer payments are server-verified before an order becomes confirmed.", style = MaterialTheme.typography.bodySmall) }
-            item { TextButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) { Text("Log out") } }
-            item { TextButton(onClick = { dialog = "Delete Account" }, modifier = Modifier.fillMaxWidth()) { Text("Delete Account") } }
-        }
-    }
-}
-
-'''
-          text = text[:start] + new_block + text[end:]
-          path.write_text(text)
-          print('Customer account center upgraded')
-          PY
-
-      - name: Commit only if changed
-        run: |
-          git config user.name "AARVO Bot"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/java/com/aarvo/MainActivity.kt
-          if git diff --cached --quiet; then
-            echo "No account source changes required"
-          else
-            git commit -m "feat(account): make customer account options functional"
-            git push
-          fi
+          grep -q '@Composable private fun AccountScreen' app/src/main/java/com/aarvo/MainActivity.kt
+          grep -q 'My Orders & Tracking' app/src/main/java/com/aarvo/MainActivity.kt
+          grep -q 'Manage Delivery Addresses' app/src/main/java/com/aarvo/MainActivity.kt
+          grep -q 'Saved Payment Methods' app/src/main/java/com/aarvo/MainActivity.kt
+          grep -q 'Security & Login' app/src/main/java/com/aarvo/MainActivity.kt
+          echo "Account source is authoritative and valid."
