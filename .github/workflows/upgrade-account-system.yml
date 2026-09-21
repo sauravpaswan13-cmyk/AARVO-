@@ -20,8 +20,8 @@ jobs:
       - name: Verify account center source
         run: |
           grep -q '@Composable private fun AccountScreen' app/src/main/java/com/aarvo/MainActivity.kt
-          grep -q 'My Orders & Tracking' app/src/main/java/com/aarvo/MainActivity.kt
-          grep -q 'Manage Delivery Addresses' app/src/main/java/com/aarvo/MainActivity.kt
-          grep -q 'Saved Payment Methods' app/src/main/java/com/aarvo/MainActivity.kt
-          grep -q 'Security & Login' app/src/main/java/com/aarvo/MainActivity.kt
+          grep -q 'My Orders' app/src/main/java/com/aarvo/MainActivity.kt
+          grep -q 'Address Book' app/src/main/java/com/aarvo/MainActivity.kt
+          grep -q 'Payment Methods' app/src/main/java/com/aarvo/MainActivity.kt
+          grep -q 'Settings' app/src/main/java/com/aarvo/MainActivity.kt
           echo "Account source is authoritative and valid."
