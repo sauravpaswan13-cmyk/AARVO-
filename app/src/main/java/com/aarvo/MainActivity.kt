@@ -121,7 +121,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
             onLogin = openOtpLogin,
             onGuest = { prefs.edit().putBoolean("onboarded", true).putBoolean("guest_mode", true).apply(); onboarded = true; guestMode = true }
         )
-        else -> Box(Modifier.fillMaxSize())
+        else -> OnboardingScreen(onLogin = openOtpLogin, onGuest = { prefs.edit().putBoolean("onboarded", true).putBoolean("guest_mode", true).putBoolean("signed_in", false).putString("user_role", "BUYER").apply(); onboarded = true; guestMode = true })
     }
 }
 
