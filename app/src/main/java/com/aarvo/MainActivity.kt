@@ -255,19 +255,13 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     var selectedTab by remember { mutableIntStateOf(0) }; var query by remember { mutableStateOf("") }; var category by remember { mutableStateOf("All") }; var sortMode by remember { mutableStateOf("Relevance") }; var minRating by remember { mutableStateOf(0.0) }; var maxPrice by remember { mutableStateOf<Long?>(null) }; var inStockOnly by remember { mutableStateOf(false) }; var showFilters by remember { mutableStateOf(false) }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }; var wishlist by remember { mutableStateOf(wishlistStore.load()) }
     var saveForLater by remember { mutableStateOf(saveForLaterStore.load()) }; var showCheckout by remember { mutableStateOf(false) }; var showLoginRequired by remember { mutableStateOf(false) }; var checkoutLoading by remember { mutableStateOf(false) }; var checkoutMessage by remember { mutableStateOf("") }; var products by remember { mutableStateOf<List<Product>>(emptyList()) }; var allProducts by remember { mutableStateOf<List<Product>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val cartItems by cartViewModel.items.collectAsState(); val scope = rememberCoroutineScope()
-    LaunchedEffect(api) {
+    LaunchedEffect(api, guestMode, role) {
         try {
             allProducts = api.products("", "All").toProductList()
             cartViewModel.restore(allProducts)
             if (!guestMode && role == "BUYER") {
                 val server = api.serverCart()
                 if (server.length() > 0) {
-                    val serverIds = buildSet<Int> {
-                        for (i in 0 until server.length()) {
-                            val row = server.getJSONObject(i)
-                            row.optInt("productId").takeIf { it > 0 }?.let(::add)
-                        }
-                    }
                     allProducts.forEach { product ->
                         val row = (0 until server.length()).asSequence()
                             .map { server.getJSONObject(it) }
