@@ -20,12 +20,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Apply reference clone UI
-        run: python3 scripts/apply_reference_clone.py
-
-      - name: Fix reference clone imports
-        run: python3 scripts/fix_reference_imports.py
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
