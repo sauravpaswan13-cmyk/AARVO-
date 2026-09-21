@@ -12,6 +12,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.Space
 import android.widget.TextView
@@ -38,7 +39,7 @@ class WelcomeActivity : ComponentActivity() {
             )
         }
 
-        root.addView(Space(this), LinearLayout.LayoutParams(1, 0, 0.08f))
+        root.addView(Space(this), LinearLayout.LayoutParams(1, 0, 0.06f))
 
         root.addView(TextView(this).apply {
             text = "AARVO"
@@ -59,36 +60,105 @@ class WelcomeActivity : ComponentActivity() {
             letterSpacing = .09f
         }, LinearLayout.LayoutParams(-1, dp(28)))
 
-        val visual = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
+        // Premium trolley scene: the trolley stays fixed while the market lane slides behind it.
+        val visual = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 setColor(Color.argb(34, 255, 255, 255))
                 cornerRadius = dp(34).toFloat()
                 setStroke(dp(1), Color.argb(70, 255, 255, 255))
             }
             elevation = dp(8).toFloat()
-
-            addView(TextView(this@WelcomeActivity).apply {
-                text = "🛒"
-                textSize = 82f
-                gravity = Gravity.CENTER
-                includeFontPadding = true
-            }, LinearLayout.LayoutParams(-1, dp(124)))
-
-            addView(TextView(this@WelcomeActivity).apply {
-                text = "Everything you want.\nOne beautiful place."
-                textSize = 15f
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER
-                setTypeface(typeface, Typeface.BOLD)
-                alpha = .94f
-            }, LinearLayout.LayoutParams(-1, dp(52)))
         }
-        root.addView(visual, LinearLayout.LayoutParams(-1, 0, 0.48f).apply {
+
+        val lane = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.HORIZONTAL
+        }
+
+        // Repeated shopping items create a continuous market ribbon behind the trolley.
+        listOf("👕", "👜", "📱", "👟", "⌚", "🎧", "👕", "👜").forEach { item ->
+            addView(TextView(this@WelcomeActivity).apply {
+                text = item
+                textSize = 25f
+                gravity = Gravity.CENTER
+                setBackgroundColor(Color.TRANSPARENT)
+            }, LinearLayout.LayoutParams(dp(58), dp(58)).apply {
+                leftMargin = dp(4)
+                rightMargin = dp(4)
+            })
+        }
+
+        visual.addView(lane, FrameLayout.LayoutParams(dp(560), dp(72), Gravity.CENTER_VERTICAL).apply {
+            leftMargin = dp(-8)
+        })
+
+        // A fine horizontal motion line makes the sliding market trail visually clear.
+        visual.addView(View(this).apply {
+            setBackgroundColor(Color.argb(85, 255, 255, 255))
+        }, FrameLayout.LayoutParams(dp(242), dp(1), Gravity.CENTER_VERTICAL).apply {
+            leftMargin = dp(18)
+            rightMargin = dp(18)
+        })
+
+        val trolley = TextView(this).apply {
+            text = "🛒"
+            textSize = 82f
+            gravity = Gravity.CENTER
+            includeFontPadding = true
+            elevation = dp(10).toFloat()
+            setShadowLayer(dp(8).toFloat(), 0f, dp(3).toFloat(), Color.argb(110, 0, 0, 0))
+        }
+        visual.addView(trolley, FrameLayout.LayoutParams(dp(118), dp(118), Gravity.CENTER).apply {
+            leftMargin = dp(108)
+        })
+
+        val trail = TextView(this).apply {
+            text = "•  •  •"
+            textSize = 16f
+            setTextColor(Color.argb(155, 255, 220, 110))
+            setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER
+        }
+        visual.addView(trail, FrameLayout.LayoutParams(dp(95), dp(32), Gravity.CENTER).apply {
+            leftMargin = dp(26)
+            topMargin = dp(48)
+        })
+
+        root.addView(visual, LinearLayout.LayoutParams(-1, dp(190)).apply {
             topMargin = dp(18)
             bottomMargin = dp(18)
         })
+
+        // The lane moves back-and-forth behind the trolley; the trolley itself never changes position.
+        lane.animate()
+            .translationX(-dp(92).toFloat())
+            .setDuration(1800)
+            .withEndAction {
+                lane.animate()
+                    .translationX(0f)
+                    .setDuration(1800)
+                    .withEndAction { lane.animate().translationX(-dp(92).toFloat()).setDuration(1800).start() }
+                    .start()
+            }
+            .start()
+
+        trolley.animate()
+            .rotation(-2.2f)
+            .setDuration(650)
+            .withEndAction {
+                trolley.animate()
+                    .rotation(2.2f)
+                    .setDuration(650)
+                    .withEndAction { trolley.animate().rotation(-2.2f).setDuration(650).start() }
+                    .start()
+            }
+            .start()
+
+        trail.animate()
+            .alpha(.35f)
+            .setDuration(500)
+            .withEndAction { trail.animate().alpha(1f).setDuration(500).start() }
+            .start()
 
         val guest = premiumButton(
             text = "Continue as Guest",
