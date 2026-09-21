@@ -8,9 +8,15 @@ export async function registerRiderDelivery({ app, pool, requireRole, audit }) {
     if (!pool) return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
     const next=clean(request.body?.status,30).toUpperCase();
     if(!new Set(['ACCEPTED','PICKED_UP','OUT_FOR_DELIVERY','DELIVERED']).has(next)) return reply.code(400).send({error:'INVALID_DELIVERY_STATUS'});
-    const result=await pool.query("UPDATE delivery_assignments SET status=$1,accepted_at=CASE WHEN $1='ACCEPTED' THEN COALESCE(accepted_at,now()) ELSE accepted_at END,picked_up_at=CASE WHEN $1='PICKED_UP' THEN COALESCE(picked_up_at,now()) ELSE picked_up_at END,delivered_at=CASE WHEN $1='DELIVERED' THEN COALESCE(delivered_at,now()) ELSE delivered_at END,updated_at=now() WHERE id=$2 AND rider_id=$3 AND status NOT IN ('DELIVERED','CANCELLED') RETURNING *",[next,request.params.id,request.user.sub]);
-    if(!result.rowCount) return reply.code(404).send({error:'DELIVERY_NOT_FOUND_OR_CLOSED'});
-    await audit(pool,request.user,'DELIVERY',request.params.id,'STATUS_UPDATED',{status:next});
+    const current=await pool.query('SELECT status,order_id FROM delivery_assignments WHERE id=$1 AND rider_id=$2 FOR UPDATE',[request.params.id,request.user.sub]);
+    if(!current.rowCount) return reply.code(404).send({error:'DELIVERY_NOT_FOUND'});
+    const allowed={ASSIGNED:'ACCEPTED',ACCEPTED:'PICKED_UP',PICKED_UP:'OUT_FOR_DELIVERY',OUT_FOR_DELIVERY:'DELIVERED'};
+    if(allowed[current.rows[0].status]!==next) return reply.code(409).send({error:'INVALID_DELIVERY_TRANSITION'});
+    const result=await pool.query("UPDATE delivery_assignments SET status=$1,accepted_at=CASE WHEN $1='ACCEPTED' THEN COALESCE(accepted_at,now()) ELSE accepted_at END,picked_up_at=CASE WHEN $1='PICKED_UP' THEN COALESCE(picked_up_at,now()) ELSE picked_up_at END,delivered_at=CASE WHEN $1='DELIVERED' THEN COALESCE(delivered_at,now()) ELSE delivered_at END,updated_at=now() WHERE id=$2 AND rider_id=$3 RETURNING *",[next,request.params.id,request.user.sub]);
+    const orderStatus=next==='ACCEPTED'?'PACKED':next==='PICKED_UP'?'OUT_FOR_DELIVERY':next==='OUT_FOR_DELIVERY'?'OUT_FOR_DELIVERY':'DELIVERED';
+    await pool.query('UPDATE orders SET status=$1,tracking_json=$2,updated_at=now() WHERE id=$3',[orderStatus,JSON.stringify({status:orderStatus,carrier:'AARVO Delivery',note:'Updated by assigned rider',updatedAt:new Date().toISOString()}),current.rows[0].order_id]);
+    await pool.query('INSERT INTO delivery_events(order_id,status,carrier,note,actor_id) VALUES($1,$2,$3,$4,$5)',[current.rows[0].order_id,orderStatus,'AARVO Delivery','Rider updated delivery status',request.user.sub]);
+    await audit(pool,request.user,'DELIVERY',request.params.id,'STATUS_UPDATED',{status:next,orderStatus});
     return result.rows[0];
   });
   app.post('/v1/admin/deliveries/assign', { preHandler: requireRole('ADMIN') }, async (request, reply) => {
