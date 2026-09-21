@@ -390,7 +390,146 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
 
 @Composable private fun ProductDetailsScreen(product: Product, isSaved: Boolean, onBack: () -> Unit, onToggleWishlist: () -> Unit, onAdd: (Product) -> Unit) { Scaffold(topBar = { TopAppBar(title = { Text("Product details") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { padding -> Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { Text("${product.emoji}  ${product.name}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(product.category); Text(product.displayPrice, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description); Text("Stock available: ${product.stockQuantity}"); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { onAdd(product) }) { Text("Add to cart") }; TextButton(onClick = onToggleWishlist) { Text(if (isSaved) "Remove from wishlist" else "Save to wishlist") } } } } }
 
-@Composable private fun CartScreen(padding: PaddingValues, items: List<Product>, allProducts: List<Product>, saveForLater: Set<Int>, onIncrement: (Product) -> Unit, onDecrement: (Product) -> Unit, onRemoveAll: (Int) -> Unit, quantityOf: (Int) -> Int, onClear: () -> Unit, onSaveForLater: (Product) -> Unit, onMoveToCart: (Product) -> Unit, onRemoveSaved: (Int) -> Unit, onCheckout: () -> Unit) { val totalPaise = items.sumOf { it.pricePaise }; val groupedItems = items.distinctBy { it.id }; LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Your Cart", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); if (items.isNotEmpty()) TextButton(onClick = onClear) { Text("Clear") } } }; if (items.isEmpty()) item { Text("Your cart is empty. Add something you like from Home.") } else { items(groupedItems) { product -> val quantity = quantityOf(product.id); Card(Modifier.fillMaxWidth()) { Column(Modifier.fillMaxWidth().padding(14.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Column(Modifier.weight(1f)) { Text(product.name, fontWeight = FontWeight.SemiBold); Text(product.displayPrice) }; Row(verticalAlignment = Alignment.CenterVertically) { TextButton(onClick = { onSaveForLater(product) }) { Text("Save for later") }; IconButton(onClick = { onRemoveAll(product.id) }) { Icon(Icons.Default.Delete, "Remove all") } } }; Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { IconButton(onClick = { onDecrement(product) }, enabled = quantity > 0) { Text("−", style = MaterialTheme.typography.titleLarge) }; Text(quantity.toString(), Modifier.padding(horizontal = 12.dp), fontWeight = FontWeight.Bold); IconButton(onClick = { onIncrement(product) }, enabled = quantity < product.stockQuantity) { Text("+") } }; Text("Subtotal: ${formatPaise(product.pricePaise * quantity)}") } } } }; item { Text("Saved for later", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); val savedProducts = allProducts.filter { it.id in saveForLater }; if (savedProducts.isEmpty()) Text("No saved items yet.") else savedProducts.forEach { product -> Card(Modifier.fillMaxWidth()) { Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(product.name, fontWeight = FontWeight.SemiBold); Text(product.displayPrice); Text("Saved for later", style = MaterialTheme.typography.bodySmall) }; TextButton(onClick = { onMoveToCart(product) }) { Text("Move to cart") }; IconButton(onClick = { onRemoveSaved(product.id) }) { Icon(Icons.Default.Delete, "Remove saved item") } } } }; item { Text("Total: ${formatPaise(totalPaise)}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Button(onClick = onCheckout, modifier = Modifier.fillMaxWidth()) { Text("Proceed to secure checkout") } } } }
+@Composable private fun CartScreen(
+    padding: PaddingValues,
+    items: List<Product>,
+    allProducts: List<Product>,
+    saveForLater: Set<Int>,
+    onIncrement: (Product) -> Unit,
+    onDecrement: (Product) -> Unit,
+    onRemoveAll: (Int) -> Unit,
+    quantityOf: (Int) -> Int,
+    onClear: () -> Unit,
+    onSaveForLater: (Product) -> Unit,
+    onMoveToCart: (Product) -> Unit,
+    onRemoveSaved: (Int) -> Unit,
+    onCheckout: () -> Unit
+) {
+    val totalPaise = items.sumOf { it.pricePaise }
+    val groupedItems = items.distinctBy { it.id }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(padding),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Your Cart",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                if (items.isNotEmpty()) {
+                    TextButton(onClick = onClear) { Text("Clear") }
+                }
+            }
+        }
+
+        if (groupedItems.isEmpty()) {
+            item { Text("Your cart is empty. Add something you like from Home.") }
+        } else {
+            items(groupedItems, key = { it.id }) { product ->
+                val quantity = quantityOf(product.id)
+                Card(Modifier.fillMaxWidth()) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(product.name, fontWeight = FontWeight.SemiBold)
+                                Text(product.displayPrice)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = { onSaveForLater(product) }) {
+                                    Text("Save for later")
+                                }
+                                IconButton(onClick = { onRemoveAll(product.id) }) {
+                                    Icon(Icons.Default.Delete, "Remove all")
+                                }
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = { onDecrement(product) },
+                                enabled = quantity > 0
+                            ) { Text("−", style = MaterialTheme.typography.titleLarge) }
+                            Text(
+                                quantity.toString(),
+                                Modifier.padding(horizontal = 12.dp),
+                                fontWeight = FontWeight.Bold
+                            )
+                            IconButton(
+                                onClick = { onIncrement(product) },
+                                enabled = quantity < product.stockQuantity
+                            ) { Text("+") }
+                        }
+                        Text("Subtotal: ${formatPaise(product.pricePaise * quantity)}")
+                    }
+                }
+            }
+        }
+
+        item {
+            Text(
+                "Saved for later",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            val savedProducts = allProducts.filter { it.id in saveForLater }
+            if (savedProducts.isEmpty()) {
+                Text("No saved items yet.")
+            } else {
+                savedProducts.forEach { product ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(product.name, fontWeight = FontWeight.SemiBold)
+                                Text(product.displayPrice)
+                                Text(
+                                    "Saved for later",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            TextButton(onClick = { onMoveToCart(product) }) {
+                                Text("Move to cart")
+                            }
+                            IconButton(onClick = { onRemoveSaved(product.id) }) {
+                                Icon(Icons.Default.Delete, "Remove saved item")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Text(
+                "Total: ${formatPaise(totalPaise)}",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Button(
+                onClick = onCheckout,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = items.isNotEmpty()
+            ) {
+                Text("Proceed to secure checkout")
+            }
+        }
+    }
+}
 
 @Composable private fun CheckoutDialog(api: AarvoApiClient, totalPaise: Long, loading: Boolean, message: String, onDismiss: () -> Unit, onPlaceOrder: (String, String, String, String, String, String) -> Unit) {
     var fullName by remember { mutableStateOf("") }
