@@ -29,11 +29,7 @@ jobs:
           gradle-version: '9.7.1'
           validate-wrappers: false
 
-      - name: Apply AARVO UI changes
-        run: |
-          python3 scripts/integrate_ai.py
-          python3 scripts/aarvo_home_guest_ui.py
-
+      # Source is now authoritative in the repository; do not mutate Kotlin/JS during CI.
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug -PaarvoApiBaseUrl=https://aarvo-api.onrender.com
 
