@@ -307,8 +307,20 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         0 -> HomeScreen(padding, api, query, { query = it }, availableCategories, category, { category = it }, visibleProducts, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { showFilters = true }, sortMode, minRating, maxPrice, inStockOnly)
         1 -> CartScreen(padding, cartItems, allProducts, saveForLater, { product -> cartViewModel.increment(product); syncAuthenticatedCart() }, { product -> cartViewModel.decrement(product); syncAuthenticatedCart() }, { id -> cartViewModel.removeAll(id); syncAuthenticatedCart() }, cartViewModel::quantity, { cartViewModel.clear(); if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } } }, { product -> cartViewModel.removeAll(product.id); saveForLater = saveForLaterStore.toggle(product.id); syncAuthenticatedCart() }, { product -> saveForLater = saveForLaterStore.remove(product.id); cartViewModel.add(product); syncAuthenticatedCart() }, { id -> saveForLater = saveForLaterStore.remove(id) }) { if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" } }
         2 -> WishlistScreen(padding, allProducts, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { selectedProduct = it }, cartViewModel::add)
-        else -> AccountScreen(padding, userName, role, api, activity, guestMode, onLogin, onSignOut)
+        else -> AccountScreen(padding, userName, role, api, activity, guestMode, onLogin, onSignOut, { section = "wishlist" }, { section = "notifications" })
     } } }
+
+@Composable private fun NotificationsScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) {
+    var items by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope()
+    fun reload() { scope.launch { try { val a=api.notifications(); items=buildList { for(i in 0 until a.length()) add(a.getJSONObject(i)) } } catch(t:Throwable){ error=t.message ?: "Unable to load notifications" } } }
+    LaunchedEffect(Unit){ reload() }
+    LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+        item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Back")};Text("Notifications",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)}}
+        if(error.isNotBlank()) item{Text(error,color=MaterialTheme.colorScheme.error)}
+        if(items.isEmpty() && error.isBlank()) item{Text("No new notifications.")}
+        items(items,key={it.optLong("id")}){n->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text(n.optString("title").ifBlank{"AARVO Update"},fontWeight=FontWeight.Bold);Text(n.optString("message").ifBlank{n.optString("body")});if(!n.optBoolean("read"))TextButton(onClick={scope.launch{runCatching{api.markNotificationRead(n.optLong("id"))};reload()}}){Text("Mark as read")}}}}
+    }
+}
 
 @Composable private fun LoginRequiredDialog(onLogin: () -> Unit, onDismiss: () -> Unit) { AlertDialog(onDismissRequest = onDismiss, title = { Text("Login Required") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("To complete your purchase, please login or create an account."); Text("You can still browse and add to cart.", style = MaterialTheme.typography.bodySmall) } }, confirmButton = { Button(onClick = onLogin) { Text("Login / Sign Up") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Continue Browsing") } }) }
 
@@ -409,12 +421,14 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
     }, confirmButton = { Button(onClick = { onPlaceOrder(fullName, phone, line1, city, state, postalCode) }, enabled = !loading && fullName.isNotBlank() && Regex("^[6-9][0-9]{9}$").matches(phone.trim()) && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && Regex("^[0-9]{6}$").matches(postalCode.trim())) { if (loading) CircularProgressIndicator() else Text("Pay securely") } }, dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text("Close") } })
 }
 
-@Composable private fun AccountScreen(padding: PaddingValues, userName: String, role: String, api: AarvoApiClient, activity: MainActivity, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit) {
+@Composable private fun AccountScreen(padding: PaddingValues, userName: String, role: String, api: AarvoApiClient, activity: MainActivity, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit, onWishlist: () -> Unit, onNotifications: () -> Unit) {
     var section by remember { mutableStateOf("account") }
     var showProfile by remember { mutableStateOf(false) }; var showSupport by remember { mutableStateOf(false) }
     if (showProfile) ProfileDialog(api) { showProfile = false }; if (showSupport) SupportDialog(api) { showSupport = false }
     when (section) {
         "orders" -> OrdersScreen(padding, api) { section = "account" }
+        "wishlist" -> WishlistScreen(padding, products, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { selectedProduct = it }, cartViewModel::add)
+        "notifications" -> NotificationsScreen(padding, api) { section = "account" }
         "seller" -> SellerDashboardScreen(padding, api) { section = "account" }
         else -> {
             LazyColumn(
@@ -478,7 +492,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
                         }
                     }
                     item {
-                        AccountOptionRow(Icons.Default.Favorite, "Wishlist", "Your saved products") { section = "wishlist" }
+                        AccountOptionRow(Icons.Default.Favorite, "Wishlist", "Your saved products") { onWishlist() }
                     }
                     item {
                         Text("Sell on AARVO", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
