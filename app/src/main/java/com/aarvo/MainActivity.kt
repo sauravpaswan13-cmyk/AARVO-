@@ -117,12 +117,11 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     when {
         guestMode -> AarvoApp(userName.ifBlank { "Guest" }, role, api, activity, wishlistStore, true, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply(); signedIn = false; guestMode = false })
         signedIn && role != "ADMIN" && role != "RIDER" -> AarvoApp(userName, role, api, activity, wishlistStore, false, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply(); signedIn = false; guestMode = false })
-        else -> Box(Modifier.fillMaxSize())
-    }
-        else -> OnboardingScreen(
+        !onboarded -> OnboardingScreen(
             onLogin = openOtpLogin,
             onGuest = { prefs.edit().putBoolean("onboarded", true).putBoolean("guest_mode", true).apply(); onboarded = true; guestMode = true }
         )
+        else -> Box(Modifier.fillMaxSize())
     }
 }
 
