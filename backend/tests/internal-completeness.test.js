@@ -19,6 +19,7 @@ const phoneAuth = read('app/src/main/java/com/aarvo/PhoneAuthActivity.kt');
 const addressBook = read('app/src/main/java/com/aarvo/AddressBookActivity.kt');
 const adminLogin = read('app/src/main/java/com/aarvo/AdminLoginActivity.kt');
 const manifest = read('app/src/main/AndroidManifest.xml');
+const sellerOnboarding = read('app/src/main/java/com/aarvo/SellerOnboardingActivity.kt');
 
 
 test('internal marketplace completion gate preserves the existing entry, auth and management flows', () => {
@@ -66,4 +67,15 @@ test('internal marketplace completion gate preserves the existing entry, auth an
   assert.match(envExample, /RAZORPAY_KEY_ID/);
   assert.match(envExample, /RAZORPAY_KEY_SECRET/);
   assert.match(envExample, /POSTGRES_PASSWORD/);
+});
+
+test('seller onboarding is reachable from Android and wired to the protected backend contract', () => {
+  assert.match(manifest, /android:name="\.SellerOnboardingActivity"/);
+  assert.match(androidMain, /Seller Business Onboarding/);
+  assert.match(apiClient, /sellerOnboarding\(\)/);
+  assert.match(apiClient, /saveSellerOnboarding\(/);
+  assert.match(sellerOnboarding, /Seller Business Onboarding/);
+  assert.match(sellerOnboarding, /Submit for Admin Review/);
+  assert.match(sellerOnboarding, /api\.sellerOnboarding\(\)/);
+  assert.match(sellerOnboarding, /api\.saveSellerOnboarding\(/);
 });
