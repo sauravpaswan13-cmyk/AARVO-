@@ -110,9 +110,15 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     var role by remember(authRefresh) { mutableStateOf(prefs.getString("user_role", "BUYER") ?: "BUYER") }
     val api = remember { AarvoApiClient { prefs.getString("auth_token", null) } }
     val openOtpLogin = { prefs.edit().putBoolean("onboarded", true).apply(); activity.startActivity(Intent(activity, PhoneAuthActivity::class.java)) }
+    LaunchedEffect(signedIn, role) {
+        if (signedIn && role == "ADMIN") activity.startActivity(Intent(activity, AdminDashboardActivity::class.java))
+        if (signedIn && role == "RIDER") activity.startActivity(Intent(activity, RiderDashboardActivity::class.java))
+    }
     when {
         guestMode -> AarvoApp(userName.ifBlank { "Guest" }, role, api, activity, wishlistStore, true, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply(); signedIn = false; guestMode = false })
-        signedIn -> AarvoApp(userName, role, api, activity, wishlistStore, false, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply(); signedIn = false; guestMode = false })
+        signedIn && role != "ADMIN" && role != "RIDER" -> AarvoApp(userName, role, api, activity, wishlistStore, false, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply(); signedIn = false; guestMode = false })
+        else -> Box(Modifier.fillMaxSize())
+    }
         else -> OnboardingScreen(
             onLogin = openOtpLogin,
             onGuest = { prefs.edit().putBoolean("onboarded", true).putBoolean("guest_mode", true).apply(); onboarded = true; guestMode = true }
