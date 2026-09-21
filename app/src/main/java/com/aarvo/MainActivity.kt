@@ -255,7 +255,35 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     var selectedTab by remember { mutableIntStateOf(0) }; var query by remember { mutableStateOf("") }; var category by remember { mutableStateOf("All") }; var sortMode by remember { mutableStateOf("Relevance") }; var minRating by remember { mutableStateOf(0.0) }; var maxPrice by remember { mutableStateOf<Long?>(null) }; var inStockOnly by remember { mutableStateOf(false) }; var showFilters by remember { mutableStateOf(false) }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }; var wishlist by remember { mutableStateOf(wishlistStore.load()) }
     var saveForLater by remember { mutableStateOf(saveForLaterStore.load()) }; var showCheckout by remember { mutableStateOf(false) }; var showLoginRequired by remember { mutableStateOf(false) }; var checkoutLoading by remember { mutableStateOf(false) }; var checkoutMessage by remember { mutableStateOf("") }; var products by remember { mutableStateOf<List<Product>>(emptyList()) }; var allProducts by remember { mutableStateOf<List<Product>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val cartItems by cartViewModel.items.collectAsState(); val scope = rememberCoroutineScope()
-    LaunchedEffect(api) { try { allProducts = api.products("", "All").toProductList(); cartViewModel.restore(allProducts) } catch (_: Throwable) { allProducts = emptyList() } }
+    LaunchedEffect(api) {
+        try {
+            allProducts = api.products("", "All").toProductList()
+            cartViewModel.restore(allProducts)
+            if (!guestMode && role == "BUYER") {
+                val server = api.serverCart()
+                if (server.length() > 0) {
+                    val serverIds = buildSet<Int> {
+                        for (i in 0 until server.length()) {
+                            val row = server.getJSONObject(i)
+                            row.optInt("productId").takeIf { it > 0 }?.let(::add)
+                        }
+                    }
+                    allProducts.forEach { product ->
+                        val row = (0 until server.length()).asSequence()
+                            .map { server.getJSONObject(it) }
+                            .firstOrNull { it.optInt("productId") == product.id }
+                        cartViewModel.setQuantity(product, row?.optInt("quantity", 0) ?: 0)
+                    }
+                } else {
+                    cartViewModel.distinctItems().forEach { product ->
+                        api.setServerCartItem(product.id, cartViewModel.quantity(product.id))
+                    }
+                }
+            }
+        } catch (_: Throwable) {
+            allProducts = emptyList()
+        }
+    }
     LaunchedEffect(query, category, api) { loading = true; error = ""; try { products = api.products(query, category).toProductList() } catch (t: Throwable) { products = emptyList(); error = t.message ?: "Unable to load products." } finally { loading = false } }
     val visibleProducts = remember(products, sortMode, minRating, maxPrice, inStockOnly) { products.filter { (minRating <= 0.0 || it.rating >= minRating) && (maxPrice == null || it.pricePaise <= maxPrice!!) && (!inStockOnly || it.stockQuantity > 0) }.let { list -> when (sortMode) { "Price: Low to High" -> list.sortedBy { it.pricePaise }; "Price: High to Low" -> list.sortedByDescending { it.pricePaise }; "Rating: High to Low" -> list.sortedByDescending { it.rating }; else -> list } } }
     val availableCategories = remember(allProducts) { listOf("All") + allProducts.map { it.category.trim() }.filter { it.isNotBlank() }.distinct().sorted() }
