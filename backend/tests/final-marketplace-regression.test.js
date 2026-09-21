@@ -63,6 +63,18 @@ test('wishlist regression keeps saved product IDs persistent, positive and seria
   assert.match(androidMain, /WishlistScreen\(/);
 });
 
+test('cart persistence regression keeps local guest cart across process recreation and exposes server sync', () => {
+  assert.match(cartViewModel, /SharedPreferences/);
+  assert.match(cartViewModel, /aarvo_cart_v1|storageKey/);
+  assert.match(cartViewModel, /JSONArray/);
+  assert.match(cartViewModel, /restore\(products/);
+  assert.match(apiClient, /serverCart\(\)/);
+  assert.match(apiClient, /setServerCartItem\(/);
+  assert.match(apiClient, /updateServerCartItem\(/);
+  assert.match(apiClient, /removeServerCartItem\(/);
+  assert.match(apiClient, /clearServerCart\(\)/);
+});
+
 test('cart regression never exceeds server-provided stock and serializes mutations', () => {
   assert.match(cartViewModel, /@Synchronized\s+fun add/);
   assert.match(cartViewModel, /@Synchronized\s+fun remove/);
