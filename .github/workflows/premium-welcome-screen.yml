@@ -20,10 +20,10 @@ jobs:
           path = Path('app/src/main/java/com/aarvo/MainActivity.kt')
           text = path.read_text()
           required = [
-              'Welcome to AARVO',
-              'Premium shopping, made simple.',
-              'Continue to AARVO',
-              'Login / Sign Up with OTP is available inside the app',
+              'AARVO',
+              'Shop smart. Live better.',
+              'Login / Sign Up',
+              'Continue as Guest',
           ]
           missing = [item for item in required if item not in text]
           if missing:
