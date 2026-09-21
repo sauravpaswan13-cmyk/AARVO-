@@ -12,7 +12,7 @@ imports = [
     'import androidx.compose.ui.res.painterResource',
     'import androidx.compose.ui.unit.sp'
 ]
-anchor = 'import androidx.compose.foundation.layout.Arrangement\\n'
+anchor = 'import androidx.compose.foundation.layout.Arrangement\n'
 for imp in imports:
     if imp not in text:
         text = text.replace(anchor, imp + '\\n' + anchor, 1)
