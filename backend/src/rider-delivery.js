@@ -13,10 +13,6 @@ export async function registerRiderDelivery({ app, pool, requireRole, audit }) {
     await audit(pool,request.user,'DELIVERY',request.params.id,'STATUS_UPDATED',{status:next});
     return result.rows[0];
   });
-  app.get('/v1/rider/notifications', { preHandler: requireRole('RIDER') }, async (request, reply) => {
-    if (!pool) return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
-    return (await pool.query('SELECT id,order_id,title,body,read_at,created_at FROM rider_notifications WHERE rider_id=$1 ORDER BY created_at DESC LIMIT 100',[request.user.sub])).rows;
-  });
   app.post('/v1/admin/deliveries/assign', { preHandler: requireRole('ADMIN') }, async (request, reply) => {
     if (!pool) return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
     const orderId=clean(request.body?.orderId,100), riderId=clean(request.body?.riderId,100);
