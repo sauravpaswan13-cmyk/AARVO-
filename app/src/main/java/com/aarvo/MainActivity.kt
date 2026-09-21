@@ -369,6 +369,8 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
 
 @Composable private fun AccountScreen(padding: PaddingValues, userName: String, role: String, api: AarvoApiClient, activity: MainActivity, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit) {
     var section by remember { mutableStateOf("account") }
+    var showProfile by remember { mutableStateOf(false) }
+    if (showProfile) ProfileDialog(api) { showProfile = false }
     when (section) {
         "orders" -> OrdersScreen(padding, api) { section = "account" }
         "seller" -> SellerDashboardScreen(padding, api) { section = "account" }
@@ -423,7 +425,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
                         Text("My Account", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     item {
-                        AccountOptionRow(Icons.Default.Person, "My Profile", "Personal details and account information") { }
+                        AccountOptionRow(Icons.Default.Person, "My Profile", "Personal details and account information") { showProfile = true }
                     }
                     item {
                         AccountOptionRow(Icons.Default.ShoppingCart, "My Orders & Tracking", "View orders, delivery status and order history") { section = "orders" }
@@ -517,6 +519,19 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
         }
     }
     androidx.compose.material3.Divider()
+}
+
+@Composable private fun ProfileDialog(api: AarvoApiClient, onDone: () -> Unit) {
+    var name by remember { mutableStateOf("") }; var email by remember { mutableStateOf("") }; var phone by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(true) }; var saving by remember { mutableStateOf(false) }; var message by remember { mutableStateOf("") }; val scope=rememberCoroutineScope()
+    LaunchedEffect(Unit){ try { val p=api.profile(); name=p.optString("display_name"); email=p.optString("email"); phone=p.optString("phone") } catch(t:Throwable){ message=t.message ?: "Unable to load profile" } finally { loading=false } }
+    AlertDialog(onDismissRequest={if(!saving)onDone()},title={Text("My Profile",fontWeight=FontWeight.Bold)},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+        if(loading) CircularProgressIndicator()
+        OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),label={Text("Full name")},singleLine=true)
+        OutlinedTextField(email,{email=it},Modifier.fillMaxWidth(),label={Text("Email (optional)")},singleLine=true)
+        OutlinedTextField(phone,{},{Modifier.fillMaxWidth()},label={Text("Verified mobile")},singleLine=true,enabled=false)
+        if(message.isNotBlank()) Text(message,color=MaterialTheme.colorScheme.error)
+    }},confirmButton={Button(onClick={scope.launch{saving=true;message="";try{api.updateProfile(name,email);onDone()}catch(t:Throwable){message=t.message?:"Unable to save profile"}finally{saving=false}}},enabled=!loading&&!saving&&name.isNotBlank()){Text(if(saving)"Saving..." else "Save changes")}},dismissButton={TextButton(onClick=onDone,enabled=!saving){Text("Close")}})}
 }
 
 @Composable private fun OrdersScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) { var orders by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); fun reload() { scope.launch { loading = true; error = ""; try { val a = api.orders(); orders = buildList { for (i in 0 until a.length()) add(a.getJSONObject(i)) } } catch (t: Throwable) { error = t.message ?: "Unable to load orders" } finally { loading = false } } }; LaunchedEffect(Unit) { reload() }; Scaffold(topBar = { TopAppBar(title = { Text("My Orders") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { inner -> LazyColumn(Modifier.fillMaxSize().padding(inner), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { if (loading) item { CircularProgressIndicator() }; if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }; if (!loading && orders.isEmpty()) item { Text("No orders yet.") }; items(orders, key = { it.optString("id") }) { order -> OrderCard(order, api, ::reload) } } } }
