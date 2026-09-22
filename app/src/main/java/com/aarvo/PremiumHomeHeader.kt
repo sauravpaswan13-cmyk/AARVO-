@@ -1,5 +1,6 @@
 package com.aarvo
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -27,11 +28,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.delay
 
 @Composable
 fun PremiumHomeHeader() {
@@ -85,9 +93,25 @@ private fun QuickCategory(label: String, icon: androidx.compose.ui.graphics.vect
 @Composable
 fun HomeSearchFirst(query: String, onQueryChange: (String) -> Unit) {
     val popular = listOf("Mobiles", "Fashion", "Electronics", "Grocery", "Beauty", "Home", "Sports")
-    val suggestions = if (query.trim().length >= 2) {
-        popular.filter { it.contains(query.trim(), ignoreCase = true) }.take(4)
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
+    var recentSearches by remember {
+        mutableStateOf(prefs.getStringSet("recent_searches", emptySet())?.toList()?.take(8) ?: emptyList())
+    }
+    val trimmedQuery = query.trim()
+    val suggestions = if (trimmedQuery.length >= 2) {
+        popular.filter { it.contains(trimmedQuery, ignoreCase = true) }.take(4)
     } else emptyList()
+
+    LaunchedEffect(trimmedQuery) {
+        if (trimmedQuery.length >= 2) {
+            delay(800)
+            val updated = listOf(trimmedQuery) + recentSearches.filterNot { it.equals(trimmedQuery, ignoreCase = true) }
+            recentSearches = updated.take(8)
+            prefs.edit().putStringSet("recent_searches", recentSearches.toSet()).apply()
+        }
+    }
+
     Column(Modifier.fillMaxWidth()) {
         OutlinedTextField(
             value = query,
@@ -98,7 +122,42 @@ fun HomeSearchFirst(query: String, onQueryChange: (String) -> Unit) {
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
             placeholder = { Text("Search for products, brands and more") }
         )
-        if (suggestions.isNotEmpty()) {
+        if (trimmedQuery.isBlank() && recentSearches.isNotEmpty()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                shape = RoundedCornerShape(14.dp),
+                tonalElevation = 3.dp
+            ) {
+                Column(Modifier.padding(vertical = 4.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Recent searches", fontWeight = FontWeight.Bold)
+                        Text(
+                            "Clear",
+                            modifier = Modifier.clickable {
+                                recentSearches = emptyList()
+                                prefs.edit().remove("recent_searches").apply()
+                            },
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    recentSearches.forEach { recent ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { onQueryChange(recent) }.padding(horizontal = 14.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text(recent)
+                        }
+                    }
+                }
+            }
+        } else if (suggestions.isNotEmpty()) {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                 shape = RoundedCornerShape(14.dp),
