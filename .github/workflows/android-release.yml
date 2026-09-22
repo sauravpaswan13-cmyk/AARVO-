@@ -1,5 +1,7 @@
 name: AARVO Android Release
 
+# Release gate verification trigger: signed APK/AAB + signature validation.
+
 on:
   push:
     branches: [ main ]
