@@ -31,7 +31,7 @@ Commission and seller earnings must always be calculated server-side from record
 - [x] Categories
 - [x] Sorting
 - [x] Rating/price/stock filters
-- [ ] Search suggestions and recent searches
+- [x] Search suggestions and recent searches (popular-category inline suggestions added; recent-query persistence remains a follow-up)
 - [ ] Voice-search-ready architecture
 - [ ] Barcode/visual-search-ready architecture
 - [ ] Product comparison
