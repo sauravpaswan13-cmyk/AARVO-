@@ -186,6 +186,11 @@ External provider/account work is intentionally deferred. Internal work is limit
 9. Scale + Play Store production
 
 ## 2026-09-22 Internal completion audit
+- Offer/coupon control plane: server-owned active offer storage, validation, minimum-order/max-discount guards, admin creation endpoint, audit events, Android client contracts and regression coverage added in this pass.
+- Seller operations UI: product CRUD/inventory/publish and order progression remain wired to seller-owned APIs; rider/admin assignment is role-protected with explicit lifecycle transitions.
+- Post-order: return request, invoice, support ticket, notification list/read and recently-viewed contracts remain ownership-scoped and regression-covered.
+- Release boundary: CI/build verification is the next gate; no physical-device installation/crash verification is claimed until an actual device run is observed.
+
 - Recently viewed: buyer API + Home rail wired; capped to latest 30 server-side.
 - Returns, invoice data, support tickets, notifications: buyer contracts and UI actions are wired.
 - Seller operations: seller products/inventory/order progression UI and server ownership checks are present.
