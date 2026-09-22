@@ -1,31 +1,33 @@
 package com.aarvo
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -34,93 +36,75 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun PremiumHomeHeader() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp),
-        color = MaterialTheme.colorScheme.primary,
-        tonalElevation = 6.dp
-    ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.primary,
+            tonalElevation = 4.dp
         ) {
-            IconButton(onClick = { }) {
-                Icon(Icons.Default.Menu, contentDescription = "Menu")
+            Row(
+                Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.aarvo_top_logo),
+                    contentDescription = "AARVO logo",
+                    modifier = Modifier.size(42.dp)
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    "AARVO",
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = { }) {
+                    Icon(Icons.Default.ShoppingCart, contentDescription = "Cart")
+                }
             }
-            Icon(
-                painter = painterResource(R.drawable.aarvo_top_logo),
-                contentDescription = "AARVO logo",
-                modifier = Modifier.size(42.dp)
-            )
-            Spacer(Modifier.size(7.dp))
-            Text(
-                "AARVO",
-                color = MaterialTheme.colorScheme.onPrimary,
-                fontSize = 27.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 1.sp,
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = { }) {
-                Icon(Icons.Default.Notifications, contentDescription = "Notifications")
-            }
-            IconButton(onClick = { }) {
-                Icon(Icons.Default.ShoppingCart, contentDescription = "Cart")
-            }
+        }
+        Spacer(Modifier.size(6.dp))
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            QuickCategory("Mobiles", Icons.Default.Search)
+            QuickCategory("Fashion", Icons.Default.Favorite)
+            QuickCategory("Electronics", Icons.Default.Info)
+            QuickCategory("Grocery", Icons.Default.Home)
+            QuickCategory("Deals", Icons.Default.Star)
+        }
+    }
+}
+
+@Composable
+private fun QuickCategory(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Box(
+        Modifier.width(92.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, contentDescription = label)
+            Spacer(Modifier.size(2.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
         }
     }
 }
 
 @Composable
 fun HomeSearchFirst(query: String, onQueryChange: (String) -> Unit) {
-    androidx.compose.material3.OutlinedTextField(
+    OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
         singleLine = true,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
         placeholder = { Text("Search for products, brands and more") }
     )
-}
-
-@Composable
-fun HomeCategoryGrid(categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit) {
-    val visible = categories.filter { it.isNotBlank() }.take(10)
-    Column(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        visible.chunked(5).forEach { rowItems ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                rowItems.forEach { label ->
-                    Column(
-                        Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(54.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (label == selectedCategory) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surfaceVariant
-                                )
-                                .clickable { onCategoryChange(label) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                if (label.equals("All", true)) Icons.Default.Home else Icons.Default.Search,
-                                contentDescription = label,
-                                modifier = Modifier.padding(14.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                    }
-                }
-            }
-        }
-    }
 }
