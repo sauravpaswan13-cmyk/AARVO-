@@ -104,7 +104,7 @@ jobs:
           gradle --no-daemon :app:assembleRelease --stacktrace --project-prop aarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-release-key.jks" --project-prop aarvoReleaseStorePassword="$AARVO_KEYSTORE_PASSWORD" --project-prop aarvoReleaseKeyAlias="$AARVO_KEY_ALIAS" --project-prop aarvoReleaseKeyPassword="$AARVO_KEY_PASSWORD" -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
           APK="$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)"
           test -n "$APK"
-          apksigner verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --verbose "$APK"
 
       - name: Clean release signing material
         if: always()
