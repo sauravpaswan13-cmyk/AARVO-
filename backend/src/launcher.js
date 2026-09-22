@@ -13,6 +13,7 @@ const settlementImport = "import { registerSettlementCompletion } from './settle
 const gapImport = "import { registerMarketplaceGapCompletion } from './marketplace-gap-completion.js';";
 const sellerImport = "import { registerSellerOnboarding } from './seller-onboarding.js';";
 const riderImport = "import { registerRiderDelivery } from './rider-delivery.js';";
+const offerImport = "import { registerOfferCompletion } from './offer-completion.js';";
 
 if (!source.includes(marketplaceImport)) {
   source = source.replace(
@@ -24,7 +25,8 @@ if (!source.includes(marketplaceImport)) {
 if (!source.includes('await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });')) {
   source = source.replace(
     "app.listen(PORT, '0.0.0.0', () => {",
-    "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\nawait registerMarketplaceGapCompletion({ app, pool, requireRole, audit });\nawait registerSellerOnboarding({ app, pool, requireRole, audit });\nawait registerRiderDelivery({ app, pool, requireRole, audit });\napp.listen(PORT, '0.0.0.0', () => {"
+    "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\nawait registerMarketplaceGapCompletion({ app, pool, requireRole, audit });\nawait registerSellerOnboarding({ app, pool, requireRole, audit });\nawait registerRiderDelivery({ app, pool, requireRole, audit });
+await registerOfferCompletion({ app, pool, requireRole, audit });\napp.listen(PORT, '0.0.0.0', () => {"
   );
 }
 
