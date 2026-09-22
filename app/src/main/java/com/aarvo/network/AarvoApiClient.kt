@@ -99,9 +99,9 @@ class AarvoApiClient(
     suspend fun adminAssignRider(orderId: String, riderId: String): JSONObject = post("/v1/admin/orders/"+orderId.trim()+"/assign-rider", JSONObject().put("riderId",riderId.trim()))
     suspend fun adminResolveDispute(id: String, status: String, resolution: String): JSONObject = post("/v1/admin/disputes/"+id.trim()+"/resolve", JSONObject().put("status",status).put("resolution",resolution))
     suspend fun adminRefundOrder(orderId: String, amountPaise: Long? = null): JSONObject { require(orderId.trim().isNotBlank()) { "Order ID is required" }; val payload=JSONObject(); if(amountPaise!=null) { require(amountPaise>0) { "Refund amount must be positive" }; payload.put("amountPaise",amountPaise) }; return post("/v1/admin/orders/"+orderId.trim()+"/refund",payload) }
-    suspend fun riderAssignments(): JSONArray = get("/v1/rider/assignments")
+    suspend fun riderAssignments(): JSONArray = get("/v1/rider/deliveries")
     suspend fun riderNotifications(): JSONArray = get("/v1/rider/notifications")
-    suspend fun riderUpdateAssignment(id: String, status: String): JSONObject = post("/v1/rider/assignments/"+id.trim()+"/status", JSONObject().put("status",status.trim().uppercase()))
+    suspend fun riderUpdateAssignment(id: String, status: String): JSONObject = post("/v1/rider/deliveries/"+id.trim()+"/status", JSONObject().put("status",status.trim().uppercase()))
 
     private suspend fun get(path: String): JSONArray = withContext(Dispatchers.IO) { JSONArray(execute(Request.Builder().url(buildUrl(path)).applyAuth().get().build())) }
     private suspend fun getObject(path: String): JSONObject = withContext(Dispatchers.IO) { JSONObject(execute(Request.Builder().url(buildUrl(path)).applyAuth().get().build())) }
