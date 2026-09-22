@@ -17,8 +17,8 @@ const offerImport = "import { registerOfferCompletion } from './offer-completion
 
 if (!source.includes(marketplaceImport)) {
   source = source.replace(
-    "import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';",
-    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\n" + marketplaceImport + "\n" + cartImport + "\n" + settlementImport + "\n" + gapImport + "\n" + sellerImport + "\n" + riderImport
+    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';",
+    "import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';\n" + marketplaceImport + "\n" + cartImport + "\n" + settlementImport + "\n" + gapImport + "\n" + sellerImport + "\n" + riderImport
   );
 }
 
