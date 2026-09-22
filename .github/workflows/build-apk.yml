@@ -70,27 +70,27 @@ jobs:
       - name: Prepare release signing
         shell: bash
         env:
-          AARVO_RELEASE_KEYSTORE_BASE64: ${{ secrets.AARVO_RELEASE_KEYSTORE_BASE64 }}
-          AARVO_RELEASE_STORE_PASSWORD: ${{ secrets.AARVO_RELEASE_STORE_PASSWORD }}
-          AARVO_RELEASE_KEY_ALIAS: ${{ secrets.AARVO_RELEASE_KEY_ALIAS }}
-          AARVO_RELEASE_KEY_PASSWORD: ${{ secrets.AARVO_RELEASE_KEY_PASSWORD }}
+          AARVO_KEYSTORE_BASE64: ${{ secrets.AARVO_KEYSTORE_BASE64 }}
+          AARVO_KEYSTORE_PASSWORD: ${{ secrets.AARVO_KEYSTORE_PASSWORD }}
+          AARVO_KEY_ALIAS: ${{ secrets.AARVO_KEY_ALIAS }}
+          AARVO_KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          test -n "$AARVO_RELEASE_KEYSTORE_BASE64" || { echo "Missing AARVO_RELEASE_KEYSTORE_BASE64"; exit 1; }
-          test -n "$AARVO_RELEASE_STORE_PASSWORD" || { echo "Missing AARVO_RELEASE_STORE_PASSWORD"; exit 1; }
-          test -n "$AARVO_RELEASE_KEY_ALIAS" || { echo "Missing AARVO_RELEASE_KEY_ALIAS"; exit 1; }
-          test -n "$AARVO_RELEASE_KEY_PASSWORD" || { echo "Missing AARVO_RELEASE_KEY_PASSWORD"; exit 1; }
-          printf '%s' "$AARVO_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/aarvo-release-key.jks"
+          test -n "$AARVO_KEYSTORE_BASE64" || { echo "Missing AARVO_KEYSTORE_BASE64"; exit 1; }
+          test -n "$AARVO_KEYSTORE_PASSWORD" || { echo "Missing AARVO_KEYSTORE_PASSWORD"; exit 1; }
+          test -n "$AARVO_KEY_ALIAS" || { echo "Missing AARVO_KEY_ALIAS"; exit 1; }
+          test -n "$AARVO_KEY_PASSWORD" || { echo "Missing AARVO_KEY_PASSWORD"; exit 1; }
+          printf '%s' "$AARVO_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/aarvo-release-key.jks"
           test -s "$RUNNER_TEMP/aarvo-release-key.jks"
       - name: Build release AAB (signed)
         shell: bash
         env:
-          AARVO_RELEASE_STORE_PASSWORD: ${{ secrets.AARVO_RELEASE_STORE_PASSWORD }}
-          AARVO_RELEASE_KEY_ALIAS: ${{ secrets.AARVO_RELEASE_KEY_ALIAS }}
-          AARVO_RELEASE_KEY_PASSWORD: ${{ secrets.AARVO_RELEASE_KEY_PASSWORD }}
+          AARVO_KEYSTORE_PASSWORD: ${{ secrets.AARVO_KEYSTORE_PASSWORD }}
+          AARVO_KEY_ALIAS: ${{ secrets.AARVO_KEY_ALIAS }}
+          AARVO_KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          gradle --no-daemon :app:bundleRelease --stacktrace --project-prop aarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-release-key.jks" --project-prop aarvoReleaseStorePassword="$AARVO_RELEASE_STORE_PASSWORD" --project-prop aarvoReleaseKeyAlias="$AARVO_RELEASE_KEY_ALIAS" --project-prop aarvoReleaseKeyPassword="$AARVO_RELEASE_KEY_PASSWORD" -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
+          gradle --no-daemon :app:bundleRelease --stacktrace --project-prop aarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-release-key.jks" --project-prop aarvoReleaseStorePassword="$AARVO_KEYSTORE_PASSWORD" --project-prop aarvoReleaseKeyAlias="$AARVO_KEY_ALIAS" --project-prop aarvoReleaseKeyPassword="$AARVO_KEY_PASSWORD" -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
           jarsigner -verify -verbose -certs app/build/outputs/bundle/release/*.aab > "$RUNNER_TEMP/aab-signature-check.txt"
           grep -q "jar verified" "$RUNNER_TEMP/aab-signature-check.txt"
       - name: Clean release signing material
