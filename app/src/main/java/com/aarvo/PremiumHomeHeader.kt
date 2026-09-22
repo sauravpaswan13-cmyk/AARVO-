@@ -56,7 +56,6 @@ fun PremiumHomeHeader() {
             ) {
                 Column(Modifier.weight(1f)) {
                     Text("AARVO", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-                    Text("Premium shopping, made simple", style = MaterialTheme.typography.bodySmall)
                 }
                 Text("✨", style = MaterialTheme.typography.titleLarge)
             }
