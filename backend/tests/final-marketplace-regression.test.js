@@ -141,3 +141,27 @@ test('final CI regression still builds both installable/debug and release artifa
   assert.match(workflow, /Attest debug APK provenance/);
   assert.match(workflow, /Attest release AAB provenance/);
 });
+
+
+test('offers regression uses server-owned validation contracts and never trusts client discount totals', () => {
+  assert.match(apiClient, /offers\(\)/);
+  assert.match(apiClient, /validateOffer\(/);
+  assert.match(apiClient, /subtotalPaise/);
+  const offerModule = fs.readFileSync(path.join(ROOT, 'backend/src/offer-completion.js'), 'utf8');
+  assert.match(offerModule, /requireRole\('BUYER'\)/);
+  assert.match(offerModule, /OFFER_NOT_FOUND/);
+  assert.match(offerModule, /discount_type/);
+  assert.match(offerModule, /Number\(o\.discount_value\)/);
+  assert.match(offerModule, /audit\(pool,request\.user,'OFFER'/);
+});
+
+test('rider/admin assignment regression keeps role ownership and lifecycle transitions explicit', () => {
+  const rider = fs.readFileSync(path.join(ROOT, 'backend/src/rider-delivery.js'), 'utf8');
+  assert.match(rider, /requireRole\('RIDER'\)/);
+  assert.match(rider, /requireRole\('ADMIN'\)/);
+  assert.match(rider, /ORDER_ALREADY_ASSIGNED/);
+  assert.match(rider, /INVALID_DELIVERY_TRANSITION/);
+  assert.match(androidMain, /riderAssignments\(\)/);
+  assert.match(androidMain, /riderUpdateAssignment\(/);
+  assert.match(androidMain, /adminAssignRider\(/);
+});
