@@ -398,7 +398,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
     onRemoveSaved: (Int) -> Unit,
     onCheckout: () -> Unit
 ) {
-    val totalPaise = items.sumOf { it.pricePaise }
+    val totalPaise = items.sumOf { product -> product.pricePaise * quantityOf(product.id) }
     val groupedItems = items.distinctBy { it.id }
 
     LazyColumn(
