@@ -29,6 +29,18 @@ jobs:
           gradle-version: '9.7.1'
           validate-wrappers: false
 
+      - name: Put search bar first on the Main screen
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/aarvo/MainActivity.kt')
+          s = p.read_text(encoding='utf-8')
+          old = 'item { PremiumHomeHeader() }\n        item { HomeSearchFirst(query, onQueryChange) }'
+          new = 'item { HomeSearchFirst(query, onQueryChange) }\n        item { PremiumHomeHeader() }'
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+
       # Source is now authoritative in the repository; do not mutate Kotlin/JS during CI.
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug -PaarvoApiBaseUrl=https://aarvo-api.onrender.com
