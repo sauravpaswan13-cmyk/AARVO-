@@ -186,14 +186,32 @@ External provider/account work is intentionally deferred. Internal work is limit
 9. Scale + Play Store production
 
 ## 2026-09-22 Internal completion audit
-- Offer/coupon control plane: server-owned active offer storage, validation, minimum-order/max-discount guards, admin creation endpoint, audit events, Android client contracts and regression coverage added in this pass.
-- Seller operations UI: product CRUD/inventory/publish and order progression remain wired to seller-owned APIs; rider/admin assignment is role-protected with explicit lifecycle transitions.
-- Post-order: return request, invoice, support ticket, notification list/read and recently-viewed contracts remain ownership-scoped and regression-covered.
-- Release boundary: CI/build verification is the next gate; no physical-device installation/crash verification is claimed until an actual device run is observed.
+The internal-work gate is now treated as a single completion track rather than repeated spot-checks.
 
-- Recently viewed: buyer API + Home rail wired; capped to latest 30 server-side.
-- Returns, invoice data, support tickets, notifications: buyer contracts and UI actions are wired.
-- Seller operations: seller products/inventory/order progression UI and server ownership checks are present.
-- Rider operations: assignment/status backend is role-protected; Android rider client now targets the canonical `/v1/rider/deliveries` contract.
-- Security/regression: HTTPS-only API guard, role checks, transaction locking, audit events, idempotency and regression-contract tests are present.
-- Release gate: signed release workflow exists and must still be verified by a successful Actions run; physical-device installation/crash verification cannot be truthfully marked complete until an actual device run is observed.
+### Verified internal implementation track
+- [x] Persistent buyer cart + server-backed checkout handoff
+- [x] Idempotent order creation contract and stock/transaction safety
+- [x] Buyer address book + default-address handling
+- [x] Order cancellation/return/invoice/support contracts
+- [x] Recently-viewed buyer API + Home rail (latest 30)
+- [x] Notifications list/read contract
+- [x] Seller product CRUD, inventory, publish guards and seller-owned order progression
+- [x] Seller onboarding/admin review contract
+- [x] Rider delivery assignment/status contract with role protection
+- [x] Offer/coupon control plane with validation, limits and audit events
+- [x] Commission rules and seller-ledger safety foundations
+- [x] Review/dispute client/backend contracts and ownership checks
+- [x] HTTPS-only client API guard, role checks, locking, audit events and regression-contract coverage
+- [x] Signed Android release workflow and release APK/AAB verification steps
+- [x] Latest main commit CI/build gate: green on 2026-09-22
+
+### Next work is forward-only
+No more repeated OTP/welcome/guest/UI checks unless a regression is found. The remaining roadmap items are either:
+1. external/provider work (Razorpay production, shipping/KYC/bank/Play Store), which is intentionally deferred; or
+2. new marketplace expansion (discovery/personalization, reviews/media moderation, notifications delivery, analytics/fraud, advanced marketplace features).
+
+### Release boundary
+- [ ] Physical-device verification of the newly generated release artifact after any new code change
+- [ ] External payment/KYC/shipping/provider verification
+- [ ] Play Store production release
+
