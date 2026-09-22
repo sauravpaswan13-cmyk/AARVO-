@@ -1,14 +1,17 @@
 package com.aarvo
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -81,13 +84,39 @@ private fun QuickCategory(label: String, icon: androidx.compose.ui.graphics.vect
 
 @Composable
 fun HomeSearchFirst(query: String, onQueryChange: (String) -> Unit) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-        singleLine = true,
-        shape = RoundedCornerShape(16.dp),
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-        placeholder = { Text("Search for products, brands and more") }
-    )
+    val popular = listOf("Mobiles", "Fashion", "Electronics", "Grocery", "Beauty", "Home", "Sports")
+    val suggestions = if (query.trim().length >= 2) {
+        popular.filter { it.contains(query.trim(), ignoreCase = true) }.take(4)
+    } else emptyList()
+    Column(Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+            placeholder = { Text("Search for products, brands and more") }
+        )
+        if (suggestions.isNotEmpty()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                shape = RoundedCornerShape(14.dp),
+                tonalElevation = 3.dp
+            ) {
+                Column(Modifier.padding(vertical = 4.dp)) {
+                    suggestions.forEach { suggestion ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { onQueryChange(suggestion) }.padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text(suggestion, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
