@@ -82,7 +82,24 @@ private fun SellerAccountScreen(
                 otpMode = true
                 message = "OTP sent to +91 $phone. Enter it below to activate your Seller account."
             } catch (e: Exception) {
-                message = e.message ?: "Seller registration failed. Please try again."
+                // Existing Seller: verify the supplied password, then continue
+                // through the normal phone-OTP flow instead of showing a duplicate error.
+                if (e.message?.contains("SELLER_ALREADY_REGISTERED", ignoreCase = true) == true) {
+                    try {
+                        val login = api.login(phone, password)
+                        val user = login.optJSONObject("user")
+                        if (user?.optString("role") != "SELLER") {
+                            error("This mobile number is not registered as a Seller account.")
+                        }
+                        api.resendPhoneOtp(phone)
+                        otpMode = true
+                        message = "Seller account already exists. OTP sent to +91 $phone. Enter it below to continue."
+                    } catch (loginError: Exception) {
+                        message = loginError.message ?: "Seller account exists, but the password could not be verified."
+                    }
+                } else {
+                    message = e.message ?: "Seller registration failed. Please try again."
+                }
             } finally {
                 loading = false
             }
