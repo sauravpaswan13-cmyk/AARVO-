@@ -7,6 +7,7 @@ import test from 'node:test';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const androidMain = fs.readFileSync(path.join(ROOT, 'app/src/main/java/com/aarvo/MainActivity.kt'), 'utf8');
 const apiClient = fs.readFileSync(path.join(ROOT, 'app/src/main/java/com/aarvo/network/AarvoApiClient.kt'), 'utf8');
+const riderDashboard = fs.readFileSync(path.join(ROOT, 'app/src/main/java/com/aarvo/RiderDashboardActivity.kt'), 'utf8');
 const productModel = fs.readFileSync(path.join(ROOT, 'app/src/main/java/com/aarvo/data/Product.kt'), 'utf8');
 const cartViewModel = fs.readFileSync(path.join(ROOT, 'app/src/main/java/com/aarvo/cart/CartViewModel.kt'), 'utf8');
 const wishlistStore = fs.readFileSync(path.join(ROOT, 'app/src/main/java/com/aarvo/wishlist/WishlistStore.kt'), 'utf8');
@@ -161,7 +162,7 @@ test('rider/admin assignment regression keeps role ownership and lifecycle trans
   assert.match(rider, /requireRole\('ADMIN'\)/);
   assert.match(rider, /ORDER_ALREADY_ASSIGNED/);
   assert.match(rider, /INVALID_DELIVERY_TRANSITION/);
-  assert.match(androidMain, /riderAssignments\(\)/);
-  assert.match(androidMain, /riderUpdateAssignment\(/);
-  assert.match(androidMain, /adminAssignRider\(/);
+  assert.match(riderDashboard, /riderAssignments\(\)/);
+  assert.match(riderDashboard, /riderUpdateAssignment\(/);
+  assert.match(apiClient, /adminAssignRider\(/);
 });
