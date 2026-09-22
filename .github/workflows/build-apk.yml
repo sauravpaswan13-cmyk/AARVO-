@@ -93,6 +93,19 @@ jobs:
           gradle --no-daemon :app:bundleRelease --stacktrace --project-prop aarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-release-key.jks" --project-prop aarvoReleaseStorePassword="$AARVO_KEYSTORE_PASSWORD" --project-prop aarvoReleaseKeyAlias="$AARVO_KEY_ALIAS" --project-prop aarvoReleaseKeyPassword="$AARVO_KEY_PASSWORD" -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
           jarsigner -verify -verbose -certs app/build/outputs/bundle/release/*.aab > "$RUNNER_TEMP/aab-signature-check.txt"
           grep -q "jar verified" "$RUNNER_TEMP/aab-signature-check.txt"
+      - name: Build release APK (signed)
+        shell: bash
+        env:
+          AARVO_KEYSTORE_PASSWORD: ${{ secrets.AARVO_KEYSTORE_PASSWORD }}
+          AARVO_KEY_ALIAS: ${{ secrets.AARVO_KEY_ALIAS }}
+          AARVO_KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          gradle --no-daemon :app:assembleRelease --stacktrace --project-prop aarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-release-key.jks" --project-prop aarvoReleaseStorePassword="$AARVO_KEYSTORE_PASSWORD" --project-prop aarvoReleaseKeyAlias="$AARVO_KEY_ALIAS" --project-prop aarvoReleaseKeyPassword="$AARVO_KEY_PASSWORD" -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
+          APK="$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)"
+          test -n "$APK"
+          apksigner verify --verbose "$APK"
+
       - name: Clean release signing material
         if: always()
         shell: bash
@@ -103,6 +116,13 @@ jobs:
         with:
           name: AARVO-mobile-entry-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload signed release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AARVO-mobile-entry-release-apk-signed
+          path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
       - name: Upload release AAB
