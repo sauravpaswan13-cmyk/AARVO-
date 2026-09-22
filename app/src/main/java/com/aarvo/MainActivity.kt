@@ -346,7 +346,6 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
         item { PremiumHomeHeader() }
         item { HomeSearchFirst(query, onQueryChange) }
         item { LiveHero(api = api, modifier = Modifier.fillMaxWidth()) }
-        item { HomeCategoryGrid(categories, selectedCategory, onCategoryChange) }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onFilter) { Text("Filters & Sort") }
