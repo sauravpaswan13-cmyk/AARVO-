@@ -78,7 +78,7 @@ fun LiveHero(api: AarvoApiClient, modifier: Modifier = Modifier) {
 
     when {
         loading -> Box(
-            modifier.fillMaxWidth().height(180.dp),
+            modifier.fillMaxWidth().height(220.dp),
             contentAlignment = Alignment.Center
         ) { CircularProgressIndicator() }
 
