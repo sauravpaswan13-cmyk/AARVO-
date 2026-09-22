@@ -184,3 +184,11 @@ External provider/account work is intentionally deferred. Internal work is limit
 7. Admin + fraud/risk
 8. Advanced marketplace features
 9. Scale + Play Store production
+
+## 2026-09-22 Internal completion audit
+- Recently viewed: buyer API + Home rail wired; capped to latest 30 server-side.
+- Returns, invoice data, support tickets, notifications: buyer contracts and UI actions are wired.
+- Seller operations: seller products/inventory/order progression UI and server ownership checks are present.
+- Rider operations: assignment/status backend is role-protected; Android rider client now targets the canonical `/v1/rider/deliveries` contract.
+- Security/regression: HTTPS-only API guard, role checks, transaction locking, audit events, idempotency and regression-contract tests are present.
+- Release gate: signed release workflow exists and must still be verified by a successful Actions run; physical-device installation/crash verification cannot be truthfully marked complete until an actual device run is observed.
