@@ -56,18 +56,86 @@ app.post('/v1/auth/register', { config: { rateLimit: { max: 10, timeWindow: '1 m
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const normalizedRole = String(role).toUpperCase();
   const normalizedPhone = normalizePhone(phone);
-  if (!password || String(password).length < 8 || !String(displayName || '').trim() || !['BUYER', 'SELLER'].includes(normalizedRole) || !normalizedPhone) return reply.code(400).send({ error: 'INVALID_REGISTRATION' });
-  const id = randomBytes(12).toString('hex'), client = await pool.connect();
+  if (!password || String(password).length < 8 || !String(displayName || '').trim() || !['BUYER', 'SELLER'].includes(normalizedRole) || !normalizedPhone) {
+    return reply.code(400).send({ error: 'INVALID_REGISTRATION' });
+  }
+
+  const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const user = await client.query('INSERT INTO users(id,email,display_name,password_hash,role,phone,phone_verified) VALUES($1,$2,$3,$4,$5,$6,false) RETURNING id,email,display_name,role,phone,phone_verified', [id, normalizedEmail || null, String(displayName).trim(), hashPassword(String(password)), normalizedRole, normalizedPhone]);
-    if (normalizedRole === 'SELLER') await client.query('INSERT INTO seller_profiles(seller_id,phone) VALUES($1,$2)', [id, normalizedPhone]);
+
+    // Seller onboarding is phone-first. If this mobile already belongs to an
+    // existing BUYER, reuse that identity instead of creating a duplicate user.
+    // The phone OTP below is still required before the seller session is issued.
+    if (normalizedRole === 'SELLER') {
+      const existing = await client.query(
+        'SELECT id,email,display_name,role,phone,phone_verified FROM users WHERE phone=$1 FOR UPDATE',
+        [normalizedPhone]
+      );
+
+      if (existing.rowCount) {
+        const current = existing.rows[0];
+
+        if (current.role === 'SELLER') {
+          await client.query('ROLLBACK');
+          return reply.code(409).send({ error: 'SELLER_ALREADY_REGISTERED' });
+        }
+
+        if (current.role !== 'BUYER') {
+          await client.query('ROLLBACK');
+          return reply.code(409).send({ error: 'PHONE_ACCOUNT_ROLE_CONFLICT' });
+        }
+
+        const updated = await client.query(
+          'UPDATE users SET display_name=$1,password_hash=$2,role=\'SELLER\',phone_verified=false,phone_verified_at=NULL WHERE id=$3 RETURNING id,email,display_name,role,phone,phone_verified',
+          [String(displayName).trim(), hashPassword(String(password)), current.id]
+        );
+
+        await client.query(
+          'INSERT INTO seller_profiles(seller_id,phone) VALUES($1,$2) ON CONFLICT (seller_id) DO UPDATE SET phone=EXCLUDED.phone',
+          [current.id, normalizedPhone]
+        );
+        await audit(client, { sub: current.id, role: 'SELLER' }, 'USER', current.id, 'SELLER_ONBOARDING_STARTED', {
+          reusedExistingPhoneAccount: true
+        });
+        await client.query('COMMIT');
+
+        return reply.code(200).send({
+          user: updated.rows[0],
+          requiresPhoneVerification: true,
+          reusedExistingAccount: true
+        });
+      }
+    }
+
+    const id = randomBytes(12).toString('hex');
+    const user = await client.query(
+      'INSERT INTO users(id,email,display_name,password_hash,role,phone,phone_verified) VALUES($1,$2,$3,$4,$5,$6,false) RETURNING id,email,display_name,role,phone,phone_verified',
+      [id, normalizedEmail || null, String(displayName).trim(), hashPassword(String(password)), normalizedRole, normalizedPhone]
+    );
+    if (normalizedRole === 'SELLER') {
+      await client.query(
+        'INSERT INTO seller_profiles(seller_id,phone) VALUES($1,$2)',
+        [id, normalizedPhone]
+      );
+    }
     await audit(client, { sub: id, role: normalizedRole }, 'USER', id, 'REGISTERED');
     await client.query('COMMIT');
-    return reply.code(201).send({ user: user.rows[0], token: issueToken(user.rows[0]), requiresPhoneVerification: true });
-  } catch (error) { await client.query('ROLLBACK'); if (error.code === '23505') return reply.code(409).send({ error: 'PHONE_OR_EMAIL_ALREADY_REGISTERED' }); throw error; } finally { client.release(); }
+    return reply.code(201).send({
+      user: user.rows[0],
+      requiresPhoneVerification: true,
+      reusedExistingAccount: false
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    if (error.code === '23505') {
+      return reply.code(409).send({ error: 'PHONE_OR_EMAIL_ALREADY_REGISTERED' });
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
 });
-
 app.post('/v1/auth/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
   if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
   if (!JWT_SECRET) return reply.code(503).send({ error: 'AUTH_NOT_CONFIGURED' });
