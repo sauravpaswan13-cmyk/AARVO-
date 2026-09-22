@@ -59,7 +59,7 @@ test('internal marketplace completion gate preserves the existing entry, auth an
   assert.match(productModel, /require\(pricePaise >= 0/);
 
   assert.match(workflow, /Build debug APK/);
-  assert.match(workflow, /Build release AAB \\(signed\\\)/);
+  assert.match(workflow, /Build release AAB \(signed\)/);
   assert.match(workflow, /Attest debug APK provenance/);
   assert.match(workflow, /Attest release AAB provenance/);
   assert.match(workflow, /backend-check/);
