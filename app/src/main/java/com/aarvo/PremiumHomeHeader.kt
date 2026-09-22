@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
@@ -104,7 +103,7 @@ fun HomeCategoryGrid(categories: List<String>, selectedCategory: String, onCateg
                             color = if (label == selectedCategory) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Icon(
-                                if (label.equals("All", true)) Icons.Default.GridView else Icons.Default.Search,
+                                if (label.equals("All", true)) Icons.Default.Home else Icons.Default.Search,
                                 contentDescription = label,
                                 modifier = Modifier.padding(14.dp),
                                 tint = MaterialTheme.colorScheme.primary
