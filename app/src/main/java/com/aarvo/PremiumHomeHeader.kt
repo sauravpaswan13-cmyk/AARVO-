@@ -1,6 +1,6 @@
 package com.aarvo
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,8 +23,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -96,11 +96,16 @@ fun HomeCategoryGrid(categories: List<String>, selectedCategory: String, onCateg
                         Modifier.weight(1f),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Surface(
-                            onClick = { onCategoryChange(label) },
-                            modifier = Modifier.size(54.dp),
-                            shape = CircleShape,
-                            color = if (label == selectedCategory) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        Box(
+                            modifier = Modifier
+                                .size(54.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (label == selectedCategory) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                .clickable { onCategoryChange(label) },
+                            contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 if (label.equals("All", true)) Icons.Default.Home else Icons.Default.Search,
