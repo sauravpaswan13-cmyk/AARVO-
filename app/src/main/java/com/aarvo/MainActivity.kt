@@ -342,11 +342,11 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
 @Composable private fun HomeScreen(padding: PaddingValues, api: AarvoApiClient, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, recentlyViewed: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit, onFilter: () -> Unit, sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean) {
     val scope = rememberCoroutineScope()
     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        // Marketplace layout: search is the first interactive element on Home,
-        // followed by AARVO identity, quick categories, live offers and products.
+        // Flipkart-style marketplace order: search stays at the very top,
+        // the live promotional hero comes immediately after it, then categories/products.
         item { HomeSearchFirst(query, onQueryChange) }
-        item { PremiumHomeHeader() }
         item { LiveHero(api = api, modifier = Modifier.fillMaxWidth()) }
+        item { PremiumHomeHeader() }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onFilter) { Text("Filters & Sort") }
