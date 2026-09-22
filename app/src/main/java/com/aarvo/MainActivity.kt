@@ -38,6 +38,7 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -64,6 +65,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -337,7 +339,46 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 
 private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 until length()) { val o = getJSONObject(i); val pricePaise = o.getLong("price_paise"); add(Product(o.getLong("id").toInt(), o.getString("seller_id"), o.getString("seller_name"), o.getString("name"), o.getString("category"), (pricePaise / 100L).toInt(), o.optDouble("rating", 0.0), "🛍️", o.getString("description"), o.getInt("stock_quantity"), o.optBoolean("is_published", true), pricePaise)) } }
 
-@Composable private fun WishlistScreen(padding: PaddingValues, products: List<Product>, wishlist: Set<Int>, onToggle: (Int) -> Unit, onOpen: (Product) -> Unit, onAdd: (Product) -> Unit) { val saved = products.filter { it.id in wishlist }; LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Text("My Wishlist", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(if (saved.isEmpty()) "No saved products yet. Tap the heart on any product to save it." else "${saved.size} saved product${if (saved.size == 1) "" else "s"}.") }; if (saved.isEmpty()) item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Icon(Icons.Default.FavoriteBorder, "Wishlist empty"); Spacer(Modifier.height(8.dp)); Text("Your wishlist is ready for products you want to compare or buy later.") } } } else items(saved, key = { it.id }) { product -> ProductCard(product, true, onAdd, onOpen, onToggle) } } }
+@Composable private fun WishlistScreen(padding: PaddingValues, products: List<Product>, wishlist: Set<Int>, onToggle: (Int) -> Unit, onOpen: (Product) -> Unit, onAdd: (Product) -> Unit) {
+    val context = LocalContext.current
+    var selected by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    val saved = products.filter { it.id in wishlist }
+    Column(Modifier.fillMaxSize().padding(padding)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column { Text("My Wishlist", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("${saved.size} saved products") }
+            Button(onClick = {
+                context.getSharedPreferences("aarvo_compare", Context.MODE_PRIVATE).edit().putString("product_ids", selected.joinToString(",")).apply()
+                context.startActivity(Intent(context, ProductCompareActivity::class.java))
+            }, enabled = selected.size in 2..3) { Text("Compare (${selected.size})") }
+        }
+        if (saved.isEmpty()) {
+            Text("No saved products yet. Tap the heart on any product to save it.", Modifier.padding(16.dp))
+        } else {
+            LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(saved, key = { it.id }) { product ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = product.id in selected, onCheckedChange = { checked ->
+                                    selected = if (checked && selected.size < 3) selected + product.id else selected - product.id
+                                })
+                                Column(Modifier.weight(1f)) {
+                                    Text(product.name, fontWeight = FontWeight.Bold)
+                                    Text(product.displayPrice + " • ⭐ " + product.rating)
+                                }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                TextButton(onClick = { onOpen(product) }) { Text("View") }
+                                TextButton(onClick = { onAdd(product) }) { Text("Add to cart") }
+                                TextButton(onClick = { onToggle(product.id); selected = selected - product.id }) { Text("Remove") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable private fun HomeScreen(padding: PaddingValues, api: AarvoApiClient, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, recentlyViewed: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit, onFilter: () -> Unit, sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean) {
     val scope = rememberCoroutineScope()
