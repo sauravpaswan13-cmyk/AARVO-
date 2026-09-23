@@ -147,6 +147,13 @@ const msg91Registration = "await registerMsg91WidgetAuth({ app, pool, issueToken
 // generated runtime. Check them independently so a partially patched server
 // cannot boot with an undefined registerMsg91WidgetAuth symbol.
 if (!source.includes(msg91Import)) {
+  // server.js may already contain randomInt, so the older crypto-import
+  // replacement path can no longer be relied on. Inject MSG91 independently.
+  const cryptoAnchors = [cryptoImportWithRandomInt, cryptoImport];
+  const cryptoAnchor = cryptoAnchors.find((value) => source.includes(value));
+  if (!cryptoAnchor) throw new Error("AARVO launcher safety check: crypto import anchor not found for MSG91 wiring");
+  source = source.replace(cryptoAnchor, cryptoAnchor + "\n" + msg91Import);
+}
   source = source.replace(
     "import { registerSettlementCompletion } from './settlement-completion.js';",
     "import { registerSettlementCompletion } from './settlement-completion.js';\n" + msg91Import
