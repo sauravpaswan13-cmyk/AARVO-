@@ -140,15 +140,29 @@ if (!source.includes('AARVO_LOGIN_OTP_ENABLED')) {
   }
 }
 
-if (!source.includes('msg91-widget-auth.js')) {
+const msg91Import = "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';";
+const msg91Registration = "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });";
+
+// MSG91 must have both the import and the executable registration call in the
+// generated runtime. Check them independently so a partially patched server
+// cannot boot with an undefined registerMsg91WidgetAuth symbol.
+if (!source.includes(msg91Import)) {
   source = source.replace(
     "import { registerSettlementCompletion } from './settlement-completion.js';",
-    "import { registerSettlementCompletion } from './settlement-completion.js';\nimport { registerMsg91WidgetAuth } from './msg91-widget-auth.js'"
+    "import { registerSettlementCompletion } from './settlement-completion.js';\n" + msg91Import
   );
-  source = source.replace(
+}
+if (!source.includes(msg91Registration)) {
+  const listenMarkers = [
     "app.listen(PORT, '0.0.0.0', () => {",
-    "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });\napp.listen(PORT, '0.0.0.0', () => {"
-  );
+    "const port=Number(process.env.PORT||8080);await app.listen({port,host:'0.0.0.0'});"
+  ];
+  const marker = listenMarkers.find((value) => source.includes(value));
+  if (!marker) throw new Error("AARVO launcher safety check: Fastify listen marker not found for MSG91 registration");
+  source = source.replace(marker, msg91Registration + "\n" + marker);
+}
+if (!source.includes(msg91Import) || !source.includes(msg91Registration)) {
+  throw new Error("AARVO launcher safety check: MSG91 widget auth wiring incomplete");
 }
 
 if (!source.includes('admin-auth.js')) {
