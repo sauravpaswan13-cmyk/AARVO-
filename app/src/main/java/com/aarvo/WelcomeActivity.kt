@@ -27,14 +27,14 @@ class WelcomeActivity : ComponentActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(24), dp(28), dp(24), dp(24))
+            setPadding(dp(24), dp(30), dp(24), dp(26))
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 intArrayOf(
-                    Color.rgb(27, 0, 88),
-                    Color.rgb(69, 18, 178),
-                    Color.rgb(167, 31, 183),
-                    Color.rgb(30, 73, 180)
+                    Color.rgb(15, 8, 48),
+                    Color.rgb(49, 20, 112),
+                    Color.rgb(104, 38, 150),
+                    Color.rgb(24, 43, 105)
                 )
             )
         }
@@ -43,16 +43,16 @@ class WelcomeActivity : ComponentActivity() {
 
         root.addView(TextView(this).apply {
             text = "AARVO"
-            textSize = 46f
+            textSize = 44f
             setTextColor(Color.WHITE)
             setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER
-            letterSpacing = .075f
+            letterSpacing = .12f
             setShadowLayer(dp(14).toFloat(), 0f, dp(4).toFloat(), Color.argb(170, 0, 0, 0))
         }, LinearLayout.LayoutParams(-1, dp(66)))
 
         root.addView(TextView(this).apply {
-            text = "YOUR ONE-STOP SHOPPING DESTINATION"
+            text = "PREMIUM SHOPPING • MADE FOR YOU"
             textSize = 11f
             setTextColor(Color.rgb(255, 220, 110))
             setTypeface(typeface, Typeface.BOLD)
@@ -102,7 +102,7 @@ class WelcomeActivity : ComponentActivity() {
 
         val trolley = TextView(this).apply {
             text = "🛒"
-            textSize = 82f
+            textSize = 70f
             gravity = Gravity.CENTER
             includeFontPadding = true
             elevation = dp(10).toFloat()
@@ -113,8 +113,8 @@ class WelcomeActivity : ComponentActivity() {
         })
 
         val trail = TextView(this).apply {
-            text = "•  •  •"
-            textSize = 16f
+            text = "AARVO  •  SHOP  •  DISCOVER"
+            textSize = 10f
             setTextColor(Color.argb(155, 255, 220, 110))
             setTypeface(typeface, Typeface.BOLD)
             gravity = Gravity.CENTER
@@ -124,7 +124,7 @@ class WelcomeActivity : ComponentActivity() {
             topMargin = dp(48)
         })
 
-        root.addView(visual, LinearLayout.LayoutParams(-1, dp(190)).apply {
+        root.addView(visual, LinearLayout.LayoutParams(-1, dp(170)).apply {
             topMargin = dp(18)
             bottomMargin = dp(18)
         })
@@ -179,7 +179,7 @@ class WelcomeActivity : ComponentActivity() {
         root.addView(login, LinearLayout.LayoutParams(-1, dp(58)))
 
         root.addView(TextView(this).apply {
-            text = "Tap an option to begin"
+            text = "WELCOME TO AARVO"
             textSize = 12f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
