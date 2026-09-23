@@ -154,11 +154,6 @@ if (!source.includes(msg91Import)) {
   if (!cryptoAnchor) throw new Error("AARVO launcher safety check: crypto import anchor not found for MSG91 wiring");
   source = source.replace(cryptoAnchor, cryptoAnchor + "\n" + msg91Import);
 }
-  source = source.replace(
-    "import { registerSettlementCompletion } from './settlement-completion.js';",
-    "import { registerSettlementCompletion } from './settlement-completion.js';\n" + msg91Import
-  );
-}
 if (!source.includes(msg91Registration)) {
   const listenMarkers = [
     "app.listen(PORT, '0.0.0.0', () => {",
