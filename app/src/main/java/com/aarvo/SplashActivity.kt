@@ -32,11 +32,11 @@ class SplashActivity : ComponentActivity() {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 intArrayOf(
-                    Color.rgb(10, 5, 42),
-                    Color.rgb(32, 10, 92),
-                    Color.rgb(78, 18, 150),
-                    Color.rgb(19, 31, 105),
-                    Color.rgb(8, 7, 45)
+                    Color.rgb(8, 5, 30),
+                    Color.rgb(32, 12, 76),
+                    Color.rgb(76, 25, 126),
+                    Color.rgb(25, 38, 105),
+                    Color.rgb(7, 6, 34)
                 )
             )
         }
@@ -50,24 +50,24 @@ class SplashActivity : ComponentActivity() {
             elevation = dp(10).toFloat()
             contentDescription = "AARVO logo"
         }
-        root.addView(logo, LinearLayout.LayoutParams(dp(132), dp(132)).apply {
-            bottomMargin = dp(18)
+        root.addView(logo, LinearLayout.LayoutParams(dp(144), dp(144)).apply {
+            bottomMargin = dp(14)
         })
 
         val name = TextView(this).apply {
             text = "AARVO"
-            textSize = 44f
+            textSize = 46f
             setTextColor(Color.WHITE)
             setTypeface(Typeface.create("sans-serif", Typeface.BOLD))
             gravity = Gravity.CENTER
-            letterSpacing = .16f
+            letterSpacing = .13f
             alpha = 0f
             setShadowLayer(dp(16).toFloat(), 0f, dp(4).toFloat(), Color.argb(190, 0, 0, 0))
         }
         root.addView(name, LinearLayout.LayoutParams(-1, dp(62)))
 
         root.addView(TextView(this).apply {
-            text = "SHOP  •  DISCOVER  •  LIVE BETTER"
+            text = "CURATED SHOPPING  •  AARVO"
             textSize = 11f
             setTextColor(Color.rgb(255, 220, 112))
             setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD))
@@ -96,7 +96,7 @@ class SplashActivity : ComponentActivity() {
         })
 
         root.addView(TextView(this).apply {
-            text = "Premium shopping, made simple."
+            text = "A premium marketplace for everyday life."
             textSize = 15f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
@@ -104,7 +104,7 @@ class SplashActivity : ComponentActivity() {
         }, LinearLayout.LayoutParams(-1, dp(36)))
 
         val loading = TextView(this).apply {
-            text = "✦  LOADING YOUR WORLD  ✦"
+            text = "AARVO  •  LOADING"
             textSize = 10f
             setTextColor(Color.argb(205, 255, 255, 255))
             gravity = Gravity.CENTER
