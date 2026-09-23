@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -45,6 +46,7 @@ private fun SellerOnboardingScreen(api: AarvoApiClient, onDone: () -> Unit) {
     var businessEmail by remember { mutableStateOf("") }
     var pan by remember { mutableStateOf("") }
     var gstin by remember { mutableStateOf("") }
+    var gstRegistered by remember { mutableStateOf(false) }
     var accountHolder by remember { mutableStateOf("") }
     var bankAccount by remember { mutableStateOf("") }
     var ifsc by remember { mutableStateOf("") }
@@ -65,6 +67,7 @@ private fun SellerOnboardingScreen(api: AarvoApiClient, onDone: () -> Unit) {
             businessCategory=o.optString("business_category")
             businessEmail=o.optString("business_email")
             pan=o.optString("pan"); gstin=o.optString("gstin")
+            gstRegistered=o.optString("gst_status","NOT_REGISTERED")=="REGISTERED"
             accountHolder=o.optString("account_holder_name")
             ifsc=o.optString("ifsc"); pickupAddress=o.optString("pickup_address")
             pickupCity=o.optString("pickup_city"); pickupState=o.optString("pickup_state")
@@ -85,7 +88,7 @@ private fun SellerOnboardingScreen(api: AarvoApiClient, onDone: () -> Unit) {
             val payload=JSONObject()
                 .put("businessName",businessName).put("businessType",businessType)
                 .put("businessCategory",businessCategory).put("businessEmail",businessEmail)
-                .put("pan",pan).put("gstin",gstin).put("accountHolderName",accountHolder)
+                .put("pan",pan).put("gstStatus",if(gstRegistered) "REGISTERED" else "NOT_REGISTERED").put("gst",if(gstRegistered) gstin else "").put("accountHolderName",accountHolder)
                 .put("bankAccountNumber",bankAccount).put("ifsc",ifsc)
                 .put("payoutPreference",payoutPreference).put("pickupAddress",pickupAddress)
                 .put("pickupCity",pickupCity).put("pickupState",pickupState)
@@ -108,12 +111,15 @@ private fun SellerOnboardingScreen(api: AarvoApiClient, onDone: () -> Unit) {
         OutlinedTextField(businessName,{businessName=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("Business name")})
         OutlinedTextField(businessType,{businessType=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("Business type")})
         OutlinedTextField(businessCategory,{businessCategory=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("Business category")})
-        OutlinedTextField(businessEmail,{businessEmail=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("Business email")})
+        OutlinedTextField(businessEmail,{businessEmail=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("Business email (optional)")})
         OutlinedTextField(pan,{pan=it.uppercase()},Modifier.fillMaxWidth(),singleLine=true,label={Text("PAN")})
-        OutlinedTextField(gstin,{gstin=it.uppercase()},Modifier.fillMaxWidth(),singleLine=true,label={Text("GSTIN (optional)")})
+        Text("GST Status", fontWeight=FontWeight.SemiBold)
+        Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) { RadioButton(selected=gstRegistered,onClick={gstRegistered=true}); Text("GST Registered") }
+        Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) { RadioButton(selected=!gstRegistered,onClick={gstRegistered=false; gstin=""}); Text("No GST / Not Registered") }
+        if(gstRegistered) OutlinedTextField(gstin,{gstin=it.uppercase()},Modifier.fillMaxWidth(),singleLine=true,label={Text("GSTIN")})
         OutlinedTextField(accountHolder,{accountHolder=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("Account holder")})
-        OutlinedTextField(bankAccount,{bankAccount=it.filter(Char::isDigit)},Modifier.fillMaxWidth(),singleLine=true,label={Text("Bank account number (optional)")})
-        OutlinedTextField(ifsc,{ifsc=it.uppercase()},Modifier.fillMaxWidth(),singleLine=true,label={Text("IFSC (optional)")})
+        OutlinedTextField(bankAccount,{bankAccount=it.filter(Char::isDigit)},Modifier.fillMaxWidth(),singleLine=true,label={Text("Bank account number")})
+        OutlinedTextField(ifsc,{ifsc=it.uppercase()},Modifier.fillMaxWidth(),singleLine=true,label={Text("IFSC code")})
         OutlinedTextField(pickupAddress,{pickupAddress=it},Modifier.fillMaxWidth(),label={Text("Pickup address")})
         OutlinedTextField(pickupCity,{pickupCity=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("Pickup city")})
         OutlinedTextField(pickupState,{pickupState=it},Modifier.fillMaxWidth(),singleLine=true,label={Text("Pickup state")})
