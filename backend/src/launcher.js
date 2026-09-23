@@ -18,13 +18,16 @@ const offerImport = "import { registerOfferCompletion } from './offer-completion
 // Keep the runtime-generated server deterministic: randomInt must survive every launcher rewrite.
 const cryptoImport = "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';";
 const cryptoImportWithRandomInt = "import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';";
-if (!source.includes(marketplaceImport)) {
-  source = source.replace(
-    cryptoImport,
-    cryptoImportWithRandomInt + "\n" + marketplaceImport + "\n" + cartImport + "\n" + settlementImport + "\n" + gapImport + "\n" + sellerImport + "\n" + riderImport
-  );
+const runtimeImports = [marketplaceImport, cartImport, settlementImport, gapImport, sellerImport, riderImport, offerImport];
+const cryptoAnchor = source.includes(cryptoImportWithRandomInt) ? cryptoImportWithRandomInt : cryptoImport;
+if (!source.includes(cryptoImportWithRandomInt)) {
+  source = source.replace(cryptoImport, cryptoImportWithRandomInt);
 }
-if (source.includes(cryptoImport)) source = source.replace(cryptoImport, cryptoImportWithRandomInt);
+for (const statement of runtimeImports) {
+  if (!source.includes(statement)) {
+    source = source.replace(cryptoImportWithRandomInt, cryptoImportWithRandomInt + "\n" + statement);
+  }
+}
 if (!source.includes("randomInt")) {
   throw new Error("AARVO launcher safety check: randomInt import missing from generated runtime");
 }
