@@ -9,7 +9,7 @@ let source = await fs.readFile(serverPath, 'utf8');
 if (!source.includes("import { sendPhoneOtp } from './otp-delivery.js';")) {
   source = source.replace(
     "import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';",
-    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';\nimport { sendPhoneOtp } from './otp-delivery.js';"
+    "import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';\nimport { sendPhoneOtp } from './otp-delivery.js';"
   );
 }
 
