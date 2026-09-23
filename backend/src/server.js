@@ -7,7 +7,7 @@ import pg from 'pg';
 import jwt from 'jsonwebtoken';
 import Razorpay from 'razorpay';
 import { assistant, smartSearch, summarizeReviews, compareProducts, sellerListing, smartDealHints, aiConfigured } from './ai.js';
-import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
 
 const app = Fastify({ logger: true });
 const { Pool } = pg;
