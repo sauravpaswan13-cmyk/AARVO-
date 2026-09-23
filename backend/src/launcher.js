@@ -15,11 +15,18 @@ const sellerImport = "import { registerSellerOnboarding } from './seller-onboard
 const riderImport = "import { registerRiderDelivery } from './rider-delivery.js';";
 const offerImport = "import { registerOfferCompletion } from './offer-completion.js';";
 
+// Keep the runtime-generated server deterministic: randomInt must survive every launcher rewrite.
+const cryptoImport = "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';";
+const cryptoImportWithRandomInt = "import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';";
 if (!source.includes(marketplaceImport)) {
   source = source.replace(
-    "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';",
-    "import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';\n" + marketplaceImport + "\n" + cartImport + "\n" + settlementImport + "\n" + gapImport + "\n" + sellerImport + "\n" + riderImport
+    cryptoImport,
+    cryptoImportWithRandomInt + "\n" + marketplaceImport + "\n" + cartImport + "\n" + settlementImport + "\n" + gapImport + "\n" + sellerImport + "\n" + riderImport
   );
+}
+if (source.includes(cryptoImport)) source = source.replace(cryptoImport, cryptoImportWithRandomInt);
+if (!source.includes("randomInt")) {
+  throw new Error("AARVO launcher safety check: randomInt import missing from generated runtime");
 }
 
 if (!source.includes('await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });')) {
