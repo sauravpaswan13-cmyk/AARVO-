@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const serverPath = path.join(here, 'server.js');
 const runtimePath = path.join(here, '.aarvo-runtime-server.mjs');
-let source = await fs.readFile(serverPath, 'utf8');
+let source = await fs.readFile(serverPath, 'utf8');\n\n// Runtime-generated auth routes use randomInt; keep the import even when other route imports already exist.\nconst cryptoImport = "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';";\nconst cryptoImportWithRandomInt = "import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';";\nif (source.includes(cryptoImport) && !source.includes(cryptoImportWithRandomInt)) source = source.replace(cryptoImport, cryptoImportWithRandomInt);
 
 const marketplaceImport = "import { registerMarketplaceCompletion } from './marketplace-completion.js';";
 const cartImport = "import { registerCartCompletion } from './cart-completion.js';";
