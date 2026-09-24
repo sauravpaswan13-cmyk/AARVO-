@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
@@ -105,7 +104,7 @@ fun HomeDealsBanner() {
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(Icons.Default.LocalOffer, contentDescription = null, tint = Color(0xFFFFD51A), modifier = Modifier.size(42.dp))
+        Text("🏷️", fontSize = 34.sp)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text("Top Deals For You", color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
