@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -101,7 +100,7 @@ fun AarvoHomeTopBar(
             shape = RoundedCornerShape(22.dp),
             placeholder = { Text("Search for products, brands and more...", color = Color.Gray) },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = purple) },
-            trailingIcon = { Icon(Icons.Default.Mic, contentDescription = "Voice search", tint = purple) },
+            trailingIcon = { Text("🎤", color = purple, fontSize = 18.sp) },
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = Color.White,
                 unfocusedContainerColor = Color.White,
