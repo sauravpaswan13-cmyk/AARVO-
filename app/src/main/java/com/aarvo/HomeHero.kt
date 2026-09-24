@@ -89,7 +89,7 @@ fun LiveHero(api: AarvoApiClient, modifier: Modifier = Modifier) {
             Box(
                 modifier = modifier
                     .fillMaxWidth()
-                    .height(180.dp)
+                    .height(220.dp)
                     .clip(RoundedCornerShape(18.dp))
                     .clickable(enabled = slide.optString("cta_target").isNotBlank()) {
                         // Target routing can be wired by the host screen later;
