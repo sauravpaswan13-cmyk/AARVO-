@@ -127,7 +127,7 @@ fun HomeProductDeals(products: List<Product>, onOpen: (Product) -> Unit, onAdd: 
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 2.dp)
     ) {
-        items(products.take(8), key = { it.id }) { product ->
+        items(products.take(8).distinctBy { it.id }, key = { it.id }) { product ->
             Column(
                 modifier = Modifier
                     .width(148.dp)
