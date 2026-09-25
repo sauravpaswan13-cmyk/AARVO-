@@ -12,6 +12,10 @@ permissions:
   id-token: write
   attestations: write
 
+concurrency:
+  group: aarvo-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   AARVO_API_BASE_URL: https://aarvo-api.onrender.com
 
