@@ -98,7 +98,7 @@ fun LiveHero(api: AarvoApiClient, modifier: Modifier = Modifier) {
             ) {
                 Crossfade(targetState = slide.optString("image_url"), label = "heroImage") { imageUrl ->
                     AsyncImage(
-                        model = imageUrl,
+                        model = imageUrl.takeIf { it.startsWith("https://") || it.startsWith("http://") },
                         contentDescription = slide.optString("title", "AARVO"),
                         modifier = Modifier.matchParentSize(),
                         contentScale = ContentScale.Crop
