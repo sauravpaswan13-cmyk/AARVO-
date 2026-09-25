@@ -396,10 +396,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Card(
-                Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp)
-            ) {
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Welcome to AARVO", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
                     Text("Browse freely as Guest. Login is only needed for account features and checkout.", style = MaterialTheme.typography.bodyMedium)
@@ -407,17 +404,34 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
             }
         }
         item {
-            Text(
-                "Featured Products",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("Search products") }
             )
         }
+        item { Text("Featured Products", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold) }
         if (loading) item { Box(Modifier.fillMaxWidth().height(90.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
         if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }
         if (!loading && products.isEmpty() && error.isBlank()) item { Text("No products available right now.") }
+
         items(products.distinctBy { it.id }, key = { it.id }) { product ->
-            ProductCard(product, false, onAdd, onOpen, {})
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(product.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(product.category, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(product.displayPrice, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                    if (product.description.isNotBlank()) {
+                        Text(product.description, maxLines = 2, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { onOpen(product) }) { Text("View") }
+                        Button(onClick = { onAdd(product) }) { Text("Add to Cart") }
+                    }
+                }
+            }
         }
     }
 }
