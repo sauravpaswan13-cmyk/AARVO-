@@ -238,60 +238,65 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 }
 
 @Composable private fun GuestHomeScreen(api: AarvoApiClient, onLogin: () -> Unit, onExitGuest: () -> Unit) {
-    var products by remember { mutableStateOf<List<Product>>(emptyList()) }
-    var loading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf("") }
-    LaunchedEffect(api) {
-        loading = true
-        error = ""
-        try {
-            products = api.products("", "All").toProductList().distinctBy { it.id }
-        } catch (t: Throwable) {
-            products = emptyList()
-            error = "Products are temporarily unavailable."
-        } finally {
-            loading = false
-        }
-    }
+    // Stable guest entry: no network calls, product parsing, ViewModels, or authenticated state.
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("AARVO") },
+                title = { Text("AARVO", fontWeight = FontWeight.ExtraBold) },
                 actions = { TextButton(onClick = onLogin) { Text("Login / Sign Up") } }
             )
         },
         bottomBar = {
             NavigationBar {
-                NavigationBarItem(selected = true, onClick = {}, icon = { Icon(Icons.Default.Home, "Home") }, label = { Text("Home") })
-                NavigationBarItem(selected = false, onClick = onLogin, icon = { Icon(Icons.Default.Person, "Account") }, label = { Text("Account") })
-                NavigationBarItem(selected = false, onClick = onLogin, icon = { Icon(Icons.Default.ShoppingCart, "Cart") }, label = { Text("Cart") })
+                NavigationBarItem(true, {}, { Icon(Icons.Default.Home, "Home") }, label = { Text("Home") })
+                NavigationBarItem(false, onLogin, { Icon(Icons.Default.Person, "Account") }, label = { Text("Account") })
+                NavigationBarItem(false, onLogin, { Icon(Icons.Default.ShoppingCart, "Cart") }, label = { Text("Cart") })
             }
         }
     ) { inner ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(inner),
+            Modifier.fillMaxSize().padding(inner),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
-                Text("Welcome to AARVO", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text("Browse as Guest", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            item {
-                Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text("Login / Sign Up to Buy") }
-            }
-            if (loading) item { CircularProgressIndicator() }
-            if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }
-            items(products, key = { it.id }) { product ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(product.name, fontWeight = FontWeight.SemiBold)
-                        Text(formatPaise(product.pricePaise), style = MaterialTheme.typography.titleMedium)
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Welcome to AARVO", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                        Text(
+                            "Browse AARVO as a Guest. Sign in when you want to buy, manage your account, or checkout.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
             item {
-                TextButton(onClick = onExitGuest, modifier = Modifier.fillMaxWidth()) { Text("Back to Login / Guest") }
+                Button(
+                    onClick = onLogin,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Default.Person, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                    Text("Login / Sign Up", fontWeight = FontWeight.Bold)
+                }
+            }
+            item {
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+                    Column(Modifier.padding(18.dp)) {
+                        Text("Guest shopping", fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "Guest mode is active. Product browsing will continue from the stable marketplace screen.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            item {
+                TextButton(onClick = onExitGuest, modifier = Modifier.fillMaxWidth()) {
+                    Text("Back to Welcome")
+                }
             }
         }
     }
