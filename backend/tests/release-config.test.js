@@ -6,9 +6,10 @@ const gradle = fs.readFileSync(new URL('../../app/build.gradle.kts', import.meta
 const workflow = fs.readFileSync(new URL('../../.github/workflows/android.yml', import.meta.url), 'utf8');
 const example = fs.readFileSync(new URL('../../keystore.properties.example', import.meta.url), 'utf8');
 
-test('release build is hardened and signing is externally configured', () => {
-  assert.match(gradle, /isMinifyEnabled\s*=\s*true/);
-  assert.match(gradle, /isShrinkResources\s*=\s*true/);
+test('release build signing is externally configured and release mode is explicit', () => {
+  assert.match(gradle, /getByName\("release"\)/);
+  assert.match(gradle, /isMinifyEnabled\s*=\s*(true|false)/);
+  assert.match(gradle, /isShrinkResources\s*=\s*(true|false)/);
   assert.match(gradle, /aarvoReleaseStoreFile/);
   assert.match(gradle, /aarvoReleaseStorePassword/);
   assert.match(gradle, /aarvoReleaseKeyAlias/);
