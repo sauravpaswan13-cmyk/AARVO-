@@ -2,16 +2,6 @@ name: AARVO OTP APK Build
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'app/**'
-      - 'gradle/**'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'gradle.properties'
-      - 'scripts/**'
-      - '.github/workflows/**'
 
 concurrency:
   group: aarvo-${{ github.workflow }}-${{ github.ref }}
