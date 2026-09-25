@@ -315,7 +315,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     if (showCheckout) CheckoutDialog(api, cartItems.sumOf { it.pricePaise }, checkoutLoading, checkoutMessage, { if (!checkoutLoading) showCheckout = false }) { fullName, phone, line1, city, state, postalCode ->
         checkoutLoading = true; checkoutMessage = "Creating secure order..."; scope.launch { try { val items = JSONArray().apply { cartViewModel.distinctItems().forEach { product -> put(JSONObject().put("productId", product.id).put("quantity", cartViewModel.quantity(product.id))) } }; val address = JSONObject().apply { put("fullName", fullName.trim()); put("phone", phone.trim()); put("line1", line1.trim()); put("line2", ""); put("city", city.trim()); put("state", state.trim()); put("postalCode", postalCode.trim()); put("country", "IN") }; val order = api.createOrder(items, address); val options = JSONObject().apply { put("key", order.getString("keyId")); put("amount", order.getLong("amountPaise")); put("currency", order.getString("currency")); put("name", "AARVO"); put("description", "AARVO marketplace order"); put("order_id", order.getString("gatewayOrderId")); put("prefill", JSONObject().put("name", fullName.trim()).put("contact", phone.trim())); put("notes", JSONObject().put("order_id", order.getString("orderId"))) }; if (order.optString("paymentMode") == "TEST") { checkoutMessage = "Test checkout complete. Order confirmed."; cartViewModel.clear(); showCheckout = false; checkoutLoading = false } else { checkoutMessage = "Opening secure payment..."; activity.startRazorpayPayment(options) { paymentId, paymentError -> scope.launch { if (paymentId != null) { val signature = PaymentBridge.lastSignature; val gatewayOrderId = PaymentBridge.lastOrderId ?: order.getString("gatewayOrderId"); if (!signature.isNullOrBlank()) { try { api.verifyPayment(order.getString("orderId"), paymentId, gatewayOrderId, signature); checkoutMessage = "Payment verified. Order confirmed."; cartViewModel.clear(); showCheckout = false } catch (t: Throwable) { checkoutMessage = t.message ?: "Payment verification failed. Order was not confirmed." } } else checkoutMessage = "Payment completed but verification data was missing. Order remains unconfirmed." } else { checkoutMessage = paymentError ?: "Payment cancelled or failed."; try { api.cancelOrder(order.getString("orderId"), "BUYER_PAYMENT_CANCELLED") } catch (_: Throwable) { } }; checkoutLoading = false; PaymentBridge.clear() } } } } catch (t: Throwable) { checkoutLoading = false; checkoutMessage = t.message ?: "Unable to create order." } } }
     Scaffold(topBar = { AarvoHomeTopBar(query, { query = it }, cartItems.size) { selectedTab = 1 } }, bottomBar = { NavigationBar { NavigationBarItem(selectedTab == 0, { selectedTab = 0 }, { Icon(Icons.Default.Home, "Home") }, label = { Text("Home") }); NavigationBarItem(selectedTab == 1, { selectedTab = 1 }, { BadgedBox(badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } }) { Icon(Icons.Default.ShoppingCart, "Cart") } }, label = { Text("Cart") }); NavigationBarItem(selectedTab == 2, { selectedTab = 2 }, { Icon(Icons.Default.Favorite, "Wishlist") }, label = { Text("Wishlist") }); NavigationBarItem(selectedTab == 3, { selectedTab = 3 }, { Icon(Icons.Default.Person, "Account") }, label = { Text("Account") }) } }) { padding -> when (selectedTab) {
-        0 -> HomeScreen(padding, api, query, { query = it }, availableCategories, category, { category = it }, visibleProducts, recentlyViewed, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { showFilters = true }, sortMode, minRating, maxPrice, inStockOnly)
+        0 -> if (guestMode) GuestSafeHome(padding, query, { query = it }, visibleProducts, loading, error, cartViewModel::add, { selectedProduct = it }) else HomeScreen(padding, api, query, { query = it }, availableCategories, category, { category = it }, visibleProducts, recentlyViewed, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { showFilters = true }, sortMode, minRating, maxPrice, inStockOnly)
         1 -> CartScreen(padding, cartItems, allProducts, saveForLater, { product -> cartViewModel.increment(product); syncAuthenticatedCart() }, { product -> cartViewModel.decrement(product); syncAuthenticatedCart() }, { id -> cartViewModel.removeAll(id); syncAuthenticatedCart() }, cartViewModel::quantity, { cartViewModel.clear(); if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } } }, { product -> cartViewModel.removeAll(product.id); saveForLater = saveForLaterStore.toggle(product.id); syncAuthenticatedCart() }, { product -> saveForLater = saveForLaterStore.remove(product.id); cartViewModel.add(product); syncAuthenticatedCart() }, { id -> saveForLater = saveForLaterStore.remove(id) }) { if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" } }
         2 -> WishlistScreen(padding, allProducts, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { selectedProduct = it }, cartViewModel::add)
         else -> AccountScreen(padding, userName, role, api, activity, guestMode, onLogin, onSignOut, { selectedTab = 2 }, { /* notifications opened from account can be added without leaving account */ })
@@ -376,6 +376,48 @@ private fun JSONArray.toProductList(): List<Product> = buildList { for (i in 0 u
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable private fun GuestSafeHome(
+    padding: PaddingValues,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    products: List<Product>,
+    loading: Boolean,
+    error: String,
+    onAdd: (Product) -> Unit,
+    onOpen: (Product) -> Unit
+) {
+    LazyColumn(
+        Modifier.fillMaxSize().padding(padding),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Card(
+                Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Welcome to AARVO", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+                    Text("Browse freely as Guest. Login is only needed for account features and checkout.", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+        item {
+            Text(
+                "Featured Products",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
+        if (loading) item { Box(Modifier.fillMaxWidth().height(90.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+        if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }
+        if (!loading && products.isEmpty() && error.isBlank()) item { Text("No products available right now.") }
+        items(products.distinctBy { it.id }, key = { it.id }) { product ->
+            ProductCard(product, false, onAdd, onOpen, {})
         }
     }
 }
