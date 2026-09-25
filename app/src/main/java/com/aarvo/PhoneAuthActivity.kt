@@ -122,10 +122,20 @@ class PhoneAuthActivity : ComponentActivity() {
         suspend fun verifyLogin() {
             val normalized = phone.filter(Char::isDigit).takeLast(10)
             val session = withTimeout(20000) { server.verifyOtp(normalized, reqId, otp, "BUYER") }
-            val token = session.optString("token").trim()
+            val token = listOf(
+                session.optString("token"),
+                session.optString("accessToken"),
+                session.optString("access_token"),
+                session.optJSONObject("data")?.optString("token").orEmpty(),
+                session.optJSONObject("data")?.optString("accessToken").orEmpty()
+            ).firstOrNull { it.isNotBlank() }?.trim().orEmpty()
             if (token.isBlank()) throw IllegalStateException("AARVO server did not return a login token.")
-            val role = session.optJSONObject("user")?.optString("role", "BUYER")?.uppercase() ?: "BUYER"
+            val role = session.optJSONObject("user")?.optString("role", "BUYER")?.uppercase()?.takeIf {
+                it in setOf("BUYER", "SELLER", "ADMIN", "RIDER")
+            } ?: "BUYER"
             saveSession(token, normalized, role)
+            // Replace the authentication task cleanly so the OTP screen cannot remain
+            // underneath MainActivity or be recreated by the previous task stack.
             openMain()
         }
 
