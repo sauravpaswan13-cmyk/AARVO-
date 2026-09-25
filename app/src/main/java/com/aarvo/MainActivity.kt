@@ -119,7 +119,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         if (signedIn && role == "RIDER") activity.startActivity(Intent(activity, RiderDashboardActivity::class.java))
     }
     when {
-        guestMode -> GuestHomeScreen(api = api, onLogin = openOtpLogin, onExitGuest = { prefs.edit().putBoolean("guest_mode", false).apply(); guestMode = false })
+        guestMode -> AarvoApp(userName = "", role = "BUYER", api = api, activity = activity, wishlistStore = wishlistStore, saveForLaterStore = saveForLaterStore, guestMode = true, onLogin = openOtpLogin, onSignOut = { prefs.edit().putBoolean("guest_mode", false).putBoolean("signed_in", false).remove("auth_token").apply(); guestMode = false })
         signedIn && role != "ADMIN" && role != "RIDER" -> AarvoApp(userName, role, api, activity, wishlistStore, saveForLaterStore, false, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply(); signedIn = false; guestMode = false })
         !onboarded -> OnboardingScreen(
             onLogin = openOtpLogin,
