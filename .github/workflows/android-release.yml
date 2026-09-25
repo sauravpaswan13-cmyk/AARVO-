@@ -3,15 +3,6 @@ name: AARVO Android Release
 # Release gate verification trigger: signed APK/AAB + signature validation.
 
 on:
-    paths:
-      - 'app/**'
-      - 'gradle/**'
-      - 'gradle.properties'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'gradlew'
-      - 'gradlew.bat'
-      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
