@@ -119,7 +119,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         if (signedIn && role == "RIDER") activity.startActivity(Intent(activity, RiderDashboardActivity::class.java))
     }
     when {
-        guestMode -> AarvoApp(userName.ifBlank { "Guest" }, role, api, activity, wishlistStore, saveForLaterStore, true, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply(); signedIn = false; guestMode = false })
+        guestMode -> GuestHomeScreen(api = api, onLogin = openOtpLogin, onExitGuest = { prefs.edit().putBoolean("guest_mode", false).apply(); guestMode = false })
         signedIn && role != "ADMIN" && role != "RIDER" -> AarvoApp(userName, role, api, activity, wishlistStore, saveForLaterStore, false, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", false).remove("auth_token").remove("user_role").apply(); signedIn = false; guestMode = false })
         !onboarded -> OnboardingScreen(
             onLogin = openOtpLogin,
@@ -232,6 +232,66 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         Text("AARVO", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = scheme.primary)
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable private fun GuestHomeScreen(api: AarvoApiClient, onLogin: () -> Unit, onExitGuest: () -> Unit) {
+    var products by remember { mutableStateOf<List<Product>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf("") }
+    LaunchedEffect(api) {
+        loading = true
+        error = ""
+        try {
+            products = api.products("", "All").toProductList().distinctBy { it.id }
+        } catch (t: Throwable) {
+            products = emptyList()
+            error = "Products are temporarily unavailable."
+        } finally {
+            loading = false
+        }
+    }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("AARVO") },
+                actions = { TextButton(onClick = onLogin) { Text("Login / Sign Up") } }
+            )
+        },
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(selected = true, onClick = {}, icon = { Icon(Icons.Default.Home, "Home") }, label = { Text("Home") })
+                NavigationBarItem(selected = false, onClick = onLogin, icon = { Icon(Icons.Default.Person, "Account") }, label = { Text("Account") })
+                NavigationBarItem(selected = false, onClick = onLogin, icon = { Icon(Icons.Default.ShoppingCart, "Cart") }, label = { Text("Cart") })
+            }
+        }
+    ) { inner ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(inner),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Text("Welcome to AARVO", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text("Browse as Guest", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            item {
+                Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text("Login / Sign Up to Buy") }
+            }
+            if (loading) item { CircularProgressIndicator() }
+            if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }
+            items(products, key = { it.id }) { product ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(product.name, fontWeight = FontWeight.SemiBold)
+                        Text(formatPaise(product.pricePaise), style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+            }
+            item {
+                TextButton(onClick = onExitGuest, modifier = Modifier.fillMaxWidth()) { Text("Back to Login / Guest") }
             }
         }
     }
