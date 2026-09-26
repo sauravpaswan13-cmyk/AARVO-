@@ -30,7 +30,7 @@ class SplashActivity : ComponentActivity() {
         }
 
         val image = ImageView(this).apply {
-            setImageResource(R.drawable.aarvo_logo)
+            setImageResource(R.drawable.aarvo_splash)
             scaleType = ImageView.ScaleType.FIT_CENTER
             contentDescription = "AARVO splash screen"
             alpha = 0f
