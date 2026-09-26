@@ -93,7 +93,23 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         super.onCreate(savedInstanceState)
         setContent {
             AarvoTheme {
-                AarvoRoot(this@MainActivity, applicationContext, authRefresh.intValue)
+                // Never let a bad persisted cart/product/UI state terminate the whole app
+                // immediately after OTP login. Show a recoverable screen instead.
+                try {
+                    AarvoRoot(this@MainActivity, applicationContext, authRefresh.intValue)
+                } catch (t: Throwable) {
+                    StartupRecoveryScreen(
+                        message = t.message.orEmpty(),
+                        onReset = {
+                            getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).edit()
+                                .remove("aarvo_cart_v1")
+                                .remove("aarvo_save_for_later_v1")
+                                .remove("wishlist_product_ids")
+                                .apply()
+                            recreate()
+                        }
+                    )
+                }
             }
         }
     }
@@ -101,6 +117,36 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     fun startRazorpayPayment(options: JSONObject, callback: (String?, String?) -> Unit) { PaymentBridge.clear(); paymentCallback = callback; try { val checkout = Checkout(); razorpayCheckout = checkout; checkout.setKeyID(options.getString("key")); checkout.open(this, options) } catch (t: Throwable) { paymentCallback = null; callback(null, t.message ?: "Unable to open payment checkout") } }
     override fun onPaymentSuccess(razorpayPaymentId: String?, paymentData: PaymentData?) { PaymentBridge.capture(paymentData); val callback = paymentCallback; paymentCallback = null; callback?.invoke(razorpayPaymentId, null) }
     override fun onPaymentError(code: Int, description: String?, paymentData: PaymentData?) { PaymentBridge.capture(paymentData); val callback = paymentCallback; paymentCallback = null; callback?.invoke(null, description ?: "Payment failed (code $code)") }
+}
+
+@Composable
+private fun StartupRecoveryScreen(message: String, onReset: () -> Unit) {
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(
+            Modifier.fillMaxSize().padding(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.aarvo_logo),
+                contentDescription = "AARVO logo",
+                tint = Color.Unspecified,
+                modifier = Modifier.size(92.dp)
+            )
+            Spacer(Modifier.height(18.dp))
+            Text("AARVO is recovering…", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(8.dp))
+            Text("A startup error was detected. Your account is not deleted.", textAlign = TextAlign.Center)
+            if (message.isNotBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Text(message.take(240), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, fontSize = 12.sp)
+            }
+            Spacer(Modifier.height(20.dp))
+            Button(onClick = onReset, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(16.dp)) {
+                Text("Repair & Open AARVO", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
 }
 
 @Composable private fun AarvoRoot(activity: MainActivity, context: Context, authRefresh: Int) {
