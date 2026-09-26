@@ -1,5 +1,4 @@
 package com.aarvo
 
-object AarvoSplashImage {
-    const val DATA = "$b64"
-}
+// Kept as a compatibility holder; the current SplashActivity uses the drawable resource.
+object AarvoSplashImage
