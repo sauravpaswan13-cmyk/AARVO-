@@ -93,25 +93,10 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         super.onCreate(savedInstanceState)
         setContent {
             AarvoTheme {
-                // Never let a bad persisted cart/product/UI state terminate the whole app
-                // immediately after OTP login. Show a recoverable screen instead.
-                try {
-                    AarvoRoot(this@MainActivity, applicationContext, authRefresh.intValue)
-                } catch (t: Throwable) {
-                    StartupRecoveryScreen(
-                        message = t.message.orEmpty(),
-                        onReset = {
-                            getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).edit()
-                                .remove("aarvo_cart_v1")
-                                .remove("aarvo_save_for_later_v1")
-                                .remove("wishlist_product_ids")
-                                .apply()
-                            recreate()
-                        }
-                    )
-                }
+                AarvoRoot(this@MainActivity, applicationContext, authRefresh.intValue)
             }
         }
+    }
     }
     override fun onResume() { super.onResume(); authRefresh.intValue++ }
     fun startRazorpayPayment(options: JSONObject, callback: (String?, String?) -> Unit) { PaymentBridge.clear(); paymentCallback = callback; try { val checkout = Checkout(); razorpayCheckout = checkout; checkout.setKeyID(options.getString("key")); checkout.open(this, options) } catch (t: Throwable) { paymentCallback = null; callback(null, t.message ?: "Unable to open payment checkout") } }
