@@ -37,6 +37,17 @@ class SplashActivity : ComponentActivity() {
         }
         root.addView(image, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
 
+        // Keep the supplied splash artwork, with the real AARVO logo explicitly overlaid
+        // so the brand can never disappear on devices with different image scaling.
+        val logo = ImageView(this).apply {
+            setImageResource(R.drawable.aarvo_logo)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "AARVO logo"
+            alpha = 1f
+            elevation = dp(12).toFloat()
+        }
+        root.addView(logo, FrameLayout.LayoutParams(dp(210), dp(210), Gravity.CENTER))
+
         val laser = View(this).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
