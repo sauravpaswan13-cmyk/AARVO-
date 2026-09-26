@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  MSG91_WIDGET_TOKEN: ${{ secrets.MSG91_WIDGET_TOKEN }}
+
 jobs:
   build-apk:
     runs-on: ubuntu-latest
@@ -20,6 +23,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Verify MSG91 token is available
+        run: |
+          test -n "$MSG91_WIDGET_TOKEN" || { echo "MSG91_WIDGET_TOKEN is missing"; exit 1; }
+          echo "MSG91_WIDGET_TOKEN is available (length: ${#MSG91_WIDGET_TOKEN})"
 
       # Use the official Gradle 9.7.1 distribution directly for this CI build.
       # The repository's legacy wrapper JAR is not trusted/validated in this job.
@@ -43,7 +51,7 @@ jobs:
 
       # Source is now authoritative in the repository; do not mutate Kotlin/JS during CI.
       - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug -PaarvoApiBaseUrl=https://aarvo-api.onrender.com
+        run: gradle --no-daemon :app:assembleDebug -PaarvoApiBaseUrl=https://aarvo-api.onrender.com -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
