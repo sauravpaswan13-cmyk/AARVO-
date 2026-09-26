@@ -18,6 +18,7 @@
         </activity>
         <activity android:name=".WelcomeActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="false" />
+        <activity android:name=".StableHomeActivity" android:exported="false" />
         <activity android:name=".GuestBrowseActivity" android:exported="false" />
         <activity android:name=".PhoneAuthActivity" android:exported="false" />
         <activity android:name=".AarvoAiActivity" android:exported="false" />
