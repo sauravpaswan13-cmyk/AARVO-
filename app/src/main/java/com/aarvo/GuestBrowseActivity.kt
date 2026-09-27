@@ -97,6 +97,7 @@ private fun EntryFlow(onBrowse: () -> Unit, onLogin: () -> Unit) {
 
 @Composable
 private fun SplashScreen() {
+    val logoBitmap = remember { LogoUtils.loadTransparentLogo(LocalContext.current).asImageBitmap() }
     val transition = rememberInfiniteTransition(label = "splash_motion")
     val laserX by transition.animateFloat(
         initialValue = -1.15f,
@@ -141,7 +142,7 @@ private fun SplashScreen() {
             modifier = Modifier.padding(horizontal = 28.dp)
         ) {
             androidx.compose.foundation.Image(
-                bitmap = LogoUtils.loadTransparentLogo(LocalContext.current).asImageBitmap(),
+                bitmap = logoBitmap,
                 contentDescription = "AARVO logo",
                 modifier = Modifier.size(150.dp)
             )
@@ -203,6 +204,7 @@ private fun SplashScreen() {
 
 @Composable
 private fun WelcomeScreen(onBrowse: () -> Unit, onLogin: () -> Unit) {
+    val logoBitmap = remember { LogoUtils.loadTransparentLogo(LocalContext.current).asImageBitmap() }
     Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFF8F5FF)) {
         Box(
             modifier = Modifier
@@ -219,7 +221,7 @@ private fun WelcomeScreen(onBrowse: () -> Unit, onLogin: () -> Unit) {
                 verticalArrangement = Arrangement.Center
             ) {
                 androidx.compose.foundation.Image(
-                    bitmap = LogoUtils.loadTransparentLogo(LocalContext.current).asImageBitmap(),
+                    bitmap = logoBitmap,
                     contentDescription = "AARVO logo",
                     modifier = Modifier.size(82.dp)
                 )
