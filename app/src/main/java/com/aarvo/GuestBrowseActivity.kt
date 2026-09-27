@@ -141,7 +141,7 @@ private fun SplashScreen() {
             modifier = Modifier.padding(horizontal = 28.dp)
         ) {
             androidx.compose.foundation.Image(
-                bitmap = LogoUtils.loadTransparentLogo(this@GuestBrowseActivity).asImageBitmap(),
+                bitmap = LogoUtils.loadTransparentLogo(LocalContext.current).asImageBitmap(),
                 contentDescription = "AARVO logo",
                 modifier = Modifier.size(150.dp)
             )
