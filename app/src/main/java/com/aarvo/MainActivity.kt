@@ -259,7 +259,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     var saveForLater by remember { mutableStateOf(saveForLaterStore.load()) }; var showCheckout by remember { mutableStateOf(false) }; var showLoginRequired by remember { mutableStateOf(false) }; var checkoutLoading by remember { mutableStateOf(false) }; var checkoutMessage by remember { mutableStateOf("") }; var products by remember { mutableStateOf<List<Product>>(emptyList()) }; var allProducts by remember { mutableStateOf<List<Product>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val cartItems by cartViewModel.items.collectAsState(); val scope = rememberCoroutineScope()
     LaunchedEffect(api, guestMode, role) {
         try {
-            allProducts = api.products("", "All").toProductList()
+            allProducts = api.products("", "All").toProductList().distinctBy { it.id }
             cartViewModel.restore(allProducts)
             if (!guestMode && role == "BUYER") {
                 val server = api.serverCart()
@@ -289,7 +289,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
             }.getOrDefault(emptyList())
         } else recentlyViewed = emptyList()
     }
-    LaunchedEffect(query, category, api) { loading = true; error = ""; try { products = api.products(query, category).toProductList() } catch (t: Throwable) { products = emptyList(); error = t.message ?: "Unable to load products." } finally { loading = false } }
+    LaunchedEffect(query, category, api) { loading = true; error = ""; try { products = api.products(query, category).toProductList().distinctBy { it.id } } catch (t: Throwable) { products = emptyList(); error = t.message ?: "Unable to load products." } finally { loading = false } }
     val visibleProducts = remember(products, sortMode, minRating, maxPrice, inStockOnly) { products.filter { (minRating <= 0.0 || it.rating >= minRating) && (maxPrice == null || it.pricePaise <= maxPrice!!) && (!inStockOnly || it.stockQuantity > 0) }.let { list -> when (sortMode) { "Price: Low to High" -> list.sortedBy { it.pricePaise }; "Price: High to Low" -> list.sortedByDescending { it.pricePaise }; "Rating: High to Low" -> list.sortedByDescending { it.rating }; else -> list } } }
     fun syncAuthenticatedCart() {
         if (guestMode || role != "BUYER") return
