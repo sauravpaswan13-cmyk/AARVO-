@@ -25,24 +25,30 @@ class WelcomeActivity : ComponentActivity() {
         val root = ReferenceHitLayout(this)
 
         val bytes = Base64.decode(WelcomeReferenceImage.WEBP_BASE64, Base64.DEFAULT)
+        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            ?: throw IllegalStateException("AARVO welcome image could not be decoded")
         val image = ImageView(this).apply {
-            setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
+            setImageBitmap(bitmap)
             scaleType = ImageView.ScaleType.FIT_XY
             contentDescription = "AARVO welcome entry"
+            isClickable = false
         }
         root.addView(image, FrameLayout.LayoutParams(-1, -1))
 
-        val guest = View(this).apply {
-            isClickable = true
-            isFocusable = true
+        // Real Button views avoid fragile 1x1 touch overlays while preserving the supplied artwork.
+        val guest = android.widget.Button(this).apply {
+            isAllCaps = false
+            text = ""
+            background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
             contentDescription = "Continue as Guest"
             setOnClickListener { enterGuest() }
         }
         root.addReferenceHit(guest, 66f, 1138f, 574f, 116f)
 
-        val login = View(this).apply {
-            isClickable = true
-            isFocusable = true
+        val login = android.widget.Button(this).apply {
+            isAllCaps = false
+            text = ""
+            background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
             contentDescription = "Login / Signup"
             setOnClickListener { openLogin() }
         }
