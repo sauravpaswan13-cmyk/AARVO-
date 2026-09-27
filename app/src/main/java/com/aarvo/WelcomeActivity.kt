@@ -2,16 +2,16 @@ package com.aarvo
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import android.util.Base64
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.activity.ComponentActivity
 
 class WelcomeActivity : ComponentActivity() {
@@ -26,56 +26,98 @@ class WelcomeActivity : ComponentActivity() {
             View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE
 
-        val root = ReferenceHitLayout(this)
-
-        // The supplied reference artwork is retained exactly, including the AARVO A logo.
-        val bytes = Base64.decode(WelcomeReferenceImage.WEBP_BASE64, Base64.DEFAULT)
-        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            ?: throw IllegalStateException("AARVO welcome image could not be decoded")
-        val image = android.widget.ImageView(this).apply {
-            setImageBitmap(bitmap)
-            scaleType = android.widget.ImageView.ScaleType.FIT_XY
-            contentDescription = "AARVO premium welcome entry"
+        val root = FrameLayout(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(9, 7, 25), Color.rgb(35, 12, 60), Color.rgb(7, 22, 50))
+            )
         }
-        root.addView(image, FrameLayout.LayoutParams(-1, -1))
 
-        // Premium, spacious action surface; artwork/logo remains untouched underneath.
+        // Fresh welcome screen: reuse the existing AARVO logo asset without modifying it.
+        val logo = ImageView(this).apply {
+            setImageResource(R.drawable.aarvo_logo)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            contentDescription = "AARVO"
+        }
+        root.addView(logo, FrameLayout.LayoutParams(190, 190).apply {
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            topMargin = 76
+        })
+
+        val welcome = TextView(this).apply {
+            text = "WELCOME"
+            setTextColor(Color.WHITE)
+            textSize = 26f
+            letterSpacing = 0.16f
+            gravity = Gravity.CENTER
+        }
+        root.addView(welcome, FrameLayout.LayoutParams(-1, 52).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            topMargin = 290
+        })
+
+        val subtitle = TextView(this).apply {
+            text = "Your everyday shopping, beautifully simple."
+            setTextColor(0xB8FFFFFF.toInt())
+            textSize = 13f
+            gravity = Gravity.CENTER
+        }
+        root.addView(subtitle, FrameLayout.LayoutParams(-1, 44).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            topMargin = 338
+        })
+
         val actions = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        fun premiumButton(text: String): Button = Button(this).apply {
-            this.text = text
+        fun premiumButton(label: String, filled: Boolean): Button = Button(this).apply {
+            text = label
             isAllCaps = false
             textSize = 15f
             setTextColor(Color.WHITE)
             stateListAnimator = null
+            elevation = 0f
             background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = 54f
-                setColor(0xCC16132A.toInt())
-                setStroke(2, 0x55FFFFFF)
+                cornerRadius = 60f
+                if (filled) {
+                    setColor(0xFFE94B9A.toInt())
+                    setStroke(1, 0x55FFFFFF)
+                } else {
+                    setColor(0x1FFFFFFF)
+                    setStroke(2, 0x77FFFFFF)
+                }
             }
         }
 
-        val guest = premiumButton("Continue as Guest")
+        val guest = premiumButton("Continue as Guest", true)
         guest.setOnClickListener { enterGuest() }
-        actions.addView(guest, LinearLayout.LayoutParams(330, 58).apply { bottomMargin = 14 })
+        actions.addView(guest, LinearLayout.LayoutParams(310, 60).apply { bottomMargin = 16 })
 
-        val login = premiumButton("Login / Signup")
+        val login = premiumButton("Login / Signup", false)
         login.setOnClickListener { openLogin() }
-        actions.addView(login, LinearLayout.LayoutParams(330, 58))
+        actions.addView(login, LinearLayout.LayoutParams(310, 60))
 
-        root.addView(actions, FrameLayout.LayoutParams(330, 130).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            bottomMargin = 72
+        root.addView(actions, FrameLayout.LayoutParams(310, 136).apply {
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+            bottomMargin = 86
+        })
+
+        val footer = TextView(this).apply {
+            text = "AARVO"
+            setTextColor(0x66FFFFFF.toInt())
+            textSize = 9f
+            letterSpacing = 0.30f
+            gravity = Gravity.CENTER
+        }
+        root.addView(footer, FrameLayout.LayoutParams(-1, 30).apply {
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+            bottomMargin = 36
         })
 
         setContentView(root)
     }
-
-    private class ReferenceHitLayout(context: Context) : FrameLayout(context)
 
     private fun prefs() = getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)
 
