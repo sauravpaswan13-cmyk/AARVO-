@@ -69,7 +69,7 @@ class SplashActivity : ComponentActivity() {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = 30f
-                setColor(0x331FFFFFF)
+                setColor(0x331FFFFF)
                 setStroke(1, 0x66FFFFFF)
             }
         }
