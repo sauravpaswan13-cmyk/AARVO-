@@ -34,7 +34,6 @@ class SplashActivity : ComponentActivity() {
             )
         }
 
-        // Fresh splash: the existing AARVO logo asset is reused unchanged.
         val logo = ImageView(this).apply {
             setImageResource(R.drawable.aarvo_logo)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
@@ -48,7 +47,7 @@ class SplashActivity : ComponentActivity() {
         val glow = View(this).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(Color.TRANSPARENT, 0x35FFFFFF, 0xAAFFFFFF, 0x35FFFFFF, Color.TRANSPARENT)
+                intArrayOf(Color.TRANSPARENT, 0x35FFFFFF, 0xAAFFFFFF.toInt(), 0x35FFFFFF, Color.TRANSPARENT)
             )
             alpha = 0.45f
         }
@@ -115,7 +114,7 @@ class SplashActivity : ComponentActivity() {
 
         track.post {
             ValueAnimator.ofInt(0, track.width).apply {
-                duration = 1800L
+                duration = 1800
                 interpolator = LinearInterpolator()
                 addUpdateListener {
                     fill.layoutParams = fill.layoutParams.apply { width = it.animatedValue as Int }
