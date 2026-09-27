@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -103,7 +104,7 @@ class SplashActivity : ComponentActivity() {
         }
         content.addView(loading, LinearLayout.LayoutParams(-1, -2))
 
-        scroll.addView(content, ScrollView.LayoutParams(-1, -1))
+        scroll.addView(content, ViewGroup.LayoutParams(-1, -1))
         root.addView(scroll, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
 
