@@ -45,7 +45,7 @@ class WelcomeActivity : ComponentActivity() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(28, 24, 28, 26)
+            setPadding(28, 52, 28, 44)
         }
 
         val logo = ImageView(this).apply {
@@ -54,7 +54,7 @@ class WelcomeActivity : ComponentActivity() {
             contentDescription = "AARVO logo"
         }
         content.addView(logo, LinearLayout.LayoutParams(150, 150).apply {
-            topMargin = 22
+            topMargin = 10
         })
 
         val name = TextView(this).apply {
@@ -65,7 +65,7 @@ class WelcomeActivity : ComponentActivity() {
             letterSpacing = .08f
             gravity = Gravity.CENTER
         }
-        content.addView(name, LinearLayout.LayoutParams(-1, 54))
+        content.addView(name, LinearLayout.LayoutParams(-1, 50))
 
         val title = TextView(this).apply {
             text = "Welcome"
@@ -74,8 +74,8 @@ class WelcomeActivity : ComponentActivity() {
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             gravity = Gravity.CENTER
         }
-        content.addView(title, LinearLayout.LayoutParams(-1, 48).apply {
-            topMargin = 22
+        content.addView(title, LinearLayout.LayoutParams(-1, 38).apply {
+            topMargin = 16
         })
 
         val subtitle = TextView(this).apply {
@@ -90,8 +90,8 @@ class WelcomeActivity : ComponentActivity() {
             setBackgroundColor(Color.rgb(226, 221, 234))
         }
         content.addView(divider, LinearLayout.LayoutParams(220, 1).apply {
-            topMargin = 8
-            bottomMargin = 22
+            topMargin = 6
+            bottomMargin = 18
         })
 
         val actions = LinearLayout(this).apply {
@@ -143,7 +143,7 @@ class WelcomeActivity : ComponentActivity() {
         val login = button("Login / Sign Up", false)
         login.setOnClickListener { openLogin() }
         actions.addView(login, LinearLayout.LayoutParams(320, 58))
-        content.addView(actions, LinearLayout.LayoutParams(-1, 130))
+        content.addView(actions, LinearLayout.LayoutParams(-1, 130).apply { topMargin = 2 })
 
         val footer = TextView(this).apply {
             text = "AARVO"
