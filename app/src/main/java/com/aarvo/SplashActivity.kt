@@ -41,10 +41,9 @@ class SplashActivity : ComponentActivity() {
             setPadding(dp(24), dp(42), dp(24), dp(32))
         }
 
-        // Use text for the brand mark here instead of the old raster logo, whose source
-        // asset is visibly clipped on-device. This keeps the splash clean and scalable.
+        // Use the supplied AARVO logo with its blue source background removed.
         val mark = ImageView(this).apply {
-            setImageResource(R.drawable.aarvo_logo)
+            setImageBitmap(LogoUtils.loadTransparentLogo(this))
             scaleType = ImageView.ScaleType.FIT_CENTER
             adjustViewBounds = true
             contentDescription = "AARVO logo"
