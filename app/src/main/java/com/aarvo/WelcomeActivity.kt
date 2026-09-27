@@ -46,17 +46,17 @@ class WelcomeActivity : ComponentActivity() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(24), dp(30), dp(24), dp(30))
+            setPadding(dp(24), dp(44), dp(24), dp(30))
         }
 
         val mark = ImageView(this).apply {
-            setImageResource(R.drawable.aarvo_logo)
+            setImageResource(R.drawable.aarvo_top_logo)
             scaleType = ImageView.ScaleType.FIT_CENTER
             adjustViewBounds = true
             contentDescription = "AARVO logo"
         }
-        content.addView(mark, LinearLayout.LayoutParams(dp(86), dp(72)).apply {
-            bottomMargin = dp(2)
+        content.addView(mark, LinearLayout.LayoutParams(dp(104), dp(104)).apply {
+            bottomMargin = dp(10)
         })
 
         val name = TextView(this).apply {
@@ -69,7 +69,7 @@ class WelcomeActivity : ComponentActivity() {
             includeFontPadding = true
         }
         content.addView(name, LinearLayout.LayoutParams(-1, -2).apply {
-            bottomMargin = dp(18)
+            bottomMargin = dp(22)
         })
 
         val title = TextView(this).apply {
