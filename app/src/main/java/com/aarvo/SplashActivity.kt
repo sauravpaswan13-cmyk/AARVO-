@@ -36,7 +36,7 @@ class SplashActivity : ComponentActivity() {
 
         // Fresh splash: the existing AARVO logo asset is reused unchanged.
         val logo = ImageView(this).apply {
-            setImageResource(R.drawable.aarvo_logo_webp)
+            setImageResource(R.drawable.aarvo_logo)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
             contentDescription = "AARVO"
         }
