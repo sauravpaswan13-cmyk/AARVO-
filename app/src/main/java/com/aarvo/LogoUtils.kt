@@ -7,20 +7,32 @@ import kotlin.math.abs
 
 object LogoUtils {
     fun loadTransparentLogo(context: Context): Bitmap {
-        val source = BitmapFactory.decodeResource(
+        val options = BitmapFactory.Options().apply {
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+            // The logo is displayed small; sampling prevents a large source bitmap
+            // from allocating several full-size pixel/visited arrays on low-memory phones.
+            inSampleSize = 2
+        }
+
+        val source = (BitmapFactory.decodeResource(
             context.resources,
-            R.drawable.aarvo_logo
-        ).copy(Bitmap.Config.ARGB_8888, true)
+            R.drawable.aarvo_logo,
+            options
+        ) ?: BitmapFactory.decodeResource(context.resources, R.drawable.aarvo_logo))
+            .copy(Bitmap.Config.ARGB_8888, true)
 
         val w = source.width
         val h = source.height
-        if (w == 0 || h == 0) return source
+        if (w <= 0 || h <= 0) return source
 
         val pixels = IntArray(w * h)
         source.getPixels(pixels, 0, w, 0, 0, w, h)
 
         val visited = BooleanArray(pixels.size)
-        val queue = java.util.ArrayDeque<Int>()
+        // Primitive queue avoids boxing every pixel into Integer objects.
+        val queue = IntArray(pixels.size)
+        var head = 0
+        var tail = 0
 
         fun rgbDistance(a: Int, b: Int): Int {
             return abs(((a shr 16) and 0xFF) - ((b shr 16) and 0xFF)) +
@@ -28,8 +40,6 @@ object LogoUtils {
                 abs((a and 0xFF) - (b and 0xFF))
         }
 
-        // Remove only the blue area connected to the image edges. This preserves
-        // blue portions that are part of the actual AARVO logo.
         val backgroundSeeds = intArrayOf(
             pixels[0],
             pixels[w - 1],
@@ -45,45 +55,47 @@ object LogoUtils {
             return backgroundSeeds.any { rgbDistance(color, it) <= 105 }
         }
 
+        fun enqueue(index: Int) {
+            if (!visited[index]) {
+                visited[index] = true
+                if (tail < queue.size) queue[tail++] = index
+            }
+        }
+
         for (x in 0 until w) {
             val top = x
             val bottom = (h - 1) * w + x
-            if (!visited[top] && isBlueBackground(pixels[top])) {
-                visited[top] = true
-                queue.add(top)
-            }
-            if (!visited[bottom] && isBlueBackground(pixels[bottom])) {
-                visited[bottom] = true
-                queue.add(bottom)
-            }
+            if (isBlueBackground(pixels[top])) enqueue(top)
+            if (isBlueBackground(pixels[bottom])) enqueue(bottom)
         }
         for (y in 0 until h) {
             val left = y * w
             val right = y * w + (w - 1)
-            if (!visited[left] && isBlueBackground(pixels[left])) {
-                visited[left] = true
-                queue.add(left)
-            }
-            if (!visited[right] && isBlueBackground(pixels[right])) {
-                visited[right] = true
-                queue.add(right)
-            }
+            if (isBlueBackground(pixels[left])) enqueue(left)
+            if (isBlueBackground(pixels[right])) enqueue(right)
         }
 
-        val neighbors = intArrayOf(-1, 1, -w, w)
-        while (queue.isNotEmpty()) {
-            val index = queue.removeFirst()
+        while (head < tail) {
+            val index = queue[head++]
             pixels[index] = pixels[index] and 0x00FFFFFF
 
             val x = index % w
-            for (delta in neighbors) {
-                val next = index + delta
-                if (next < 0 || next >= pixels.size) continue
-                if ((delta == -1 && x == 0) || (delta == 1 && x == w - 1)) continue
-                if (!visited[next] && isBlueBackground(pixels[next])) {
-                    visited[next] = true
-                    queue.add(next)
-                }
+
+            if (x > 0) {
+                val next = index - 1
+                if (!visited[next] && isBlueBackground(pixels[next])) enqueue(next)
+            }
+            if (x < w - 1) {
+                val next = index + 1
+                if (!visited[next] && isBlueBackground(pixels[next])) enqueue(next)
+            }
+            if (index >= w) {
+                val next = index - w
+                if (!visited[next] && isBlueBackground(pixels[next])) enqueue(next)
+            }
+            if (index < pixels.size - w) {
+                val next = index + w
+                if (!visited[next] && isBlueBackground(pixels[next])) enqueue(next)
             }
         }
 
