@@ -10,3 +10,6 @@ Build verification requested after these changes.
 Spacing refinement build trigger 2026-09-27.
 
 Responsive splash/welcome root-cause fix build trigger 2026-09-27.
+
+
+Compilation fix trigger 2026-09-27.
