@@ -1,1 +1,7 @@
-AARVO APK build trigger marker. Do not delete; used to retrigger the Android build after startup-crash fixes.
+# AARVO build trigger
+
+Latest UI spacing fixes:
+- Splash uses a centered vertical layout so logo, brand, accent, progress bar and loading text cannot overlap.
+- Welcome uses responsive button widths and controlled vertical spacing.
+
+Build verification requested after these changes.
