@@ -11,6 +11,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -42,13 +43,11 @@ class SplashActivity : ComponentActivity() {
 
         // Use text for the brand mark here instead of the old raster logo, whose source
         // asset is visibly clipped on-device. This keeps the splash clean and scalable.
-        val mark = TextView(this).apply {
-            text = "A"
-            setTextColor(Color.rgb(91, 33, 214))
-            textSize = 64f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            includeFontPadding = true
+        val mark = ImageView(this).apply {
+            setImageResource(R.drawable.aarvo_logo)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true
+            contentDescription = "AARVO logo"
         }
         content.addView(mark, LinearLayout.LayoutParams(dp(96), dp(82)).apply {
             bottomMargin = dp(4)
