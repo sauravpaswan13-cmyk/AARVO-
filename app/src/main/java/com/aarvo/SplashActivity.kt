@@ -38,25 +38,25 @@ class SplashActivity : ComponentActivity() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(24), dp(28), dp(24), dp(28))
+            setPadding(dp(24), dp(42), dp(24), dp(32))
         }
 
         // Use text for the brand mark here instead of the old raster logo, whose source
         // asset is visibly clipped on-device. This keeps the splash clean and scalable.
         val mark = ImageView(this).apply {
-            setImageResource(R.drawable.aarvo_logo)
+            setImageResource(R.drawable.aarvo_top_logo)
             scaleType = ImageView.ScaleType.FIT_CENTER
             adjustViewBounds = true
             contentDescription = "AARVO logo"
         }
-        content.addView(mark, LinearLayout.LayoutParams(dp(96), dp(82)).apply {
-            bottomMargin = dp(4)
+        content.addView(mark, LinearLayout.LayoutParams(dp(112), dp(112)).apply {
+            bottomMargin = dp(10)
         })
 
         val brand = TextView(this).apply {
             text = "AARVO"
             setTextColor(Color.rgb(91, 33, 214))
-            textSize = 30f
+            textSize = 32f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             letterSpacing = .08f
             gravity = Gravity.CENTER
