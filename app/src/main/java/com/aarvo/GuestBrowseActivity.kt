@@ -97,7 +97,8 @@ private fun EntryFlow(onBrowse: () -> Unit, onLogin: () -> Unit) {
 
 @Composable
 private fun SplashScreen() {
-    val logoBitmap = remember { LogoUtils.loadTransparentLogo(LocalContext.current).asImageBitmap() }
+    val context = LocalContext.current
+    val logoBitmap = remember(context) { LogoUtils.loadTransparentLogo(context).asImageBitmap() }
     val transition = rememberInfiniteTransition(label = "splash_motion")
     val laserX by transition.animateFloat(
         initialValue = -1.15f,
@@ -204,7 +205,8 @@ private fun SplashScreen() {
 
 @Composable
 private fun WelcomeScreen(onBrowse: () -> Unit, onLogin: () -> Unit) {
-    val logoBitmap = remember { LogoUtils.loadTransparentLogo(LocalContext.current).asImageBitmap() }
+    val context = LocalContext.current
+    val logoBitmap = remember(context) { LogoUtils.loadTransparentLogo(context).asImageBitmap() }
     Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFF8F5FF)) {
         Box(
             modifier = Modifier
