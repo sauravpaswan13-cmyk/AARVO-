@@ -4,17 +4,8 @@
     android:height="256dp"
     android:viewportWidth="256"
     android:viewportHeight="256">
-    <!-- Approved AARVO A mark: source blue background intentionally omitted. -->
-    <path
-        android:fillColor="#FFD900"
-        android:pathData="M54,184 L108,64 Q114,50 127,50 Q140,50 147,65 L199,183 Q205,197 193,203 Q181,209 174,195 L127,91 L80,195 Q73,209 61,203 Q49,197 54,184 Z" />
-    <path
-        android:fillColor="#FF4B12"
-        android:pathData="M61,203 Q52,198 57,185 L109,67 Q116,50 128,52 L139,56 L80,195 Q73,209 61,203 Z" />
-    <path
-        android:fillColor="#F600A8"
-        android:pathData="M82,179 L118,146 Q128,137 139,143 L193,182 Q205,191 197,202 Q189,213 176,205 L132,173 L97,205 Q86,213 78,202 Q70,191 82,179 Z" />
-    <path
-        android:fillColor="#7A00FF"
-        android:pathData="M118,146 Q128,137 139,143 L193,182 Q205,191 197,202 Q189,213 176,205 L132,173 L118,161 Z" />
+    <path android:fillColor="#FFD900" android:pathData="M54,184 L108,64 Q114,50 127,50 Q140,50 147,65 L199,183 Q205,197 193,203 Q181,209 174,195 L127,91 L80,195 Q73,209 61,203 Q49,197 54,184 Z" />
+    <path android:fillColor="#FF4B12" android:pathData="M61,203 Q52,198 57,185 L109,67 Q116,50 128,52 L139,56 L80,195 Q73,209 61,203 Z" />
+    <path android:fillColor="#F600A8" android:pathData="M82,179 L118,146 Q128,137 139,143 L193,182 Q205,191 197,202 Q189,213 176,205 L132,173 L97,205 Q86,213 78,202 Q70,191 82,179 Z" />
+    <path android:fillColor="#7A00FF" android:pathData="M118,146 Q128,137 139,143 L193,182 Q205,191 197,202 L176,205 L132,173 L118,161 Z" />
 </vector>
