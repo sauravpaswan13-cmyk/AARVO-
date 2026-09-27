@@ -43,7 +43,7 @@ class SplashActivity : ComponentActivity() {
 
         // Use the supplied AARVO logo with its blue source background removed.
         val mark = ImageView(this).apply {
-            setImageResource(R.drawable.aarvo_supplied_logo)
+            setImageResource(R.drawable.aarvo_logo)
             scaleType = ImageView.ScaleType.FIT_CENTER
             adjustViewBounds = true
             contentDescription = "AARVO logo"
