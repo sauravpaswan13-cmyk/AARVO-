@@ -35,7 +35,7 @@ class SplashActivity : ComponentActivity() {
         }
         root.addView(logo, FrameLayout.LayoutParams(210, 210).apply {
             gravity = Gravity.CENTER
-            bottomMargin = 90
+            bottomMargin = 110
         })
 
         val brand = TextView(this).apply {
@@ -48,7 +48,7 @@ class SplashActivity : ComponentActivity() {
         }
         root.addView(brand, FrameLayout.LayoutParams(-1, 50).apply {
             gravity = Gravity.CENTER
-            topMargin = 155
+            topMargin = 135
         })
 
         val accent = View(this).apply {
@@ -64,7 +64,7 @@ class SplashActivity : ComponentActivity() {
         }
         root.addView(accent, FrameLayout.LayoutParams(150, 4).apply {
             gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
-            bottomMargin = 118
+            bottomMargin = 126
         })
 
         val track = FrameLayout(this).apply {
@@ -82,7 +82,7 @@ class SplashActivity : ComponentActivity() {
         track.addView(fill, FrameLayout.LayoutParams(0, 6))
         root.addView(track, FrameLayout.LayoutParams(250, 6).apply {
             gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
-            bottomMargin = 82
+            bottomMargin = 88
         })
 
         val loading = TextView(this).apply {
@@ -94,7 +94,7 @@ class SplashActivity : ComponentActivity() {
         }
         root.addView(loading, FrameLayout.LayoutParams(-1, 36).apply {
             gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
-            bottomMargin = 38
+            bottomMargin = 42
         })
 
         setContentView(root)
