@@ -50,7 +50,7 @@ class WelcomeActivity : ComponentActivity() {
         }
 
         val mark = ImageView(this).apply {
-            setImageResource(R.drawable.aarvo_logo)
+            setImageBitmap(LogoUtils.loadTransparentLogo(this))
             scaleType = ImageView.ScaleType.FIT_CENTER
             adjustViewBounds = true
             contentDescription = "AARVO logo"
