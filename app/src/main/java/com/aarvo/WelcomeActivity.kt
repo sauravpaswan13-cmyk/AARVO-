@@ -11,6 +11,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -48,13 +49,11 @@ class WelcomeActivity : ComponentActivity() {
             setPadding(dp(24), dp(30), dp(24), dp(30))
         }
 
-        val mark = TextView(this).apply {
-            text = "A"
-            setTextColor(Color.rgb(91, 33, 214))
-            textSize = 58f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            includeFontPadding = true
+        val mark = ImageView(this).apply {
+            setImageResource(R.drawable.aarvo_logo)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true
+            contentDescription = "AARVO logo"
         }
         content.addView(mark, LinearLayout.LayoutParams(dp(86), dp(72)).apply {
             bottomMargin = dp(2)
