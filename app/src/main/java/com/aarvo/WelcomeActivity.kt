@@ -3,11 +3,15 @@ package com.aarvo
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.util.Base64
+import android.view.Gravity
 import android.view.View
+import android.widget.Button
 import android.widget.FrameLayout
-import android.widget.ImageView
+import android.widget.LinearLayout
 import androidx.activity.ComponentActivity
 
 class WelcomeActivity : ComponentActivity() {
@@ -24,61 +28,54 @@ class WelcomeActivity : ComponentActivity() {
 
         val root = ReferenceHitLayout(this)
 
+        // The supplied reference artwork is retained exactly, including the AARVO A logo.
         val bytes = Base64.decode(WelcomeReferenceImage.WEBP_BASE64, Base64.DEFAULT)
         val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             ?: throw IllegalStateException("AARVO welcome image could not be decoded")
-        val image = ImageView(this).apply {
+        val image = android.widget.ImageView(this).apply {
             setImageBitmap(bitmap)
-            scaleType = ImageView.ScaleType.FIT_XY
-            contentDescription = "AARVO welcome entry"
-            isClickable = false
+            scaleType = android.widget.ImageView.ScaleType.FIT_XY
+            contentDescription = "AARVO premium welcome entry"
         }
         root.addView(image, FrameLayout.LayoutParams(-1, -1))
 
-        // Real Button views avoid fragile 1x1 touch overlays while preserving the supplied artwork.
-        val guest = android.widget.Button(this).apply {
-            isAllCaps = false
-            text = ""
-            background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
-            contentDescription = "Continue as Guest"
-            setOnClickListener { enterGuest() }
+        // Premium, spacious action surface; artwork/logo remains untouched underneath.
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
         }
-        root.addReferenceHit(guest, 66f, 1138f, 574f, 116f)
 
-        val login = android.widget.Button(this).apply {
+        fun premiumButton(text: String): Button = Button(this).apply {
+            this.text = text
             isAllCaps = false
-            text = ""
-            background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
-            contentDescription = "Login / Signup"
-            setOnClickListener { openLogin() }
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            stateListAnimator = null
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 54f
+                setColor(0xCC16132A.toInt())
+                setStroke(2, 0x55FFFFFF)
+            }
         }
-        root.addReferenceHit(login, 66f, 1280f, 574f, 112f)
+
+        val guest = premiumButton("Continue as Guest")
+        guest.setOnClickListener { enterGuest() }
+        actions.addView(guest, LinearLayout.LayoutParams(330, 58).apply { bottomMargin = 14 })
+
+        val login = premiumButton("Login / Signup")
+        login.setOnClickListener { openLogin() }
+        actions.addView(login, LinearLayout.LayoutParams(330, 58))
+
+        root.addView(actions, FrameLayout.LayoutParams(330, 130).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            bottomMargin = 72
+        })
 
         setContentView(root)
     }
 
-    private class ReferenceHitLayout(context: Context) : FrameLayout(context) {
-        private data class Hit(val view: View, val x: Float, val y: Float, val w: Float, val h: Float)
-        private val hits = mutableListOf<Hit>()
-
-        fun addReferenceHit(view: View, x: Float, y: Float, w: Float, h: Float) {
-            hits += Hit(view, x, y, w, h)
-            addView(view, LayoutParams(1, 1))
-        }
-
-        override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-            super.onLayout(changed, left, top, right, bottom)
-            val sx = width / 706f
-            val sy = height / 1536f
-            hits.forEach { hit ->
-                val l = (hit.x * sx).toInt()
-                val t = (hit.y * sy).toInt()
-                val r = ((hit.x + hit.w) * sx).toInt()
-                val b = ((hit.y + hit.h) * sy).toInt()
-                hit.view.layout(l, t, r, b)
-            }
-        }
-    }
+    private class ReferenceHitLayout(context: Context) : FrameLayout(context)
 
     private fun prefs() = getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)
 
@@ -90,10 +87,8 @@ class WelcomeActivity : ComponentActivity() {
             .putString("user_role", "BUYER")
             .remove("auth_token")
             .apply()
-        startActivity(
-            Intent(this, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        )
+        startActivity(Intent(this, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         finish()
     }
 
