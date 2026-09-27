@@ -35,7 +35,7 @@ class WelcomeActivity : ComponentActivity() {
 
         // Fresh welcome screen: reuse the existing AARVO logo asset without modifying it.
         val logo = ImageView(this).apply {
-            setImageResource(R.drawable.aarvo_logo_webp)
+            setImageResource(R.drawable.aarvo_logo)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
             contentDescription = "AARVO"
         }
