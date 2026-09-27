@@ -8,6 +8,11 @@ import android.os.Looper
 import android.util.Base64
 import android.view.View
 import android.widget.ImageView
+import android.widget.FrameLayout
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.view.animation.TranslateAnimation
 import androidx.activity.ComponentActivity
 
 class SplashActivity : ComponentActivity() {
@@ -30,7 +35,23 @@ class SplashActivity : ComponentActivity() {
             scaleType = ImageView.ScaleType.FIT_XY
             contentDescription = "AARVO splash screen"
         }
-        setContentView(image)
+        val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        root.addView(image, FrameLayout.LayoutParams(-1, -1))
+        val laser = View(this).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(
+                Color.TRANSPARENT, 0x22FFFFFF, 0x66FFFFFF, 0x22FFFFFF, Color.TRANSPARENT
+            ))
+            alpha = 0.55f
+        }
+        root.addView(laser, FrameLayout.LayoutParams(120, -1).apply { gravity = Gravity.START })
+        setContentView(root)
+        laser.post {
+            TranslateAnimation(-160f, root.width.toFloat() + 160f, 0f, 0f).also { sweep ->
+                sweep.duration = 1500L
+                sweep.repeatCount = TranslateAnimation.INFINITE
+                laser.startAnimation(sweep)
+            }
+        }
 
         Handler(Looper.getMainLooper()).postDelayed({
             startActivity(Intent(this, WelcomeActivity::class.java))
