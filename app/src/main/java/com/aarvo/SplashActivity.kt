@@ -1,19 +1,17 @@
 package com.aarvo
 
-import android.graphics.BitmapFactory
+import android.animation.ValueAnimator
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.Base64
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
-import android.graphics.drawable.GradientDrawable
-import android.animation.ValueAnimator
-import android.view.animation.LinearInterpolator
 import androidx.activity.ComponentActivity
 
 class SplashActivity : ComponentActivity() {
@@ -25,101 +23,98 @@ class SplashActivity : ComponentActivity() {
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
             View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
 
-        val root = FrameLayout(this)
-
-        // The supplied AARVO splash reference is kept in the project and decoded locally.
-        val reference = ImageView(this).apply {
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            contentDescription = "AARVO splash"
-            try {
-                val bytes = Base64.decode(SplashReferenceImage.WEBP_BASE64, Base64.DEFAULT)
-                setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
-            } catch (_: Throwable) {
-                setBackgroundColor(Color.rgb(16, 8, 40))
-            }
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(Color.WHITE)
         }
-        root.addView(reference, FrameLayout.LayoutParams(-1, -1))
 
-        val shade = View(this).apply {
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(0x22000000, 0x08000000, 0x55000000)
-            )
+        // Clean marketplace-style splash: AARVO's own logo and palette, without the old full-screen artwork.
+        val logo = ImageView(this).apply {
+            setImageResource(R.drawable.aarvo_logo)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            contentDescription = "AARVO logo"
         }
-        root.addView(shade, FrameLayout.LayoutParams(-1, -1))
-
-        val laser = View(this).apply {
-            background = GradientDrawable(
-                GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(Color.TRANSPARENT, 0x99FF54DD.toInt(), 0xAA62E9FF.toInt(), 0x99FFFFFF.toInt(), Color.TRANSPARENT)
-            )
-            alpha = .55f
-        }
-        root.addView(laser, FrameLayout.LayoutParams(110, -1).apply {
-            gravity = Gravity.CENTER_VERTICAL or Gravity.START
+        root.addView(logo, FrameLayout.LayoutParams(210, 210).apply {
+            gravity = Gravity.CENTER
+            bottomMargin = 90
         })
 
-        val bottom = FrameLayout(this)
-        root.addView(bottom, FrameLayout.LayoutParams(-1, 170).apply {
-            gravity = Gravity.BOTTOM
+        val brand = TextView(this).apply {
+            text = "AARVO"
+            setTextColor(Color.rgb(91, 33, 214))
+            textSize = 30f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            letterSpacing = .08f
+            gravity = Gravity.CENTER
+        }
+        root.addView(brand, FrameLayout.LayoutParams(-1, 50).apply {
+            gravity = Gravity.CENTER
+            topMargin = 155
+        })
+
+        val accent = View(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(
+                    Color.rgb(255, 85, 215),
+                    Color.rgb(91, 33, 214),
+                    Color.rgb(85, 200, 255),
+                    Color.rgb(255, 212, 92)
+                )
+            )
+        }
+        root.addView(accent, FrameLayout.LayoutParams(150, 4).apply {
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+            bottomMargin = 118
         })
 
         val track = FrameLayout(this).apply {
             background = GradientDrawable().apply {
-                cornerRadius = 40f
-                setColor(0x55FFFFFF)
-                setStroke(1, 0x66FFFFFF)
+                cornerRadius = 20f
+                setColor(0xFFEAE6F2.toInt())
             }
         }
         val fill = View(this).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(0xFFFF55D7.toInt(), 0xFF9D5CFF.toInt(), 0xFF55C8FF.toInt(), 0xFFFFD45C.toInt())
+                intArrayOf(0xFFFF55D7.toInt(), 0xFF5B21D6.toInt(), 0xFF55C8FF.toInt())
             )
         }
-        track.addView(fill, FrameLayout.LayoutParams(0, 8, Gravity.CENTER_VERTICAL))
-        bottom.addView(track, FrameLayout.LayoutParams(300, 18).apply {
-            gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
-            topMargin = 48
+        track.addView(fill, FrameLayout.LayoutParams(0, 6))
+        root.addView(track, FrameLayout.LayoutParams(250, 6).apply {
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+            bottomMargin = 82
         })
 
         val loading = TextView(this).apply {
-            text = "Loading AARVO..."
-            setTextColor(0xE6FFFFFF.toInt())
+            text = "Loading AARVO"
+            setTextColor(0xFF77727F.toInt())
             textSize = 12f
-            gravity = Gravity.CENTER
             letterSpacing = .08f
+            gravity = Gravity.CENTER
         }
-        bottom.addView(loading, FrameLayout.LayoutParams(-1, 40).apply {
-            gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
-            topMargin = 82
+        root.addView(loading, FrameLayout.LayoutParams(-1, 36).apply {
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+            bottomMargin = 38
         })
 
         setContentView(root)
 
-        root.post {
-            ValueAnimator.ofFloat(-140f, root.width + 140f).apply {
-                duration = 2100L
-                interpolator = LinearInterpolator()
-                addUpdateListener { laser.translationX = it.animatedValue as Float }
-                start()
-            }
-            track.post {
-                ValueAnimator.ofInt(0, track.width).apply {
-                    duration = 1900L
-                    interpolator = LinearInterpolator()
-                    addUpdateListener {
-                        fill.layoutParams = fill.layoutParams.apply { width = it.animatedValue as Int }
-                        fill.requestLayout()
+        track.post {
+            ValueAnimator.ofInt(0, track.width).apply {
+                duration = 1700L
+                addUpdateListener {
+                    fill.layoutParams = fill.layoutParams.apply {
+                        width = it.animatedValue as Int
                     }
-                    start()
+                    fill.requestLayout()
                 }
+                start()
             }
         }
 
         Handler(Looper.getMainLooper()).postDelayed({
             startActivity(android.content.Intent(this, WelcomeActivity::class.java))
             finish()
-        }, 2200L)
+        }, 2000L)
     }
 }
