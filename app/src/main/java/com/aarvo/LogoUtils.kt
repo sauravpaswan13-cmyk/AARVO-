@@ -56,7 +56,7 @@ object LogoUtils {
                 val g = (p ushr 8) and 0xFF
                 val b = p and 0xFF
                 if (b > 95 && b > r + 10 && b > g + 5 &&
-                    abs(r - cr) + abs(g - cg) + abs(b - cb) <= 135
+                    abs(r - cr) + abs(g - cg) + abs(b - cb) <= 60
                 ) {
                     pixels[i] = p and 0x00FFFFFF
                 }
