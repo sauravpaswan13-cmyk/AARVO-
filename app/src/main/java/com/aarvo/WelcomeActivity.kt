@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -163,7 +164,7 @@ class WelcomeActivity : ComponentActivity() {
             topMargin = dp(18)
         })
 
-        scroll.addView(content, ScrollView.LayoutParams(-1, -1))
+        scroll.addView(content, ViewGroup.LayoutParams(-1, -1))
         root.addView(scroll, FrameLayout.LayoutParams(-1, -1).apply {
             topMargin = dp(5)
         })
