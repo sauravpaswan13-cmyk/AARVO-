@@ -3,6 +3,7 @@ package com.aarvo
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
@@ -17,30 +18,34 @@ import androidx.activity.ComponentActivity
 class WelcomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
             View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
 
-        val root = FrameLayout(this)
-        root.background = GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            intArrayOf(Color.rgb(12, 7, 32), Color.rgb(76, 22, 122), Color.rgb(18, 35, 78))
-        )
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(Color.rgb(248, 247, 252))
+        }
 
-        val glow = View(this).apply {
+        // AARVO-branded marketplace entry: simple, spacious and familiar, while keeping AARVO's own identity.
+        val topBand = View(this).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(Color.TRANSPARENT, 0x553BFFFF, 0x66FF4FCB, Color.TRANSPARENT)
+                intArrayOf(
+                    Color.rgb(91, 33, 214),
+                    Color.rgb(255, 85, 215),
+                    Color.rgb(85, 200, 255),
+                    Color.rgb(255, 212, 92)
+                )
             )
-            alpha = .7f
         }
-        root.addView(glow, FrameLayout.LayoutParams(-1, 2, Gravity.TOP))
+        root.addView(topBand, FrameLayout.LayoutParams(-1, 5, Gravity.TOP))
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(30, 38, 30, 30)
+            setPadding(28, 24, 28, 26)
         }
 
         val logo = ImageView(this).apply {
@@ -48,42 +53,46 @@ class WelcomeActivity : ComponentActivity() {
             scaleType = ImageView.ScaleType.CENTER_INSIDE
             contentDescription = "AARVO logo"
         }
-        content.addView(logo, LinearLayout.LayoutParams(170, 170))
+        content.addView(logo, LinearLayout.LayoutParams(150, 150).apply {
+            topMargin = 22
+        })
 
         val name = TextView(this).apply {
             text = "AARVO"
-            setTextColor(Color.WHITE)
-            textSize = 42f
+            setTextColor(Color.rgb(91, 33, 214))
+            textSize = 36f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            letterSpacing = .08f
             gravity = Gravity.CENTER
-            letterSpacing = .10f
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
         }
-        content.addView(name, LinearLayout.LayoutParams(-1, 58))
+        content.addView(name, LinearLayout.LayoutParams(-1, 54))
 
-        val line = TextView(this).apply {
-            text = "SHOP SMART   •   LIVE BETTER"
-            setTextColor(0xD9FFFFFF.toInt())
-            textSize = 12f
+        val title = TextView(this).apply {
+            text = "Welcome"
+            setTextColor(Color.rgb(28, 24, 34))
+            textSize = 28f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             gravity = Gravity.CENTER
-            letterSpacing = .16f
         }
-        content.addView(line, LinearLayout.LayoutParams(-1, 38))
+        content.addView(title, LinearLayout.LayoutParams(-1, 48).apply {
+            topMargin = 22
+        })
 
-        val scene = TextView(this).apply {
-            text = "🛍️   📱   👟     🛒     👜"
-            textSize = 32f
+        val subtitle = TextView(this).apply {
+            text = "Discover products you love, all in one place."
+            setTextColor(Color.rgb(98, 91, 109))
+            textSize = 14f
             gravity = Gravity.CENTER
-            setPadding(0, 12, 0, 8)
         }
-        content.addView(scene, LinearLayout.LayoutParams(-1, 76))
+        content.addView(subtitle, LinearLayout.LayoutParams(-1, 44))
 
-        val hint = TextView(this).apply {
-            text = "Choose how you want to enter"
-            setTextColor(0xBFFFFFFF.toInt())
-            textSize = 13f
-            gravity = Gravity.CENTER
+        val divider = View(this).apply {
+            setBackgroundColor(Color.rgb(226, 221, 234))
         }
-        content.addView(hint, LinearLayout.LayoutParams(-1, 34))
+        content.addView(divider, LinearLayout.LayoutParams(220, 1).apply {
+            topMargin = 8
+            bottomMargin = 22
+        })
 
         val actions = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -95,34 +104,29 @@ class WelcomeActivity : ComponentActivity() {
                 text = label
                 gravity = Gravity.CENTER
                 textSize = 16f
-                setTypeface(typeface, android.graphics.Typeface.BOLD)
-                setTextColor(Color.WHITE)
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                setTextColor(if (filled) Color.WHITE else Color.rgb(91, 33, 214))
                 background = GradientDrawable().apply {
-                    cornerRadius = 70f
+                    cornerRadius = 18f
                     if (filled) {
-                        setColor(0xFFE94B9A.toInt())
-                        setStroke(1, 0x99FFFFFF.toInt())
+                        setColor(Color.rgb(91, 33, 214))
                     } else {
-                        setColor(0x18FFFFFF)
-                        setStroke(2, 0x88FFFFFF.toInt())
+                        setColor(Color.WHITE)
+                        setStroke(2, Color.rgb(91, 33, 214))
                     }
                 }
+                elevation = 3f
                 isClickable = true
                 isFocusable = true
                 setOnTouchListener { v, event ->
                     when (event.action) {
                         MotionEvent.ACTION_DOWN -> {
-                            v.animate().scaleX(.97f).scaleY(.97f).setDuration(80).start()
-                            true
+                            v.animate().scaleX(.98f).scaleY(.98f).setDuration(70).start()
+                            false
                         }
-                        MotionEvent.ACTION_UP -> {
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                             v.animate().scaleX(1f).scaleY(1f).setDuration(90).start()
-                            v.performClick()
-                            true
-                        }
-                        MotionEvent.ACTION_CANCEL -> {
-                            v.animate().scaleX(1f).scaleY(1f).setDuration(90).start()
-                            true
+                            false
                         }
                         else -> false
                     }
@@ -132,29 +136,28 @@ class WelcomeActivity : ComponentActivity() {
 
         val guest = button("Continue as Guest", true)
         guest.setOnClickListener { enterGuest() }
-        actions.addView(guest, LinearLayout.LayoutParams(310, 58).apply { bottomMargin = 14 })
+        actions.addView(guest, LinearLayout.LayoutParams(320, 58).apply {
+            bottomMargin = 14
+        })
 
         val login = button("Login / Sign Up", false)
         login.setOnClickListener { openLogin() }
-        actions.addView(login, LinearLayout.LayoutParams(310, 58))
+        actions.addView(login, LinearLayout.LayoutParams(320, 58))
         content.addView(actions, LinearLayout.LayoutParams(-1, 130))
 
         val footer = TextView(this).apply {
             text = "AARVO"
-            setTextColor(0x66FFFFFF.toInt())
-            textSize = 9f
-            letterSpacing = .30f
+            setTextColor(Color.rgb(150, 143, 160))
+            textSize = 10f
+            letterSpacing = .22f
             gravity = Gravity.CENTER
         }
-        content.addView(footer, LinearLayout.LayoutParams(-1, 32))
+        content.addView(footer, LinearLayout.LayoutParams(-1, 30).apply {
+            topMargin = 10
+        })
 
         root.addView(content, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
-
-        glow.post {
-            glow.translationX = -root.width.toFloat()
-            glow.animate().translationX(root.width.toFloat()).setDuration(2400).start()
-        }
     }
 
     private fun prefs() = getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)
