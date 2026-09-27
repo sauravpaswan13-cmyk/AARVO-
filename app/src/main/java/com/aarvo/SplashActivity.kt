@@ -1,19 +1,17 @@
 package com.aarvo
 
+import android.animation.ValueAnimator
 import android.content.Intent
-import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.Base64
 import android.view.Gravity
 import android.view.View
-import android.view.animation.TranslateAnimation
+import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
-import android.widget.LinearLayout
-import android.widget.ProgressBar
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 
@@ -29,87 +27,107 @@ class SplashActivity : ComponentActivity() {
             View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE
 
-        val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
-
-        val bytes = Base64.decode(SplashReferenceImage.WEBP_BASE64, Base64.DEFAULT)
-        val image = android.widget.ImageView(this).apply {
-            setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
-            scaleType = android.widget.ImageView.ScaleType.FIT_XY
-            contentDescription = "AARVO premium splash screen"
+        val root = FrameLayout(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(10, 7, 28), Color.rgb(38, 15, 62), Color.rgb(9, 20, 52))
+            )
         }
-        root.addView(image, FrameLayout.LayoutParams(-1, -1))
 
-        // Keep the supplied AARVO artwork/logo untouched; only add a subtle premium light sweep.
-        val laser = View(this).apply {
+        // Fresh splash: the existing AARVO logo asset is reused unchanged.
+        val logo = ImageView(this).apply {
+            setImageResource(R.drawable.aarvo_logo)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            contentDescription = "AARVO"
+        }
+        root.addView(logo, FrameLayout.LayoutParams(210, 210).apply {
+            gravity = Gravity.CENTER
+            bottomMargin = 78
+        })
+
+        val glow = View(this).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(Color.TRANSPARENT, 0x18FFFFFF, 0x72FFFFFF, 0x18FFFFFF, Color.TRANSPARENT)
+                intArrayOf(Color.TRANSPARENT, 0x35FFFFFF, 0xAAFFFFFF, 0x35FFFFFF, Color.TRANSPARENT)
             )
-            alpha = 0.65f
+            alpha = 0.45f
         }
-        root.addView(laser, FrameLayout.LayoutParams(110, -1))
+        root.addView(glow, FrameLayout.LayoutParams(70, 280).apply {
+            gravity = Gravity.CENTER
+        })
 
-        // Elegant loading treatment, deliberately added as an overlay so the reference artwork remains unchanged.
-        val loading = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(0, 0, 0, 0)
-        }
-        val label = TextView(this).apply {
+        val tagline = TextView(this).apply {
             text = "SHOP SMART  •  LIVE BETTER"
             setTextColor(Color.WHITE)
-            textSize = 11f
-            letterSpacing = 0.18f
+            textSize = 12f
+            letterSpacing = 0.20f
             gravity = Gravity.CENTER
-            alpha = 0.88f
+            alpha = 0.82f
         }
-        loading.addView(label, LinearLayout.LayoutParams(-2, 32))
+        root.addView(tagline, FrameLayout.LayoutParams(-2, 42).apply {
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+            bottomMargin = 142
+        })
 
         val track = FrameLayout(this).apply {
             background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = 30f
-                setColor(0x331FFFFF)
-                setStroke(1, 0x66FFFFFF)
+                cornerRadius = 40f
+                setColor(0x22FFFFFF)
+                setStroke(1, 0x55FFFFFF)
             }
         }
         val fill = View(this).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(0xFFE44D9B.toInt(), 0xFF8B5CF6.toInt(), 0xFF4F8CFF.toInt())
+                intArrayOf(0xFFE94B9A.toInt(), 0xFF9B5CFF.toInt(), 0xFF55A8FF.toInt())
             )
         }
         track.addView(fill, FrameLayout.LayoutParams(0, 8, Gravity.CENTER_VERTICAL))
-        loading.addView(track, LinearLayout.LayoutParams(300, 18))
+        root.addView(track, FrameLayout.LayoutParams(290, 18).apply {
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+            bottomMargin = 105
+        })
 
-        val lp = FrameLayout.LayoutParams(300, 62).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            bottomMargin = 78
+        val loading = TextView(this).apply {
+            text = "AARVO"
+            setTextColor(0x99FFFFFF.toInt())
+            textSize = 9f
+            letterSpacing = 0.28f
+            gravity = Gravity.CENTER
         }
-        root.addView(loading, lp)
+        root.addView(loading, FrameLayout.LayoutParams(-2, 28).apply {
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+            bottomMargin = 70
+        })
 
         setContentView(root)
 
-        laser.post {
-            TranslateAnimation(-140f, root.width.toFloat() + 140f, 0f, 0f).also { sweep ->
-                sweep.duration = 1700L
-                sweep.repeatCount = TranslateAnimation.INFINITE
-                laser.startAnimation(sweep)
+        glow.post {
+            val distance = root.width + 180
+            ValueAnimator.ofFloat(-140f, distance.toFloat()).apply {
+                duration = 1500L
+                repeatCount = ValueAnimator.INFINITE
+                interpolator = LinearInterpolator()
+                addUpdateListener { glow.translationX = it.animatedValue as Float }
+                start()
             }
         }
 
-        fill.post {
-            val target = track.width
-            fill.animate().setDuration(1700L).setUpdateListener {
-                val w = (target * it.animatedFraction).toInt()
-                fill.layoutParams = fill.layoutParams.apply { width = w }
-                fill.requestLayout()
-            }.start()
+        track.post {
+            ValueAnimator.ofInt(0, track.width).apply {
+                duration = 1800L
+                interpolator = LinearInterpolator()
+                addUpdateListener {
+                    fill.layoutParams = fill.layoutParams.apply { width = it.animatedValue as Int }
+                    fill.requestLayout()
+                }
+                start()
+            }
         }
 
         Handler(Looper.getMainLooper()).postDelayed({
             startActivity(Intent(this, WelcomeActivity::class.java))
             finish()
-        }, 1900L)
+        }, 2050L)
     }
 }
