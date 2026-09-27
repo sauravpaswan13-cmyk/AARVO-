@@ -12,6 +12,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
@@ -45,8 +46,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -138,10 +140,9 @@ private fun SplashScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(horizontal = 28.dp)
         ) {
-            Icon(
-                painter = painterResource(R.drawable.aarvo_logo),
+            androidx.compose.foundation.Image(
+                bitmap = LogoUtils.loadTransparentLogo(this@GuestBrowseActivity).asImageBitmap(),
                 contentDescription = "AARVO logo",
-                tint = Color.Unspecified,
                 modifier = Modifier.size(150.dp)
             )
             Spacer(Modifier.height(8.dp))
@@ -217,10 +218,9 @@ private fun WelcomeScreen(onBrowse: () -> Unit, onLogin: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.aarvo_logo),
+                androidx.compose.foundation.Image(
+                    bitmap = LogoUtils.loadTransparentLogo(LocalContext.current).asImageBitmap(),
                     contentDescription = "AARVO logo",
-                    tint = Color.Unspecified,
                     modifier = Modifier.size(82.dp)
                 )
                 Spacer(Modifier.height(4.dp))
