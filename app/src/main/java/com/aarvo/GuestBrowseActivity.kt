@@ -2,6 +2,7 @@ package com.aarvo
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.LinearEasing
@@ -56,6 +57,7 @@ import kotlinx.coroutines.delay
 class GuestBrowseActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContent { AarvoTheme { EntryFlow(::continueBrowsing, ::openLogin) } }
     }
 
@@ -93,61 +95,170 @@ private fun EntryFlow(onBrowse: () -> Unit, onLogin: () -> Unit) {
 
 @Composable
 private fun SplashScreen() {
+    val transition = rememberInfiniteTransition(label = "splash_motion")
+    val laserX by transition.animateFloat(
+        initialValue = -1.15f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(tween(1900, easing = LinearEasing)),
+        label = "laser_x"
+    )
+    val loading by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Restart),
+        label = "loading_progress"
+    )
+
     Box(
-        modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF5A00C9), Color(0xFF2D0079), Color(0xFF10004B)))),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFF16004A), Color(0xFF4B0FB8), Color(0xFF14002F))
+                )
+            ),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(painter = painterResource(R.drawable.aarvo_logo), contentDescription = "AARVO logo", tint = Color.Unspecified, modifier = Modifier.size(138.dp))
-            Spacer(Modifier.height(4.dp)); Text("AARVO", color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.5.sp)
-            Spacer(Modifier.height(4.dp)); Text("Shop Smart  •  Live Better", color = Color.White.copy(alpha = .94f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(44.dp)); Surface(color = Color.White.copy(alpha = .18f), shape = CircleShape, modifier = Modifier.size(38.dp)) { Box(contentAlignment = Alignment.Center) { Text("", modifier = Modifier.size(1.dp)) } }
-            Spacer(Modifier.height(10.dp)); Text("Loading your world...", color = Color.White.copy(alpha = .78f), fontSize = 12.sp)
+        // Laser beam sweeps from the very top across the complete splash.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.75f)
+                .height(5.dp)
+                .align(Alignment.TopCenter)
+                .offset(x = (laserX * 420).dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color.Transparent, Color(0xFFFF5BEA), Color(0xFF62E8FF), Color.Transparent)
+                    ),
+                    RoundedCornerShape(50)
+                )
+        )
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(horizontal = 28.dp)
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.aarvo_logo),
+                contentDescription = "AARVO logo",
+                tint = Color.Unspecified,
+                modifier = Modifier.size(150.dp)
+            )
+            Spacer(Modifier.height(8.dp))
+            Text("AARVO", color = Color.White, fontSize = 44.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 3.sp)
+            Spacer(Modifier.height(10.dp))
+
+            // Laser highlight also travels across the brand line.
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text(
+                    "Shop Smart  •  Live Better",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.1.sp
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.34f)
+                        .height(3.dp)
+                        .offset(x = (laserX * 145).dp)
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(Color.Transparent, Color.White, Color(0xFFFF58D6), Color.Transparent)
+                            ),
+                            RoundedCornerShape(50)
+                        )
+                )
+            }
+
+            Spacer(Modifier.height(42.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(9.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = .18f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(loading)
+                        .height(9.dp)
+                        .background(
+                            Brush.horizontalGradient(listOf(Color(0xFFFF55D6), Color(0xFF65E7FF), Color(0xFFFFD35A))),
+                            RoundedCornerShape(50)
+                        )
+                )
+            }
+            Spacer(Modifier.height(11.dp))
+            Text(
+                "Loading your world...",
+                color = Color.White.copy(alpha = .82f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
 
 @Composable
 private fun WelcomeScreen(onBrowse: () -> Unit, onLogin: () -> Unit) {
-    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 26.dp, vertical = 28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+    Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFF8F5FF)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color(0xFFF7F0FF), Color.White, Color(0xFFF1F7FF))
+                    )
+                )
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(painter = painterResource(R.drawable.aarvo_logo), contentDescription = "AARVO logo", tint = Color.Unspecified, modifier = Modifier.size(58.dp))
-                Spacer(Modifier.size(7.dp)); Text("AARVO", color = Color(0xFF22236D), fontSize = 31.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
-            }
-            Spacer(Modifier.height(5.dp))
-            Text("Your One Stop Shopping Destination", color = Color(0xFF3D3D5B), fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(14.dp))
-
-            // Premium trolley scene: the trolley stays in place while it gently rocks forward.
-            TrolleyMarketScene()
-
-            Spacer(Modifier.height(18.dp))
-            Button(
-                onClick = onBrowse,
-                modifier = Modifier.fillMaxWidth().height(54.dp),
-                shape = RoundedCornerShape(13.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5A16E8), contentColor = Color.White)
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Icon(Icons.Default.Person, contentDescription = null); Spacer(Modifier.size(8.dp)); Text("Enter AARVO", fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(10.dp))
-            OutlinedButton(
-                onClick = onLogin,
-                modifier = Modifier.fillMaxWidth().height(54.dp),
-                shape = RoundedCornerShape(13.dp)
-            ) {
-                Icon(Icons.Default.Lock, contentDescription = null); Spacer(Modifier.size(8.dp)); Text("Login / Sign Up", fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(6.dp))
-            Text("Shopping Trolley • Browse freely • Login when you need account features or checkout", fontSize = 11.sp, color = Color(0xFF666070), fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                TrustItem(Icons.Default.Lock, "Secure"); TrustItem(Icons.Default.Person, "Trusted Shopping"); TrustItem(Icons.Default.Lock, "Safe Payments")
+                Icon(
+                    painter = painterResource(R.drawable.aarvo_logo),
+                    contentDescription = "AARVO logo",
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(82.dp)
+                )
+                Spacer(Modifier.height(4.dp))
+                Text("AARVO", color = Color(0xFF30206F), fontSize = 38.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
+                Spacer(Modifier.height(6.dp))
+                Text("Your One Stop Shopping Destination", color = Color(0xFF57506B), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+
+                Spacer(Modifier.height(16.dp))
+                TrolleyMarketScene()
+                Spacer(Modifier.height(18.dp))
+
+                Button(
+                    onClick = onBrowse,
+                    modifier = Modifier.fillMaxWidth().height(55.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5A16E8), contentColor = Color.White)
+                ) {
+                    Icon(Icons.Default.Person, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                    Text("Continue as Guest", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
+                Spacer(Modifier.height(10.dp))
+                OutlinedButton(
+                    onClick = onLogin,
+                    modifier = Modifier.fillMaxWidth().height(55.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Default.Lock, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                    Text("Login / Sign Up", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
+                Spacer(Modifier.height(13.dp))
+                Text(
+                    "Shop freely • Login when you need account features or checkout",
+                    fontSize = 11.sp,
+                    color = Color(0xFF6B657A),
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }
