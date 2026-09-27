@@ -37,7 +37,7 @@ class SplashActivity : ComponentActivity() {
             scaleType = ImageView.ScaleType.CENTER_INSIDE
             contentDescription = "AARVO logo"
         }
-        content.addView(logo, LinearLayout.LayoutParams(170, 170).apply { bottomMargin = 14 })
+        content.addView(logo, LinearLayout.LayoutParams(145, 145).apply { bottomMargin = 24 })
 
         val brand = TextView(this).apply {
             text = "AARVO"
@@ -47,7 +47,7 @@ class SplashActivity : ComponentActivity() {
             letterSpacing = .08f
             gravity = Gravity.CENTER
         }
-        content.addView(brand, LinearLayout.LayoutParams(-1, 46).apply { bottomMargin = 18 })
+        content.addView(brand, LinearLayout.LayoutParams(-1, 42).apply { bottomMargin = 26 })
 
         val accent = View(this).apply {
             background = GradientDrawable(
@@ -55,7 +55,7 @@ class SplashActivity : ComponentActivity() {
                 intArrayOf(Color.rgb(255,85,215), Color.rgb(91,33,214), Color.rgb(85,200,255), Color.rgb(255,212,92))
             )
         }
-        content.addView(accent, LinearLayout.LayoutParams(150, 4).apply { bottomMargin = 30 })
+        content.addView(accent, LinearLayout.LayoutParams(150, 4).apply { bottomMargin = 34 })
 
         val track = FrameLayout(this).apply {
             background = GradientDrawable().apply {
@@ -69,8 +69,8 @@ class SplashActivity : ComponentActivity() {
                 intArrayOf(0xFFFF55D7.toInt(), 0xFF5B21D6.toInt(), 0xFF55C8FF.toInt())
             )
         }
-        track.addView(fill, FrameLayout.LayoutParams(0, 6))
-        content.addView(track, LinearLayout.LayoutParams(250, 6).apply { bottomMargin = 12 })
+        track.addView(fill, FrameLayout.LayoutParams(0, 7))
+        content.addView(track, LinearLayout.LayoutParams(250, 7).apply { bottomMargin = 14 })
 
         val loading = TextView(this).apply {
             text = "Loading AARVO"
