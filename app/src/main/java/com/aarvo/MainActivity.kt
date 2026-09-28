@@ -64,7 +64,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.Image
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -170,10 +171,9 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         shadowElevation = 8.dp
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                painter = painterResource(R.drawable.aarvo_logo),
+                            Image(
+                                bitmap = remember { LogoUtils.loadTransparentLogo(context).asImageBitmap() },
                                 contentDescription = "AARVO logo",
-                                tint = Color.Unspecified,
                                 modifier = Modifier.size(104.dp)
                             )
                         }
