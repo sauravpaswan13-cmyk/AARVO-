@@ -26,7 +26,9 @@ class WelcomeActivity : ComponentActivity() {
         val bytes = Base64.decode(WelcomeReferenceImage.WEBP_BASE64, Base64.DEFAULT)
         val artwork = ImageView(this).apply {
             setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
-            scaleType = ImageView.ScaleType.CENTER_CROP
+            // Avoid Android 10 GPU texture corruption while preserving the supplied artwork.
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+            scaleType = ImageView.ScaleType.FIT_XY
             contentDescription = "AARVO Welcome"
         }
         root.addView(artwork, FrameLayout.LayoutParams(-1, -1))
