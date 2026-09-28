@@ -44,7 +44,7 @@ class SplashActivity : ComponentActivity() {
         val glow = View(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(0x3355C8FF)
+                setColor(0x3355C8FF.toInt())
             }
             alpha = 0.72f
         }
@@ -97,11 +97,11 @@ class SplashActivity : ComponentActivity() {
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
                 intArrayOf(
-                    0x00000000,
-                    0x00FFFFFF,
-                    0x99FFFFFF,
-                    0x00FFFFFF,
-                    0x00000000
+                    0x00000000.toInt(),
+                    0x00FFFFFF.toInt(),
+                    0x99FFFFFF.toInt(),
+                    0x00FFFFFF.toInt(),
+                    0x00000000.toInt()
                 )
             )
             rotation = -18f
