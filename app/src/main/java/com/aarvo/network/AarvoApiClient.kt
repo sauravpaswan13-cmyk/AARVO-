@@ -104,6 +104,10 @@ class AarvoApiClient(
     suspend fun adminRefundOrder(orderId: String, amountPaise: Long? = null): JSONObject { require(orderId.trim().isNotBlank()) { "Order ID is required" }; val payload=JSONObject(); if(amountPaise!=null) { require(amountPaise>0) { "Refund amount must be positive" }; payload.put("amountPaise",amountPaise) }; return post("/v1/admin/orders/"+orderId.trim()+"/refund",payload) }
     suspend fun riderAssignments(): JSONArray = get("/v1/rider/deliveries")
     suspend fun riderNotifications(): JSONArray = get("/v1/rider/notifications")
+    suspend fun registerRiderFcmToken(token: String): JSONObject {
+        require(token.trim().isNotBlank()) { "FCM token is required" }
+        return post("/v1/rider/fcm-token", JSONObject().put("token", token.trim()))
+    }
     suspend fun riderUpdateAssignment(id: String, status: String): JSONObject = post("/v1/rider/deliveries/"+id.trim()+"/status", JSONObject().put("status",status.trim().uppercase()))
 
     private suspend fun get(path: String): JSONArray = withContext(Dispatchers.IO) { JSONArray(execute(Request.Builder().url(buildUrl(path)).applyAuth().get().build())) }
