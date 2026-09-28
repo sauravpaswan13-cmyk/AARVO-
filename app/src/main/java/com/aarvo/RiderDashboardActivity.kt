@@ -22,6 +22,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
 import com.aarvo.network.AarvoApiClient
+import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
+import com.google.firebase.messaging.FirebaseMessaging
 import com.aarvo.ui.theme.AarvoTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -36,7 +39,27 @@ class RiderDashboardActivity:ComponentActivity(){
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         val p=getSharedPreferences("aarvo_prefs",Context.MODE_PRIVATE)
         val api=AarvoApiClient{p.getString("auth_token",null)}
+        registerFcmToken(api)
         setContent{AarvoTheme{RiderScreen(api,::finish)}}
+    }
+    private fun registerFcmToken(api:AarvoApiClient){
+        runCatching {
+            if (FirebaseApp.getApps(this).isEmpty()) {
+                val key=BuildConfig.FIREBASE_API_KEY
+                val project=BuildConfig.FIREBASE_PROJECT_ID
+                val appId=BuildConfig.FIREBASE_APP_ID
+                val sender=BuildConfig.FIREBASE_SENDER_ID
+                if(key.isBlank()||project.isBlank()||appId.isBlank()||sender.isBlank()) return
+                FirebaseApp.initializeApp(this,FirebaseOptions.Builder()
+                    .setApiKey(key).setProjectId(project).setApplicationId(appId)
+                    .setGcmSenderId(sender).build())
+            }
+            FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    runCatching { api.registerRiderFcmToken(token) }
+                }
+            }
+        }
     }
     private fun createNotificationChannel(){
         if(Build.VERSION.SDK_INT>=26){
@@ -78,7 +101,7 @@ class RiderDashboardActivity:ComponentActivity(){
                 freshNotes.take(20).forEach{n->
                     val id=n.optString("id")
                     if(id.isNotBlank() && !known.contains(id)){
-                        if(!n.optBoolean("read_at",false)) activity.showRiderNotification(id,n.optString("title"),n.optString("body"))
+                        if(n.isNull("read_at") || n.optString("read_at").isBlank()) activity.showRiderNotification(id,n.optString("title"),n.optString("body"))
                         known.add(id)
                     }
                 }
