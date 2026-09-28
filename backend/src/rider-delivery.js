@@ -2,7 +2,7 @@ export async function registerRiderDelivery({ app, pool, requireRole, audit }) {
   const clean = (v, max=500) => String(v ?? '').trim().slice(0,max);
   app.get('/v1/rider/deliveries', { preHandler: requireRole('RIDER') }, async (request, reply) => {
     if (!pool) return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
-    return (await pool.query('SELECT da.id,da.order_id,da.status,da.pickup_note,da.delivery_note,da.assigned_at,da.accepted_at,da.picked_up_at,da.delivered_at,o.status AS order_status,o.address_json,o.total_paise FROM delivery_assignments da JOIN orders o ON o.id=da.order_id WHERE da.rider_id=$1 ORDER BY da.updated_at DESC LIMIT 100',[request.user.sub])).rows;
+    return (await pool.query('SELECT da.id,da.order_id,da.status,da.pickup_note,da.delivery_note,da.assigned_at,da.accepted_at,da.picked_up_at,da.delivered_at,o.status AS order_status,o.address_json,o.total_paise,sp.business_name AS seller_name,sp.pickup_address,sp.pickup_city,sp.pickup_state,sp.pickup_postal_code FROM delivery_assignments da JOIN orders o ON o.id=da.order_id LEFT JOIN LATERAL (SELECT seller_id FROM order_lines WHERE order_id=o.id ORDER BY product_id LIMIT 1) ol ON true LEFT JOIN seller_profiles sp ON sp.seller_id=ol.seller_id WHERE da.rider_id=$1 ORDER BY da.updated_at DESC LIMIT 100',[request.user.sub])).rows;
   });
   app.post('/v1/rider/deliveries/:id/status', { preHandler: requireRole('RIDER') }, async (request, reply) => {
     if (!pool) return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
