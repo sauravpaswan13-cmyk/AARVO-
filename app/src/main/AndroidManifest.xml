@@ -3,6 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
@@ -11,18 +12,22 @@
         android:roundIcon="@drawable/aarvo_logo"
         android:supportsRtl="true"
         android:theme="@style/Theme.AARVO">
-        <activity android:name=".MainActivity" android:exported="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
         <activity android:name=".SplashActivity" android:exported="false" />
         <activity android:name=".WelcomeActivity" android:exported="false" />
-        <activity android:name=".MainActivity" android:exported="false" />
         <activity android:name=".GuestBrowseActivity" android:exported="false" />
         <activity android:name=".PhoneAuthActivity" android:exported="false" />
-        <activity android:name=".AarvoAiActivity" android:exported="false" />\n        <activity android:name=".ProductCompareActivity" android:exported="false" />
+        <activity android:name=".AarvoAiActivity" android:exported="false" />
+        <activity android:name=".ProductCompareActivity" android:exported="false" />
         <activity android:name=".AddressBookActivity" android:exported="false" />
         <activity android:name=".SellerAccountActivity" android:exported="false" />
         <activity android:name=".SellerOnboardingActivity" android:exported="false" />
