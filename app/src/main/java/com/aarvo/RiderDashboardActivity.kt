@@ -82,8 +82,8 @@ class RiderDashboardActivity:ComponentActivity(){
                         known.add(id)
                     }
                 }
-                prefs.edit().putStringSet("shown_ids",known.takeLast(100).toSet()).apply()
-            }catch(t:Throwable){msg=t.message?:"Unable to load rider jobs"}
+                prefs.edit().putStringSet("shown_ids",known.toList().takeLast(100).toSet()).apply()
+            }catch(t:Throwable){msg=t.message?: "Unable to load rider jobs"}
         }
     }
     LaunchedEffect(Unit){
