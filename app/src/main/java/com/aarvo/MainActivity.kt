@@ -67,6 +67,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.Image
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -173,9 +174,9 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Image(
-                                bitmap = remember { LogoUtils.loadTransparentLogo(context).asImageBitmap() },
-                                contentDescription = "AARVO logo",
-                                modifier = Modifier.size(104.dp)
+                                painter = painterResource(id = R.drawable.welcome_entry_3d),
+                                contentDescription = "3D AARVO mobile storefront",
+                                modifier = Modifier.size(128.dp)
                             )
                         }
                     }
