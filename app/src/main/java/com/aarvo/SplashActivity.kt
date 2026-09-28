@@ -28,7 +28,7 @@ class SplashActivity : ComponentActivity() {
 
         val root = FrameLayout(this).apply { setBackgroundColor(Color.WHITE) }
 
-        val bytes = Base64.decode(SplashReferenceImage.WEBP_BASE64, Base64.DEFAULT)
+        val bytes = Base64.decode(WelcomeReferenceImage.WEBP_BASE64, Base64.DEFAULT)
         val artwork = ImageView(this).apply {
             setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
             // Android 10 devices can show GPU corruption on large animated/WebP-backed bitmaps.
