@@ -132,6 +132,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 
 @Composable private fun OnboardingScreen(onLogin: () -> Unit, onGuest: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
     Box(
         modifier = Modifier
             .fillMaxSize()
