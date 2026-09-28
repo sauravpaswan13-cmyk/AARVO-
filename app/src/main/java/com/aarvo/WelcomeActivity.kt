@@ -28,145 +28,137 @@ class WelcomeActivity : ComponentActivity() {
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
             View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
 
-        val root = FrameLayout(this).apply { setBackgroundColor(Color.rgb(248, 247, 252)) }
-
-        val topBand = View(this).apply {
+        val root = FrameLayout(this).apply {
             background = GradientDrawable(
-                GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(Color.rgb(91,33,214), Color.rgb(255,85,215), Color.rgb(85,200,255), Color.rgb(255,212,92))
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(18, 8, 46), Color.rgb(56, 14, 96), Color.rgb(12, 25, 74))
             )
         }
-        root.addView(topBand, FrameLayout.LayoutParams(-1, dp(5), Gravity.TOP))
+
+        val glow = View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0x2855C8FF.toInt())
+            }
+            alpha = .8f
+        }
+        root.addView(glow, FrameLayout.LayoutParams(dp(360), dp(360), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
+            topMargin = dp(62)
+        })
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
             overScrollMode = View.OVER_SCROLL_NEVER
         }
-
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(24), dp(44), dp(24), dp(30))
+            setPadding(dp(28), dp(72), dp(28), dp(30))
         }
 
         val mark = ImageView(this).apply {
             setImageResource(R.drawable.aarvo_entry_logo)
             scaleType = ImageView.ScaleType.FIT_CENTER
-            adjustViewBounds = true
             contentDescription = "AARVO logo"
+            elevation = dp(8).toFloat()
         }
-        content.addView(mark, LinearLayout.LayoutParams(dp(104), dp(104)).apply {
-            bottomMargin = dp(10)
+        content.addView(mark, LinearLayout.LayoutParams(dp(122), dp(122)).apply {
+            bottomMargin = dp(12)
         })
 
         val name = TextView(this).apply {
             text = "AARVO"
-            setTextColor(Color.rgb(91,33,214))
-            textSize = 34f
+            setTextColor(Color.WHITE)
+            textSize = 36f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            letterSpacing = .08f
+            letterSpacing = .10f
             gravity = Gravity.CENTER
-            includeFontPadding = true
+            includeFontPadding = false
         }
-        content.addView(name, LinearLayout.LayoutParams(-1, -2).apply {
-            bottomMargin = dp(22)
+        content.addView(name, LinearLayout.LayoutParams(-1, dp(46)).apply {
+            bottomMargin = dp(18)
         })
 
         val title = TextView(this).apply {
             text = "Welcome"
-            setTextColor(Color.rgb(28,24,34))
-            textSize = 25f
+            setTextColor(Color.WHITE)
+            textSize = 27f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             gravity = Gravity.CENTER
-            includeFontPadding = true
+            includeFontPadding = false
         }
-        content.addView(title, LinearLayout.LayoutParams(-1, -2).apply {
-            bottomMargin = dp(10)
+        content.addView(title, LinearLayout.LayoutParams(-1, dp(38)).apply {
+            bottomMargin = dp(8)
         })
 
         val subtitle = TextView(this).apply {
-            text = "Discover products you love, all in one place."
-            setTextColor(Color.rgb(98,91,109))
-            textSize = 16f
+            text = "Shop what you love.\nSimple, secure and made for you."
+            setTextColor(0xD9FFFFFF.toInt())
+            textSize = 15f
             gravity = Gravity.CENTER
-            includeFontPadding = true
-            maxLines = 2
-            setLineSpacing(0f, 1.1f)
+            includeFontPadding = false
+            setLineSpacing(dp(2).toFloat(), 1.0f)
         }
-        content.addView(subtitle, LinearLayout.LayoutParams(-1, -2).apply {
-            bottomMargin = dp(18)
+        content.addView(subtitle, LinearLayout.LayoutParams(-1, dp(48)).apply {
+            bottomMargin = dp(34)
         })
-
-        val divider = View(this).apply { setBackgroundColor(Color.rgb(226,221,234)) }
-        content.addView(divider, LinearLayout.LayoutParams(dp(170), dp(1)).apply {
-            bottomMargin = dp(22)
-        })
-
-        val actions = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-        }
 
         fun button(label: String, filled: Boolean): TextView = TextView(this).apply {
             text = label
             gravity = Gravity.CENTER
             textSize = 16f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            includeFontPadding = true
-            setTextColor(if (filled) Color.WHITE else Color.rgb(91,33,214))
+            includeFontPadding = false
+            setTextColor(if (filled) Color.rgb(35, 14, 66) else Color.WHITE)
             background = GradientDrawable().apply {
-                cornerRadius = dp(16).toFloat()
-                if (filled) setColor(Color.rgb(91,33,214))
-                else {
+                cornerRadius = dp(17).toFloat()
+                if (filled) {
                     setColor(Color.WHITE)
-                    setStroke(dp(2), Color.rgb(91,33,214))
+                } else {
+                    setColor(0x1AFFFFFF)
+                    setStroke(dp(1), 0xBFFFFFFF.toInt())
                 }
             }
-            elevation = dp(2).toFloat()
+            elevation = dp(5).toFloat()
             isClickable = true
             isFocusable = true
             setOnTouchListener { v, event ->
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
-                        v.animate().scaleX(.98f).scaleY(.98f).setDuration(70).start()
-                        false
+                        v.animate().scaleX(.97f).scaleY(.97f).setDuration(70).start()
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        v.animate().scaleX(1f).scaleY(1f).setDuration(90).start()
-                        false
+                        v.animate().scaleX(1f).scaleY(1f).setDuration(100).start()
                     }
-                    else -> false
                 }
+                false
             }
         }
 
         val guest = button("Continue as Guest", true)
         guest.setOnClickListener { enterGuest() }
-        actions.addView(guest, LinearLayout.LayoutParams(-1, dp(54)).apply {
+        content.addView(guest, LinearLayout.LayoutParams(-1, dp(56)).apply {
             bottomMargin = dp(14)
         })
 
         val login = button("Login / Sign Up", false)
         login.setOnClickListener { openLogin() }
-        actions.addView(login, LinearLayout.LayoutParams(-1, dp(54)))
-        content.addView(actions, LinearLayout.LayoutParams(-1, -2))
+        content.addView(login, LinearLayout.LayoutParams(-1, dp(56)))
 
         val footer = TextView(this).apply {
             text = "AARVO"
-            setTextColor(Color.rgb(150,143,160))
-            textSize = 11f
-            letterSpacing = .18f
+            setTextColor(0x8FFFFFFF.toInt())
+            textSize = 10f
+            letterSpacing = .22f
             gravity = Gravity.CENTER
-            includeFontPadding = true
+            includeFontPadding = false
         }
-        content.addView(footer, LinearLayout.LayoutParams(-1, -2).apply {
-            topMargin = dp(18)
+        content.addView(footer, LinearLayout.LayoutParams(-1, dp(20)).apply {
+            topMargin = dp(30)
         })
 
         scroll.addView(content, ViewGroup.LayoutParams(-1, -1))
-        root.addView(scroll, FrameLayout.LayoutParams(-1, -1).apply {
-            topMargin = dp(5)
-        })
+        root.addView(scroll, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
     }
 
