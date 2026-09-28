@@ -135,74 +135,81 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
+                Brush.linearGradient(
                     listOf(
-                        scheme.primaryContainer,
-                        scheme.background,
-                        scheme.secondaryContainer.copy(alpha = 0.45f)
+                        Color(0xFFFFF8FC),
+                        Color(0xFFF7F1FF),
+                        Color(0xFFEFF7FF)
                     )
                 )
             )
-            .padding(horizontal = 22.dp, vertical = 28.dp)
+            .padding(horizontal = 20.dp, vertical = 24.dp)
     ) {
+        // New single premium entry screen: the old Splash + Welcome flow is bypassed.
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(30.dp),
-                color = scheme.surface.copy(alpha = 0.97f),
+                modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
+                shape = RoundedCornerShape(34.dp),
+                color = Color.White.copy(alpha = 0.96f),
                 tonalElevation = 8.dp,
-                shadowElevation = 10.dp
+                shadowElevation = 14.dp
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 26.dp, vertical = 30.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Surface(
-                        modifier = Modifier.size(92.dp),
+                        modifier = Modifier.size(132.dp),
                         shape = CircleShape,
-                        color = scheme.primaryContainer,
-                        border = BorderStroke(1.dp, scheme.primary.copy(alpha = 0.16f))
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFE8DDF7)),
+                        shadowElevation = 8.dp
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 painter = painterResource(R.drawable.aarvo_logo),
                                 contentDescription = "AARVO logo",
                                 tint = Color.Unspecified,
-                                modifier = Modifier.size(68.dp)
+                                modifier = Modifier.size(104.dp)
                             )
                         }
                     }
                     Spacer(Modifier.height(18.dp))
                     Text(
                         "AARVO",
-                        color = scheme.primary,
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 1.5.sp
+                        letterSpacing = 2.4.sp,
+                        textAlign = TextAlign.Center,
+                        color = Color(0xFF27233B)
                     )
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(7.dp))
                     Text(
-                        "Shop smart. Live better.",
+                        "Shop Smart • Live Better",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = scheme.onSurface
+                        textAlign = TextAlign.Center,
+                        color = Color(0xFF6D3CC8)
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(10.dp))
                     Text(
-                        "Discover products, explore freely, and sign in only when you need your AARVO account.",
+                        "Discover products. Shop freely. Enjoy AARVO.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = scheme.onSurfaceVariant,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        color = Color(0xFF6C6878)
                     )
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(28.dp))
                     Button(
                         onClick = onLogin,
                         modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(18.dp),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF6D3CC8)
+                        )
                     ) {
                         Icon(Icons.Default.Person, contentDescription = null)
                         Spacer(Modifier.size(9.dp))
@@ -212,27 +219,22 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     androidx.compose.material3.OutlinedButton(
                         onClick = onGuest,
                         modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.5.dp, scheme.primary.copy(alpha = 0.55f))
+                        shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(1.5.dp, Color(0xFFB8A3DE))
                     ) {
                         Icon(Icons.Default.ShoppingCart, contentDescription = null)
                         Spacer(Modifier.size(9.dp))
-                        Text("Continue as Guest", fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("SECURE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = scheme.primary)
-                        Text("  •  ", fontSize = 10.sp, color = scheme.onSurfaceVariant)
-                        Text("SIMPLE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = scheme.primary)
-                        Text("  •  ", fontSize = 10.sp, color = scheme.onSurfaceVariant)
-                        Text("AARVO", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = scheme.primary)
+                        Text("Continue as Guest", fontWeight = FontWeight.Bold, color = Color(0xFF3C3550))
                     }
                 }
             }
+            Spacer(Modifier.height(14.dp))
+            Text(
+                "A premium shopping experience, made simple.",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color(0xFF817B8D),
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
