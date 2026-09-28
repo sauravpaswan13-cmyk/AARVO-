@@ -31,7 +31,10 @@ class SplashActivity : ComponentActivity() {
         val bytes = Base64.decode(SplashReferenceImage.WEBP_BASE64, Base64.DEFAULT)
         val artwork = ImageView(this).apply {
             setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
-            scaleType = ImageView.ScaleType.CENTER_CROP
+            // Android 10 devices can show GPU corruption on large animated/WebP-backed bitmaps.
+            // Render this static full-screen artwork through the software pipeline for clean pixels.
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+            scaleType = ImageView.ScaleType.FIT_XY
             contentDescription = "AARVO Splash"
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
