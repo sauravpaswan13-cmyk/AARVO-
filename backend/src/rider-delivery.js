@@ -1,3 +1,5 @@
+import { sendRiderPush, fcmConfigured } from './fcm.js';
+
 export async function registerRiderDelivery({ app, pool, requireRole, audit }) {
   const clean = (v, max=500) => String(v ?? '').trim().slice(0,max);
   app.get('/v1/rider/deliveries', { preHandler: requireRole('RIDER') }, async (request, reply) => {
@@ -11,6 +13,16 @@ export async function registerRiderDelivery({ app, pool, requireRole, audit }) {
       [request.user.sub]
     )).rows;
   });
+  app.post('/v1/rider/fcm-token', { preHandler: requireRole('RIDER') }, async (request, reply) => {
+    if (!pool) return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
+    const token=clean(request.body?.token,4096);
+    if(!token) return reply.code(400).send({error:'FCM_TOKEN_REQUIRED'});
+    await pool.query(
+      'INSERT INTO rider_fcm_tokens(rider_id,token) VALUES($1,$2) ON CONFLICT (rider_id,token) DO UPDATE SET updated_at=now()',
+      [request.user.sub,token]
+    );
+    return {registered:true, pushConfigured:fcmConfigured()};
+  });
   app.post('/v1/rider/notifications/:id/read', { preHandler: requireRole('RIDER') }, async (request, reply) => {
     if (!pool) return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
     const result=await pool.query(
@@ -20,6 +32,29 @@ export async function registerRiderDelivery({ app, pool, requireRole, audit }) {
     if(!result.rowCount) return reply.code(404).send({error:'RIDER_NOTIFICATION_NOT_FOUND'});
     return result.rows[0];
   });
+  const pushPendingRiderNotifications = async () => {
+    if (!pool || !fcmConfigured()) return;
+    const pending = await pool.query(`
+      SELECT rn.id,rn.rider_id,rn.order_id,rn.title,rn.body,t.token
+      FROM rider_notifications rn
+      JOIN rider_fcm_tokens t ON t.rider_id=rn.rider_id
+      WHERE rn.pushed_at IS NULL
+      ORDER BY rn.created_at ASC
+      LIMIT 25
+    `);
+    for (const row of pending.rows) {
+      try {
+        await sendRiderPush(row);
+        await pool.query('UPDATE rider_notifications SET pushed_at=now() WHERE id=$1 AND pushed_at IS NULL',[row.id]);
+      } catch (error) {
+        app.log.warn({err:error,notificationId:row.id},'FCM rider push failed');
+      }
+    }
+  };
+  const pushTimer=setInterval(()=>pushPendingRiderNotifications().catch(error=>app.log.warn({err:error},'FCM rider push worker failed')),5000);
+  pushTimer.unref?.();
+  pushPendingRiderNotifications().catch(error=>app.log.warn({err:error},'FCM rider push startup failed'));
+
   app.post('/v1/rider/deliveries/:id/status', { preHandler: requireRole('RIDER') }, async (request, reply) => {
     if (!pool) return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
     const next=clean(request.body?.status,30).toUpperCase();
