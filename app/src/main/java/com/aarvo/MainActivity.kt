@@ -387,10 +387,35 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
 @Composable private fun HomeScreen(padding: PaddingValues, api: AarvoApiClient, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, recentlyViewed: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit, onFilter: () -> Unit, sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean) {
     val scope = rememberCoroutineScope()
     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        // Premium marketplace order: branded header, search, live hero, then categories/products.
-        item { PremiumHomeHeader() }
+        // Home order: search first, Hero Live second, categories third.
         item { HomeSearchFirst(query, onQueryChange) }
         item { LiveHero(api = api, modifier = Modifier.fillMaxWidth()) }
+        item {
+            Column(Modifier.fillMaxWidth()) {
+                Text(
+                    "Categories",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+                Spacer(Modifier.height(6.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(categories, key = { it }) { itemCategory ->
+                        Surface(
+                            onClick = { onCategoryChange(itemCategory) },
+                            shape = RoundedCornerShape(16.dp),
+                            tonalElevation = if (selectedCategory == itemCategory) 4.dp else 1.dp
+                        ) {
+                            Text(
+                                itemCategory,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                fontWeight = if (selectedCategory == itemCategory) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+        }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onFilter) { Text("Filters & Sort") }
