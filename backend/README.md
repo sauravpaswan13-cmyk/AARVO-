@@ -40,6 +40,7 @@ Required variables are documented in `.env.example`. Never commit real values. I
 - `CORS_ORIGIN`
 - `DELIVERY_FEE_PAISE`
 - `PLATFORM_FEE_BPS`
+- `THIRD_PARTY_DELIVERY_ENABLED` and the `THIRD_PARTY_DELIVERY_*` provider settings when a logistics partner is activated.
 
 The Android app only needs the public HTTPS API base URL. Razorpay's [Android integration documentation](https://razorpay.com/docs/payments/magic-checkout/android-integration/) also recommends keeping sensitive API secrets out of the Android app.
 
@@ -84,12 +85,17 @@ Before AARVO is advertised for real purchases:
 5. Razorpay Live keys are configured server-side after account/KYC approval.
 6. Razorpay webhook is configured on HTTPS with the same webhook secret.
 7. Seller KYC and bank/payout onboarding are operational.
-8. Shipping/logistics provider and tracking webhooks are operational.
-9. Refund, return, cancellation and dispute operations are documented and tested.
-10. Privacy policy, terms, refund/return policy and customer support are published.
-11. Monitoring, logs, backups and alerting are enabled.
-12. A real-money test is performed only after the provider's production approval and go-live checklist are complete.
+8. Select and contract a production shipping/logistics provider, then configure its API credentials and AARVO delivery webhook.
+9. Shipping/logistics provider and tracking webhooks are operational.
+10. Refund, return, cancellation and dispute operations are documented and tested.
+11. Privacy policy, terms, refund/return policy and customer support are published.
+12. Monitoring, logs, backups and alerting are enabled.
+13. A real-money test is performed only after the payment and delivery providers' production approval and go-live checklists are complete.
 
 Razorpay distinguishes Test Mode from Live Mode; real customer payments require the live setup and account verification. See the [Razorpay Quickstart](https://razorpay.com/docs/payments/quickstart/?preferred-country=IN).
 
 Until those production services and credentials are configured, the repository is development software and must not be presented as accepting real customer money.
+
+## Third-party delivery architecture
+
+AARVO does not require its own Rider App. The backend now has a provider-neutral delivery adapter and signed webhook endpoint. When `THIRD_PARTY_DELIVERY_ENABLED=true`, an admin can create a shipment through `POST /v1/admin/orders/:id/third-party-delivery`; the external provider assigns and operates the rider, while provider webhooks update AARVO order tracking. Provider-specific credentials stay server-side in Render secrets.
