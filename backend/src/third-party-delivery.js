@@ -78,9 +78,9 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
 
     const lines=Array.isArray(o.lines)?o.lines:[];
     const productIds=lines.map(x=>Number(x.productId)).filter(Number.isFinite);
-    const products=productIds.length?await pool.query('SELECT id,name,sku,price_paise FROM products WHERE id=ANY($1::bigint[])',[productIds]):{rows:[]};
+    const products=productIds.length?await pool.query('SELECT id,name,price_paise FROM products WHERE id=ANY($1::bigint[])',[productIds]):{rows:[]};
     const byId=new Map(products.rows.map(p=>[Number(p.id),p]));
-    const items=lines.map(x=>{const p=byId.get(Number(x.productId));return {name:clean(p?.name||('AARVO Product '+x.productId),120),sku:clean(p?.sku||String(x.productId),80),units:Number(x.quantity)||1,selling_price:(Number(p?.price_paise||x.lineTotalPaise||0)/100).toFixed(2),discount:0,tax:0,hsn:''}});
+    const items=lines.map(x=>{const p=byId.get(Number(x.productId));return {name:clean(p?.name||('AARVO Product '+x.productId),120),sku:clean(String(x.productId),80),units:Number(x.quantity)||1,selling_price:(Number(p?.price_paise||x.lineTotalPaise||0)/100).toFixed(2),discount:0,tax:0,hsn:''}});
     if(!items.length)return reply.code(409).send({error:'DELIVERY_ITEMS_MISSING'});
 
     const customer=splitName(a.fullName);
