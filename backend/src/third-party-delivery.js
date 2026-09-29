@@ -1,76 +1,156 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-const clean = (v, max=500) => String(v ?? '').trim().slice(0,max);
-const enabled = () => String(process.env.THIRD_PARTY_DELIVERY_ENABLED || 'false').toLowerCase() === 'true';
-const provider = () => clean(process.env.THIRD_PARTY_DELIVERY_PROVIDER || '',80).toLowerCase();
-const baseUrl = () => clean(process.env.THIRD_PARTY_DELIVERY_BASE_URL || '',500).replace(/\\/$/,'');
-const createPath = () => clean(process.env.THIRD_PARTY_DELIVERY_CREATE_PATH || '/shipments',500);
-const token = () => String(process.env.THIRD_PARTY_DELIVERY_AUTH_TOKEN || '');
-const webhookSecret = () => String(process.env.THIRD_PARTY_DELIVERY_WEBHOOK_SECRET || '');
+const clean=(v,max=500)=>String(v??'').trim().slice(0,max);
+const enabled=()=>String(process.env.THIRD_PARTY_DELIVERY_ENABLED||'false').toLowerCase()==='true';
+const provider=()=>clean(process.env.THIRD_PARTY_DELIVERY_PROVIDER||'shiprocket',80).toLowerCase();
+const baseUrl=()=>clean(process.env.THIRD_PARTY_DELIVERY_BASE_URL||'https://apiv2.shiprocket.in',500).replace(/\/$/,'');
+const token=()=>String(process.env.THIRD_PARTY_DELIVERY_AUTH_TOKEN||'');
+const pickupLocation=()=>clean(process.env.SHIPROCKET_PICKUP_LOCATION||'',120);
+const webhookSecret=()=>String(process.env.THIRD_PARTY_DELIVERY_WEBHOOK_SECRET||'');
 
-function verifySignature(rawBody, signature) {
-  const secret=webhookSecret();
-  if(!secret) return false;
-  const supplied=clean(signature,512).replace(/^sha256=/,'');
-  if(!supplied) return false;
-  const expected=createHmac('sha256',secret).update(rawBody).digest('hex');
-  try { return timingSafeEqual(Buffer.from(expected),Buffer.from(supplied)); } catch { return false; }
-}
+const shiprocketPath={
+  create:'/v1/external/orders/create/adhoc',
+  awb:'/v1/external/courier/assign/awb',
+  pickup:'/v1/external/courier/generate/pickup',
+  track:'/v1/external/courier/track/awb/'
+};
 
-async function providerRequest(path, payload) {
-  if(!enabled() || !baseUrl() || !token()) throw Object.assign(new Error('DELIVERY_PROVIDER_NOT_CONFIGURED'),{code:'DELIVERY_PROVIDER_NOT_CONFIGURED'});
-  const response=await fetch(baseUrl()+path,{
-    method:'POST',
-    headers:{'content-type':'application/json','authorization':'Bearer '+token()},
-    body:JSON.stringify(payload)
-  });
-  const text=await response.text();
-  let data={}; try { data=text ? JSON.parse(text) : {}; } catch { data={raw:text}; }
-  if(!response.ok) throw Object.assign(new Error('DELIVERY_PROVIDER_REQUEST_FAILED'),{code:'DELIVERY_PROVIDER_REQUEST_FAILED',status:response.status,data});
+async function providerRequest(path,payload){
+  if(!enabled()||!token()||!baseUrl()) throw Object.assign(new Error('DELIVERY_PROVIDER_NOT_CONFIGURED'),{code:'DELIVERY_PROVIDER_NOT_CONFIGURED'});
+  const r=await fetch(baseUrl()+path,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+token()},body:JSON.stringify(payload)});
+  const t=await r.text(); let data={}; try{data=t?JSON.parse(t):{}}catch{data={raw:t}}
+  if(!r.ok) throw Object.assign(new Error('DELIVERY_PROVIDER_REQUEST_FAILED'),{code:'DELIVERY_PROVIDER_REQUEST_FAILED',status:r.status,data});
   return data;
 }
 
-export async function registerThirdPartyDelivery({app,pool,requireRole,audit}) {
-  app.get('/v1/delivery/provider-status',{preHandler:requireRole('ADMIN')},async()=>{
-    return {enabled:enabled(),provider:provider()||null,configured:Boolean(baseUrl()&&token()),mode:'THIRD_PARTY_ONLY'};
-  });
+function verifySignature(raw,signature){
+  const secret=webhookSecret(); if(!secret)return false;
+  const supplied=clean(signature,512).replace(/^sha256=/,''); if(!supplied)return false;
+  const expected=createHmac('sha256',secret).update(raw).digest('hex');
+  try{return timingSafeEqual(Buffer.from(expected),Buffer.from(supplied))}catch{return false}
+}
+
+function splitName(name){
+  const parts=clean(name,120).split(/\s+/).filter(Boolean);
+  return {first:parts.shift()||'Customer',last:parts.join(' ')};
+}
+
+function orderDate(){
+  const d=new Date();
+  const p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+
+function statusFromShiprocket(data){
+  const s=String(data?.tracking_data?.shipment_status||data?.status||'').toLowerCase();
+  if(s.includes('deliver'))return 'DELIVERED';
+  if(s.includes('out for'))return 'OUT_FOR_DELIVERY';
+  if(s.includes('pick'))return 'OUT_FOR_DELIVERY';
+  if(s.includes('cancel'))return 'CANCELLED';
+  if(s.includes('rto')||s.includes('return'))return 'RTO';
+  return 'PROCESSING';
+}
+
+export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
+  app.get('/v1/delivery/provider-status',{preHandler:requireRole('ADMIN')},async()=>({
+    enabled:enabled(),provider:provider(),configured:Boolean(token()&&baseUrl()&&(!['shiprocket'].includes(provider())||pickupLocation())),
+    mode:'THIRD_PARTY_ONLY',pickupLocation:provider()==='shiprocket'?pickupLocation()||null:null
+  }));
 
   app.post('/v1/admin/orders/:id/third-party-delivery',{preHandler:requireRole('ADMIN')},async(request,reply)=>{
-    if(!pool) return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
-    if(!enabled()) return reply.code(503).send({error:'THIRD_PARTY_DELIVERY_DISABLED'});
-    const order=await pool.query(`SELECT o.id,o.status,o.address_json,o.total_paise,o.payment_status,
-      COALESCE((SELECT json_agg(json_build_object('productId',ol.product_id,'quantity',ol.quantity,'sellerId',ol.seller_id,'lineTotalPaise',ol.line_total_paise)) FROM order_lines ol WHERE ol.order_id=o.id),'[]'::json) AS lines
-      FROM orders o WHERE o.id=$1`,[request.params.id]);
-    if(!order.rowCount) return reply.code(404).send({error:'ORDER_NOT_FOUND'});
-    if(!['CONFIRMED','PACKED','PROCESSING'].includes(String(order.rows[0].status))) return reply.code(409).send({error:'ORDER_NOT_READY_FOR_DELIVERY'});
-    const existing=await pool.query('SELECT id,provider,provider_shipment_id,status,tracking_url FROM third_party_delivery_shipments WHERE order_id=$1 ORDER BY created_at DESC LIMIT 1',[request.params.id]);
-    if(existing.rowCount && !['FAILED','CANCELLED'].includes(existing.rows[0].status)) return reply.code(409).send({error:'DELIVERY_ALREADY_CREATED',shipment:existing.rows[0]});
-    const payload={orderId:String(order.rows[0].id),amountPaise:Number(order.rows[0].total_paise),paymentStatus:order.rows[0].payment_status,address:order.rows[0].address_json,items:order.rows[0].lines,callbackUrl:clean(process.env.THIRD_PARTY_DELIVERY_WEBHOOK_URL||'',1000)};
-    const data=await providerRequest(createPath(),payload);
-    const shipmentId=clean(data.id||data.shipmentId||data.awb||data.awbNumber||'',200);
-    if(!shipmentId) return reply.code(502).send({error:'DELIVERY_PROVIDER_INVALID_RESPONSE'});
-    const trackingUrl=clean(data.trackingUrl||data.tracking_url||'',1000);
-    const status=clean(data.status||'ASSIGNED',40).toUpperCase();
-    const row=await pool.query(`INSERT INTO third_party_delivery_shipments(order_id,provider,provider_shipment_id,status,tracking_url,provider_payload)
-      VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,[order.rows[0].id,provider(),shipmentId,status,trackingUrl,JSON.stringify(data)]);
-    await pool.query('UPDATE orders SET tracking_json=$1,updated_at=now() WHERE id=$2',[JSON.stringify({status:status,carrier:provider(),shipmentId:shipmentId,trackingUrl:trackingUrl,updatedAt:new Date().toISOString()}),order.rows[0].id]);
-    await audit(pool,request.user,'ORDER',order.rows[0].id,'THIRD_PARTY_DELIVERY_CREATED',{provider:provider(),shipmentId});
+    if(!pool)return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
+    if(!enabled())return reply.code(503).send({error:'THIRD_PARTY_DELIVERY_DISABLED'});
+    if(provider()!=='shiprocket')return reply.code(400).send({error:'UNSUPPORTED_DELIVERY_PROVIDER'});
+    if(!token()||!pickupLocation())return reply.code(503).send({error:'SHIPROCKET_NOT_CONFIGURED'});
+
+    const q=await pool.query(`SELECT o.id,o.status,o.address_json,o.total_paise,o.subtotal_paise,o.delivery_fee_paise,o.payment_status,
+      u.email AS buyer_email,
+      COALESCE((SELECT json_agg(json_build_object('productId',ol.product_id,'quantity',ol.quantity,'lineTotalPaise',ol.line_total_paise)) FROM order_lines ol WHERE ol.order_id=o.id),'[]'::json) AS lines
+      FROM orders o LEFT JOIN users u ON u.id=o.buyer_id WHERE o.id=$1`,[request.params.id]);
+    if(!q.rowCount)return reply.code(404).send({error:'ORDER_NOT_FOUND'});
+    const o=q.rows[0];
+    if(!['CONFIRMED','PACKED','PROCESSING','PAID'].includes(String(o.status)))return reply.code(409).send({error:'ORDER_NOT_READY_FOR_DELIVERY'});
+    const a=o.address_json||{};
+    if(!a.fullName||!a.phone||!a.line1||!a.city||!a.state||!a.postalCode)return reply.code(409).send({error:'ORDER_ADDRESS_INCOMPLETE'});
+
+    const existing=await pool.query('SELECT * FROM third_party_delivery_shipments WHERE order_id=$1 ORDER BY created_at DESC LIMIT 1',[o.id]);
+    if(existing.rowCount&&!['FAILED','CANCELLED'].includes(String(existing.rows[0].status)))return reply.code(409).send({error:'DELIVERY_ALREADY_CREATED',shipment:existing.rows[0]});
+
+    const lines=Array.isArray(o.lines)?o.lines:[];
+    const productIds=lines.map(x=>Number(x.productId)).filter(Number.isFinite);
+    const products=productIds.length?await pool.query('SELECT id,name,sku,price_paise FROM products WHERE id=ANY($1::bigint[])',[productIds]):{rows:[]};
+    const byId=new Map(products.rows.map(p=>[Number(p.id),p]));
+    const items=lines.map(x=>{const p=byId.get(Number(x.productId));return {name:clean(p?.name||('AARVO Product '+x.productId),120),sku:clean(p?.sku||String(x.productId),80),units:Number(x.quantity)||1,selling_price:(Number(p?.price_paise||x.lineTotalPaise||0)/100).toFixed(2),discount:0,tax:0,hsn:''}});
+    if(!items.length)return reply.code(409).send({error:'DELIVERY_ITEMS_MISSING'});
+
+    const customer=splitName(a.fullName);
+    const total=Number(o.total_paise||0)/100;
+    const subtotal=Number(o.subtotal_paise||0)/100;
+    const shipping=Number(o.delivery_fee_paise||0)/100;
+    const payload={
+      order_id:String(o.id).replace(/-/g,'').slice(0,50),
+      order_date:orderDate(),
+      pickup_location:pickupLocation(),
+      billing_customer_name:customer.first,
+      billing_last_name:customer.last,
+      billing_address:clean(a.line1,250),
+      billing_address_2:clean(a.line2,250),
+      billing_city:clean(a.city,30),
+      billing_pincode:Number(a.postalCode),
+      billing_state:clean(a.state,100),
+      billing_country:'India',
+      billing_email:clean(q.rows[0].buyer_email||'no-reply@aarvo.in',150),
+      billing_phone:Number(a.phone),
+      shipping_is_billing:true,
+      order_items:items,
+      payment_method:String(o.payment_status||'').toUpperCase()==='COD'?'COD':'Prepaid',
+      shipping_charges:shipping,
+      giftwrap_charges:0,
+      transaction_charges:0,
+      total_discount:0,
+      sub_total:subtotal,
+      length:Number(process.env.SHIPROCKET_PACKAGE_LENGTH_CM||10),
+      breadth:Number(process.env.SHIPROCKET_PACKAGE_BREADTH_CM||10),
+      height:Number(process.env.SHIPROCKET_PACKAGE_HEIGHT_CM||10),
+      weight:Number(process.env.SHIPROCKET_PACKAGE_WEIGHT_KG||0.5)
+    };
+
+    const created=await providerRequest(shiprocketPath.create,payload);
+    const srOrderId=created.order_id||created.orderId||created.id;
+    const srShipmentId=created.shipment_id||created.shipmentId||created.response?.shipment_id;
+    if(!srOrderId||!srShipmentId)return reply.code(502).send({error:'SHIPROCKET_INVALID_CREATE_RESPONSE',providerResponse:created});
+
+    const awb=await providerRequest(shiprocketPath.awb,{shipment_id:Number(srShipmentId)});
+    const awbData=awb?.response?.data||awb?.data||awb?.response||awb;
+    const awbCode=clean(awbData?.awb_code||awbData?.awbCode||'',120);
+    const courier=clean(awbData?.courier_name||awbData?.courierName||'',120);
+    if(!awbCode)return reply.code(502).send({error:'SHIPROCKET_AWB_ASSIGNMENT_FAILED',providerResponse:awb});
+
+    const pickup=await providerRequest(shiprocketPath.pickup,{shipment_id:[Number(srShipmentId)]});
+    const trackingUrl=awbCode?'https://shiprocket.co/tracking/'+encodeURIComponent(awbCode):'';
+    const payloadStored={create:created,awb,pickup};
+
+    const row=await pool.query(`INSERT INTO third_party_delivery_shipments(order_id,provider,provider_order_id,provider_shipment_id,awb,courier_name,status,tracking_url,provider_payload)
+      VALUES($1,'shiprocket',$2,$3,$4,$5,'OUT_FOR_PICKUP',$6,$7)
+      RETURNING *`,[o.id,String(srOrderId),String(srShipmentId),awbCode,courier,trackingUrl,JSON.stringify(payloadStored)]);
+    await pool.query('UPDATE orders SET tracking_json=$1,updated_at=now() WHERE id=$2',[JSON.stringify({status:'OUT_FOR_PICKUP',carrier:courier||'Shiprocket',provider:'shiprocket',providerOrderId:String(srOrderId),shipmentId:String(srShipmentId),awb:awbCode,trackingUrl,updatedAt:new Date().toISOString()}),o.id]);
+    await audit(pool,request.user,'ORDER',o.id,'THIRD_PARTY_DELIVERY_CREATED',{provider:'shiprocket',providerOrderId:String(srOrderId),shipmentId:String(srShipmentId),awb:awbCode,courier});
     return reply.code(201).send(row.rows[0]);
   });
 
   app.post('/v1/webhooks/delivery/:provider',async(request,reply)=>{
-    if(!pool) return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
+    if(!pool)return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
+    if(String(request.params.provider).toLowerCase()!==provider())return reply.code(404).send({error:'DELIVERY_PROVIDER_NOT_FOUND'});
     const raw=typeof request.rawBody==='string'?request.rawBody:JSON.stringify(request.body||{});
-    if(!verifySignature(raw,request.headers['x-aarvo-delivery-signature'])) return reply.code(401).send({error:'INVALID_DELIVERY_WEBHOOK_SIGNATURE'});
+    if(webhookSecret()&&!verifySignature(raw,request.headers['x-aarvo-delivery-signature']))return reply.code(401).send({error:'INVALID_DELIVERY_WEBHOOK_SIGNATURE'});
     const data=request.body||{};
-    const shipmentId=clean(data.shipmentId||data.shipment_id||data.awb||data.awbNumber||data.id||'',200);
-    const next=clean(data.status||'',40).toUpperCase();
-    if(!shipmentId||!next) return reply.code(400).send({error:'INVALID_DELIVERY_WEBHOOK'});
-    const result=await pool.query('UPDATE third_party_delivery_shipments SET status=$1,tracking_url=COALESCE(NULLIF($2,\'\'),tracking_url),provider_payload=$3,updated_at=now() WHERE provider=$4 AND provider_shipment_id=$5 RETURNING order_id,status,tracking_url',[String(request.params.provider).toLowerCase()===provider()?next:next,clean(data.trackingUrl||data.tracking_url||'',1000),JSON.stringify(data),provider(),shipmentId]);
-    if(!result.rowCount) return {received:true,matched:false};
-    const mapped={DELIVERED:'DELIVERED',OUT_FOR_DELIVERY:'OUT_FOR_DELIVERY',PICKED_UP:'OUT_FOR_DELIVERY',CANCELLED:'CANCELLED',FAILED:'CANCELLED',ASSIGNED:'PROCESSING',ACCEPTED:'PROCESSING',PACKED:'PACKED'};
-    const orderStatus=mapped[next]||'PROCESSING';
-    await pool.query('UPDATE orders SET status=$1,tracking_json=$2,updated_at=now() WHERE id=$3',[orderStatus,JSON.stringify({status:orderStatus,carrier:provider(),shipmentId,trackingUrl:result.rows[0].tracking_url,updatedAt:new Date().toISOString()}),result.rows[0].order_id]);
+    const shipmentId=clean(data.shipment_id||data.shipmentId||data.awb||data.awb_code||data.id||data?.tracking_data?.shipment_id,200);
+    const awb=clean(data.awb||data.awb_code||data?.tracking_data?.shipment_track?.[0]?.awb_code,120);
+    const next=statusFromShiprocket(data);
+    const result=await pool.query(`UPDATE third_party_delivery_shipments SET status=$1,awb=COALESCE(NULLIF($2,''),awb),tracking_url=COALESCE(NULLIF($3,''),tracking_url),provider_payload=$4,updated_at=now()
+      WHERE provider='shiprocket' AND (provider_shipment_id=$5 OR awb=$6) RETURNING order_id,awb,courier_name,tracking_url`,[next,awb,awb?'https://shiprocket.co/tracking/'+encodeURIComponent(awb):'',JSON.stringify(data),shipmentId,awb]);
+    if(!result.rowCount)return {received:true,matched:false};
+    await pool.query('UPDATE orders SET status=$1,tracking_json=$2,updated_at=now() WHERE id=$3',[next==='RTO'?'CANCELLED':next,JSON.stringify({status:next,carrier:result.rows[0].courier_name||'Shiprocket',provider:'shiprocket',awb:result.rows[0].awb,trackingUrl:result.rows[0].tracking_url,updatedAt:new Date().toISOString()}),result.rows[0].order_id]);
     return {received:true,matched:true};
   });
 }
