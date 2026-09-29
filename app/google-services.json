@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "828809073788",
+    "project_id": "aarvo-5804e",
+    "storage_bucket": "aarvo-5804e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:828809073788:android:ff016b570422738dd0a5f9",
+        "android_client_info": {
+          "package_name": "com.aarvo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkLbVbT1CatAvTjDPt6SJX7J20tsb0R88"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
