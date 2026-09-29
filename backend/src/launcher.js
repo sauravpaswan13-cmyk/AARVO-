@@ -13,12 +13,13 @@ const settlementImport = "import { registerSettlementCompletion } from './settle
 const gapImport = "import { registerMarketplaceGapCompletion } from './marketplace-gap-completion.js';";
 const sellerImport = "import { registerSellerOnboarding } from './seller-onboarding.js';";
 const riderImport = "import { registerRiderDelivery } from './rider-delivery.js';";
+const thirdPartyDeliveryImport = "import { registerThirdPartyDelivery } from './third-party-delivery.js';";
 const offerImport = "import { registerOfferCompletion } from './offer-completion.js';";
 
 // Keep the runtime-generated server deterministic: randomInt must survive every launcher rewrite.
 const cryptoImport = "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';";
 const cryptoImportWithRandomInt = "import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';";
-const runtimeImports = [marketplaceImport, cartImport, settlementImport, gapImport, sellerImport, riderImport, offerImport];
+const runtimeImports = [marketplaceImport, cartImport, settlementImport, gapImport, sellerImport, riderImport, thirdPartyDeliveryImport, offerImport];
 const cryptoAnchor = source.includes(cryptoImportWithRandomInt) ? cryptoImportWithRandomInt : cryptoImport;
 if (!source.includes(cryptoImportWithRandomInt)) {
   source = source.replace(cryptoImport, cryptoImportWithRandomInt);
@@ -35,7 +36,8 @@ if (!source.includes("randomInt")) {
 if (!source.includes('await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });')) {
   source = source.replace(
     "app.listen(PORT, '0.0.0.0', () => {",
-    "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\nawait registerMarketplaceGapCompletion({ app, pool, requireRole, audit });\nawait registerSellerOnboarding({ app, pool, requireRole, audit });\nawait registerRiderDelivery({ app, pool, requireRole, audit });\nawait registerOfferCompletion({ app, pool, requireRole, audit });\napp.listen(PORT, '0.0.0.0', () => {"
+    "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\nawait registerMarketplaceGapCompletion({ app, pool, requireRole, audit });\nawait registerSellerOnboarding({ app, pool, requireRole, audit });\nawait registerRiderDelivery({ app, pool, requireRole, audit });
+await registerThirdPartyDelivery({ app, pool, requireRole, audit });\nawait registerOfferCompletion({ app, pool, requireRole, audit });\napp.listen(PORT, '0.0.0.0', () => {"
   );
 }
 
