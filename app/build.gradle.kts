@@ -16,10 +16,30 @@ android {
         val apiBaseUrl = project.findProperty("aarvoApiBaseUrl")?.toString() ?: "https://aarvo-api.onrender.com"
         val widgetId = project.findProperty("msg91WidgetId")?.toString() ?: "366968715030323230313530"
         val widgetToken = project.findProperty("msg91WidgetToken")?.toString() ?: ""
-        val firebaseApiKey = project.findProperty("firebaseApiKey")?.toString() ?: ""
-        val firebaseProjectId = project.findProperty("firebaseProjectId")?.toString() ?: ""
-        val firebaseAppId = project.findProperty("firebaseAppId")?.toString() ?: ""
-        val firebaseSenderId = project.findProperty("firebaseSenderId")?.toString() ?: ""
+        // Firebase configuration is sourced from app/google-services.json when present.
+        val firebaseConfigFile = rootProject.file("app/google-services.json")
+        val firebaseConfig = if (firebaseConfigFile.exists()) {
+            @Suppress("UNCHECKED_CAST")
+            groovy.json.JsonSlurper().parse(firebaseConfigFile) as Map<String, Any?>
+        } else emptyMap()
+        val firebaseProjectInfo = (firebaseConfig["project_info"] as? Map<*, *>) ?: emptyMap<String, Any?>()
+        val firebaseClient = ((firebaseConfig["client"] as? List<*>)?.firstOrNull() as? Map<*, *>) ?: emptyMap<String, Any?>()
+        val firebaseClientInfo = (firebaseClient["client_info"] as? Map<*, *>) ?: emptyMap<String, Any?>()
+        val firebaseAndroidInfo = (firebaseClientInfo["android_client_info"] as? Map<*, *>) ?: emptyMap<String, Any?>()
+        val firebaseApiKeyList = (firebaseClient["api_key"] as? List<*>) ?: emptyList<Any?>()
+        val firebaseApiKeyMap = (firebaseApiKeyList.firstOrNull() as? Map<*, *>) ?: emptyMap<String, Any?>()
+        val firebaseApiKey = project.findProperty("firebaseApiKey")?.toString()
+            ?: firebaseApiKeyMap["current_key"]?.toString().orEmpty()
+        val firebaseProjectId = project.findProperty("firebaseProjectId")?.toString()
+            ?: firebaseProjectInfo["project_id"]?.toString().orEmpty()
+        val firebaseAppId = project.findProperty("firebaseAppId")?.toString()
+            ?: firebaseClientInfo["mobilesdk_app_id"]?.toString().orEmpty()
+        val firebaseSenderId = project.findProperty("firebaseSenderId")?.toString()
+            ?: firebaseProjectInfo["project_number"]?.toString().orEmpty()
+        val firebasePackageName = firebaseAndroidInfo["package_name"]?.toString().orEmpty()
+        check(firebasePackageName.isBlank() || firebasePackageName == applicationId) {
+            "Firebase package mismatch: expected " + applicationId + ", got " + firebasePackageName
+        }
         buildConfigField("String", "AARVO_API_BASE_URL", buildConfigString(apiBaseUrl))
         buildConfigField("String", "MSG91_WIDGET_ID", buildConfigString(widgetId))
         buildConfigField("String", "MSG91_WIDGET_TOKEN", buildConfigString(widgetToken))
