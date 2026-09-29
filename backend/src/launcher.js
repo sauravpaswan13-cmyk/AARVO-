@@ -12,13 +12,13 @@ const cartImport = "import { registerCartCompletion } from './cart-completion.js
 const settlementImport = "import { registerSettlementCompletion } from './settlement-completion.js';";
 const gapImport = "import { registerMarketplaceGapCompletion } from './marketplace-gap-completion.js';";
 const sellerImport = "import { registerSellerOnboarding } from './seller-onboarding.js';";
-const riderImport = "import { registerRiderDelivery } from './rider-delivery.js';";
+const externalDeliveryImport = "import { registerExternalDelivery } from './external-delivery.js';";
 const offerImport = "import { registerOfferCompletion } from './offer-completion.js';";
 
 // Keep the runtime-generated server deterministic: randomInt must survive every launcher rewrite.
 const cryptoImport = "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';";
 const cryptoImportWithRandomInt = "import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';";
-const runtimeImports = [marketplaceImport, cartImport, settlementImport, gapImport, sellerImport, riderImport, offerImport];
+const runtimeImports = [marketplaceImport, cartImport, settlementImport, gapImport, sellerImport, externalDeliveryImport, offerImport];
 const cryptoAnchor = source.includes(cryptoImportWithRandomInt) ? cryptoImportWithRandomInt : cryptoImport;
 if (!source.includes(cryptoImportWithRandomInt)) {
   source = source.replace(cryptoImport, cryptoImportWithRandomInt);
