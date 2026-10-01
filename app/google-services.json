@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "828809073788",
-    "project_id": "aarvo-5804e",
-    "storage_bucket": "aarvo-5804e.firebasestorage.app"
+    "project_number": "681109594411",
+    "project_id": "aarvo-cad54",
+    "storage_bucket": "aarvo-cad54.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:828809073788:android:ff016b570422738dd0a5f9",
+        "mobilesdk_app_id": "1:681109594411:android:dfe3a2d35822d9b934656e",
         "android_client_info": {
           "package_name": "com.aarvo"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBkLbVbT1CatAvTjDPt6SJX7J20tsb0R88"
+          "current_key": "AIzaSyDT-K__jSYexZ3qW9uNHQ716euzRUoDVoI"
         }
       ],
       "services": {
