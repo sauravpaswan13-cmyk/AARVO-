@@ -50,6 +50,8 @@ if (!source.includes("commission-rules.js")) {
   source = source.replace("SELECT id,seller_id,price_paise,stock_quantity,is_published FROM products WHERE id=ANY($1::bigint[]) FOR UPDATE", "SELECT p.id,p.seller_id,p.category,p.price_paise,p.stock_quantity,p.is_published,COALESCE(sp.pickup_state,'') AS seller_pickup_state FROM products p LEFT JOIN seller_profiles sp ON sp.seller_id=p.seller_id WHERE p.id=ANY($1::bigint[]) FOR UPDATE");
   source = source.replace("const platformFee=Math.floor(subtotal*PLATFORM_FEE_BPS/10000),total=subtotal+DELIVERY_FEE_PAISE+platformFee,orderId=randomUUID();", "const platformFee=products.rows.reduce((sum,p)=>sum+commissionPaise(Number(p.price_paise)*merged.get(Number(p.id)),p.category),0),deliveryFee=calculateAarvoDeliveryFee({subtotalPaise:subtotal,buyerState:address?.state,sellerStates:products.rows.map(p=>p.seller_pickup_state)}),total=subtotal+deliveryFee+platformFee,orderId=randomUUID();");
   source = source.replace("[orderId,request.user.sub,subtotal,DELIVERY_FEE_PAISE,platformFee,total", "[orderId,request.user.sub,subtotal,deliveryFee,platformFee,total");
+  // Avoid nested JavaScript quote escaping in the generated order SQL.
+  source = source.replaceAll("CASE WHEN $7=\\'CREATED\\' THEN now()+($11 * interval \\'1 minute\\') ELSE NULL END", "CASE WHEN $7=$CREATED$ THEN now()+($11 * interval $1 minute$) ELSE NULL END");
   source = source.replace("const qty=merged.get(Number(p.id)),lineTotal=Number(p.price_paise)*qty,sellerAmount=lineTotal-Math.floor(lineTotal*PLATFORM_FEE_BPS/10000);", "const qty=merged.get(Number(p.id)),lineTotal=Number(p.price_paise)*qty,sellerAmount=lineTotal-commissionPaise(lineTotal,p.category);");
 }
 
