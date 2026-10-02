@@ -132,111 +132,97 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 }
 
 @Composable private fun OnboardingScreen(onLogin: () -> Unit, onGuest: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    val context = LocalContext.current
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.linearGradient(
                     listOf(
-                        Color(0xFFFFF8FC),
+                        Color(0xFFFFFBFF),
                         Color(0xFFF7F1FF),
-                        Color(0xFFEFF7FF)
+                        Color(0xFFF1F7FF)
                     )
                 )
             )
-            .padding(horizontal = 20.dp, vertical = 24.dp)
+            .padding(horizontal = 28.dp, vertical = 24.dp)
     ) {
-        // New single premium entry screen: the old Splash + Welcome flow is bypassed.
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight()
+                .align(Alignment.Center),
+            shape = RoundedCornerShape(34.dp),
+            color = Color.White,
+            shadowElevation = 14.dp,
+            tonalElevation = 8.dp
         ) {
-            Surface(
-                modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
-                shape = RoundedCornerShape(34.dp),
-                color = Color.White.copy(alpha = 0.96f),
-                tonalElevation = 8.dp,
-                shadowElevation = 14.dp
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 28.dp, end = 28.dp, top = 28.dp, bottom = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 26.dp, vertical = 30.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Image(
+                    painter = painterResource(id = R.drawable.aarvo_welcome_hero),
+                    contentDescription = "AARVO shopping illustration",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(230.dp)
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "AARVO",
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 36.sp,
+                    color = Color.Black,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Shop Smart • Live Better",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Discover products. Shop freely. Enjoy\nAARVO.",
+                    fontSize = 17.sp,
+                    lineHeight = 22.sp,
+                    color = Color(0xFF222222),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(26.dp))
+                Button(
+                    onClick = onLogin,
+                    modifier = Modifier.fillMaxWidth().height(58.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF7135D4)
+                    )
                 ) {
-                    Surface(
-                        modifier = Modifier.size(132.dp),
-                        shape = CircleShape,
-                        color = Color.White,
-                        border = BorderStroke(1.dp, Color(0xFFE8DDF7)),
-                        shadowElevation = 8.dp
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Image(
-                                painter = painterResource(id = R.drawable.welcome_entry_3d),
-                                contentDescription = "3D AARVO mobile storefront",
-                                modifier = Modifier.size(128.dp)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(18.dp))
+                    Icon(Icons.Default.Person, contentDescription = null)
+                    Spacer(Modifier.width(9.dp))
+                    Text("Login / Sign Up", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(12.dp))
+                androidx.compose.material3.OutlinedButton(
+                    onClick = onGuest,
+                    modifier = Modifier.fillMaxWidth().height(58.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(1.5.dp, Color(0xFFC0A7DF))
+                ) {
+                    Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = Color(0xFF625C6C))
+                    Spacer(Modifier.width(9.dp))
                     Text(
-                        "AARVO",
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 2.4.sp,
-                        textAlign = TextAlign.Center,
-                        color = Color(0xFF27233B)
-                    )
-                    Spacer(Modifier.height(7.dp))
-                    Text(
-                        "Shop Smart • Live Better",
-                        style = MaterialTheme.typography.titleLarge,
+                        "Continue as Guest",
+                        fontSize = 19.sp,
                         fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        color = Color(0xFF6D3CC8)
+                        color = Color.Black
                     )
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        "Discover products. Shop freely. Enjoy AARVO.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        color = Color(0xFF6C6878)
-                    )
-                    Spacer(Modifier.height(28.dp))
-                    Button(
-                        onClick = onLogin,
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF6D3CC8)
-                        )
-                    ) {
-                        Icon(Icons.Default.Person, contentDescription = null)
-                        Spacer(Modifier.size(9.dp))
-                        Text("Login / Sign Up", fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    androidx.compose.material3.OutlinedButton(
-                        onClick = onGuest,
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(18.dp),
-                        border = BorderStroke(1.5.dp, Color(0xFFB8A3DE))
-                    ) {
-                        Icon(Icons.Default.ShoppingCart, contentDescription = null)
-                        Spacer(Modifier.size(9.dp))
-                        Text("Continue as Guest", fontWeight = FontWeight.Bold, color = Color(0xFF3C3550))
-                    }
                 }
             }
-            Spacer(Modifier.height(14.dp))
-            Text(
-                "A premium shopping experience, made simple.",
-                style = MaterialTheme.typography.labelMedium,
-                color = Color(0xFF817B8D),
-                textAlign = TextAlign.Center
-            )
         }
     }
 }
