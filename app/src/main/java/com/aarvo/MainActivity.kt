@@ -165,12 +165,20 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     .padding(start = 28.dp, end = 28.dp, top = 28.dp, bottom = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.aarvo_welcome_hero),
-                    contentDescription = "AARVO shopping illustration",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.size(230.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(150.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFEDE5FA)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.aarvo_logo),
+                        contentDescription = "AARVO logo",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.size(112.dp)
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "AARVO",
