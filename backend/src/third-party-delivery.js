@@ -57,7 +57,12 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
     mode:'THIRD_PARTY_ONLY',pickupLocation:provider()==='shiprocket'?pickupLocation()||null:null
   }));
 
-  app.post('/v1/admin/orders/:id/third-party-delivery',{preHandler:requireRole('ADMIN')},async(request,reply)=>{
+export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor=null}) {
+  if(!pool) throw Object.assign(new Error('DATABASE_NOT_CONFIGURED'),{code:'DATABASE_NOT_CONFIGURED',status:503});
+  if(!enabled()) throw Object.assign(new Error('THIRD_PARTY_DELIVERY_DISABLED'),{code:'THIRD_PARTY_DELIVERY_DISABLED',status:503});
+  if(provider()!=='shiprocket') throw Object.assign(new Error('UNSUPPORTED_DELIVERY_PROVIDER'),{code:'UNSUPPORTED_DELIVERY_PROVIDER',status:400});
+  if(!token()||!pickupLocation()) throw Object.assign(new Error('SHIPROCKET_NOT_CONFIGURED'),{code:'SHIPROCKET_NOT_CONFIGURED',status:503});
+
     if(!pool)return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
     if(!enabled())return reply.code(503).send({error:'THIRD_PARTY_DELIVERY_DISABLED'});
     if(provider()!=='shiprocket')return reply.code(400).send({error:'UNSUPPORTED_DELIVERY_PROVIDER'});
@@ -66,22 +71,22 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
     const q=await pool.query(`SELECT o.id,o.status,o.address_json,o.total_paise,o.subtotal_paise,o.delivery_fee_paise,o.payment_status,
       u.email AS buyer_email,
       COALESCE((SELECT json_agg(json_build_object('productId',ol.product_id,'quantity',ol.quantity,'lineTotalPaise',ol.line_total_paise)) FROM order_lines ol WHERE ol.order_id=o.id),'[]'::json) AS lines
-      FROM orders o LEFT JOIN users u ON u.id=o.buyer_id WHERE o.id=$1`,[request.params.id]);
-    if(!q.rowCount)return reply.code(404).send({error:'ORDER_NOT_FOUND'});
+      FROM orders o LEFT JOIN users u ON u.id=o.buyer_id WHERE o.id=$1`,[orderId]);
+    if(!q.rowCount)throw Object.assign(new Error('ORDER_NOT_FOUND'),{code:'ORDER_NOT_FOUND',status:404});
     const o=q.rows[0];
     if(!['CONFIRMED','PACKED','PROCESSING','PAID'].includes(String(o.status)))return reply.code(409).send({error:'ORDER_NOT_READY_FOR_DELIVERY'});
     const a=o.address_json||{};
-    if(!a.fullName||!a.phone||!a.line1||!a.city||!a.state||!a.postalCode)return reply.code(409).send({error:'ORDER_ADDRESS_INCOMPLETE'});
+    if(!a.fullName||!a.phone||!a.line1||!a.city||!a.state||!a.postalCode)throw Object.assign(new Error('ORDER_ADDRESS_INCOMPLETE'),{code:'ORDER_ADDRESS_INCOMPLETE',status:409});
 
     const existing=await pool.query('SELECT * FROM third_party_delivery_shipments WHERE order_id=$1 ORDER BY created_at DESC LIMIT 1',[o.id]);
-    if(existing.rowCount&&!['FAILED','CANCELLED'].includes(String(existing.rows[0].status)))return reply.code(409).send({error:'DELIVERY_ALREADY_CREATED',shipment:existing.rows[0]});
+    if(existing.rowCount&&!['FAILED','CANCELLED'].includes(String(existing.rows[0].status)))throw Object.assign(new Error('DELIVERY_ALREADY_CREATED'),{code:'DELIVERY_ALREADY_CREATED',status:409,shipment:existing.rows[0]});
 
     const lines=Array.isArray(o.lines)?o.lines:[];
     const productIds=lines.map(x=>Number(x.productId)).filter(Number.isFinite);
     const products=productIds.length?await pool.query('SELECT id,name,price_paise FROM products WHERE id=ANY($1::bigint[])',[productIds]):{rows:[]};
     const byId=new Map(products.rows.map(p=>[Number(p.id),p]));
     const items=lines.map(x=>{const p=byId.get(Number(x.productId));return {name:clean(p?.name||('AARVO Product '+x.productId),120),sku:clean(String(x.productId),80),units:Number(x.quantity)||1,selling_price:(Number(p?.price_paise||x.lineTotalPaise||0)/100).toFixed(2),discount:0,tax:0,hsn:''}});
-    if(!items.length)return reply.code(409).send({error:'DELIVERY_ITEMS_MISSING'});
+    if(!items.length)throw Object.assign(new Error('DELIVERY_ITEMS_MISSING'),{code:'DELIVERY_ITEMS_MISSING',status:409});
 
     const customer=splitName(a.fullName);
     const total=Number(o.total_paise||0)/100;
@@ -118,13 +123,13 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
     const created=await providerRequest(shiprocketPath.create,payload);
     const srOrderId=created.order_id||created.orderId||created.id;
     const srShipmentId=created.shipment_id||created.shipmentId||created.response?.shipment_id;
-    if(!srOrderId||!srShipmentId)return reply.code(502).send({error:'SHIPROCKET_INVALID_CREATE_RESPONSE',providerResponse:created});
+    if(!srOrderId||!srShipmentId)throw Object.assign(new Error('SHIPROCKET_INVALID_CREATE_RESPONSE'),{code:'SHIPROCKET_INVALID_CREATE_RESPONSE',status:502,data:created});
 
     const awb=await providerRequest(shiprocketPath.awb,{shipment_id:Number(srShipmentId)});
     const awbData=awb?.response?.data||awb?.data||awb?.response||awb;
     const awbCode=clean(awbData?.awb_code||awbData?.awbCode||'',120);
     const courier=clean(awbData?.courier_name||awbData?.courierName||'',120);
-    if(!awbCode)return reply.code(502).send({error:'SHIPROCKET_AWB_ASSIGNMENT_FAILED',providerResponse:awb});
+    if(!awbCode)throw Object.assign(new Error('SHIPROCKET_AWB_ASSIGNMENT_FAILED'),{code:'SHIPROCKET_AWB_ASSIGNMENT_FAILED',status:502,data:awb});
 
     const pickup=await providerRequest(shiprocketPath.pickup,{shipment_id:[Number(srShipmentId)]});
     const trackingUrl=awbCode?'https://shiprocket.co/tracking/'+encodeURIComponent(awbCode):'';
@@ -134,8 +139,18 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
       VALUES($1,'shiprocket',$2,$3,$4,$5,'OUT_FOR_PICKUP',$6,$7)
       RETURNING *`,[o.id,String(srOrderId),String(srShipmentId),awbCode,courier,trackingUrl,JSON.stringify(payloadStored)]);
     await pool.query('UPDATE orders SET tracking_json=$1,updated_at=now() WHERE id=$2',[JSON.stringify({status:'OUT_FOR_PICKUP',carrier:courier||'Shiprocket',provider:'shiprocket',providerOrderId:String(srOrderId),shipmentId:String(srShipmentId),awb:awbCode,trackingUrl,updatedAt:new Date().toISOString()}),o.id]);
-    await audit(pool,request.user,'ORDER',o.id,'THIRD_PARTY_DELIVERY_CREATED',{provider:'shiprocket',providerOrderId:String(srOrderId),shipmentId:String(srShipmentId),awb:awbCode,courier});
-    return reply.code(201).send(row.rows[0]);
+    await audit(pool,actor,'ORDER',o.id,'THIRD_PARTY_DELIVERY_CREATED',{provider:'shiprocket',providerOrderId:String(srOrderId),shipmentId:String(srShipmentId),awb:awbCode,courier});
+    return row.rows[0];
+  }}
+
+
+  app.post('/v1/admin/orders/:id/third-party-delivery',{preHandler:requireRole('ADMIN')},async(request,reply)=>{
+    try { return reply.code(201).send(await createThirdPartyShipmentForOrder({pool,audit,orderId:request.params.id,actor:request.user})); }
+    catch(error) {
+      if(error.code==='DELIVERY_ALREADY_CREATED') return reply.code(409).send({error:error.code,shipment:error.shipment});
+      if(error.status) return reply.code(error.status).send({error:error.code,providerResponse:error.data});
+      throw error;
+    }
   });
 
   app.post('/v1/webhooks/delivery/:provider',async(request,reply)=>{
