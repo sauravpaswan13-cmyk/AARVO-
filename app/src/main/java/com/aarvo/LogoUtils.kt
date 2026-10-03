@@ -7,12 +7,14 @@ import kotlin.math.abs
 import kotlin.math.max
 
 /**
- * Startup-safe logo loader. The old implementation allocated multiple
- * full-image arrays and could crash low-memory devices before the UI opened.
+ * Startup-safe loader for the canonical AARVO entry logo.
+ * Splash and Welcome must use the exact same original asset.
  */
 object LogoUtils {
     fun loadTransparentLogo(context: Context): Bitmap {
-        val resId = R.drawable.aarvo_logo
+        // IMPORTANT: aarvo_entry_logo is the canonical original AARVO logo.
+        // Do not switch this to aarvo_logo: that is a different/general app asset.
+        val resId = R.drawable.aarvo_entry_logo
 
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeResource(context.resources, resId, bounds)
@@ -39,7 +41,6 @@ object LogoUtils {
         val h = bitmap.height
         if (w <= 0 || h <= 0) return bitmap
 
-        // One small pixel buffer only; no visited/queue arrays.
         val pixels = IntArray(w * h)
         bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
 
