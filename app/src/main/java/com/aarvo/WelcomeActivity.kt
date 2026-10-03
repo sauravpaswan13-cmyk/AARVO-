@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.util.Base64
+import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -28,9 +29,25 @@ class WelcomeActivity : ComponentActivity() {
         val image = ImageView(this).apply {
             setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
             scaleType = ImageView.ScaleType.FIT_XY
-            contentDescription = "AARVO welcome entry"
+            contentDescription = "AARVO welcome background"
         }
         root.addView(image, FrameLayout.LayoutParams(-1, -1))
+
+        // Canonical AARVO brand asset, deliberately overlaid after the reference
+        // artwork so the logo remains present even if the artwork is regenerated.
+        val logo = ImageView(this).apply {
+            setImageBitmap(LogoUtils.loadTransparentLogo(this@WelcomeActivity))
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "AARVO original logo"
+            elevation = dp(8).toFloat()
+        }
+        root.addView(
+            logo,
+            FrameLayout.LayoutParams(dp(116), dp(116)).apply {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                topMargin = dp(34)
+            }
+        )
 
         val guest = View(this).apply {
             isClickable = true
@@ -50,6 +67,8 @@ class WelcomeActivity : ComponentActivity() {
 
         setContentView(root)
     }
+
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     private class ReferenceHitLayout(context: Context) : FrameLayout(context) {
         private data class Hit(val view: View, val x: Float, val y: Float, val w: Float, val h: Float)
