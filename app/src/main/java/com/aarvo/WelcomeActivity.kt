@@ -57,7 +57,7 @@ class WelcomeActivity : ComponentActivity() {
             contentDescription = "AARVO logo"
         }
         val heroLogo = ImageView(this).apply {
-            setImageResource(R.drawable.aarvo_logo)
+            setImageResource(R.drawable.aarvo_entry_logo)
             scaleType = ImageView.ScaleType.FIT_CENTER
             contentDescription = "AARVO logo"
         }
