@@ -174,7 +174,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.aarvo_logo),
+                        painter = painterResource(id = R.drawable.aarvo_entry_logo),
                         contentDescription = "AARVO logo",
                         contentScale = ContentScale.Fit,
                         modifier = Modifier.size(112.dp)
