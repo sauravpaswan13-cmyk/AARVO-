@@ -48,12 +48,23 @@ class WelcomeActivity : ComponentActivity() {
         }
         root.addView(card, cardLp)
 
-        val hero = ImageView(this).apply {
-            setImageResource(R.drawable.aarvo_welcome_hero)
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            contentDescription = "AARVO shopping illustration"
+        val heroCircle = FrameLayout(this).apply {
+            background = GradientDrawable().apply {
+                setColor(0xFFEDE5FA.toInt())
+                shape = GradientDrawable.OVAL
+            }
+            elevation = dp(8).toFloat()
+            contentDescription = "AARVO logo"
         }
-        card.addView(hero, LinearLayout.LayoutParams(dp(255), dp(255)).apply {
+        val heroLogo = ImageView(this).apply {
+            setImageResource(R.drawable.aarvo_logo)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = "AARVO logo"
+        }
+        heroCircle.addView(heroLogo, FrameLayout.LayoutParams(dp(112), dp(112)).apply {
+            gravity = Gravity.CENTER
+        })
+        card.addView(heroCircle, LinearLayout.LayoutParams(dp(150), dp(150)).apply {
             topMargin = dp(6)
         })
 
