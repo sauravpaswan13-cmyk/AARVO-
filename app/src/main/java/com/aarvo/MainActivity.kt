@@ -185,30 +185,30 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     "AARVO",
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 34.sp,
+                    fontSize = 36.sp,
                     color = Color.Black,
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
                     "Shop Smart • Live Better",
-                    fontSize = 20.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black,
                     textAlign = TextAlign.Center
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
                 Text(
                     "Discover products. Shop freely. Enjoy\nAARVO.",
-                    fontSize = 16.sp,
-                    lineHeight = 20.sp,
+                    fontSize = 17.sp,
+                    lineHeight = 22.sp,
                     color = Color(0xFF222222),
                     textAlign = TextAlign.Center
                 )
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(26.dp))
                 Button(
                     onClick = onLogin,
-                    modifier = Modifier.fillMaxWidth().height(54.dp),
+                    modifier = Modifier.fillMaxWidth().height(58.dp),
                     shape = RoundedCornerShape(18.dp),
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF7135D4)
@@ -216,12 +216,12 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                 ) {
                     Icon(Icons.Default.Person, contentDescription = null)
                     Spacer(Modifier.width(9.dp))
-                    Text("Login / Sign Up", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text("Login / Sign Up", fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 androidx.compose.material3.OutlinedButton(
                     onClick = onGuest,
-                    modifier = Modifier.fillMaxWidth().height(54.dp),
+                    modifier = Modifier.fillMaxWidth().height(58.dp),
                     shape = RoundedCornerShape(18.dp),
                     border = BorderStroke(1.5.dp, Color(0xFFC0A7DF))
                 ) {
@@ -229,7 +229,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     Spacer(Modifier.width(9.dp))
                     Text(
                         "Continue as Guest",
-                        fontSize = 17.sp,
+                        fontSize = 19.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Black
                     )
