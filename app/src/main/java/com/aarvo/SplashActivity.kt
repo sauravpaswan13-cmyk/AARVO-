@@ -23,13 +23,17 @@ class SplashActivity : ComponentActivity() {
         val root = FrameLayout(this)
         root.background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFFFFFFF.toInt(), 0xFFF7F2FF.toInt(), 0xFFF1F7FF.toInt()))
 
+        // Canonical AARVO brand asset. Splash and Welcome must always use this
+        // same resource so later UI redesigns cannot silently replace the logo.
         val logo = ImageView(this).apply {
-            setImageResource(R.drawable.aarvo_entry_logo)
+            setImageBitmap(LogoUtils.loadTransparentLogo(this@SplashActivity))
             scaleType = ImageView.ScaleType.FIT_CENTER
-            contentDescription = "AARVO"
-            setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+            contentDescription = "AARVO original logo"
         }
-        root.addView(logo, FrameLayout.LayoutParams(dp(170), dp(170)).apply { gravity = Gravity.CENTER; topMargin = -dp(70) })
+        root.addView(logo, FrameLayout.LayoutParams(dp(170), dp(170)).apply {
+            gravity = Gravity.CENTER
+            topMargin = -dp(70)
+        })
 
         val brand = TextView(this).apply {
             text = "AARVO"; textSize = 30f; setTextColor(0xFF25233A.toInt()); gravity = Gravity.CENTER
