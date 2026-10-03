@@ -24,7 +24,7 @@ class SplashActivity : ComponentActivity() {
         root.background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFFFFFFF.toInt(), 0xFFF7F2FF.toInt(), 0xFFF1F7FF.toInt()))
 
         val logo = ImageView(this).apply {
-            setImageResource(R.drawable.aarvo_logo)
+            setImageResource(R.drawable.aarvo_entry_logo)
             scaleType = ImageView.ScaleType.FIT_CENTER
             contentDescription = "AARVO"
             setLayerType(View.LAYER_TYPE_SOFTWARE, null)
