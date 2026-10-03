@@ -34,17 +34,17 @@ class WelcomeActivity : ComponentActivity() {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(28), dp(44), dp(28), dp(28))
+            setPadding(dp(28), dp(28), dp(28), dp(28))
             background = GradientDrawable().apply {
                 setColor(Color.WHITE)
                 cornerRadius = dp(34).toFloat()
             }
             elevation = dp(12).toFloat()
         }
-        val cardLp = FrameLayout.LayoutParams(-1, dp(936)).apply {
+        val cardLp = FrameLayout.LayoutParams(-1, -2).apply {
             leftMargin = dp(28)
             rightMargin = dp(28)
-            topMargin = dp(195)
+            gravity = Gravity.CENTER
         }
         root.addView(card, cardLp)
 
@@ -70,23 +70,23 @@ class WelcomeActivity : ComponentActivity() {
 
         val title = TextView(this).apply {
             text = "AARVO"
-            textSize = 36f
+            textSize = 34f
             setTextColor(Color.BLACK)
             gravity = Gravity.CENTER
             typeface = Typeface.create("sans-serif", Typeface.BOLD)
         }
-        card.addView(title, LinearLayout.LayoutParams(-1, dp(58)).apply {
+        card.addView(title, LinearLayout.LayoutParams(-1, dp(48)).apply {
             topMargin = dp(4)
         })
 
         val tagline = TextView(this).apply {
             text = "Shop Smart • Live Better"
-            textSize = 24f
+            textSize = 20f
             setTextColor(Color.BLACK)
             gravity = Gravity.CENTER
             typeface = Typeface.create("sans-serif", Typeface.BOLD)
         }
-        card.addView(tagline, LinearLayout.LayoutParams(-1, dp(52)))
+        card.addView(tagline, LinearLayout.LayoutParams(-1, dp(34)))
 
         val description = TextView(this).apply {
             text = "Discover products. Shop freely. Enjoy\nAARVO."
@@ -95,19 +95,19 @@ class WelcomeActivity : ComponentActivity() {
             gravity = Gravity.CENTER
             setLineSpacing(0f, 1.05f)
         }
-        card.addView(description, LinearLayout.LayoutParams(-1, dp(74)).apply {
-            topMargin = dp(2)
-            bottomMargin = dp(20)
+        card.addView(description, LinearLayout.LayoutParams(-1, dp(62)).apply {
+            topMargin = dp(6)
+            bottomMargin = dp(18)
         })
 
         val login = premiumButton("  👤   Login / Sign Up", true)
-        card.addView(login, LinearLayout.LayoutParams(-1, dp(106)).apply {
-            bottomMargin = dp(18)
+        card.addView(login, LinearLayout.LayoutParams(-1, dp(58)).apply {
+            bottomMargin = dp(14)
         })
         login.setOnClickListener { openLogin() }
 
         val guest = premiumButton("  🛒   Continue as Guest", false)
-        card.addView(guest, LinearLayout.LayoutParams(-1, dp(106)))
+        card.addView(guest, LinearLayout.LayoutParams(-1, dp(58)))
         guest.setOnClickListener { enterGuest() }
 
         setContentView(root)
@@ -115,7 +115,7 @@ class WelcomeActivity : ComponentActivity() {
 
     private fun premiumButton(label: String, filled: Boolean): TextView = TextView(this).apply {
         text = label
-        textSize = 20f
+        textSize = 18f
         gravity = Gravity.CENTER
         typeface = Typeface.create("sans-serif", Typeface.BOLD)
         setTextColor(if (filled) Color.WHITE else 0xFF16131D.toInt())
