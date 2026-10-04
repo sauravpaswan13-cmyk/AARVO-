@@ -51,12 +51,6 @@ function statusFromShiprocket(data){
   return 'PROCESSING';
 }
 
-export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
-  app.get('/v1/delivery/provider-status',{preHandler:requireRole('ADMIN')},async()=>({
-    enabled:enabled(),provider:provider(),configured:Boolean(token()&&baseUrl()&&(!['shiprocket'].includes(provider())||pickupLocation())),
-    mode:'THIRD_PARTY_ONLY',pickupLocation:provider()==='shiprocket'?pickupLocation()||null:null
-  }));
-
 export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor=null}) {
   if(!pool) throw Object.assign(new Error('DATABASE_NOT_CONFIGURED'),{code:'DATABASE_NOT_CONFIGURED',status:503});
   if(!enabled()) throw Object.assign(new Error('THIRD_PARTY_DELIVERY_DISABLED'),{code:'THIRD_PARTY_DELIVERY_DISABLED',status:503});
@@ -143,6 +137,13 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
     return row.rows[0];
   }}
 
+
+
+export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
+  app.get('/v1/delivery/provider-status',{preHandler:requireRole('ADMIN')},async()=>({
+    enabled:enabled(),provider:provider(),configured:Boolean(token()&&baseUrl()&&(!['shiprocket'].includes(provider())||pickupLocation())),
+    mode:'THIRD_PARTY_ONLY',pickupLocation:provider()==='shiprocket'?pickupLocation()||null:null
+  }));
 
   app.post('/v1/admin/orders/:id/third-party-delivery',{preHandler:requireRole('ADMIN')},async(request,reply)=>{
     try { return reply.code(201).send(await createThirdPartyShipmentForOrder({pool,audit,orderId:request.params.id,actor:request.user})); }
