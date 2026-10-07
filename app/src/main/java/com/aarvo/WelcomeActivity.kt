@@ -5,12 +5,15 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.util.Base64
-import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.activity.ComponentActivity
 
+/**
+ * Welcome screen uses the supplied reference artwork as the single source of
+ * truth. Do not redraw, replace, resize, or overlay another logo on top of it.
+ */
 class WelcomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,29 +28,25 @@ class WelcomeActivity : ComponentActivity() {
 
         val root = ReferenceHitLayout(this)
 
+        // The supplied artwork already contains the exact model/design/logo.
+        // It must be rendered as one complete image; no second logo is added.
         val bytes = Base64.decode(WelcomeReferenceImage.WEBP_BASE64, Base64.DEFAULT)
         val image = ImageView(this).apply {
             setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
             scaleType = ImageView.ScaleType.FIT_XY
-            contentDescription = "AARVO welcome background"
+            contentDescription = "AARVO supplied welcome reference"
         }
         root.addView(image, FrameLayout.LayoutParams(-1, -1))
 
-        // Canonical AARVO brand asset, deliberately overlaid after the reference
-        // artwork so the logo remains present even if the artwork is regenerated.
-        val logo = ImageView(this).apply {
-            setImageBitmap(LogoUtils.loadTransparentLogo(this@WelcomeActivity))
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            contentDescription = "AARVO original logo"
-            elevation = dp(8).toFloat()
+        // Reference coordinates are based on the supplied 706x1536 artwork.
+        // Login is the upper purple button; Guest is the lower outlined button.
+        val login = View(this).apply {
+            isClickable = true
+            isFocusable = true
+            contentDescription = "Login / Signup"
+            setOnClickListener { openLogin() }
         }
-        root.addView(
-            logo,
-            FrameLayout.LayoutParams(dp(116), dp(116)).apply {
-                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                topMargin = dp(34)
-            }
-        )
+        root.addReferenceHit(login, 66f, 900f, 574f, 110f)
 
         val guest = View(this).apply {
             isClickable = true
@@ -55,23 +54,20 @@ class WelcomeActivity : ComponentActivity() {
             contentDescription = "Continue as Guest"
             setOnClickListener { enterGuest() }
         }
-        root.addReferenceHit(guest, 66f, 1138f, 574f, 116f)
-
-        val login = View(this).apply {
-            isClickable = true
-            isFocusable = true
-            contentDescription = "Login / Signup"
-            setOnClickListener { openLogin() }
-        }
-        root.addReferenceHit(login, 66f, 1280f, 574f, 112f)
+        root.addReferenceHit(guest, 66f, 1030f, 574f, 112f)
 
         setContentView(root)
     }
 
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
-
     private class ReferenceHitLayout(context: Context) : FrameLayout(context) {
-        private data class Hit(val view: View, val x: Float, val y: Float, val w: Float, val h: Float)
+        private data class Hit(
+            val view: View,
+            val x: Float,
+            val y: Float,
+            val w: Float,
+            val h: Float
+        )
+
         private val hits = mutableListOf<Hit>()
 
         fun addReferenceHit(view: View, x: Float, y: Float, w: Float, h: Float) {
@@ -103,6 +99,7 @@ class WelcomeActivity : ComponentActivity() {
             .putString("user_role", "BUYER")
             .remove("auth_token")
             .apply()
+
         startActivity(
             Intent(this, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
@@ -115,6 +112,7 @@ class WelcomeActivity : ComponentActivity() {
             .putBoolean("onboarded", true)
             .putBoolean("guest_mode", false)
             .apply()
+
         startActivity(Intent(this, PhoneAuthActivity::class.java))
         finish()
     }
