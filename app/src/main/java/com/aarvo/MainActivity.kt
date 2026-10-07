@@ -111,6 +111,138 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 
 @Composable private fun AarvoRoot(activity: MainActivity, context: Context, authRefresh: Int) {
     val prefs = remember { context.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
+    // Splash and Welcome are removed: unauthenticated users enter the Home screen as Guest.
+    val wishlistStore = remember { WishlistStore(prefs) }
+    val saveForLaterStore = remember { SaveForLaterStore(prefs) }
+    var onboarded by remember { mutableStateOf(prefs.getBoolean("onboarded", false)) }
+    var signedIn by remember(authRefresh) { mutableStateOf(prefs.getBoolean("signed_in", false)) }
+    var guestMode by remember(authRefresh) { mutableStateOf(prefs.getBoolean("guest_mode", false)) }
+    var userName by remember(authRefresh) { mutableStateOf(prefs.getString("user_name", "") ?: "") }
+    var role by remember(authRefresh) { mutableStateOf(prefs.getString("user_role", "BUYER") ?: "BUYER") }
+    val api = remember { AarvoApiClient { prefs.getString("auth_token", null) } }
+    val openOtpLogin = { prefs.edit().putBoolean("onboarded", true).apply(); activity.startActivity(Intent(activity, PhoneAuthActivity::class.java)) }
+    LaunchedEffect(signedIn, role) {
+        if (signedIn && role == "ADMIN") activity.startActivity(Intent(activity, AdminDashboardActivity::class.java))
+        if (signedIn && role == "RIDER") activity.startActivity(Intent(activity, RiderDashboardActivity::class.java))
+    }
+    when {
+        signedIn && role != "ADMIN" && role != "RIDER" -> AarvoApp(userName, role, api, activity, wishlistStore, saveForLaterStore, false, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", true).putString("user_role", "BUYER").remove("auth_token").apply(); signedIn = false; guestMode = true; role = "BUYER" })
+        guestMode || !signedIn -> AarvoApp(userName.ifBlank { "Guest" }, "BUYER", api, activity, wishlistStore, saveForLaterStore, true, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", true).putString("user_role", "BUYER").remove("auth_token").apply(); signedIn = false; guestMode = true; role = "BUYER" })
+        else -> AarvoApp(userName.ifBlank { "Guest" }, "BUYER", api, activity, wishlistStore, saveForLaterStore, true, openOtpLogin, {})
+    }ge com.aarvo
+
+// CI verification marker: account settings UI update requires Android build validation.
+
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.Image
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.aarvo.cart.CartViewModel
+import com.aarvo.cart.SaveForLaterStore
+import com.aarvo.data.Product
+import com.aarvo.network.AarvoApiClient
+import com.aarvo.payment.PaymentBridge
+import com.aarvo.ui.theme.AarvoTheme
+import com.aarvo.wishlist.WishlistStore
+import com.razorpay.Checkout
+import com.razorpay.PaymentData
+import com.razorpay.PaymentResultWithDataListener
+import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
+
+class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
+    private var razorpayCheckout: Checkout? = null
+    private var paymentCallback: ((String?, String?) -> Unit)? = null
+    private val authRefresh = mutableIntStateOf(0)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            AarvoTheme {
+                AarvoRoot(this@MainActivity, applicationContext, authRefresh.intValue)
+            }
+        }
+    }
+    override fun onResume() { super.onResume(); authRefresh.intValue++ }
+    fun startRazorpayPayment(options: JSONObject, callback: (String?, String?) -> Unit) { PaymentBridge.clear(); paymentCallback = callback; try { val checkout = Checkout(); razorpayCheckout = checkout; checkout.setKeyID(options.getString("key")); checkout.open(this, options) } catch (t: Throwable) { paymentCallback = null; callback(null, t.message ?: "Unable to open payment checkout") } }
+    override fun onPaymentSuccess(razorpayPaymentId: String?, paymentData: PaymentData?) { PaymentBridge.capture(paymentData); val callback = paymentCallback; paymentCallback = null; callback?.invoke(razorpayPaymentId, null) }
+    override fun onPaymentError(code: Int, description: String?, paymentData: PaymentData?) { PaymentBridge.capture(paymentData); val callback = paymentCallback; paymentCallback = null; callback?.invoke(null, description ?: "Payment failed (code $code)") }
+}
+
+@Composable private fun AarvoRoot(activity: MainActivity, context: Context, authRefresh: Int) {
+    val prefs = remember { context.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
+    // Splash and Welcome are removed: unauthenticated users enter the Home screen as Guest.
     val wishlistStore = remember { WishlistStore(prefs) }
     val saveForLaterStore = remember { SaveForLaterStore(prefs) }
     var onboarded by remember { mutableStateOf(prefs.getBoolean("onboarded", false)) }
