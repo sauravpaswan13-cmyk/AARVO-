@@ -133,3 +133,5 @@ jobs:
           if-no-files-found: error
 
       # Keep the Android SDK setup limited to packages that still exist on current runners.
+
+# Latest Welcome reference build verification trigger
