@@ -119,7 +119,11 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     var userName by remember(authRefresh) { mutableStateOf(prefs.getString("user_name", "") ?: "") }
     var role by remember(authRefresh) { mutableStateOf(prefs.getString("user_role", "BUYER") ?: "BUYER") }
     val api = remember { AarvoApiClient { prefs.getString("auth_token", null) } }
-    val openOtpLogin = { prefs.edit().putBoolean("onboarded", true).apply(); activity.startActivity(Intent(activity, PhoneAuthActivity::class.java)) }
+    // Welcome screen is removed, but Login/Signup remains available from Home.
+    val openOtpLogin = {
+        prefs.edit().putBoolean("onboarded", true).apply()
+        activity.startActivity(Intent(activity, PhoneAuthActivity::class.java))
+    }
     LaunchedEffect(signedIn, role) {
         if (signedIn && role == "ADMIN") activity.startActivity(Intent(activity, AdminDashboardActivity::class.java))
         if (signedIn && role == "RIDER") activity.startActivity(Intent(activity, RiderDashboardActivity::class.java))
