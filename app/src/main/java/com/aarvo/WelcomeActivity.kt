@@ -124,8 +124,10 @@ class WelcomeActivity : ComponentActivity() {
 
     private fun openLogin() {
         prefs().edit().putBoolean("onboarded", true).putBoolean("guest_mode", false).apply()
+        // Keep WelcomeActivity underneath PhoneAuthActivity. If the auth screen
+        // encounters a runtime problem, Android can return to Welcome instead
+        // of leaving the user with no entry screen.
         startActivity(Intent(this, PhoneAuthActivity::class.java))
-        finish()
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
