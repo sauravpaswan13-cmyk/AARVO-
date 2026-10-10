@@ -190,7 +190,7 @@ class PhoneAuthActivity : ComponentActivity() {
             Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Image(
-                        painter = painterResource(id = R.drawable.aarvo_entry_logo),
+                        painter = painterResource(id = R.drawable.aarvo_top_logo),
                         contentDescription = "AARVO logo",
                         contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                         modifier = Modifier.size(48.dp)
