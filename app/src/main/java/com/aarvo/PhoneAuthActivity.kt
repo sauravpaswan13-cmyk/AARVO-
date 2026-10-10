@@ -180,57 +180,57 @@ class PhoneAuthActivity : ComponentActivity() {
             if (initialPhone.length == 10 && reqId.isBlank()) sendOtp()
         }
 
-        val purple = Color(0xFF4B16D8)
-        val deepPurple = Color(0xFF32108E)
-        val orange = Color(0xFFFF7A00)
-        val page = Color(0xFFF7F5FF)
-        val soft = Color(0xFFF0ECFF)
+        val purple = Color(AarvoScreenDesign.authPurple)
+        val deepPurple = Color(AarvoScreenDesign.authDeepPurple)
+        val orange = Color(AarvoScreenDesign.authOrange)
+        val page = Color(AarvoScreenDesign.authPageBackground)
+        val soft = Color(AarvoScreenDesign.authSoftBackground)
 
         Surface(Modifier.fillMaxSize(), color = page) {
-            Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.fillMaxSize().padding(horizontal = AarvoScreenDesign.AUTH_PAGE_HORIZONTAL_PADDING_DP.dp, vertical = AarvoScreenDesign.AUTH_PAGE_VERTICAL_PADDING_DP.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Image(
                         painter = painterResource(id = R.drawable.aarvo_top_logo),
                         contentDescription = "AARVO logo",
                         contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(AarvoScreenDesign.AUTH_LOGO_SIZE_DP.dp)
                     )
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(AarvoScreenDesign.AUTH_LOGO_TEXT_GAP_DP.dp))
                     Column {
                         Text("AARVO", fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = deepPurple, letterSpacing = 1.6.sp)
-                        Text("Shop Smart • Live Better", fontSize = 11.sp, color = Color(0xFF77718B))
+                        Text("Shop Smart • Live Better", fontSize = 11.sp, color = Color(AarvoScreenDesign.authBrandMuted))
                     }
                 }
-                Spacer(Modifier.height(38.dp))
+                Spacer(Modifier.height(AarvoScreenDesign.AUTH_HEADER_TOP_GAP_DP.dp))
                 Column(Modifier.fillMaxWidth()) {
-                    Text(if (!otpMode) "Welcome back" else "Verify your mobile", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF171329))
+                    Text(if (!otpMode) "Welcome back" else "Verify your mobile", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, color = Color(AarvoScreenDesign.authTextPrimary))
                     Spacer(Modifier.height(7.dp))
-                    Text(if (!otpMode) "Login securely with your mobile number" else "Enter the OTP sent to your mobile number", fontSize = 14.sp, color = Color(0xFF706A80))
+                    Text(if (!otpMode) "Login securely with your mobile number" else "Enter the OTP sent to your mobile number", fontSize = 14.sp, color = Color(AarvoScreenDesign.authTextSecondary))
                 }
-                Spacer(Modifier.height(22.dp))
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)) {
-                    Column(Modifier.padding(22.dp)) {
+                Spacer(Modifier.height(AarvoScreenDesign.AUTH_CARD_TOP_GAP_DP.dp))
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(AarvoScreenDesign.AUTH_CARD_CORNER_DP.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)) {
+                    Column(Modifier.padding(AarvoScreenDesign.AUTH_CARD_PADDING_DP.dp)) {
                         if (!otpMode) {
-                            Text("Mobile number", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF28223B)); Spacer(Modifier.height(10.dp))
+                            Text("Mobile number", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(AarvoScreenDesign.authFieldLabel)); Spacer(Modifier.height(10.dp))
                             Row(Modifier.fillMaxWidth().height(62.dp).clip(RoundedCornerShape(18.dp)).background(soft).border(1.dp, purple.copy(alpha = .16f), RoundedCornerShape(18.dp)), verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.width(82.dp).padding(start = 16.dp)) { Text("INDIA", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF817A93)); Text("+91", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = deepPurple) }
-                                Box(Modifier.width(1.dp).height(34.dp).background(Color(0xFFD8D1EE))); Spacer(Modifier.width(8.dp))
-                                OutlinedTextField(phone, { phone = it.filter(Char::isDigit).take(10) }, placeholder = { Text("Enter 10-digit mobile number", color = Color(0xFF9A94A7), fontSize = 14.sp) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.weight(1f), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = purple, unfocusedBorderColor = Color.Transparent, focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, focusedTextColor = Color(0xFF211A32), unfocusedTextColor = Color(0xFF211A32), cursorColor = purple))
+                                Column(Modifier.width(82.dp).padding(start = 16.dp)) { Text("INDIA", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(AarvoScreenDesign.authLabelMuted)); Text("+91", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = deepPurple) }
+                                Box(Modifier.width(1.dp).height(34.dp).background(Color(AarvoScreenDesign.authDivider))); Spacer(Modifier.width(8.dp))
+                                OutlinedTextField(phone, { phone = it.filter(Char::isDigit).take(10) }, placeholder = { Text("Enter 10-digit mobile number", color = Color(AarvoScreenDesign.authPlaceholder), fontSize = 14.sp) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.weight(1f), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = purple, unfocusedBorderColor = Color.Transparent, focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, focusedTextColor = Color(AarvoScreenDesign.authFieldText), unfocusedTextColor = Color(AarvoScreenDesign.authFieldText), cursorColor = purple))
                             }
                             Spacer(Modifier.height(18.dp))
-                            Button(::sendOtp, enabled = !loading && phone.length == 10, shape = RoundedCornerShape(17.dp), colors = ButtonDefaults.buttonColors(containerColor = purple, disabledContainerColor = Color(0xFFD8D2E7)), modifier = Modifier.fillMaxWidth().height(56.dp)) {
+                            Button(::sendOtp, enabled = !loading && phone.length == 10, shape = RoundedCornerShape(17.dp), colors = ButtonDefaults.buttonColors(containerColor = purple, disabledContainerColor = Color(AarvoScreenDesign.authDisabled)), modifier = Modifier.fillMaxWidth().height(AarvoScreenDesign.AUTH_BUTTON_HEIGHT_DP.dp)) {
                                 if (loading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = Color.White) else Text("Continue", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
                             }
-                            Spacer(Modifier.height(14.dp)); Text("New to AARVO? Your account is created securely after verification.", fontSize = 11.sp, color = Color(0xFF827B90))
+                            Spacer(Modifier.height(14.dp)); Text("New to AARVO? Your account is created securely after verification.", fontSize = 11.sp, color = Color(AarvoScreenDesign.authNote))
                         } else {
-                            Text("One-time password", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF28223B)); Spacer(Modifier.height(10.dp))
-                            Text("+91 $phone", fontSize = 13.sp, color = Color(0xFF706A80), fontWeight = FontWeight.SemiBold)
+                            Text("One-time password", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(AarvoScreenDesign.authFieldLabel)); Spacer(Modifier.height(10.dp))
+                            Text("+91 $phone", fontSize = 13.sp, color = Color(AarvoScreenDesign.authTextSecondary), fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(10.dp))
                             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(soft).padding(horizontal = 4.dp)) {
-                                OutlinedTextField(otp, { otp = it.filter(Char::isDigit).take(8) }, placeholder = { Text("Enter OTP") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = purple, unfocusedBorderColor = Color.Transparent, focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, focusedTextColor = Color(0xFF211A32), unfocusedTextColor = Color(0xFF211A32), cursorColor = purple))
+                                OutlinedTextField(otp, { otp = it.filter(Char::isDigit).take(8) }, placeholder = { Text("Enter OTP") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = purple, unfocusedBorderColor = Color.Transparent, focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, focusedTextColor = Color(AarvoScreenDesign.authFieldText), unfocusedTextColor = Color(AarvoScreenDesign.authFieldText), cursorColor = purple))
                             }
                             Spacer(Modifier.height(18.dp))
-                            Button({ loading = true; error = ""; scope.launch { try { verifyLogin() } catch (t: Throwable) { error = t.message ?: "OTP verification failed." } finally { loading = false } } }, enabled = !loading && reqId.isNotBlank() && otp.length in 4..8, shape = RoundedCornerShape(17.dp), colors = ButtonDefaults.buttonColors(containerColor = purple, disabledContainerColor = Color(0xFFD8D2E7)), modifier = Modifier.fillMaxWidth().height(56.dp)) {
+                            Button({ loading = true; error = ""; scope.launch { try { verifyLogin() } catch (t: Throwable) { error = t.message ?: "OTP verification failed." } finally { loading = false } } }, enabled = !loading && reqId.isNotBlank() && otp.length in 4..8, shape = RoundedCornerShape(17.dp), colors = ButtonDefaults.buttonColors(containerColor = purple, disabledContainerColor = Color(AarvoScreenDesign.authDisabled)), modifier = Modifier.fillMaxWidth().height(AarvoScreenDesign.AUTH_BUTTON_HEIGHT_DP.dp)) {
                                 if (loading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = Color.White) else Text("Verify & Login", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
                             }
                             Spacer(Modifier.height(5.dp)); TextButton(::resend, enabled = !loading && reqId.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Resend OTP", fontWeight = FontWeight.Bold, color = purple) }
@@ -238,8 +238,8 @@ class PhoneAuthActivity : ComponentActivity() {
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) { Text("✓ Secure", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF5F586D)); Text("•", color = orange); Text("✓ Fast", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF5F586D)); Text("•", color = orange); Text("✓ Trusted", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF5F586D)) }
-                Spacer(Modifier.height(10.dp)); Text("Your mobile number is securely protected", fontSize = 11.sp, color = Color(0xFF8A8495))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) { Text("✓ Secure", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(AarvoScreenDesign.authFooter)); Text("•", color = orange); Text("✓ Fast", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(AarvoScreenDesign.authFooter)); Text("•", color = orange); Text("✓ Trusted", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(AarvoScreenDesign.authFooter)) }
+                Spacer(Modifier.height(10.dp)); Text("Your mobile number is securely protected", fontSize = 11.sp, color = Color(AarvoScreenDesign.authFooterMuted))
                 if (error.isNotBlank()) { Spacer(Modifier.height(8.dp)); Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
             }
         }
