@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -17,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -187,9 +189,12 @@ class PhoneAuthActivity : ComponentActivity() {
         Surface(Modifier.fillMaxSize(), color = page) {
             Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(orange, purple))), contentAlignment = Alignment.Center) {
-                        Text("A", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold)
-                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.aarvo_entry_logo),
+                        contentDescription = "AARVO logo",
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                        modifier = Modifier.size(48.dp)
+                    )
                     Spacer(Modifier.width(12.dp))
                     Column {
                         Text("AARVO", fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = deepPurple, letterSpacing = 1.6.sp)
