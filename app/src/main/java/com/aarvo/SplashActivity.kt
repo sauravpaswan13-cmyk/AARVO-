@@ -1,7 +1,6 @@
 package com.aarvo
 
 import android.animation.ObjectAnimator
-import android.animation.PropertyValuesHolder
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -13,204 +12,168 @@ import android.view.Gravity
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.util.Log
 import androidx.activity.ComponentActivity
 
 /**
- * Lightweight native splash: no network work, no Compose, and no indefinite loading.
- * Shows floating shopping-category icons and animated colourful AARVO lettering,
- * then opens phone login directly.
+ * Lightweight white AARVO splash. No bitmap/logo decoding is performed here,
+ * so a damaged or oversized legacy logo cannot crash app startup.
  */
 class SplashActivity : ComponentActivity() {
     private val handler = Handler(Looper.getMainLooper())
-    private var openedLogin = false
+    private var openingLogin = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or
-            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
             View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-        window.statusBarColor = Color.TRANSPARENT
+        window.statusBarColor = Color.WHITE
         window.navigationBarColor = Color.WHITE
 
         val root = FrameLayout(this).apply {
-            setBackground(GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.WHITE, Color.rgb(250, 252, 255), Color.rgb(255, 249, 244))
-            ))
+            setBackgroundColor(Color.WHITE)
+            clipChildren = false
+            clipToPadding = false
         }
 
-        // Floating shopping categories, spaced around the brand and independently animated.
+        // Transparent emoji TextViews on a pure white background, floating all around.
         val products = listOf(
-            Product("🎁", 0.08f, 0.12f, 22, -16f),
-            Product("👟", 0.72f, 0.11f, 25, 14f),
-            Product("📱", 0.12f, 0.31f, 27, 12f),
-            Product("👕", 0.76f, 0.30f, 27, -13f),
-            Product("🛍️", 0.04f, 0.52f, 28, 15f),
-            Product("💄", 0.81f, 0.48f, 25, -15f),
-            Product("👗", 0.14f, 0.70f, 27, -12f),
-            Product("💻", 0.74f, 0.69f, 25, 12f),
-            Product("🧴", 0.08f, 0.84f, 23, -13f),
-            Product("🧊", 0.76f, 0.84f, 25, 14f),
-            Product("🧥", 0.88f, 0.58f, 24, 12f),
-            Product("🎀", 0.88f, 0.22f, 23, -12f),
-            Product("🧸", 0.28f, 0.10f, 22, 10f),
-            Product("🪞", 0.62f, 0.86f, 23, -12f)
+            Product("🎁", .03f, .04f, 27, -12f), Product("👟", .25f, .03f, 25, 13f),
+            Product("📱", .53f, .04f, 27, -10f), Product("👕", .78f, .05f, 26, 12f),
+            Product("🛍️", .88f, .17f, 29, -13f), Product("💄", .06f, .20f, 25, 11f),
+            Product("👗", .25f, .19f, 26, -14f), Product("💻", .72f, .22f, 27, 12f),
+            Product("🧴", .02f, .37f, 24, -10f), Product("🧊", .83f, .36f, 27, 13f),
+            Product("🎀", .14f, .48f, 24, 14f), Product("🧸", .77f, .47f, 25, -12f),
+            Product("📺", .02f, .60f, 27, 11f), Product("👚", .24f, .65f, 26, -13f),
+            Product("🎧", .75f, .63f, 25, 12f), Product("👜", .89f, .70f, 27, -11f),
+            Product("🧥", .06f, .80f, 25, -12f), Product("💍", .31f, .84f, 24, 12f),
+            Product("🛒", .56f, .82f, 27, -13f), Product("🪞", .82f, .84f, 25, 11f),
+            Product("👠", .18f, .94f, 25, -10f), Product("🎮", .67f, .94f, 25, 12f),
+            Product("❄️", .94f, .49f, 23, -10f), Product("🧢", .46f, .14f, 24, 10f),
+            Product("📦", .48f, .70f, 25, -11f), Product("🧦", .94f, .91f, 24, 13f)
         )
+
         products.forEachIndexed { index, item ->
             val icon = TextView(this).apply {
                 text = item.emoji
                 textSize = item.size.toFloat()
                 gravity = Gravity.CENTER
-                elevation = dp(5).toFloat()
-                setShadowLayer(dp(5).toFloat(), 0f, dp(2).toFloat(), Color.argb(38, 50, 40, 90))
+                alpha = 0.48f
+                includeFontPadding = false
+                // No background, no card, no shadow: the emoji itself floats on white.
+                setBackgroundColor(Color.TRANSPARENT)
             }
-            val params = FrameLayout.LayoutParams(dp(54), dp(54), Gravity.TOP or Gravity.START)
-            root.addView(icon, params)
+            root.addView(icon, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.TOP or Gravity.START))
             root.post {
+                if (isFinishing || isDestroyed) return@post
                 val maxX = (root.width - icon.width).coerceAtLeast(0)
                 val maxY = (root.height - icon.height).coerceAtLeast(0)
                 icon.x = maxX * item.x
                 icon.y = maxY * item.y
                 icon.rotation = item.rotation
-                val bob = ObjectAnimator.ofPropertyValuesHolder(
-                    icon,
-                    PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, -dp(9).toFloat(), dp(9).toFloat()),
-                    PropertyValuesHolder.ofFloat(View.ROTATION, item.rotation - 5f, item.rotation + 5f)
-                ).apply {
-                    duration = (1500L + index * 95L)
+                ObjectAnimator.ofFloat(icon, View.TRANSLATION_Y, -dp(7).toFloat(), dp(7).toFloat()).apply {
+                    duration = 1600L + (index % 7) * 140L
                     repeatCount = ObjectAnimator.INFINITE
                     repeatMode = ObjectAnimator.REVERSE
                     interpolator = AccelerateDecelerateInterpolator()
+                    start()
                 }
-                bob.start()
+                ObjectAnimator.ofFloat(icon, View.ROTATION, item.rotation - 5f, item.rotation + 5f).apply {
+                    duration = 2100L + (index % 5) * 170L
+                    repeatCount = ObjectAnimator.INFINITE
+                    repeatMode = ObjectAnimator.REVERSE
+                    interpolator = AccelerateDecelerateInterpolator()
+                    start()
+                }
             }
         }
 
         val center = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
+            setBackgroundColor(Color.TRANSPARENT)
+            elevation = dp(2).toFloat()
         }
-        val logo = ImageView(this).apply {
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            contentDescription = "AARVO PNG logo"
-            // A missing/invalid logo must never crash the splash screen.
-            try {
-                setImageBitmap(LogoUtils.loadTransparentLogo(this@SplashActivity))
-            } catch (_: Throwable) {
-                visibility = View.GONE
-            }
-        }
-        center.addView(logo, LinearLayout.LayoutParams(dp(92), dp(92)).apply {
-            bottomMargin = dp(5)
-        })
 
-        // Premium shopping trolley sits directly above the colourful AARVO wordmark.
         val trolley = TextView(this).apply {
             text = "🛒"
-            textSize = 43f
+            textSize = 58f
             gravity = Gravity.CENTER
-            elevation = dp(6).toFloat()
-            setShadowLayer(dp(3).toFloat(), dp(1).toFloat(), dp(3).toFloat(), Color.argb(60, 60, 45, 110))
+            includeFontPadding = false
+            setBackgroundColor(Color.TRANSPARENT)
         }
-        center.addView(trolley, LinearLayout.LayoutParams(dp(84), dp(58)).apply {
-            bottomMargin = dp(0)
-        })
-        trolley.post {
-            trolley.animate().translationY(-dp(3).toFloat()).setDuration(700)
-                .withEndAction {
-                    if (!isFinishing && !isDestroyed) {
-                        trolley.animate().translationY(0f).setDuration(700).start()
-                    }
-                }.start()
-        }
+        center.addView(trolley, LinearLayout.LayoutParams(dp(100), dp(76)))
 
         val letters = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
+            setBackgroundColor(Color.TRANSPARENT)
         }
-        val letterColours = intArrayOf(
-            Color.rgb(88, 56, 190), Color.rgb(0, 153, 218),
-            Color.rgb(238, 89, 78), Color.rgb(255, 150, 32), Color.rgb(28, 165, 116)
+        val colours = intArrayOf(
+            Color.rgb(88, 56, 190), Color.rgb(0, 153, 218), Color.rgb(238, 89, 78),
+            Color.rgb(255, 150, 32), Color.rgb(28, 165, 116)
         )
         "AARVO".forEachIndexed { index, char ->
             val letter = TextView(this).apply {
                 text = char.toString()
-                textSize = 37f
+                textSize = 39f
                 typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
-                setTextColor(letterColours[index])
-                setShadowLayer(dp(1.5f).toFloat(), dp(2).toFloat(), dp(3).toFloat(), Color.rgb(175, 175, 190))
+                setTextColor(colours[index])
                 gravity = Gravity.CENTER
+                includeFontPadding = false
                 alpha = 0f
-                scaleX = 0.45f
-                scaleY = 0.45f
+                scaleX = .65f
+                scaleY = .65f
+                setBackgroundColor(Color.TRANSPARENT)
             }
-            letters.addView(letter, LinearLayout.LayoutParams(-2, dp(55)).apply {
-                marginStart = dp(1)
-                marginEnd = dp(1)
+            letters.addView(letter, LinearLayout.LayoutParams(-2, dp(58)).apply {
+                marginStart = dp(1); marginEnd = dp(1)
             })
             letter.postDelayed({
                 if (!isFinishing && !isDestroyed) {
-                    letter.animate().alpha(1f).scaleX(1f).scaleY(1f)
-                        .setDuration(360).setInterpolator(AccelerateDecelerateInterpolator()).start()
+                    letter.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(320L)
+                        .setInterpolator(AccelerateDecelerateInterpolator()).start()
                 }
-            }, 180L + index * 170L)
+            }, 160L + index * 150L)
         }
         center.addView(letters, LinearLayout.LayoutParams(-2, -2))
 
         val tagline = TextView(this).apply {
             text = "SHOP SMART  •  LIVE BETTER"
             textSize = 11f
-            letterSpacing = 0.13f
-            setTextColor(Color.rgb(103, 100, 125))
+            letterSpacing = .12f
+            setTextColor(Color.rgb(100, 100, 120))
             gravity = Gravity.CENTER
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setBackgroundColor(Color.TRANSPARENT)
         }
-        center.addView(tagline, LinearLayout.LayoutParams(-1, -2).apply {
-            topMargin = dp(9)
-        })
-
-        val shine = View(this).apply {
-            background = GradientDrawable(
-                GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(Color.rgb(88, 56, 190), Color.rgb(0, 170, 205), Color.rgb(255, 150, 32))
-            ).apply { cornerRadius = dp(4).toFloat() }
-        }
-        center.addView(shine, LinearLayout.LayoutParams(dp(82), dp(4)).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-            topMargin = dp(18)
-        })
+        center.addView(tagline, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         root.addView(center, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
         setContentView(root)
 
-        // Keep splash duration bounded; it must never sit on an endless loading indicator.
-        handler.postDelayed({ openPhoneLogin() }, 2400L)
+        handler.postDelayed({ openPhoneLogin() }, 2200L)
     }
 
     private data class Product(
-        val emoji: String,
-        val x: Float,
-        val y: Float,
-        val size: Int,
-        val rotation: Float
+        val emoji: String, val x: Float, val y: Float, val size: Int, val rotation: Float
     )
 
     private fun openPhoneLogin() {
-        if (openedLogin || isFinishing || isDestroyed) return
-        openedLogin = true
+        if (openingLogin || isFinishing || isDestroyed) return
+        openingLogin = true
         try {
             startActivity(Intent(this, PhoneAuthActivity::class.java))
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
             finish()
         } catch (t: Throwable) {
-            // If launching login fails, leave the branded screen visible rather than
-            // immediately closing the whole app; logs will identify the underlying issue.
-            openedLogin = false
-            android.util.Log.e("AARVO-Splash", "Could not open phone login", t)
-            handler.postDelayed({ openPhoneLogin() }, 1200L)
+            openingLogin = false
+            Log.e("AARVO-Splash", "Could not open phone login", t)
+            // Keep splash alive and retry instead of closing the app.
+            handler.postDelayed({ openPhoneLogin() }, 1500L)
         }
     }
 
@@ -220,5 +183,4 @@ class SplashActivity : ComponentActivity() {
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
-    private fun dp(value: Float): Int = (value * resources.displayMetrics.density).toInt()
 }
