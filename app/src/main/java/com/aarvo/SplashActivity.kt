@@ -57,39 +57,18 @@ class SplashActivity : ComponentActivity() {
             Product("📦", .48f, .70f, 25, -11f), Product("🧦", .94f, .91f, 24, 13f)
         )
 
-        products.forEachIndexed { index, item ->
+        val emojiViews = mutableListOf<Pair<TextView, Product>>()
+        products.forEach { item ->
             val icon = TextView(this).apply {
                 text = item.emoji
                 textSize = item.size.toFloat()
                 gravity = Gravity.CENTER
                 alpha = 0.48f
                 includeFontPadding = false
-                // No background, no card, no shadow: the emoji itself floats on white.
                 setBackgroundColor(Color.TRANSPARENT)
             }
             root.addView(icon, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.TOP or Gravity.START))
-            root.post {
-                if (isFinishing || isDestroyed) return@post
-                val maxX = (root.width - icon.width).coerceAtLeast(0)
-                val maxY = (root.height - icon.height).coerceAtLeast(0)
-                icon.x = maxX * item.x
-                icon.y = maxY * item.y
-                icon.rotation = item.rotation
-                ObjectAnimator.ofFloat(icon, View.TRANSLATION_Y, -dp(7).toFloat(), dp(7).toFloat()).apply {
-                    duration = 1600L + (index % 7) * 140L
-                    repeatCount = ObjectAnimator.INFINITE
-                    repeatMode = ObjectAnimator.REVERSE
-                    interpolator = AccelerateDecelerateInterpolator()
-                    start()
-                }
-                ObjectAnimator.ofFloat(icon, View.ROTATION, item.rotation - 5f, item.rotation + 5f).apply {
-                    duration = 2100L + (index % 5) * 170L
-                    repeatCount = ObjectAnimator.INFINITE
-                    repeatMode = ObjectAnimator.REVERSE
-                    interpolator = AccelerateDecelerateInterpolator()
-                    start()
-                }
-            }
+            emojiViews.add(icon to item)
         }
 
         val center = LinearLayout(this).apply {
@@ -154,6 +133,41 @@ class SplashActivity : ComponentActivity() {
         center.addView(tagline, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         root.addView(center, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
         setContentView(root)
+
+        // Position icons only after the root has a real measured size; posting before
+        // first layout caused all emojis to use a zero-height canvas and sit in one row.
+        root.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+            override fun onLayoutChange(
+                view: View, left: Int, top: Int, right: Int, bottom: Int,
+                oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int
+            ) {
+                if (right <= left || bottom <= top) return
+                root.removeOnLayoutChangeListener(this)
+                emojiViews.forEachIndexed { index, pair ->
+                    val icon = pair.first
+                    val item = pair.second
+                    val maxX = (root.width - icon.width).coerceAtLeast(0)
+                    val maxY = (root.height - icon.height).coerceAtLeast(0)
+                    icon.x = maxX * item.x
+                    icon.y = maxY * item.y
+                    icon.rotation = item.rotation
+                    ObjectAnimator.ofFloat(icon, View.TRANSLATION_Y, -dp(12).toFloat(), dp(12).toFloat()).apply {
+                        duration = 1600L + (index % 7) * 140L
+                        repeatCount = ObjectAnimator.INFINITE
+                        repeatMode = ObjectAnimator.REVERSE
+                        interpolator = AccelerateDecelerateInterpolator()
+                        start()
+                    }
+                    ObjectAnimator.ofFloat(icon, View.ROTATION, item.rotation - 7f, item.rotation + 7f).apply {
+                        duration = 2100L + (index % 5) * 170L
+                        repeatCount = ObjectAnimator.INFINITE
+                        repeatMode = ObjectAnimator.REVERSE
+                        interpolator = AccelerateDecelerateInterpolator()
+                        start()
+                    }
+                }
+            }
+        })
 
         handler.postDelayed({ openPhoneLogin() }, 2200L)
     }
