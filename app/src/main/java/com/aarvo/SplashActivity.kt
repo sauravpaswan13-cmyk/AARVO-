@@ -66,10 +66,10 @@ class SplashActivity : ComponentActivity() {
         root.addView(tagline, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(7) })
 
         val accent = View(this).apply {
-            background = GradientDrawable(
+            setBackground(GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
                 intArrayOf(Color.rgb(104, 72, 214), Color.rgb(255, 150, 55))
-            ).apply { cornerRadius = dp(3).toFloat() }
+            ).apply { cornerRadius = dp(3).toFloat() })
         }
         root.addView(accent, LinearLayout.LayoutParams(dp(58), dp(4)).apply {
             gravity = Gravity.CENTER_HORIZONTAL
