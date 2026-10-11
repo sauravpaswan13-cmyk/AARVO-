@@ -100,6 +100,17 @@ class PhoneAuthActivity : ComponentActivity() {
             .putString("auth_token", token).commit()
     }
 
+    private fun enterGuest() {
+        getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE).edit()
+            .putBoolean("onboarded", true).putBoolean("guest_mode", true)
+            .putBoolean("signed_in", false).putString("user_role", "BUYER")
+            .remove("auth_token").apply()
+        startActivity(Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        })
+        finish()
+    }
+
     private fun openMain() {
         startActivity(Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -235,6 +246,18 @@ class PhoneAuthActivity : ComponentActivity() {
                             }
                             Spacer(Modifier.height(5.dp)); TextButton(::resend, enabled = !loading && reqId.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Resend OTP", fontWeight = FontWeight.Bold, color = purple) }
                         }
+                    }
+                }
+                if (!otpMode) {
+                    Spacer(Modifier.height(14.dp))
+                    OutlinedButton(
+                        onClick = { enterGuest() },
+                        shape = RoundedCornerShape(17.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, purple.copy(alpha = 0.65f)),
+                        modifier = Modifier.fillMaxWidth().height(AarvoScreenDesign.AUTH_BUTTON_HEIGHT_DP.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = deepPurple)
+                    ) {
+                        Text("Continue as Guest", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
                 }
                 Spacer(Modifier.weight(1f))
