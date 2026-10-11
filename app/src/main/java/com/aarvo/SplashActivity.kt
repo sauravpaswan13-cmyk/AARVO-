@@ -1,6 +1,8 @@
 package com.aarvo
 
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -13,6 +15,9 @@ import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
+import android.app.AlertDialog
+import android.widget.Toast
+import java.io.File
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.content.Context
@@ -24,6 +29,7 @@ class SplashActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        installCrashRecorder()
         window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
@@ -74,7 +80,55 @@ class SplashActivity : ComponentActivity() {
         center.addView(tagline, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         root.addView(center, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
         setContentView(root)
-        handler.postDelayed({ openPhoneLogin() }, 1600L)
+        val report = File(filesDir, "aarvo_crash_report.txt")
+        if (report.exists()) {
+            showCrashReport(report)
+        } else {
+            handler.postDelayed({ openPhoneLogin() }, 1600L)
+        }
+    }
+
+    private fun installCrashRecorder() {
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            try {
+                val report = File(filesDir, "aarvo_crash_report.txt")
+                report.writeText(buildString {
+                    appendLine("AARVO crash diagnostic")
+                    appendLine("Time: ${java.util.Date()}")
+                    appendLine("Thread: ${thread.name}")
+                    appendLine("Android: ${android.os.Build.VERSION.RELEASE} (SDK ${android.os.Build.VERSION.SDK_INT})")
+                    appendLine("Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+                    appendLine()
+                    append(error.stackTraceToString())
+                })
+            } catch (_: Throwable) { }
+            previous?.uncaughtException(thread, error)
+        }
+    }
+
+    private fun showCrashReport(report: File) {
+        val details = runCatching { report.readText() }.getOrDefault("Crash report could not be read.")
+        AlertDialog.Builder(this)
+            .setTitle("AARVO crash report found")
+            .setMessage("The previous launch crashed. Tap Copy report and send the copied text here so the exact cause can be fixed.\n\n" + details.take(1800))
+            .setPositiveButton("Copy report") { dialog, _ ->
+                runCatching {
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("AARVO crash report", details))
+                    report.delete()
+                    Toast.makeText(this, "Crash report copied. Paste it into this chat.", Toast.LENGTH_LONG).show()
+                }.onFailure { Toast.makeText(this, "Could not copy report", Toast.LENGTH_LONG).show() }
+                dialog.dismiss()
+                handler.postDelayed({ openPhoneLogin() }, 500L)
+            }
+            .setNegativeButton("Continue") { dialog, _ ->
+                report.delete()
+                dialog.dismiss()
+                handler.postDelayed({ openPhoneLogin() }, 500L)
+            }
+            .setCancelable(false)
+            .show()
     }
 
     private fun openPhoneLogin() {
