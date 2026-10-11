@@ -57,8 +57,9 @@ android {
     buildTypes {
         getByName("release") {
             if (hasReleaseSigning) signingConfig = signingConfigs.getByName("production")
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // Keep MSG91 SDK's dynamically loaded resources and obfuscated runtime code intact.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
