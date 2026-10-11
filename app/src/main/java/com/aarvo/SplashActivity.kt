@@ -11,7 +11,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.activity.ComponentActivity
 
-/** Clean splash: one logo only, then the functional Welcome screen. */
+/** Clean splash: preserve the shared logo exactly, then open mobile-number login directly. */
 class SplashActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,7 +36,7 @@ class SplashActivity : ComponentActivity() {
         setContentView(root)
 
         Handler(Looper.getMainLooper()).postDelayed({
-            startActivity(Intent(this, WelcomeActivity::class.java))
+            startActivity(Intent(this, PhoneAuthActivity::class.java))
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
             finish()
         }, 1400L)
