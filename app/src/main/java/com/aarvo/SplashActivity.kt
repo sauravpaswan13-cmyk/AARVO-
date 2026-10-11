@@ -108,6 +108,26 @@ class SplashActivity : ComponentActivity() {
             bottomMargin = dp(5)
         })
 
+        // Premium shopping trolley sits directly above the colourful AARVO wordmark.
+        val trolley = TextView(this).apply {
+            text = "🛒"
+            textSize = 43f
+            gravity = Gravity.CENTER
+            elevation = dp(6).toFloat()
+            setShadowLayer(dp(3).toFloat(), dp(1).toFloat(), dp(3).toFloat(), Color.argb(60, 60, 45, 110))
+        }
+        center.addView(trolley, LinearLayout.LayoutParams(dp(84), dp(58)).apply {
+            bottomMargin = dp(0)
+        })
+        trolley.post {
+            trolley.animate().translationY(-dp(3).toFloat()).setDuration(700)
+                .withEndAction {
+                    if (!isFinishing && !isDestroyed) {
+                        trolley.animate().translationY(0f).setDuration(700).start()
+                    }
+                }.start()
+        }
+
         val letters = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -122,7 +142,7 @@ class SplashActivity : ComponentActivity() {
                 textSize = 37f
                 typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
                 setTextColor(letterColours[index])
-                setShadowLayer(dp(1.5f), dp(2).toFloat(), dp(3).toFloat(), Color.rgb(175, 175, 190))
+                setShadowLayer(dp(1.5f).toFloat(), dp(2).toFloat(), dp(3).toFloat(), Color.rgb(175, 175, 190))
                 gravity = Gravity.CENTER
                 alpha = 0f
                 scaleX = 0.45f
