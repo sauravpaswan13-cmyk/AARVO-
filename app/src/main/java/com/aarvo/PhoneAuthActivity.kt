@@ -18,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import coil.compose.rememberAsyncImagePainter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -201,14 +201,14 @@ class PhoneAuthActivity : ComponentActivity() {
             Column(Modifier.fillMaxSize().padding(horizontal = AarvoScreenDesign.AUTH_PAGE_HORIZONTAL_PADDING_DP.dp, vertical = AarvoScreenDesign.AUTH_PAGE_VERTICAL_PADDING_DP.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Image(
-                        painter = painterResource(id = R.drawable.aarvo_top_logo),
+                        painter = rememberAsyncImagePainter(model = R.drawable.aarvo_top_logo),
                         contentDescription = "AARVO logo",
                         contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                         modifier = Modifier.size(AarvoScreenDesign.AUTH_LOGO_SIZE_DP.dp)
                     )
                     Spacer(Modifier.width(AarvoScreenDesign.AUTH_LOGO_TEXT_GAP_DP.dp))
                     Column {
-                        Text("AARVO", fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = deepPurple, letterSpacing = 1.6.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) { listOf("A" to Color(0xFF5838BE), "A" to Color(0xFF0099DA), "R" to Color(0xFFEE594E), "V" to Color(0xFFFF9620), "O" to Color(0xFF1CA574)).forEach { (letter, tint) -> Text(letter, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = tint, letterSpacing = 0.5.sp) } }
                         Text("Shop Smart • Live Better", fontSize = 11.sp, color = Color(AarvoScreenDesign.authBrandMuted))
                     }
                 }
