@@ -134,7 +134,7 @@ class PhoneAuthActivity : ComponentActivity() {
 
         suspend fun verifyLogin() {
             val normalized = phone.filter(Char::isDigit).takeLast(10)
-            val session = withTimeout(20000) { server.verifyOtp(normalized, reqId, otp, "BUYER") }
+            val session = withTimeout(45000) { server.verifyOtp(normalized, reqId, otp, "BUYER") }
             val token = session.optString("token").trim()
             if (token.isBlank()) throw IllegalStateException("AARVO server did not return a login token.")
             val role = session.optJSONObject("user")?.optString("role", "BUYER")?.uppercase() ?: "BUYER"
@@ -208,13 +208,13 @@ class PhoneAuthActivity : ComponentActivity() {
                     )
                     Spacer(Modifier.width(AarvoScreenDesign.AUTH_LOGO_TEXT_GAP_DP.dp))
                     Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) { listOf("A" to Color(0xFF5838BE), "A" to Color(0xFF0099DA), "R" to Color(0xFFEE594E), "V" to Color(0xFFFF9620), "O" to Color(0xFF1CA574)).forEach { (letter, tint) -> Text(letter, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = tint, letterSpacing = 0.5.sp) } }
+                        Row(verticalAlignment = Alignment.CenterVertically) { Text("AARVO", fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = orange, letterSpacing = 0.5.sp) }
                         Text("Shop Smart • Live Better", fontSize = 11.sp, color = Color(AarvoScreenDesign.authBrandMuted))
                     }
                 }
                 Spacer(Modifier.height(AarvoScreenDesign.AUTH_HEADER_TOP_GAP_DP.dp))
                 Column(Modifier.fillMaxWidth()) {
-                    Text(if (!otpMode) "Welcome back" else "Verify your mobile", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, color = Color(AarvoScreenDesign.authTextPrimary))
+                    Text(if (!otpMode) "Login to AARVO" else "Verify your mobile", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, color = Color(AarvoScreenDesign.authTextPrimary))
                     Spacer(Modifier.height(7.dp))
                     Text(if (!otpMode) "Login securely with your mobile number" else "Enter the OTP sent to your mobile number", fontSize = 14.sp, color = Color(AarvoScreenDesign.authTextSecondary))
                 }
