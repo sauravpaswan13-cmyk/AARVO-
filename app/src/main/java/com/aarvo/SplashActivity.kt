@@ -83,7 +83,7 @@ class SplashActivity : ComponentActivity() {
                 for (i in 0 until letters.childCount) {
                     val tv = letters.getChildAt(i) as? TextView ?: continue
                     val offset = (frac + i * 0.15f) % 1f
-                    val wave = Math.sin(offset * Math.PI.toFloat()).toFloat().coerceIn(0f, 1f)
+                    val wave = Math.sin(offset.toDouble() * Math.PI).toFloat().coerceIn(0f, 1f)
                     val r = (255 * (0.85f + 0.15f * wave)).toInt().coerceIn(0, 255)
                     val g = (120 + 90 * wave).toInt().coerceIn(0, 255)
                     val b = (20 * wave).toInt().coerceIn(0, 255)

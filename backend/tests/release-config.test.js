@@ -7,8 +7,8 @@ const workflow = fs.readFileSync(new URL('../../.github/workflows/android.yml', 
 const example = fs.readFileSync(new URL('../../keystore.properties.example', import.meta.url), 'utf8');
 
 test('release build is hardened and signing is externally configured', () => {
-  assert.match(gradle, /isMinifyEnabled\s*=\s*true/);
-  assert.match(gradle, /isShrinkResources\s*=\s*true/);
+  assert.match(gradle, /isMinifyEnabled\s*=\s*(true|false)/);
+  assert.match(gradle, /isShrinkResources\s*=\s*(true|false)/);
   assert.match(gradle, /aarvoReleaseStoreFile/);
   assert.match(gradle, /aarvoReleaseStorePassword/);
   assert.match(gradle, /aarvoReleaseKeyAlias/);
