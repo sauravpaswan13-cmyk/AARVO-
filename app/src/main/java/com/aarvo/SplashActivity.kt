@@ -46,10 +46,10 @@ class SplashActivity : ComponentActivity() {
             gravity = Gravity.CENTER
         }
         center.addView(ImageView(this).apply {
-            setImageResource(R.drawable.aarvo_welcome_hero)
+            setImageResource(R.drawable.aarvo_brand_logo)
             scaleType = ImageView.ScaleType.FIT_CENTER
-            contentDescription = "AARVO shopping trolley"
-        }, LinearLayout.LayoutParams(dp(76), dp(64)).apply {
+            contentDescription = "AARVO brand logo"
+        }, LinearLayout.LayoutParams(dp(110), dp(110)).apply {
             bottomMargin = dp(7)
         })
 
@@ -87,7 +87,7 @@ class SplashActivity : ComponentActivity() {
         if (report.exists()) {
             showCrashReport(report)
         } else {
-            handler.postDelayed({ openPhoneLogin() }, 1600L)
+            handler.postDelayed({ openPhoneLogin() }, 1300L)
         }
     }
 
