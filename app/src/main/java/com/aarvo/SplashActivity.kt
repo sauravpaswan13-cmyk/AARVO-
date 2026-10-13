@@ -155,10 +155,10 @@ class SplashActivity : ComponentActivity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
-    /** Subtle animated orange light ribbons confined to opposite screen corners. */
+    /** Glowing orange corner-frame ribbons, softly pulsing like flowing light. */
     private class FlowingCornerLights(context: Context) : View(context) {
         private val density = resources.displayMetrics.density
-        private val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
@@ -170,42 +170,44 @@ class SplashActivity : ComponentActivity() {
             val w = width.toFloat()
             val h = height.toFloat()
             if (w <= 0f || h <= 0f) return
-            phase = (phase + 0.025f) % 1f
+            phase = (phase + 0.035f) % (Math.PI.toFloat() * 2f)
+            val pulse = (0.72f + 0.28f * kotlin.math.sin(phase)).coerceIn(0.35f, 1f)
             canvas.save()
-            // Top-left flowing orange ribbons with soft golden light.
-            drawRibbon(canvas, floatArrayOf(
-                0f, 0f, w * 0.23f, h * 0.015f, w * 0.20f, h * 0.075f, w * 0.43f, h * 0.105f
-            ), 34f, 0x55FF8A00.toInt(), 20f)
-            drawRibbon(canvas, floatArrayOf(
-                0f, h * 0.095f, w * 0.15f, h * 0.045f, w * 0.19f, h * 0.018f, w * 0.48f, 0f
-            ), 2.4f, 0xFFFFA126.toInt(), 0f)
-            drawRibbon(canvas, floatArrayOf(
-                0f, h * 0.13f, w * 0.11f, h * 0.065f, w * 0.22f, h * 0.025f, w * 0.40f, 0f
-            ), 1.3f, 0xFFFFE2A8.toInt(), 0f)
-            // Bottom-right matching light ribbons.
-            drawRibbon(canvas, floatArrayOf(
-                w, h, w * 0.76f, h * 0.985f, w * 0.79f, h * 0.925f, w * 0.56f, h * 0.895f
-            ), 34f, 0x55FF8A00.toInt(), 20f)
-            drawRibbon(canvas, floatArrayOf(
-                w, h * 0.905f, w * 0.85f, h * 0.955f, w * 0.81f, h * 0.982f, w * 0.52f, h
-            ), 2.4f, 0xFFFFA126.toInt(), 0f)
-            drawRibbon(canvas, floatArrayOf(
-                w, h * 0.87f, w * 0.89f, h * 0.935f, w * 0.78f, h * 0.975f, w * 0.60f, h
-            ), 1.3f, 0xFFFFE2A8.toInt(), 0f)
+
+            // Broad translucent orange frame bands in the upper-left and lower-right.
+            drawCurve(canvas, floatArrayOf(0f, 0f, w*.23f, h*.008f, w*.18f, h*.075f, w*.43f, h*.105f),
+                38f, 0x33FF8A00, pulse, 18f)
+            drawCurve(canvas, floatArrayOf(0f, h*.10f, w*.12f, h*.055f, w*.22f, h*.018f, w*.44f, 0f),
+                12f, 0x44FF9B18, pulse, 8f)
+            drawCurve(canvas, floatArrayOf(0f, h*.095f, w*.14f, h*.045f, w*.19f, h*.018f, w*.48f, 0f),
+                2.6f, 0xFFFFA126.toInt(), pulse, 0f)
+            drawCurve(canvas, floatArrayOf(0f, h*.13f, w*.11f, h*.065f, w*.22f, h*.025f, w*.40f, 0f),
+                1.4f, 0xFFFFE7B5.toInt(), pulse, 0f)
+
+            drawCurve(canvas, floatArrayOf(w, h, w*.77f, h*.992f, w*.82f, h*.925f, w*.57f, h*.895f),
+                38f, 0x33FF8A00, pulse, 18f)
+            drawCurve(canvas, floatArrayOf(w, h*.90f, w*.88f, h*.945f, w*.78f, h*.982f, w*.54f, h),
+                12f, 0x44FF9B18, pulse, 8f)
+            drawCurve(canvas, floatArrayOf(w, h*.905f, w*.85f, h*.955f, w*.81f, h*.982f, w*.52f, h),
+                2.6f, 0xFFFFA126.toInt(), pulse, 0f)
+            drawCurve(canvas, floatArrayOf(w, h*.87f, w*.89f, h*.935f, w*.78f, h*.975f, w*.60f, h),
+                1.4f, 0xFFFFE7B5.toInt(), pulse, 0f)
             canvas.restore()
-            postInvalidateDelayed(40L)
+            postInvalidateDelayed(45L)
         }
 
-        private fun drawRibbon(canvas: Canvas, p: FloatArray, strokeDp: Float, color: Int, blurDp: Float) {
+        private fun drawCurve(canvas: Canvas, p: FloatArray, widthDp: Float, color: Int, pulse: Float, blurDp: Float) {
             val path = Path().apply {
                 moveTo(p[0], p[1])
                 cubicTo(p[2], p[3], p[4], p[5], p[6], p[7])
             }
-            glow.color = color
-            glow.strokeWidth = strokeDp * density
-            glow.maskFilter = if (blurDp > 0f) BlurMaskFilter(blurDp * density, BlurMaskFilter.Blur.NORMAL) else null
-            canvas.drawPath(path, glow)
-            glow.maskFilter = null
+            paint.color = color
+            paint.alpha = (Color.alpha(color) * pulse).toInt().coerceIn(0, 255)
+            paint.strokeWidth = widthDp * density
+            paint.maskFilter = if (blurDp > 0f) BlurMaskFilter(blurDp * density, BlurMaskFilter.Blur.NORMAL) else null
+            canvas.drawPath(path, paint)
+            paint.maskFilter = null
+            paint.alpha = 255
         }
     }
 }
