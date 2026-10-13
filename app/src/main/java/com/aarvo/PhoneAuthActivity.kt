@@ -201,7 +201,7 @@ class PhoneAuthActivity : ComponentActivity() {
             Column(Modifier.fillMaxSize().padding(horizontal = AarvoScreenDesign.AUTH_PAGE_HORIZONTAL_PADDING_DP.dp, vertical = AarvoScreenDesign.AUTH_PAGE_VERTICAL_PADDING_DP.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Image(
-                        painter = rememberAsyncImagePainter(model = R.drawable.aarvo_welcome_hero),
+                        painter = rememberAsyncImagePainter(model = R.drawable.aarvo_brand_logo),
                         contentDescription = "AARVO logo",
                         contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                         modifier = Modifier.size(AarvoScreenDesign.AUTH_LOGO_SIZE_DP.dp)

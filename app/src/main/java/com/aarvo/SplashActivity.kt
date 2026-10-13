@@ -39,8 +39,11 @@ class SplashActivity : ComponentActivity() {
         window.statusBarColor = Color.WHITE
         window.navigationBarColor = Color.WHITE
 
-        val root = FrameLayout(this).apply { setBackgroundColor(Color.WHITE) }
-        root.addView(FlowingCornerLights(this), FrameLayout.LayoutParams(-1, -1))
+        val pageColor = Color.parseColor("#F7F5FF")
+        window.statusBarColor = pageColor
+        window.navigationBarColor = pageColor
+        val root = FrameLayout(this).apply { setBackgroundColor(pageColor) }
+        // Corner orange frames removed per user specification
         val center = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -72,6 +75,23 @@ class SplashActivity : ComponentActivity() {
             })
         }
         center.addView(letters, LinearLayout.LayoutParams(-2, -2))
+        android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 1800L
+            repeatCount = android.animation.ValueAnimator.INFINITE
+            addUpdateListener { va ->
+                val frac = va.animatedFraction
+                for (i in 0 until letters.childCount) {
+                    val tv = letters.getChildAt(i) as? TextView ?: continue
+                    val offset = (frac + i * 0.15f) % 1f
+                    val wave = Math.sin(offset * Math.PI.toFloat()).toFloat().coerceIn(0f, 1f)
+                    val r = (255 * (0.85f + 0.15f * wave)).toInt().coerceIn(0, 255)
+                    val g = (120 + 90 * wave).toInt().coerceIn(0, 255)
+                    val b = (20 * wave).toInt().coerceIn(0, 255)
+                    tv.setTextColor(Color.rgb(r, g, b))
+                }
+            }
+            start()
+        }
         val tagline = TextView(this).apply {
             text = "SHOP SMART  •  LIVE BETTER"
             textSize = 11f
