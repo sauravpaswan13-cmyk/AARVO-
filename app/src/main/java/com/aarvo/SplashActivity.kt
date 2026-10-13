@@ -4,6 +4,10 @@ import android.content.Intent
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.graphics.Color
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.BlurMaskFilter
 import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
@@ -36,6 +40,7 @@ class SplashActivity : ComponentActivity() {
         window.navigationBarColor = Color.WHITE
 
         val root = FrameLayout(this).apply { setBackgroundColor(Color.WHITE) }
+        root.addView(FlowingCornerLights(this), FrameLayout.LayoutParams(-1, -1))
         val center = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -149,4 +154,58 @@ class SplashActivity : ComponentActivity() {
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    /** Subtle animated orange light ribbons confined to opposite screen corners. */
+    private class FlowingCornerLights(context: Context) : View(context) {
+        private val density = resources.displayMetrics.density
+        private val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
+        private var phase = 0f
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val w = width.toFloat()
+            val h = height.toFloat()
+            if (w <= 0f || h <= 0f) return
+            phase = (phase + 0.025f) % 1f
+            canvas.save()
+            // Top-left flowing orange ribbons with soft golden light.
+            drawRibbon(canvas, floatArrayOf(
+                0f, 0f, w * 0.23f, h * 0.015f, w * 0.20f, h * 0.075f, w * 0.43f, h * 0.105f
+            ), 34f, 0x55FF8A00.toInt(), 20f)
+            drawRibbon(canvas, floatArrayOf(
+                0f, h * 0.095f, w * 0.15f, h * 0.045f, w * 0.19f, h * 0.018f, w * 0.48f, 0f
+            ), 2.4f, 0xFFFFA126.toInt(), 0f)
+            drawRibbon(canvas, floatArrayOf(
+                0f, h * 0.13f, w * 0.11f, h * 0.065f, w * 0.22f, h * 0.025f, w * 0.40f, 0f
+            ), 1.3f, 0xFFFFE2A8.toInt(), 0f)
+            // Bottom-right matching light ribbons.
+            drawRibbon(canvas, floatArrayOf(
+                w, h, w * 0.76f, h * 0.985f, w * 0.79f, h * 0.925f, w * 0.56f, h * 0.895f
+            ), 34f, 0x55FF8A00.toInt(), 20f)
+            drawRibbon(canvas, floatArrayOf(
+                w, h * 0.905f, w * 0.85f, h * 0.955f, w * 0.81f, h * 0.982f, w * 0.52f, h
+            ), 2.4f, 0xFFFFA126.toInt(), 0f)
+            drawRibbon(canvas, floatArrayOf(
+                w, h * 0.87f, w * 0.89f, h * 0.935f, w * 0.78f, h * 0.975f, w * 0.60f, h
+            ), 1.3f, 0xFFFFE2A8.toInt(), 0f)
+            canvas.restore()
+            postInvalidateDelayed(40L)
+        }
+
+        private fun drawRibbon(canvas: Canvas, p: FloatArray, strokeDp: Float, color: Int, blurDp: Float) {
+            val path = Path().apply {
+                moveTo(p[0], p[1])
+                cubicTo(p[2], p[3], p[4], p[5], p[6], p[7])
+            }
+            glow.color = color
+            glow.strokeWidth = strokeDp * density
+            glow.maskFilter = if (blurDp > 0f) BlurMaskFilter(blurDp * density, BlurMaskFilter.Blur.NORMAL) else null
+            canvas.drawPath(path, glow)
+            glow.maskFilter = null
+        }
+    }
 }
