@@ -158,12 +158,23 @@ class SplashActivity : ComponentActivity() {
         if (openingLogin || isFinishing || isDestroyed) return
         openingLogin = true
         try {
-            startActivity(Intent(this, PhoneAuthActivity::class.java))
+            // Restore the existing local session on every cold launch. Previously
+            // SplashActivity always opened PhoneAuthActivity, making signed-in
+            // users appear logged out whenever they reopened AARVO.
+            val prefs = getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)
+            val signedIn = prefs.getBoolean("signed_in", false) &&
+                !prefs.getString("auth_token", null).isNullOrBlank()
+            val guestMode = prefs.getBoolean("guest_mode", false)
+            val destination = if (signedIn || guestMode) MainActivity::class.java
+                else PhoneAuthActivity::class.java
+            startActivity(Intent(this, destination).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            })
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
             finish()
         } catch (t: Throwable) {
             openingLogin = false
-            Log.e("AARVO-Splash", "Could not open phone login", t)
+            Log.e("AARVO-Splash", "Could not open app entry", t)
             handler.postDelayed({ openPhoneLogin() }, 1500L)
         }
     }
