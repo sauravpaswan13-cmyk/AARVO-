@@ -597,7 +597,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
             Card(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onOpenOffers() },
                 shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF4B16D8))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFF7A00))
             ) {
                 Row(
                     Modifier.fillMaxWidth().padding(14.dp),
