@@ -159,21 +159,8 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
     const rawBody = await response.text();
     let result = {};
     try { result = JSON.parse(rawBody || '{}'); } catch { result = rawBody; }
-    const providerType = String(result?.type || '').trim().toLowerCase();
-    const providerStatus = String(result?.status || '').trim().toLowerCase();
-    const providerMessage = String(result?.message || '').trim().toLowerCase();
-    const failedValues = ['false', '0', 'failed', 'failure', 'error', 'invalid', 'rejected'];
-    const providerRejected = failedValues.includes(providerType) ||
-      failedValues.includes(providerStatus) ||
-      providerMessage.includes('authentication failure') ||
-      providerMessage.includes('invalid otp');
-    if (!response.ok || providerRejected) {
-      request.log.warn({
-        providerHttpStatus: response.status,
-        providerType,
-        providerStatus,
-        providerMessage
-      }, 'MSG91 OTP verification rejected');
+    if (!response.ok) {
+      request.log.warn({ providerHttpStatus: response.status }, 'MSG91 OTP verification rejected');
       return reply.code(401).send({ error: 'MSG91_OTP_INVALID' });
     }
 
