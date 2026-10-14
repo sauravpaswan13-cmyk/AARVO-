@@ -52,6 +52,18 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -317,24 +329,148 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     if (showLoginRequired) LoginRequiredDialog({ showLoginRequired = false; onLogin() }, { showLoginRequired = false })
     if (showCheckout) CheckoutDialog(api, cartItems.sumOf { it.pricePaise }, checkoutLoading, checkoutMessage, { if (!checkoutLoading) showCheckout = false }) { fullName, phone, line1, city, state, postalCode ->
         checkoutLoading = true; checkoutMessage = "Creating secure order..."; scope.launch { try { val items = JSONArray().apply { cartViewModel.distinctItems().forEach { product -> put(JSONObject().put("productId", product.id).put("quantity", cartViewModel.quantity(product.id))) } }; val address = JSONObject().apply { put("fullName", fullName.trim()); put("phone", phone.trim()); put("line1", line1.trim()); put("line2", ""); put("city", city.trim()); put("state", state.trim()); put("postalCode", postalCode.trim()); put("country", "IN") }; val order = api.createOrder(items, address); val options = JSONObject().apply { put("key", order.getString("keyId")); put("amount", order.getLong("amountPaise")); put("currency", order.getString("currency")); put("name", "AARVO"); put("description", "AARVO marketplace order"); put("order_id", order.getString("gatewayOrderId")); put("prefill", JSONObject().put("name", fullName.trim()).put("contact", phone.trim())); put("notes", JSONObject().put("order_id", order.getString("orderId"))) }; if (order.optString("paymentMode") == "TEST") { checkoutMessage = "Test checkout complete. Order confirmed."; cartViewModel.clear(); showCheckout = false; checkoutLoading = false } else { checkoutMessage = "Opening secure payment..."; activity.startRazorpayPayment(options) { paymentId, paymentError -> scope.launch { if (paymentId != null) { val signature = PaymentBridge.lastSignature; val gatewayOrderId = PaymentBridge.lastOrderId ?: order.getString("gatewayOrderId"); if (!signature.isNullOrBlank()) { try { api.verifyPayment(order.getString("orderId"), paymentId, gatewayOrderId, signature); checkoutMessage = "Payment verified. Order confirmed."; cartViewModel.clear(); showCheckout = false } catch (t: Throwable) { checkoutMessage = t.message ?: "Payment verification failed. Order was not confirmed." } } else checkoutMessage = "Payment completed but verification data was missing. Order remains unconfirmed." } else { checkoutMessage = paymentError ?: "Payment cancelled or failed."; try { api.cancelOrder(order.getString("orderId"), "BUYER_PAYMENT_CANCELLED") } catch (_: Throwable) { } }; checkoutLoading = false; PaymentBridge.clear() } } } } catch (t: Throwable) { checkoutLoading = false; checkoutMessage = t.message ?: "Unable to create order." } } }
-    Scaffold(topBar = { TopAppBar(
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF4B16D8), titleContentColor = Color.White, actionIconContentColor = Color.White),
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.foundation.Image(
-                    painter = coil3.compose.rememberAsyncImagePainter(model = R.drawable.aarvo_brand_logo),
-                    contentDescription = "AARVO logo",
-                    modifier = Modifier.size(30.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(if (role == "SELLER") "AARVO Seller" else "AARVO", fontWeight = FontWeight.ExtraBold, color = Color.White)
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                Column(Modifier.fillMaxSize().padding(16.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.foundation.Image(
+                            painter = coil3.compose.rememberAsyncImagePainter(model = R.drawable.aarvo_brand_logo),
+                            contentDescription = "AARVO logo",
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text("AARVO", fontWeight = FontWeight.Black, fontSize = 22.sp, color = Color(0xFF4B16D8))
+                    }
+                    androidx.compose.material3.HorizontalDivider()
+                    Spacer(Modifier.height(12.dp))
+                    TextButton(onClick = { scope.launch { drawerState.close() }; selectedTab = 0 }, modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🏠", fontSize = 18.sp)
+                            Spacer(Modifier.width(12.dp))
+                            Text("Home Marketplace", color = Color(0xFF171329), fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    TextButton(onClick = { scope.launch { drawerState.close() }; selectedTab = 1 }, modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🔲", fontSize = 18.sp)
+                            Spacer(Modifier.width(12.dp))
+                            Text("Browse All Categories", color = Color(0xFF171329), fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    TextButton(onClick = { scope.launch { drawerState.close() }; activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🏪", fontSize = 18.sp)
+                            Spacer(Modifier.width(12.dp))
+                            Text("AARVO Seller Hub", color = Color(0xFFD97706), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Spacer(Modifier.weight(1f))
+                    androidx.compose.material3.HorizontalDivider()
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { scope.launch { drawerState.close() }; onSignOut() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1F5F9), contentColor = Color(0xFFE11D48)),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Logout / Switch Account", fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text("AARVO v1.9 • Shop Smart, Live Better", fontSize = 10.sp, color = Color(0xFF94A3B8), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                }
             }
-        }, actions = { TextButton(onClick = { activity.startActivity(Intent(activity, AarvoAiActivity::class.java)) }) { Text("AI") }; BadgedBox(badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } }) { IconButton(onClick = { selectedTab = 1 }) { Icon(Icons.Default.ShoppingCart, "Cart") } } }) }, bottomBar = { NavigationBar { NavigationBarItem(selectedTab == 0, { selectedTab = 0 }, { Icon(Icons.Default.Home, "Home") }, label = { Text("Home") }); NavigationBarItem(selectedTab == 1, { selectedTab = 1 }, { BadgedBox(badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } }) { Icon(Icons.Default.ShoppingCart, "Cart") } }, label = { Text("Cart") }); NavigationBarItem(selectedTab == 2, { selectedTab = 2 }, { Icon(Icons.Default.Favorite, "Wishlist") }, label = { Text("Wishlist") }); NavigationBarItem(selectedTab == 3, { selectedTab = 3 }, { Icon(Icons.Default.Person, "Account") }, label = { Text("Account") }) } }) { padding -> when (selectedTab) {
-        0 -> HomeScreen(padding, api, query, { query = it }, availableCategories, category, { category = it }, visibleProducts, recentlyViewed, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { showFilters = true }, sortMode, minRating, maxPrice, inStockOnly)
-        1 -> CartScreen(padding, cartItems, allProducts, saveForLater, { product -> cartViewModel.increment(product); syncAuthenticatedCart() }, { product -> cartViewModel.decrement(product); syncAuthenticatedCart() }, { id -> cartViewModel.removeAll(id); syncAuthenticatedCart() }, cartViewModel::quantity, { cartViewModel.clear(); if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } } }, { product -> cartViewModel.removeAll(product.id); saveForLater = saveForLaterStore.toggle(product.id); syncAuthenticatedCart() }, { product -> saveForLater = saveForLaterStore.remove(product.id); cartViewModel.add(product); syncAuthenticatedCart() }, { id -> saveForLater = saveForLaterStore.remove(id) }) { if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" } }
-        2 -> WishlistScreen(padding, allProducts, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { selectedProduct = it }, cartViewModel::add)
-        else -> AccountScreen(padding, userName, role, api, activity, guestMode, onLogin, onSignOut, { selectedTab = 2 }, { /* notifications opened from account can be added without leaving account */ })
-    } } }
+        }
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF4B16D8), titleContentColor = Color.White, actionIconContentColor = Color.White, navigationIconContentColor = Color.White),
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, "Menu", tint = Color.White)
+                        }
+                    },
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.foundation.Image(
+                                painter = coil3.compose.rememberAsyncImagePainter(model = R.drawable.aarvo_brand_logo),
+                                contentDescription = "AARVO logo",
+                                modifier = Modifier.size(30.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("AARVO", fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        }
+                    },
+                    actions = {
+                        BadgedBox(badge = { Badge { Text("3") } }) {
+                            IconButton(onClick = { showNotifications = true }) {
+                                Icon(Icons.Default.Notifications, "Notifications", tint = Color.White)
+                            }
+                        }
+                        BadgedBox(badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } else Badge { Text("2") } }) {
+                            IconButton(onClick = { selectedTab = 3 }) {
+                                Icon(Icons.Default.ShoppingCart, "Cart", tint = Color.White)
+                            }
+                        }
+                    }
+                )
+            },
+            bottomBar = {
+                NavigationBar(containerColor = Color.White) {
+                    NavigationBarItem(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        icon = { Icon(Icons.Default.Home, "Home") },
+                        label = { Text("Home") },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        icon = { Text("🔲", fontSize = 18.sp) },
+                        label = { Text("Categories") },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        icon = { Text("🏷️", fontSize = 18.sp) },
+                        label = { Text("Offers") },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 3,
+                        onClick = { selectedTab = 3 },
+                        icon = {
+                            BadgedBox(badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } else Badge { Text("2") } }) {
+                                Icon(Icons.Default.ShoppingCart, "Cart")
+                            }
+                        },
+                        label = { Text("Cart") },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 4,
+                        onClick = { selectedTab = 4 },
+                        icon = { Icon(Icons.Default.Person, "Account") },
+                        label = { Text("Account") },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
+                    )
+                }
+            }
+        ) { padding ->
+            when (selectedTab) {
+                0 -> HomeScreen(padding, api, query, { query = it }, availableCategories, category, { category = it }, visibleProducts, recentlyViewed, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { showFilters = true }, sortMode, minRating, maxPrice, inStockOnly, { activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java)) })
+                1 -> CategoriesGridScreen(padding, availableCategories) { category = it; selectedTab = 0 }
+                2 -> OffersScreen(padding)
+                3 -> CartScreen(padding, cartItems, allProducts, saveForLater, { product -> cartViewModel.increment(product); syncAuthenticatedCart() }, { product -> cartViewModel.decrement(product); syncAuthenticatedCart() }, { id -> cartViewModel.removeAll(id); syncAuthenticatedCart() }, cartViewModel::quantity, { cartViewModel.clear(); if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } } }, { product -> cartViewModel.removeAll(product.id); saveForLater = saveForLaterStore.toggle(product.id); syncAuthenticatedCart() }, { product -> saveForLater = saveForLaterStore.remove(product.id); cartViewModel.add(product); syncAuthenticatedCart() }, { id -> saveForLater = saveForLaterStore.remove(id) }) { if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" } }
+                else -> AccountScreen(padding, userName, role, api, activity, guestMode, onLogin, onSignOut, { selectedTab = 2 }, { showNotifications = true })
+            }
+        }
+    }
 
 @Composable private fun NotificationsScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) {
     var items by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope()
@@ -395,35 +531,193 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
     }
 }
 
-@Composable private fun HomeScreen(padding: PaddingValues, api: AarvoApiClient, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, recentlyViewed: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit, onFilter: () -> Unit, sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean) {
+@Composable private fun HomeScreen(padding: PaddingValues, api: AarvoApiClient, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, recentlyViewed: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit, onFilter: () -> Unit, sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean, onOpenSeller: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // Home order: search first, Hero Live second, categories third.
         item { HomeSearchFirst(query, onQueryChange) }
         item { LiveHero(api = api, modifier = Modifier.fillMaxWidth()) }
+        // 3. 10 Categories Grid (Matching Screenshot)
         item {
-            Column(Modifier.fillMaxWidth()) {
-                Text(
-                    "Categories",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 4.dp)
+            Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                val staticCategories = listOf(
+                    Triple("Mobiles", "📱", Color(0xFFDBEAFE)),
+                    Triple("Fashion", "👕", Color(0xFFFFEDD5)),
+                    Triple("Electronics", "💻", Color(0xFFE0E7FF)),
+                    Triple("Home & Living", "🛋️", Color(0xFFFEF3C7)),
+                    Triple("Appliances", "📺", Color(0xFFE0F2FE)),
+                    Triple("Beauty & Health", "✨", Color(0xFFFFE4E6)),
+                    Triple("Sports", "👟", Color(0xFFCCFBF1)),
+                    Triple("Toys & Kids", "🧸", Color(0xFFFEF9C3)),
+                    Triple("Grocery", "🧺", Color(0xFFD1FAE5)),
+                    Triple("More", "🔲", Color(0xFFF3E8FF))
                 )
-                Spacer(Modifier.height(6.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(categories, key = { it }) { itemCategory ->
-                        Surface(
-                            onClick = { onCategoryChange(itemCategory) },
-                            shape = RoundedCornerShape(16.dp),
-                            tonalElevation = if (selectedCategory == itemCategory) 4.dp else 1.dp
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                    staticCategories.take(5).forEach { (name, emoji, bg) ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.clickable { onCategoryChange(name) }
                         ) {
-                            Text(
-                                itemCategory,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                fontWeight = if (selectedCategory == itemCategory) FontWeight.Bold else FontWeight.Medium
-                            )
+                            Box(
+                                modifier = Modifier.size(54.dp).clip(CircleShape).background(bg),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(emoji, fontSize = 24.sp)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(name, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1)
                         }
                     }
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                    staticCategories.drop(5).forEach { (name, emoji, bg) ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.clickable { onCategoryChange(name) }
+                        ) {
+                            Box(
+                                modifier = Modifier.size(54.dp).clip(CircleShape).background(bg),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(emoji, fontSize = 24.sp)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(name, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
+        // 4. Top Deals For You Banner
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF4B16D8))
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFFF7A00)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("%", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text("Top Deals For You", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                            Text("Best Offers • Lowest Prices • Limited Time", color = Color(0xFFD8D1EE), fontSize = 10.sp)
+                        }
+                    }
+                    Box(
+                        Modifier.size(34.dp).clip(CircleShape).background(Color(0xFFFFD700)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("→", color = Color(0xFF171329), fontWeight = FontWeight.Black, fontSize = 16.sp)
+                    }
+                }
+            }
+        }
+        // 5. AARVO Verified Seller Marketplace (No Fake Products)
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFAF8FF)),
+                border = BorderStroke(1.dp, Color(0xFFE5DEFF))
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF4B16D8)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("🛡️", fontSize = 14.sp)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text("AARVO Verified Seller Marketplace", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF171329))
+                            Text("Real Sellers • 100% Genuine Invoices • Buyer Protected", fontSize = 10.sp, color = Color(0xFF706A80))
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = BorderStroke(1.dp, Color(0xFFF0ECFF)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            "No fake catalog listings: Products appear live on AARVO only after verified domestic sellers list and authenticate their genuine inventory.",
+                            modifier = Modifier.padding(12.dp),
+                            fontSize = 11.sp,
+                            color = Color(0xFF4F4660),
+                            lineHeight = 16.sp
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
+                        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("🏪", fontSize = 20.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text("Are you a merchant?", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF171329))
+                                    Text("Sell to millions of AARVO shoppers", fontSize = 10.sp, color = Color(0xFF706A80))
+                                }
+                            }
+                            Button(
+                                onClick = { onOpenSeller() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4B16D8)),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Start Selling", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // 6. AARVO Mega Sale Banner
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFF7A00))
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("AARVO MEGA SALE", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color(0xFFFEF08A))
+                        Spacer(Modifier.height(2.dp))
+                        Text("Bigger Discounts, Better Deals", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Color.White)
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = { /* shop now */ },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFFFF7A00)),
+                            shape = RoundedCornerShape(20.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)
+                        ) {
+                            Text("Shop Now →", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+                    Text("🛒", fontSize = 42.sp)
                 }
             }
         }
@@ -891,3 +1185,74 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
 private fun formatPaise(paise: Long): String = "₹${paise / 100}.${(paise % 100).toString().padStart(2, '0')}"
 private fun parseRupeesToPaise(value: String): Long = parseRupeesToPaiseOrNull(value) ?: error("Enter a valid price")
 private fun parseRupeesToPaiseOrNull(value: String): Long? = value.trim().let { if (!it.matches(Regex("\\d{1,9}(\\.\\d{1,2})?"))) null else { val parts = it.split('.'); val rupees = parts[0].toLongOrNull() ?: return@let null; val paise = (parts.getOrNull(1)?.padEnd(2, '0') ?: "00").toLongOrNull() ?: return@let null; (rupees * 100L + paise).takeIf { amount -> amount > 0L } } }
+
+@Composable
+private fun CategoriesGridScreen(padding: PaddingValues, categories: List<String>, onSelect: (String) -> Unit) {
+    val items = listOf(
+        Triple("Mobiles", "📱", Color(0xFFDBEAFE)),
+        Triple("Fashion", "👕", Color(0xFFFFEDD5)),
+        Triple("Electronics", "💻", Color(0xFFE0E7FF)),
+        Triple("Home & Living", "🛋️", Color(0xFFFEF3C7)),
+        Triple("Appliances", "📺", Color(0xFFE0F2FE)),
+        Triple("Beauty & Health", "✨", Color(0xFFFFE4E6)),
+        Triple("Sports", "👟", Color(0xFFCCFBF1)),
+        Triple("Toys & Kids", "🧸", Color(0xFFFEF9C3)),
+        Triple("Grocery", "🧺", Color(0xFFD1FAE5)),
+        Triple("More", "🔲", Color(0xFFF3E8FF))
+    )
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { Text("All Categories", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+        items(items.chunked(2)) { pair ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                pair.forEach { (name, emoji, bg) ->
+                    Card(
+                        onClick = { onSelect(name) },
+                        modifier = Modifier.weight(1f).height(90.dp),
+                        colors = CardDefaults.cardColors(containerColor = bg),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(Modifier.fillMaxSize().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(emoji, fontSize = 32.sp)
+                            Spacer(Modifier.width(10.dp))
+                            Text(name, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF171329))
+                        }
+                    }
+                }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun OffersScreen(padding: PaddingValues) {
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { Text("AARVO Top Offers", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFF7A00))
+            ) {
+                Column(Modifier.padding(18.dp)) {
+                    Text("MEGA FESTIVE SALE", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFFFEF08A))
+                    Text("Up to 70% Off On Verified Brands", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White)
+                    Text("Direct from certified domestic manufacturers", fontSize = 11.sp, color = Color(0xFFFFFBEB))
+                }
+            }
+        }
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF4B16D8))
+            ) {
+                Column(Modifier.padding(18.dp)) {
+                    Text("ZERO CONVENIENCE FEE", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFFFEF08A))
+                    Text("Free Doorstep Delivery On First Order", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White)
+                    Text("Use code: AARVOFIRST at checkout", fontSize = 11.sp, color = Color(0xFFE5DEFF))
+                }
+            }
+        }
+    }
+}
