@@ -142,10 +142,15 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
 
     let response;
     try {
-      response = await fetch('https://api.msg91.com/api/v5/widget/verifyOtp', {
+      response = await fetch('https://control.msg91.com/api/v5/widget/verifyOtp', {
         method: 'POST',
-        headers: { 'content-type': 'application/json', authkey: authKey },
-        body: JSON.stringify({ reqId, otp }),
+        headers: { 'accept': 'application/json', 'content-type': 'application/json', authkey: authKey },
+        body: JSON.stringify({
+          ...(String(process.env.MSG91_WIDGET_ID || '').trim()
+            ? { widgetId: String(process.env.MSG91_WIDGET_ID).trim() } : {}),
+          reqId,
+          otp
+        }),
         signal: AbortSignal.timeout(10000)
       });
     } catch (error) {
@@ -156,8 +161,21 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
     const rawBody = await response.text();
     let result = {};
     try { result = JSON.parse(rawBody || '{}'); } catch { result = rawBody; }
-    if (!response.ok) {
-      request.log.warn({ providerHttpStatus: response.status }, 'MSG91 OTP verification rejected');
+    const providerType = String(result?.type || '').trim().toLowerCase();
+    const providerStatus = String(result?.status || '').trim().toLowerCase();
+    const providerMessage = String(result?.message || '').trim().toLowerCase();
+    const failedValues = ['false', '0', 'failed', 'failure', 'error', 'invalid', 'rejected'];
+    const providerRejected = failedValues.includes(providerType) ||
+      failedValues.includes(providerStatus) ||
+      providerMessage.includes('authentication failure') ||
+      providerMessage.includes('invalid otp');
+    if (!response.ok || providerRejected) {
+      request.log.warn({
+        providerHttpStatus: response.status,
+        providerType,
+        providerStatus,
+        providerMessage
+      }, 'MSG91 OTP verification rejected');
       return reply.code(401).send({ error: 'MSG91_OTP_INVALID' });
     }
 
