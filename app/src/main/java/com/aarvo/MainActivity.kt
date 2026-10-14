@@ -270,6 +270,20 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 
 @Composable private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activity: MainActivity, wishlistStore: WishlistStore, saveForLaterStore: SaveForLaterStore, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit, cartViewModel: CartViewModel = remember { CartViewModel(activity.applicationContext.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)) }) {
     var selectedTab by remember { mutableIntStateOf(0) }; var query by remember { mutableStateOf("") }; var category by remember { mutableStateOf("All") }; var sortMode by remember { mutableStateOf("Relevance") }; var minRating by remember { mutableStateOf(0.0) }; var maxPrice by remember { mutableStateOf<Long?>(null) }; var inStockOnly by remember { mutableStateOf(false) }; var showFilters by remember { mutableStateOf(false) }; var showNotifications by remember { mutableStateOf(false) }
+    var unreadNotificationCount by remember { mutableIntStateOf(0) }
+    LaunchedEffect(api) {
+        try {
+            val a = api.notifications()
+            var count = 0
+            for (i in 0 until a.length()) {
+                if (!a.getJSONObject(i).optBoolean("read", false)) count++
+            }
+            unreadNotificationCount = count
+        } catch (_: Throwable) {
+            unreadNotificationCount = 0
+        }
+    }
+    val cartBadgeCount = cartItems.sumOf { cartViewModel.quantity(it.id) }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }; var wishlist by remember { mutableStateOf(wishlistStore.load()) }; var recentlyViewed by remember { mutableStateOf<List<Product>>(emptyList()) }
     var saveForLater by remember { mutableStateOf(saveForLaterStore.load()) }; var showCheckout by remember { mutableStateOf(false) }; var showLoginRequired by remember { mutableStateOf(false) }; var checkoutLoading by remember { mutableStateOf(false) }; var checkoutMessage by remember { mutableStateOf("") }; var products by remember { mutableStateOf<List<Product>>(emptyList()) }; var allProducts by remember { mutableStateOf<List<Product>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val cartItems by cartViewModel.items.collectAsState(); val scope = rememberCoroutineScope()
     LaunchedEffect(api, guestMode, role) {
@@ -406,12 +420,24 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         }
                     },
                     actions = {
-                        BadgedBox(badge = { Badge { Text("3") } }) {
+                        if (unreadNotificationCount > 0) {
+                            BadgedBox(badge = { Badge { Text(unreadNotificationCount.toString()) } }) {
+                                IconButton(onClick = { showNotifications = true }) {
+                                    Icon(Icons.Default.Notifications, "Notifications", tint = Color.White)
+                                }
+                            }
+                        } else {
                             IconButton(onClick = { showNotifications = true }) {
                                 Icon(Icons.Default.Notifications, "Notifications", tint = Color.White)
                             }
                         }
-                        BadgedBox(badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } else Badge { Text("2") } }) {
+                        if (cartBadgeCount > 0) {
+                            BadgedBox(badge = { Badge { Text(cartBadgeCount.toString()) } }) {
+                                IconButton(onClick = { selectedTab = 3 }) {
+                                    Icon(Icons.Default.ShoppingCart, "Cart", tint = Color.White)
+                                }
+                            }
+                        } else {
                             IconButton(onClick = { selectedTab = 3 }) {
                                 Icon(Icons.Default.ShoppingCart, "Cart", tint = Color.White)
                             }
@@ -425,39 +451,43 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
                         icon = { Icon(Icons.Default.Home, "Home") },
-                        label = { Text("Home") },
+                        label = { Text("Home", fontSize = 10.sp, maxLines = 1) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
                     )
                     NavigationBarItem(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
                         icon = { Text("🔲", fontSize = 18.sp) },
-                        label = { Text("Categories") },
+                        label = { Text("Categories", fontSize = 10.sp, maxLines = 1) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
                     )
                     NavigationBarItem(
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
                         icon = { Text("🏷️", fontSize = 18.sp) },
-                        label = { Text("Offers") },
+                        label = { Text("Offers", fontSize = 10.sp, maxLines = 1) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
                     )
                     NavigationBarItem(
                         selected = selectedTab == 3,
                         onClick = { selectedTab = 3 },
                         icon = {
-                            BadgedBox(badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } else Badge { Text("2") } }) {
+                            if (cartBadgeCount > 0) {
+                                BadgedBox(badge = { Badge { Text(cartBadgeCount.toString()) } }) {
+                                    Icon(Icons.Default.ShoppingCart, "Cart")
+                                }
+                            } else {
                                 Icon(Icons.Default.ShoppingCart, "Cart")
                             }
                         },
-                        label = { Text("Cart") },
+                        label = { Text("Cart", fontSize = 10.sp, maxLines = 1) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
                     )
                     NavigationBarItem(
                         selected = selectedTab == 4,
                         onClick = { selectedTab = 4 },
                         icon = { Icon(Icons.Default.Person, "Account") },
-                        label = { Text("Account") },
+                        label = { Text("Account", fontSize = 10.sp, maxLines = 1) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
                     )
                 }
@@ -648,20 +678,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                             Text("Real Sellers • 100% Genuine Invoices • Buyer Protected", fontSize = 10.sp, color = Color(0xFF706A80))
                         }
                     }
-                    Spacer(Modifier.height(10.dp))
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        border = BorderStroke(1.dp, Color(0xFFF0ECFF)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            "No fake catalog listings: Products appear live on AARVO only after verified domestic sellers list and authenticate their genuine inventory.",
-                            modifier = Modifier.padding(12.dp),
-                            fontSize = 11.sp,
-                            color = Color(0xFF4F4660),
-                            lineHeight = 16.sp
-                        )
-                    }
+
                     Spacer(Modifier.height(10.dp))
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
@@ -687,7 +704,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                             ) {
-                                Text("Start Selling", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("Start Selling", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                             }
                         }
                     }
@@ -717,7 +734,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                             shape = RoundedCornerShape(20.dp),
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)
                         ) {
-                            Text("Shop Now →", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                            Text("Shop Now", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                         }
                     }
                     Text("🛒", fontSize = 42.sp)
