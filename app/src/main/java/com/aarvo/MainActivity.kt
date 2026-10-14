@@ -464,9 +464,9 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
             }
         ) { padding ->
             when (selectedTab) {
-                0 -> HomeScreen(padding, api, query, { query = it }, availableCategories, category, { category = it }, visibleProducts, recentlyViewed, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { showFilters = true }, sortMode, minRating, maxPrice, inStockOnly, { activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java)) })
+                0 -> HomeScreen(padding, api, query, { query = it }, availableCategories, category, { category = it }, visibleProducts, recentlyViewed, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { showFilters = true }, sortMode, minRating, maxPrice, inStockOnly, { activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java)) }, { selectedTab = 2 })
                 1 -> CategoriesGridScreen(padding, availableCategories) { category = it; selectedTab = 0 }
-                2 -> OffersScreen(padding)
+                2 -> OffersScreen(padding, api, allProducts) { selectedProduct = it }
                 3 -> CartScreen(padding, cartItems, allProducts, saveForLater, { product -> cartViewModel.increment(product); syncAuthenticatedCart() }, { product -> cartViewModel.decrement(product); syncAuthenticatedCart() }, { id -> cartViewModel.removeAll(id); syncAuthenticatedCart() }, cartViewModel::quantity, { cartViewModel.clear(); if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } } }, { product -> cartViewModel.removeAll(product.id); saveForLater = saveForLaterStore.toggle(product.id); syncAuthenticatedCart() }, { product -> saveForLater = saveForLaterStore.remove(product.id); cartViewModel.add(product); syncAuthenticatedCart() }, { id -> saveForLater = saveForLaterStore.remove(id) }) { if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" } }
                 else -> AccountScreen(padding, userName, role, api, activity, guestMode, onLogin, onSignOut, { selectedTab = 2 }, { showNotifications = true })
             }
@@ -534,7 +534,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
     }
 }
 
-@Composable private fun HomeScreen(padding: PaddingValues, api: AarvoApiClient, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, recentlyViewed: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit, onFilter: () -> Unit, sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean, onOpenSeller: () -> Unit = {}) {
+@Composable private fun HomeScreen(padding: PaddingValues, api: AarvoApiClient, query: String, onQueryChange: (String) -> Unit, categories: List<String>, selectedCategory: String, onCategoryChange: (String) -> Unit, products: List<Product>, recentlyViewed: List<Product>, loading: Boolean, error: String, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, wishlist: Set<Int>, onToggleWishlist: (Int) -> Unit, onFilter: () -> Unit, sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean, onOpenSeller: () -> Unit = {}, onOpenOffers: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // Home order: search first, Hero Live second, categories third.
@@ -595,7 +595,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
         // 4. Top Deals For You Banner
         item {
             Card(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onOpenOffers() },
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF4B16D8))
             ) {
@@ -1228,32 +1228,55 @@ private fun CategoriesGridScreen(padding: PaddingValues, categories: List<String
 }
 
 @Composable
-private fun OffersScreen(padding: PaddingValues) {
-    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { Text("AARVO Top Offers", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+private fun OffersScreen(padding: PaddingValues, api: AarvoApiClient, products: List<Product>, onOpenProduct: (Product) -> Unit) {
+    var deals by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) {
+        try {
+            val result = api.productDeals()
+            deals = buildList { for (i in 0 until result.length()) add(result.getJSONObject(i)) }
+        } catch (t: Throwable) { error = t.message ?: "Unable to load live deals" }
+        finally { loading = false }
+    }
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { Text("TOP DEALS & OFFERS", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = Color(0xFFFF7A00)) }
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFF7A00))
-            ) {
-                Column(Modifier.padding(18.dp)) {
-                    Text("MEGA FESTIVE SALE", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFFFEF08A))
-                    Text("Up to 70% Off On Verified Brands", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White)
-                    Text("Direct from certified domestic manufacturers", fontSize = 11.sp, color = Color(0xFFFFFBEB))
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFF7A00))) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("AARVO TOP DEALS", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Color.White)
+                    Text("Special prices on selected products", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    Text("Approved offers • Limited time • Prices verified at checkout", fontSize = 11.sp, color = Color.White)
                 }
             }
         }
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF4B16D8))
-            ) {
+        if (loading) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { CircularProgressIndicator() } }
+        if (error.isNotBlank()) item { Text("Live offers are temporarily unavailable. $error", color = MaterialTheme.colorScheme.error) }
+        if (!loading && error.isBlank() && deals.isEmpty()) item {
+            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED))) {
                 Column(Modifier.padding(18.dp)) {
-                    Text("ZERO CONVENIENCE FEE", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFFFEF08A))
-                    Text("Free Doorstep Delivery On First Order", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White)
-                    Text("Use code: AARVOFIRST at checkout", fontSize = 11.sp, color = Color(0xFFE5DEFF))
+                    Text("No live deals right now", fontWeight = FontWeight.Bold)
+                    Text("New offers approved by AARVO Admin will appear here automatically.", fontSize = 13.sp)
+                }
+            }
+        }
+        items(deals, key = { it.optLong("id", it.optLong("productId")) }) { deal ->
+            val product = products.firstOrNull { it.id == deal.optLong("productId").toInt() }
+            Card(Modifier.fillMaxWidth().clickable { if (product != null) onOpenProduct(product) }, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), border = BorderStroke(1.dp, Color(0xFFFFE0C2))) {
+                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.size(54.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFFFEDD5)), contentAlignment = Alignment.Center) {
+                        Text("${deal.optInt("discountPercent")}% OFF", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, color = Color(0xFFC2410C), textAlign = TextAlign.Center)
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(deal.optString("name", "Top Deal"), fontWeight = FontWeight.Bold, maxLines = 2)
+                        Text(deal.optString("category", "Special offer"), fontSize = 12.sp, color = Color.Gray)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("₹${deal.optLong("dealPricePaise") / 100}", fontWeight = FontWeight.ExtraBold, color = Color(0xFFFF7A00))
+                            Text("₹${deal.optLong("originalPricePaise") / 100}", fontSize = 12.sp, color = Color.Gray, textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)
+                        }
+                        Text("Ends ${deal.optString("endsAt").take(10)}", fontSize = 11.sp, color = Color.Gray)
+                    }
+                    Text("›", fontSize = 26.sp, color = Color(0xFFFF7A00), fontWeight = FontWeight.Bold)
                 }
             }
         }
