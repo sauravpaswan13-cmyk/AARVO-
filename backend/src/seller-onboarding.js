@@ -11,7 +11,7 @@ export async function registerSellerOnboarding({ app, pool, requireRole, audit }
 
   app.get('/v1/seller/onboarding', { preHandler: requireRole('SELLER') }, async (request, reply) => {
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
-    const result = await pool.query(`SELECT seller_id,phone,business_name,business_type,business_category,business_email,pan,gstin,gst_status,account_holder_name,bank_account_last4,ifsc,payout_preference,pickup_address,pickup_city,pickup_state,pickup_postal_code,return_window_days,shipping_model,onboarding_status,submitted_at,reviewed_at,rejection_reason,verified,payout_account_ready FROM seller_profiles WHERE seller_id=$1`, [request.user.sub]);
+    const result = await pool.query(`SELECT seller_id,phone,business_name,business_type,business_category,business_email,pan,gstin,gst_status,account_holder_name,bank_account_last4,ifsc,payout_preference,pickup_address,pickup_city,pickup_state,pickup_postal_code,return_window_days,shipping_model,onboarding_status,submitted_at,reviewed_at,rejection_reason,verified,payout_account_ready,kyc_review_status,kyc_review_notes,kyc_reviewed_at FROM seller_profiles WHERE seller_id=$1`, [request.user.sub]);
     if (!result.rowCount) return reply.code(404).send({ error: 'SELLER_PROFILE_REQUIRED' });
     const row = result.rows[0];
     return { ...row, bank_account_last4: row.bank_account_last4 ? `••••${row.bank_account_last4}` : '' };
@@ -48,7 +48,7 @@ export async function registerSellerOnboarding({ app, pool, requireRole, audit }
 
     const submit = Boolean(b.submit);
     const status = submit ? 'SUBMITTED' : (current.rows[0].onboarding_status === 'REJECTED' ? 'DRAFT' : current.rows[0].onboarding_status || 'DRAFT');
-    const result = await pool.query(`UPDATE seller_profiles SET business_name=$1,business_type=$2,business_category=$3,business_email=$4,pan=$5,gstin=$6,gst_status=$7,account_holder_name=$8,bank_account_last4=$9,ifsc=$10,payout_preference=$11,pickup_address=$12,pickup_city=$13,pickup_state=$14,pickup_postal_code=$15,return_window_days=$16,shipping_model=$17,onboarding_status=$18,submitted_at=CASE WHEN $19 THEN now() ELSE submitted_at END,rejection_reason=CASE WHEN $19 THEN NULL ELSE rejection_reason END WHERE seller_id=$20 RETURNING seller_id,business_name,business_type,business_category,business_email,pan,gstin,gst_status,account_holder_name,bank_account_last4,ifsc,payout_preference,pickup_address,pickup_city,pickup_state,pickup_postal_code,return_window_days,shipping_model,onboarding_status,submitted_at,rejection_reason,verified,payout_account_ready`, [clean(b.businessName,160),clean(b.businessType,80),clean(b.businessCategory,100),clean(b.businessEmail,200).toLowerCase() || null,pan,gstStatus === 'REGISTERED' ? gstin : null,gstStatus,clean(b.accountHolderName,160) || null,account ? account.slice(-4) : null,ifsc || null,clean(b.payoutPreference,60),clean(b.pickupAddress,500),clean(b.pickupCity,80),clean(b.pickupState,80),clean(b.pickupPostalCode,6),returnDays,clean(b.shippingModel,100),status,submit,request.user.sub]);
+    const result = await pool.query(`UPDATE seller_profiles SET business_name=$1,business_type=$2,business_category=$3,business_email=$4,pan=$5,gstin=$6,gst_status=$7,account_holder_name=$8,bank_account_last4=$9,ifsc=$10,payout_preference=$11,pickup_address=$12,pickup_city=$13,pickup_state=$14,pickup_postal_code=$15,return_window_days=$16,shipping_model=$17,onboarding_status=$18,kyc_review_status='PENDING',kyc_review_notes=NULL,kyc_reviewed_at=NULL,kyc_reviewed_by=NULL,submitted_at=CASE WHEN $19 THEN now() ELSE submitted_at END,rejection_reason=CASE WHEN $19 THEN NULL ELSE rejection_reason END WHERE seller_id=$20 RETURNING seller_id,business_name,business_type,business_category,business_email,pan,gstin,gst_status,account_holder_name,bank_account_last4,ifsc,payout_preference,pickup_address,pickup_city,pickup_state,pickup_postal_code,return_window_days,shipping_model,onboarding_status,submitted_at,rejection_reason,verified,payout_account_ready,kyc_review_status,kyc_review_notes,kyc_reviewed_at`, [clean(b.businessName,160),clean(b.businessType,80),clean(b.businessCategory,100),clean(b.businessEmail,200).toLowerCase() || null,pan,gstStatus === 'REGISTERED' ? gstin : null,gstStatus,clean(b.accountHolderName,160) || null,account ? account.slice(-4) : null,ifsc || null,clean(b.payoutPreference,60),clean(b.pickupAddress,500),clean(b.pickupCity,80),clean(b.pickupState,80),clean(b.pickupPostalCode,6),returnDays,clean(b.shippingModel,100),status,submit,request.user.sub]);
 
     let product = null;
     if (hasProduct) {
@@ -69,8 +69,20 @@ export async function registerSellerOnboarding({ app, pool, requireRole, audit }
     const status = clean(request.query?.status, 20).toUpperCase();
     const params = status && validStatus.has(status) ? [status] : [];
     const where = params.length ? 'WHERE sp.onboarding_status=$1' : '';
-    const rows = (await pool.query(`SELECT sp.seller_id,u.display_name,u.email,sp.phone,sp.business_name,sp.business_type,sp.business_category,sp.business_email,sp.pan,sp.gstin,sp.gst_status,sp.account_holder_name,sp.bank_account_last4,sp.ifsc,sp.payout_preference,sp.pickup_address,sp.pickup_city,sp.pickup_state,sp.pickup_postal_code,sp.return_window_days,sp.shipping_model,sp.onboarding_status,sp.submitted_at,sp.reviewed_at,sp.rejection_reason,sp.verified,sp.payout_account_ready FROM seller_profiles sp JOIN users u ON u.id=sp.seller_id ${where} ORDER BY sp.submitted_at DESC NULLS LAST,sp.created_at DESC`, params)).rows;
+    const rows = (await pool.query(`SELECT sp.seller_id,u.display_name,u.email,sp.phone,sp.business_name,sp.business_type,sp.business_category,sp.business_email,sp.pan,sp.gstin,sp.gst_status,sp.account_holder_name,sp.bank_account_last4,sp.ifsc,sp.payout_preference,sp.pickup_address,sp.pickup_city,sp.pickup_state,sp.pickup_postal_code,sp.return_window_days,sp.shipping_model,sp.onboarding_status,sp.submitted_at,sp.reviewed_at,sp.rejection_reason,sp.verified,sp.payout_account_ready,sp.kyc_review_status,sp.kyc_review_notes,sp.kyc_reviewed_at,sp.kyc_reviewed_by FROM seller_profiles sp JOIN users u ON u.id=sp.seller_id ${where} ORDER BY sp.submitted_at DESC NULLS LAST,sp.created_at DESC`, params)).rows;
     return { sellers: rows.map((row) => ({ ...row, bank_account_last4: row.bank_account_last4 ? `••••${row.bank_account_last4}` : '' })) };
+  });
+
+  app.post('/v1/admin/sellers/:sellerId/kyc-review', { preHandler: requireRole('ADMIN') }, async (request, reply) => {
+    if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+    const status = clean(request.body?.status, 20).toUpperCase();
+    const notes = clean(request.body?.notes, 1000);
+    if (!['IN_REVIEW', 'VERIFIED', 'REJECTED'].includes(status)) return reply.code(400).send({ error: 'INVALID_KYC_REVIEW_STATUS' });
+    if (status === 'REJECTED' && !notes) return reply.code(400).send({ error: 'KYC_REJECTION_NOTES_REQUIRED' });
+    const result = await pool.query('UPDATE seller_profiles SET kyc_review_status=$1, kyc_review_notes=$2, kyc_reviewed_at=now(), kyc_reviewed_by=$3 WHERE seller_id=$4 RETURNING seller_id,kyc_review_status,kyc_review_notes,kyc_reviewed_at', [status, notes || null, request.user.sub, request.params.sellerId]);
+    if (!result.rowCount) return reply.code(404).send({ error: 'SELLER_NOT_FOUND' });
+    await audit(pool, request.user, 'SELLER_PROFILE', request.params.sellerId, 'KYC_REVIEW_' + status, { notes: notes || null });
+    return { kyc: result.rows[0] };
   });
 
   app.post('/v1/admin/sellers/:sellerId/onboarding/review', { preHandler: requireRole('ADMIN') }, async (request, reply) => {
@@ -78,10 +90,11 @@ export async function registerSellerOnboarding({ app, pool, requireRole, audit }
     const decision = clean(request.body?.decision, 20).toUpperCase();
     const reason = clean(request.body?.reason, 500);
     if (!['APPROVE', 'REJECT'].includes(decision)) return reply.code(400).send({ error: 'INVALID_REVIEW_DECISION' });
-    const seller = await pool.query('SELECT seller_id,onboarding_status FROM seller_profiles WHERE seller_id=$1', [request.params.sellerId]);
+    const seller = await pool.query('SELECT seller_id,onboarding_status,kyc_review_status FROM seller_profiles WHERE seller_id=$1', [request.params.sellerId]);
     if (!seller.rowCount) return reply.code(404).send({ error: 'SELLER_NOT_FOUND' });
     if (decision === 'REJECT' && !reason) return reply.code(400).send({ error: 'REJECTION_REASON_REQUIRED' });
     const approved = decision === 'APPROVE';
+    if (approved && seller.rows[0].kyc_review_status !== 'VERIFIED') return reply.code(409).send({ error: 'SELLER_KYC_NOT_VERIFIED', kycStatus: seller.rows[0].kyc_review_status || 'PENDING' });
     const result = await pool.query(`UPDATE seller_profiles SET onboarding_status=$1,verified=$2,verified_at=CASE WHEN $2 THEN now() ELSE NULL END,verified_by=CASE WHEN $2 THEN $3 ELSE NULL END,reviewed_at=now(),rejection_reason=CASE WHEN $2 THEN NULL ELSE $4 END,payout_account_ready=CASE WHEN $2 AND payout_account_ready THEN true ELSE payout_account_ready END WHERE seller_id=$5 RETURNING seller_id,onboarding_status,verified,payout_account_ready,verified_at,reviewed_at,rejection_reason`, [approved ? 'APPROVED' : 'REJECTED',approved,request.user.sub,reason || null,request.params.sellerId]);
     await audit(pool, request.user, 'SELLER_PROFILE', request.params.sellerId, approved ? 'ONBOARDING_APPROVED' : 'ONBOARDING_REJECTED', { reason: reason || null });
     return { onboarding: result.rows[0] };
