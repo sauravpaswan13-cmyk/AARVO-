@@ -90,10 +90,11 @@ export async function registerSellerOnboarding({ app, pool, requireRole, audit }
     const decision = clean(request.body?.decision, 20).toUpperCase();
     const reason = clean(request.body?.reason, 500);
     if (!['APPROVE', 'REJECT'].includes(decision)) return reply.code(400).send({ error: 'INVALID_REVIEW_DECISION' });
-    const seller = await pool.query('SELECT seller_id,onboarding_status FROM seller_profiles WHERE seller_id=$1', [request.params.sellerId]);
+    const seller = await pool.query('SELECT seller_id,onboarding_status,kyc_review_status FROM seller_profiles WHERE seller_id=$1', [request.params.sellerId]);
     if (!seller.rowCount) return reply.code(404).send({ error: 'SELLER_NOT_FOUND' });
     if (decision === 'REJECT' && !reason) return reply.code(400).send({ error: 'REJECTION_REASON_REQUIRED' });
     const approved = decision === 'APPROVE';
+    if (approved && seller.rows[0].kyc_review_status !== 'VERIFIED') return reply.code(409).send({ error: 'SELLER_KYC_NOT_VERIFIED', kycStatus: seller.rows[0].kyc_review_status || 'PENDING' });
     const result = await pool.query(`UPDATE seller_profiles SET onboarding_status=$1,verified=$2,verified_at=CASE WHEN $2 THEN now() ELSE NULL END,verified_by=CASE WHEN $2 THEN $3 ELSE NULL END,reviewed_at=now(),rejection_reason=CASE WHEN $2 THEN NULL ELSE $4 END,payout_account_ready=CASE WHEN $2 AND payout_account_ready THEN true ELSE payout_account_ready END WHERE seller_id=$5 RETURNING seller_id,onboarding_status,verified,payout_account_ready,verified_at,reviewed_at,rejection_reason`, [approved ? 'APPROVED' : 'REJECTED',approved,request.user.sub,reason || null,request.params.sellerId]);
     await audit(pool, request.user, 'SELLER_PROFILE', request.params.sellerId, approved ? 'ONBOARDING_APPROVED' : 'ONBOARDING_REJECTED', { reason: reason || null });
     return { onboarding: result.rows[0] };
