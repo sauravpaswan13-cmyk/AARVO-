@@ -97,7 +97,7 @@ if (refundStart >= 0 && refundEnd > refundStart) {
 
 // Apply an approved live product deal to the authoritative checkout price.
 const originalProductQuery = "SELECT p.id,p.seller_id,p.category,p.price_paise,p.stock_quantity,p.is_published,sp.pickup_state AS seller_pickup_state FROM products p LEFT JOIN seller_profiles sp ON sp.seller_id=p.seller_id WHERE p.id=ANY($1::bigint[]) FOR UPDATE";
-const discountedProductQuery = "SELECT p.id,p.seller_id,p.category,COALESCE(FLOOR(p.price_paise*(100-d.discount_percent)/100),p.price_paise)::bigint AS price_paise,p.stock_quantity,p.is_published,sp.pickup_state AS seller_pickup_state FROM products p LEFT JOIN seller_profiles sp ON sp.seller_id=p.seller_id LEFT JOIN LATERAL (SELECT discount_percent FROM aarvo_product_deals WHERE product_id=p.id AND status='APPROVED' AND starts_at<=now() AND ends_at>now() ORDER BY discount_percent DESC LIMIT 1) d ON true WHERE p.id=ANY($1::bigint[]) FOR UPDATE OF p";
+const discountedProductQuery = "SELECT p.id,p.seller_id,p.category,COALESCE(FLOOR(p.price_paise*(100-d.discount_percent)/100),p.price_paise)::bigint AS price_paise,p.stock_quantity,p.is_published,sp.pickup_state AS seller_pickup_state FROM products p LEFT JOIN seller_profiles sp ON sp.seller_id=p.seller_id LEFT JOIN LATERAL (SELECT discount_percent FROM aarvo_product_deals WHERE product_id=p.id AND status=\\'APPROVED\\' AND starts_at<=now() AND ends_at>now() ORDER BY discount_percent DESC LIMIT 1) d ON true WHERE p.id=ANY($1::bigint[]) FOR UPDATE OF p";
 if (source.includes(originalProductQuery)) source = source.replace(originalProductQuery, discountedProductQuery);
 
 if (!source.includes("otp-delivery.js")) {
