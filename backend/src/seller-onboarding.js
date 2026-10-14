@@ -73,6 +73,18 @@ export async function registerSellerOnboarding({ app, pool, requireRole, audit }
     return { sellers: rows.map((row) => ({ ...row, bank_account_last4: row.bank_account_last4 ? `••••${row.bank_account_last4}` : '' })) };
   });
 
+  app.post('/v1/admin/sellers/:sellerId/kyc-review', { preHandler: requireRole('ADMIN') }, async (request, reply) => {
+    if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+    const status = clean(request.body?.status, 20).toUpperCase();
+    const notes = clean(request.body?.notes, 1000);
+    if (!['IN_REVIEW', 'VERIFIED', 'REJECTED'].includes(status)) return reply.code(400).send({ error: 'INVALID_KYC_REVIEW_STATUS' });
+    if (status === 'REJECTED' && !notes) return reply.code(400).send({ error: 'KYC_REJECTION_NOTES_REQUIRED' });
+    const result = await pool.query('UPDATE seller_profiles SET kyc_review_status=$1, kyc_review_notes=$2, kyc_reviewed_at=now(), kyc_reviewed_by=$3 WHERE seller_id=$4 RETURNING seller_id,kyc_review_status,kyc_review_notes,kyc_reviewed_at', [status, notes || null, request.user.sub, request.params.sellerId]);
+    if (!result.rowCount) return reply.code(404).send({ error: 'SELLER_NOT_FOUND' });
+    await audit(pool, request.user, 'SELLER_PROFILE', request.params.sellerId, 'KYC_REVIEW_' + status, { notes: notes || null });
+    return { kyc: result.rows[0] };
+  });
+
   app.post('/v1/admin/sellers/:sellerId/onboarding/review', { preHandler: requireRole('ADMIN') }, async (request, reply) => {
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
     const decision = clean(request.body?.decision, 20).toUpperCase();
