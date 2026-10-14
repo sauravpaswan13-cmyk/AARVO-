@@ -69,7 +69,7 @@ export async function registerSellerOnboarding({ app, pool, requireRole, audit }
     const status = clean(request.query?.status, 20).toUpperCase();
     const params = status && validStatus.has(status) ? [status] : [];
     const where = params.length ? 'WHERE sp.onboarding_status=$1' : '';
-    const rows = (await pool.query(`SELECT sp.seller_id,u.display_name,u.email,sp.phone,sp.business_name,sp.business_type,sp.business_category,sp.business_email,sp.pan,sp.gstin,sp.gst_status,sp.account_holder_name,sp.bank_account_last4,sp.ifsc,sp.payout_preference,sp.pickup_address,sp.pickup_city,sp.pickup_state,sp.pickup_postal_code,sp.return_window_days,sp.shipping_model,sp.onboarding_status,sp.submitted_at,sp.reviewed_at,sp.rejection_reason,sp.verified,sp.payout_account_ready FROM seller_profiles sp JOIN users u ON u.id=sp.seller_id ${where} ORDER BY sp.submitted_at DESC NULLS LAST,sp.created_at DESC`, params)).rows;
+    const rows = (await pool.query(`SELECT sp.seller_id,u.display_name,u.email,sp.phone,sp.business_name,sp.business_type,sp.business_category,sp.business_email,sp.pan,sp.gstin,sp.gst_status,sp.account_holder_name,sp.bank_account_last4,sp.ifsc,sp.payout_preference,sp.pickup_address,sp.pickup_city,sp.pickup_state,sp.pickup_postal_code,sp.return_window_days,sp.shipping_model,sp.onboarding_status,sp.submitted_at,sp.reviewed_at,sp.rejection_reason,sp.verified,sp.payout_account_ready,sp.kyc_review_status,sp.kyc_review_notes,sp.kyc_reviewed_at FROM seller_profiles sp JOIN users u ON u.id=sp.seller_id ${where} ORDER BY sp.submitted_at DESC NULLS LAST,sp.created_at DESC`, params)).rows;
     return { sellers: rows.map((row) => ({ ...row, bank_account_last4: row.bank_account_last4 ? `••••${row.bank_account_last4}` : '' })) };
   });
 
