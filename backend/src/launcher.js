@@ -14,8 +14,8 @@ const gapImport = "import { registerMarketplaceGapCompletion } from './marketpla
 const sellerImport = "import { registerSellerOnboarding } from './seller-onboarding.js';";
 const riderImport = "import { registerRiderDelivery } from './rider-delivery.js';";
 const thirdPartyDeliveryImport = "import { registerThirdPartyDelivery } from './third-party-delivery.js';";
-const offerImport = "import { registerOfferCompletion } from './offer-completion.js';
-import { registerProductDeals } from './product-deals.js';";
+const offerImport = "import { registerOfferCompletion } from './offer-completion.js';";
+const productDealsImport = "import { registerProductDeals } from './product-deals.js';";
 
 // Keep the runtime-generated server deterministic: randomInt must survive every launcher rewrite.
 const cryptoImport = "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';";
