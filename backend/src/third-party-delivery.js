@@ -91,7 +91,7 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
   if(!pool) throw Object.assign(new Error('DATABASE_NOT_CONFIGURED'),{code:'DATABASE_NOT_CONFIGURED',status:503});
   if(!enabled()) throw Object.assign(new Error('THIRD_PARTY_DELIVERY_DISABLED'),{code:'THIRD_PARTY_DELIVERY_DISABLED',status:503});
   if(provider()!=='shiprocket') throw Object.assign(new Error('UNSUPPORTED_DELIVERY_PROVIDER'),{code:'UNSUPPORTED_DELIVERY_PROVIDER',status:400});
-  if(!token()||!pickupLocation()) throw Object.assign(new Error('SHIPROCKET_NOT_CONFIGURED'),{code:'SHIPROCKET_NOT_CONFIGURED',status:503});
+  if((!staticToken()&&(!apiEmail()||!apiPassword()))||!pickupLocation()) throw Object.assign(new Error('SHIPROCKET_NOT_CONFIGURED'),{code:'SHIPROCKET_NOT_CONFIGURED',status:503});
 
   const q=await pool.query(`SELECT o.id,o.status,o.address_json,o.total_paise,o.subtotal_paise,o.delivery_fee_paise,o.payment_status,
       u.email AS buyer_email,
@@ -170,7 +170,7 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
 
 export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
   app.get('/v1/delivery/provider-status',{preHandler:requireRole('ADMIN')},async()=>({
-    enabled:enabled(),provider:provider(),configured:Boolean(token()&&baseUrl()&&(!['shiprocket'].includes(provider())||pickupLocation())),
+    enabled:enabled(),provider:provider(),configured:Boolean((staticToken()||(apiEmail()&&apiPassword()))&&baseUrl()&&(!['shiprocket'].includes(provider())||pickupLocation())),
     mode:'THIRD_PARTY_ONLY',pickupLocation:provider()==='shiprocket'?pickupLocation()||null:null
   }));
 
