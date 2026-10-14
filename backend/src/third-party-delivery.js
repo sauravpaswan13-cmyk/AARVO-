@@ -4,21 +4,57 @@ const clean=(v,max=500)=>String(v??'').trim().slice(0,max);
 const enabled=()=>String(process.env.THIRD_PARTY_DELIVERY_ENABLED||'false').toLowerCase()==='true';
 const provider=()=>clean(process.env.THIRD_PARTY_DELIVERY_PROVIDER||'shiprocket',80).toLowerCase();
 const baseUrl=()=>clean(process.env.THIRD_PARTY_DELIVERY_BASE_URL||'https://apiv2.shiprocket.in',500).replace(/\/$/,'');
-const token=()=>String(process.env.THIRD_PARTY_DELIVERY_AUTH_TOKEN||'');
+const staticToken=()=>String(process.env.THIRD_PARTY_DELIVERY_AUTH_TOKEN||'');
+const apiEmail=()=>clean(process.env.SHIPROCKET_API_EMAIL||'',254);
+const apiPassword=()=>String(process.env.SHIPROCKET_API_PASSWORD||'');
 const pickupLocation=()=>clean(process.env.SHIPROCKET_PICKUP_LOCATION||'',120);
 const webhookSecret=()=>String(process.env.THIRD_PARTY_DELIVERY_WEBHOOK_SECRET||'');
+let cachedToken='';
+let cachedTokenExpiresAt=0;
+let loginInFlight=null;
 
 const shiprocketPath={
+  login:'/v1/external/auth/login',
   create:'/v1/external/orders/create/adhoc',
   awb:'/v1/external/courier/assign/awb',
   pickup:'/v1/external/courier/generate/pickup',
   track:'/v1/external/courier/track/awb/'
 };
 
-async function providerRequest(path,payload){
-  if(!enabled()||!token()||!baseUrl()) throw Object.assign(new Error('DELIVERY_PROVIDER_NOT_CONFIGURED'),{code:'DELIVERY_PROVIDER_NOT_CONFIGURED'});
-  const r=await fetch(baseUrl()+path,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+token()},body:JSON.stringify(payload)});
+async function readResponse(r){
   const t=await r.text(); let data={}; try{data=t?JSON.parse(t):{}}catch{data={raw:t}}
+  return data;
+}
+
+async function loginShiprocket(force=false){
+  if(!apiEmail()||!apiPassword()){
+    if(staticToken()) return staticToken();
+    throw Object.assign(new Error('SHIPROCKET_CREDENTIALS_NOT_CONFIGURED'),{code:'SHIPROCKET_CREDENTIALS_NOT_CONFIGURED',status:503});
+  }
+  if(!force&&cachedToken&&Date.now()<cachedTokenExpiresAt)return cachedToken;
+  if(loginInFlight)return loginInFlight;
+  loginInFlight=(async()=>{
+    const r=await fetch(baseUrl()+shiprocketPath.login,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:apiEmail(),password:apiPassword()})});
+    const data=await readResponse(r);
+    const fresh=String(data?.token||data?.data?.token||'');
+    if(!r.ok||!fresh)throw Object.assign(new Error('SHIPROCKET_LOGIN_FAILED'),{code:'SHIPROCKET_LOGIN_FAILED',status:r.ok?502:r.status,data:{message:data?.message||data?.errors||'Shiprocket authentication failed'}});
+    cachedToken=fresh;
+    cachedTokenExpiresAt=Date.now()+9*24*60*60*1000;
+    return cachedToken;
+  })();
+  try{return await loginInFlight;}finally{loginInFlight=null;}
+}
+
+async function providerRequest(path,payload){
+  if(!enabled()||!baseUrl()) throw Object.assign(new Error('DELIVERY_PROVIDER_NOT_CONFIGURED'),{code:'DELIVERY_PROVIDER_NOT_CONFIGURED'});
+  let authToken=await loginShiprocket();
+  let r=await fetch(baseUrl()+path,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+authToken},body:JSON.stringify(payload)});
+  let data=await readResponse(r);
+  if(r.status===401&&apiEmail()&&apiPassword()){
+    authToken=await loginShiprocket(true);
+    r=await fetch(baseUrl()+path,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+authToken},body:JSON.stringify(payload)});
+    data=await readResponse(r);
+  }
   if(!r.ok) throw Object.assign(new Error('DELIVERY_PROVIDER_REQUEST_FAILED'),{code:'DELIVERY_PROVIDER_REQUEST_FAILED',status:r.status,data});
   return data;
 }
