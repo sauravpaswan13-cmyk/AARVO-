@@ -472,6 +472,8 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         }
     }
 
+}
+
 @Composable private fun NotificationsScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) {
     var items by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope()
     fun reload() { scope.launch { try { val a=api.notifications(); items=buildList { for(i in 0 until a.length()) add(a.getJSONObject(i)) } } catch(t:Throwable){ error=t.message ?: "Unable to load notifications" } } }
