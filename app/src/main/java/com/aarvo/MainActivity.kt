@@ -283,9 +283,10 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
             unreadNotificationCount = 0
         }
     }
+    val cartItems by cartViewModel.items.collectAsState()
     val cartBadgeCount = cartItems.sumOf { cartViewModel.quantity(it.id) }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }; var wishlist by remember { mutableStateOf(wishlistStore.load()) }; var recentlyViewed by remember { mutableStateOf<List<Product>>(emptyList()) }
-    var saveForLater by remember { mutableStateOf(saveForLaterStore.load()) }; var showCheckout by remember { mutableStateOf(false) }; var showLoginRequired by remember { mutableStateOf(false) }; var checkoutLoading by remember { mutableStateOf(false) }; var checkoutMessage by remember { mutableStateOf("") }; var products by remember { mutableStateOf<List<Product>>(emptyList()) }; var allProducts by remember { mutableStateOf<List<Product>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val cartItems by cartViewModel.items.collectAsState(); val scope = rememberCoroutineScope()
+    var saveForLater by remember { mutableStateOf(saveForLaterStore.load()) }; var showCheckout by remember { mutableStateOf(false) }; var showLoginRequired by remember { mutableStateOf(false) }; var checkoutLoading by remember { mutableStateOf(false) }; var checkoutMessage by remember { mutableStateOf("") }; var products by remember { mutableStateOf<List<Product>>(emptyList()) }; var allProducts by remember { mutableStateOf<List<Product>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope()
     LaunchedEffect(api, guestMode, role) {
         try {
             allProducts = api.products("", "All").toProductList().distinctBy { it.id }
