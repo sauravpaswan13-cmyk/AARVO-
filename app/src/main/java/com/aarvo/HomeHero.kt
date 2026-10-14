@@ -82,7 +82,42 @@ fun LiveHero(api: AarvoApiClient, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center
         ) { CircularProgressIndicator() }
 
-        slides.isEmpty() -> Spacer(modifier.fillMaxWidth().height(16.dp))
+        slides.isEmpty() -> Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .clip(RoundedCornerShape(18.dp))
+        ) {
+            AsyncImage(
+                model = R.drawable.aarvo_hero_live_banner,
+                contentDescription = "AARVO Big Savings Bigger Dreams",
+                modifier = Modifier.matchParentSize(),
+                contentScale = ContentScale.Crop
+            )
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.verticalGradient(
+                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f))
+                    )
+                )
+            )
+            Column(
+                Modifier.align(Alignment.BottomStart).padding(16.dp)
+            ) {
+                Text(
+                    "Big Savings Bigger Dreams",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Top Brands | Best Deals | Only on AARVO",
+                    color = Color(0xFFFFD700),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
 
         else -> {
             val slide = slides[selected.coerceIn(0, slides.lastIndex)]
