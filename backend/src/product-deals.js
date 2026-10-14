@@ -53,6 +53,22 @@ export async function registerProductDeals({ app, pool, requireRole, audit }) {
     await audit(pool,request.user,'PRODUCT_DEAL',result.rows[0].id,'SUBMITTED',{productId,discountPercent:discount});
     return reply.code(201).send(result.rows[0]);
   });
+  app.post('/v1/admin/deals', { preHandler: requireRole('ADMIN') }, async (request, reply) => {
+    const b=request.body||{}, productId=Number(b.productId), discount=Number(b.discountPercent), endsAt=new Date(b.endsAt);
+    const note=String(b.adminNote||'').trim().slice(0,500);
+    if(!Number.isSafeInteger(productId)||productId<=0||!Number.isInteger(discount)||discount<1||discount>80||!Number.isFinite(endsAt.getTime())||endsAt<=new Date()||endsAt>new Date(Date.now()+90*86400000))
+      return reply.code(400).send({error:'INVALID_DEAL_REQUEST'});
+    const product=await pool.query('SELECT id,seller_id,is_published,stock_quantity FROM products WHERE id=$1',[productId]);
+    if(!product.rowCount) return reply.code(404).send({error:'PRODUCT_NOT_FOUND'});
+    if(!product.rows[0].is_published||Number(product.rows[0].stock_quantity)<1) return reply.code(409).send({error:'PRODUCT_NOT_ELIGIBLE'});
+    const conflict=await pool.query(`SELECT id FROM aarvo_product_deals WHERE product_id=$1 AND status IN ('PENDING','APPROVED') AND ends_at>now() LIMIT 1`,[productId]);
+    if(conflict.rowCount) return reply.code(409).send({error:'DEAL_ALREADY_PENDING_OR_ACTIVE'});
+    const result=await pool.query(`INSERT INTO aarvo_product_deals(product_id,seller_id,discount_percent,status,ends_at,admin_note,reviewed_by,reviewed_at)
+      VALUES($1,$2,$3,'APPROVED',$4,$5,$6,now()) RETURNING id,product_id AS "productId",status,discount_percent AS "discountPercent",ends_at AS "endsAt"`,
+      [productId,product.rows[0].seller_id,discount,endsAt.toISOString(),note,request.user.sub]);
+    await audit(pool,request.user,'PRODUCT_DEAL',result.rows[0].id,'ADMIN_CREATED',{productId,discountPercent:discount});
+    return reply.code(201).send(result.rows[0]);
+  });
   app.get('/v1/admin/deals', { preHandler: requireRole('ADMIN') }, async () => {
     return (await pool.query(`SELECT d.id,d.product_id AS "productId",d.seller_id AS "sellerId",
       p.name,p.category,p.price_paise AS "originalPricePaise",d.discount_percent AS "discountPercent",
