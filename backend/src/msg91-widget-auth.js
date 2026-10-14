@@ -142,15 +142,13 @@ export async function registerMsg91WidgetAuth({ app, pool, issueToken, normalize
 
     let response;
     try {
-      response = await fetch('https://control.msg91.com/api/v5/widget/verifyOtp', {
+      // Keep the same MSG91 verification endpoint and payload used by the
+      // previously working build. Only the provider's HTTP success/failure
+      // response determines whether the OTP request was accepted.
+      response = await fetch('https://api.msg91.com/api/v5/widget/verifyOtp', {
         method: 'POST',
-        headers: { 'accept': 'application/json', 'content-type': 'application/json', authkey: authKey },
-        body: JSON.stringify({
-          ...(String(process.env.MSG91_WIDGET_ID || '').trim()
-            ? { widgetId: String(process.env.MSG91_WIDGET_ID).trim() } : {}),
-          reqId,
-          otp
-        }),
+        headers: { 'content-type': 'application/json', authkey: authKey },
+        body: JSON.stringify({ reqId, otp }),
         signal: AbortSignal.timeout(10000)
       });
     } catch (error) {
