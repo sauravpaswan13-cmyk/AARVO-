@@ -47,8 +47,10 @@ export async function registerMarketplaceCompletion({ app, pool, requireAuth, re
     const sortOrder = Number(request.body?.sortOrder ?? 0);
     const isPrimary = request.body?.isPrimary !== false;
     if (!validImageUrl(imageUrl) || !Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 99) return reply.code(400).send({ error: 'INVALID_PRODUCT_IMAGE' });
-    const product = await pool.query('SELECT id FROM products WHERE id=$1 AND seller_id=$2', [request.params.id, request.user.sub]);
+    const product = await pool.query('SELECT id FROM products WHERE id=$1 AND seller_id=$2 FOR UPDATE', [request.params.id, request.user.sub]);
     if (!product.rowCount) return reply.code(404).send({ error: 'PRODUCT_NOT_FOUND' });
+    const imageCount = await pool.query('SELECT count(*)::int AS count FROM product_images WHERE product_id=$1', [request.params.id]);
+    if (Number(imageCount.rows[0].count) >= 5) return reply.code(409).send({ error: 'PRODUCT_IMAGE_LIMIT_REACHED' });
     const client = await pool.connect();
     try {
       await client.query('BEGIN');

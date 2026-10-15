@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -90,6 +92,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.aarvo.cart.CartViewModel
 import com.aarvo.cart.SaveForLaterStore
 import com.aarvo.data.Product
@@ -522,7 +525,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 
 @Composable private fun ProductFilterDialog(sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean, onSort: (String) -> Unit, onRating: (Double) -> Unit, onMaxPrice: (Long?) -> Unit, onStock: (Boolean) -> Unit, onClose: () -> Unit) { var priceText by remember(maxPrice) { mutableStateOf(if (maxPrice == null) "" else (maxPrice!! / 100).toString()) }; AlertDialog(onDismissRequest = onClose, title = { Text("Filters & Sorting") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Sort", fontWeight = FontWeight.Bold); listOf("Relevance", "Price: Low to High", "Price: High to Low", "Rating: High to Low").forEach { option -> TextButton(onClick = { onSort(option) }) { Text(if (sortMode == option) "✓ $option" else option) } }; Text("Minimum rating: ${if (minRating == 0.0) "Any" else "${minRating}★"}", fontWeight = FontWeight.Bold); Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { listOf(0.0, 3.0, 4.0, 4.5).forEach { r -> TextButton(onClick = { onRating(r) }) { Text(if (minRating == r) "✓ ${if (r == 0.0) "Any" else r.toString()}★" else if (r == 0.0) "Any" else "${r}★") } } }; OutlinedTextField(priceText, { priceText = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Maximum price ₹ (optional)") }); TextButton(onClick = { onMaxPrice(priceText.trim().toLongOrNull()?.times(100)); onClose() }) { Text("Apply price") }; TextButton(onClick = { onStock(!inStockOnly) }) { Text(if (inStockOnly) "✓ In stock only" else "In stock only") } } }, confirmButton = { Button(onClick = onClose) { Text("Done") } }) }
 
-private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds = mutableSetOf<Int>(); for (i in 0 until length()) { val o = getJSONObject(i); val id = o.getLong("id").toInt(); if (!seenIds.add(id)) continue; val pricePaise = o.getLong("price_paise"); add(Product(id, o.getString("seller_id"), o.getString("seller_name"), o.getString("name"), o.getString("category"), (pricePaise / 100L).toInt(), o.optDouble("rating", 0.0), "🛍️", o.getString("description"), o.getInt("stock_quantity"), o.optBoolean("is_published", true), pricePaise)) } }
+private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds = mutableSetOf<Int>(); for (i in 0 until length()) { val o = getJSONObject(i); val id = o.getLong("id").toInt(); if (!seenIds.add(id)) continue; val pricePaise = o.getLong("price_paise"); add(Product(id, o.getString("seller_id"), o.getString("seller_name"), o.getString("name"), o.getString("category"), (pricePaise / 100L).toInt(), o.optDouble("rating", 0.0), "🛍️", o.getString("description"), o.getInt("stock_quantity"), o.optBoolean("is_published", true), pricePaise, o.optString("image_url").takeIf { it.startsWith("https://") || it.startsWith("http://") })) } }
 
 @Composable private fun WishlistScreen(padding: PaddingValues, products: List<Product>, wishlist: Set<Int>, onToggle: (Int) -> Unit, onOpen: (Product) -> Unit, onAdd: (Product) -> Unit) {
     val context = LocalContext.current
@@ -775,9 +778,9 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
     }
 }
 
-@Composable private fun ProductCard(product: Product, isSaved: Boolean, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, onToggleWishlist: (Int) -> Unit) { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("${product.emoji}  ${product.name}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)); IconButton(onClick = { onToggleWishlist(product.id) }) { Icon(if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Wishlist") } }; Text(product.category, style = MaterialTheme.typography.bodySmall); Text(product.displayPrice, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = { onOpen(product) }) { Text("View details") }; TextButton(onClick = { onAdd(product) }) { Text("Add to cart") } } } } }
+@Composable private fun ProductCard(product: Product, isSaved: Boolean, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, onToggleWishlist: (Int) -> Unit) { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { if (!product.imageUrl.isNullOrBlank()) AsyncImage(model = product.imageUrl, contentDescription = product.name, modifier = Modifier.fillMaxWidth().height(190.dp), contentScale = ContentScale.Crop) else Text(product.emoji, style = MaterialTheme.typography.headlineLarge); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)); IconButton(onClick = { onToggleWishlist(product.id) }) { Icon(if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Wishlist") } }; Text(product.category, style = MaterialTheme.typography.bodySmall); Text(product.displayPrice, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = { onOpen(product) }) { Text("View details") }; TextButton(onClick = { onAdd(product) }) { Text("Add to cart") } } } } }
 
-@Composable private fun ProductDetailsScreen(product: Product, isSaved: Boolean, onBack: () -> Unit, onToggleWishlist: () -> Unit, onAdd: (Product) -> Unit) { Scaffold(topBar = { TopAppBar(title = { Text("Product details") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { padding -> Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { Text("${product.emoji}  ${product.name}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(product.category); Text(product.displayPrice, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description); Text("Stock available: ${product.stockQuantity}"); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { onAdd(product) }) { Text("Add to cart") }; TextButton(onClick = onToggleWishlist) { Text(if (isSaved) "Remove from wishlist" else "Save to wishlist") } } } } }
+@Composable private fun ProductDetailsScreen(product: Product, isSaved: Boolean, onBack: () -> Unit, onToggleWishlist: () -> Unit, onAdd: (Product) -> Unit) { Scaffold(topBar = { TopAppBar(title = { Text("Product details") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { padding -> Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { if (!product.imageUrl.isNullOrBlank()) AsyncImage(model = product.imageUrl, contentDescription = product.name, modifier = Modifier.fillMaxWidth().height(260.dp), contentScale = ContentScale.Fit) else Text(product.emoji, style = MaterialTheme.typography.headlineLarge); Text(product.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(product.category); Text(product.displayPrice, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description); Text("Stock available: ${product.stockQuantity}"); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { onAdd(product) }) { Text("Add to cart") }; TextButton(onClick = onToggleWishlist) { Text(if (isSaved) "Remove from wishlist" else "Save to wishlist") } } } } }
 
 @Composable private fun CartScreen(
     padding: PaddingValues,
@@ -1213,6 +1216,9 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
     var hsnCode by remember { mutableStateOf("") }
     var gstRate by remember { mutableStateOf("0") }
     var imageUrl by remember { mutableStateOf("") }
+    var selectedImages by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
+    val context = LocalContext.current
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris -> selectedImages = uris.take(5) }
     var error by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -1229,6 +1235,8 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                 OutlinedTextField(hsnCode, { hsnCode = it.filter(Char::isLetterOrDigit).uppercase().take(8) }, label = { Text("HSN code (required)") }, singleLine = true)
                 OutlinedTextField(gstRate, { gstRate = it }, label = { Text("GST rate % (0, 5, 12, 18, 28)") }, singleLine = true)
                 OutlinedTextField(imageUrl, { imageUrl = it.trim() }, label = { Text("Product image URL (optional)") }, singleLine = true)
+                Button(onClick = { imagePicker.launch("image/*") }, enabled = !busy && selectedImages.size < 5) { Text("Choose photos from Gallery (${selectedImages.size}/5)") }
+                if (selectedImages.isNotEmpty()) Text("${selectedImages.size} photo(s) selected. JPG, PNG and WebP; maximum 8 MB each.")
                 if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
             }
         },
@@ -1246,11 +1254,15 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                         if (!hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) throw IllegalArgumentException("Enter a valid 4–8 character HSN code")
                         if (gst !in listOf(0.0, 5.0, 12.0, 18.0, 28.0)) throw IllegalArgumentException("Choose GST rate 0, 5, 12, 18 or 28")
                         if (imageUrl.isNotBlank() && !(imageUrl.startsWith("https://", true) || imageUrl.startsWith("http://", true))) throw IllegalArgumentException("Image URL must start with https:// or http://")
+                        if (selectedImages.size + (if (imageUrl.isNotBlank()) 1 else 0) > 5) throw IllegalArgumentException("A product can have at most 5 photos including the image URL.")
                         val created = api.createSellerProduct(name.trim(), category.trim(), pricePaise, description.trim(), stockCount, false, hsnCode, gst)
                         val productId = created.getJSONObject("product").getInt("id")
-                        if (imageUrl.isNotBlank()) {
-                            try { api.productImageAdd(productId, imageUrl.trim(), name.trim(), 0, true) }
-                            catch (imageError: Throwable) { error = "Product saved, but image was not added: ${imageError.message ?: "check image URL"}"; return@launch }
+                        if (imageUrl.isNotBlank()) api.productImageAdd(productId, imageUrl.trim(), name.trim(), 0, true)
+                        selectedImages.forEachIndexed { index, uri ->
+                            val mime = context.contentResolver.getType(uri)?.lowercase() ?: "image/jpeg"
+                            if (mime !in setOf("image/jpeg", "image/png", "image/webp")) throw IllegalArgumentException("Choose JPG, PNG or WebP photos only.")
+                            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IllegalArgumentException("Could not read a selected photo.")
+                            api.uploadSellerProductImage(productId, bytes, mime, name.trim(), index + (if (imageUrl.isNotBlank()) 1 else 0))
                         }
                         onDone()
                     } catch (t: Throwable) {
