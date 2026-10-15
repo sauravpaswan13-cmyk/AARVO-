@@ -35,15 +35,28 @@ if (!source.includes("randomInt")) {
   throw new Error("AARVO launcher safety check: randomInt import missing from generated runtime");
 }
 
-if (!source.includes('await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });')) {
-  const listenMarker = source.includes("app.listen(PORT, '0.0.0.0', () => {")
-    ? "app.listen(PORT, '0.0.0.0', () => {"
-    : "const port=Number(process.env.PORT||8080);await app.listen({port,host:'0.0.0.0'});";
-  const registrations = "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\nawait registerMarketplaceGapCompletion({ app, pool, requireRole, audit });\nawait registerSellerOnboarding({ app, pool, requireRole, audit });\nawait registerSellerKycDocuments({ app, pool, requireRole, audit });\nawait registerRiderDelivery({ app, pool, requireRole, audit });\nawait registerThirdPartyDelivery({ app, pool, requireRole, audit });\nawait registerOfferCompletion({ app, pool, requireRole, audit });\nawait registerProductDeals({ app, pool, requireRole, audit });\n";
-  if (!source.includes(listenMarker)) throw new Error("AARVO launcher safety check: listen marker missing");
-  source = source.replace(listenMarker, registrations + listenMarker);
+const listenMarker = source.includes("app.listen(PORT, '0.0.0.0', () => {")
+  ? "app.listen(PORT, '0.0.0.0', () => {"
+  : "const port=Number(process.env.PORT||8080);await app.listen({port,host:'0.0.0.0'});";
+const routeRegistrations = [
+  ["await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });", "marketplace"],
+  ["await registerCartCompletion({ app, pool, requireRole, audit });", "cart"],
+  ["await registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });", "settlement"],
+  ["await registerMarketplaceGapCompletion({ app, pool, requireRole, audit });", "marketplace gap"],
+  ["await registerSellerOnboarding({ app, pool, requireRole, audit });", "seller onboarding"],
+  ["await registerSellerKycDocuments({ app, pool, requireRole, audit });", "seller KYC documents"],
+  ["await registerRiderDelivery({ app, pool, requireRole, audit });", "rider delivery"],
+  ["await registerThirdPartyDelivery({ app, pool, requireRole, audit });", "third-party delivery"],
+  ["await registerOfferCompletion({ app, pool, requireRole, audit });", "offers"],
+  ["await registerProductDeals({ app, pool, requireRole, audit });", "product deals"]
+];
+if (!source.includes(listenMarker)) throw new Error("AARVO launcher safety check: listen marker missing");
+const missingRegistrations = routeRegistrations
+  .filter(([statement]) => !source.includes(statement))
+  .map(([statement]) => statement);
+if (missingRegistrations.length) {
+  source = source.replace(listenMarker, missingRegistrations.join("\\n") + "\\n" + listenMarker);
 }
-
 if (!source.includes("commission-rules.js")) {
   source = source.replace(
     "import { registerSettlementCompletion } from './settlement-completion.js';",
