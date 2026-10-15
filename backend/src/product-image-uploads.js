@@ -48,7 +48,7 @@ export async function registerProductImageUploads({app,pool,requireRole,audit}) 
     const b=request.body||{}, key=clean(b.objectKey,500), imageId=clean(b.imageId,40), altText=clean(b.altText,250);
     const expectedPrefix='product-images/'+String(request.user.sub)+'/'+String(request.params.id)+'/';
     const filename=key.startsWith(expectedPrefix)?key.slice(expectedPrefix.length):'';
-    if(!/^[0-9a-f-]{36}\\.(jpg|png|webp)$/i.test(filename)||!/^[0-9a-f-]{36}$/i.test(imageId)||!filename.startsWith(imageId)) return fail(reply,400,'INVALID_PRODUCT_IMAGE_CONFIRMATION');
+    if(!/^[0-9a-f-]{36}\.(jpg|png|webp)$/i.test(filename)||!/^[0-9a-f-]{36}$/i.test(imageId)||!filename.startsWith(imageId)) return fail(reply,400,'INVALID_PRODUCT_IMAGE_CONFIRMATION');
     const product=await pool.query('SELECT id,name FROM products WHERE id=$1 AND seller_id=$2',[request.params.id,request.user.sub]);
     if(!product.rowCount) return fail(reply,404,'PRODUCT_NOT_FOUND');
     const head=await s3.send(new HeadObjectCommand({Bucket:BUCKET,Key:key}));
