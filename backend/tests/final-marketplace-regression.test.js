@@ -127,7 +127,7 @@ test('final money regression keeps exact integer paise representation', () => {
   assert.match(productModel, /pricePaise % 100/);
   assert.match(productModel, /require\(pricePaise >= 0/);
   assert.match(androidMain, /val pricePaise = o\.getLong\("price_paise"\)/);
-  assert.match(androidMain, /pricePaise\)\)/);
+  assert.match(androidMain, /pricePaise, o\.optString\("image_url"\)/);
 });
 
 test('final CI regression still builds both installable/debug and release artifacts', () => {
