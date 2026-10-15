@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -1213,6 +1215,9 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
     var hsnCode by remember { mutableStateOf("") }
     var gstRate by remember { mutableStateOf("0") }
     var imageUrl by remember { mutableStateOf("") }
+    var selectedImages by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
+    val context = LocalContext.current
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris -> selectedImages = uris.take(5) }
     var error by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -1229,6 +1234,8 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                 OutlinedTextField(hsnCode, { hsnCode = it.filter(Char::isLetterOrDigit).uppercase().take(8) }, label = { Text("HSN code (required)") }, singleLine = true)
                 OutlinedTextField(gstRate, { gstRate = it }, label = { Text("GST rate % (0, 5, 12, 18, 28)") }, singleLine = true)
                 OutlinedTextField(imageUrl, { imageUrl = it.trim() }, label = { Text("Product image URL (optional)") }, singleLine = true)
+                Button(onClick = { imagePicker.launch("image/*") }, enabled = !busy && selectedImages.size < 5) { Text("Choose photos from Gallery (${selectedImages.size}/5)") }
+                if (selectedImages.isNotEmpty()) Text("${selectedImages.size} photo(s) selected. JPG, PNG and WebP; maximum 8 MB each.")
                 if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
             }
         },
@@ -1248,9 +1255,13 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                         if (imageUrl.isNotBlank() && !(imageUrl.startsWith("https://", true) || imageUrl.startsWith("http://", true))) throw IllegalArgumentException("Image URL must start with https:// or http://")
                         val created = api.createSellerProduct(name.trim(), category.trim(), pricePaise, description.trim(), stockCount, false, hsnCode, gst)
                         val productId = created.getJSONObject("product").getInt("id")
-                        if (imageUrl.isNotBlank()) {
-                            try { api.productImageAdd(productId, imageUrl.trim(), name.trim(), 0, true) }
-                            catch (imageError: Throwable) { error = "Product saved, but image was not added: ${imageError.message ?: "check image URL"}"; return@launch }
+                        if (imageUrl.isNotBlank()) api.productImageAdd(productId, imageUrl.trim(), name.trim(), 0, true)
+                        if (selectedImages.size + (if (imageUrl.isNotBlank()) 1 else 0) > 5) throw IllegalArgumentException("A product can have at most 5 photos including the image URL.")
+                        selectedImages.forEachIndexed { index, uri ->
+                            val mime = context.contentResolver.getType(uri)?.lowercase() ?: "image/jpeg"
+                            if (mime !in setOf("image/jpeg", "image/png", "image/webp")) throw IllegalArgumentException("Choose JPG, PNG or WebP photos only.")
+                            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IllegalArgumentException("Could not read a selected photo.")
+                            api.uploadSellerProductImage(productId, bytes, mime, name.trim(), index + (if (imageUrl.isNotBlank()) 1 else 0))
                         }
                         onDone()
                     } catch (t: Throwable) {
