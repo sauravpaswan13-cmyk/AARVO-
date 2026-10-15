@@ -55,7 +55,7 @@ const missingRegistrations = routeRegistrations
   .filter(([statement]) => !source.includes(statement))
   .map(([statement]) => statement);
 if (missingRegistrations.length) {
-  source = source.replace(listenMarker, missingRegistrations.join("\\n") + "\\n" + listenMarker);
+  source = source.replace(listenMarker, missingRegistrations.join("\n") + "\n" + listenMarker);
 }
 if (!source.includes("commission-rules.js")) {
   source = source.replace(
