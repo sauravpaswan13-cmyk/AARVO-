@@ -1204,7 +1204,66 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
 
 @Composable private fun SellerProductEditDialog(p: JSONObject, api: AarvoApiClient, onDone: () -> Unit) { var name by remember { mutableStateOf(p.optString("name")) }; var category by remember { mutableStateOf(p.optString("category")) }; var price by remember { mutableStateOf((p.optLong("price_paise") / 100.0).toString()) }; var description by remember { mutableStateOf(p.optString("description")) }; var error by remember { mutableStateOf("") }; var busy by remember { mutableStateOf(false) }; val scope = rememberCoroutineScope(); AlertDialog(onDismissRequest = { if (!busy) onDone() }, title = { Text("Edit product") }, text = { Column(verticalArrangement = Arrangement.spacedBy(7.dp)) { OutlinedTextField(name, { name = it }, label = { Text("Name") }); OutlinedTextField(category, { category = it }, label = { Text("Category") }); OutlinedTextField(price, { price = it }, label = { Text("Price ₹") }); OutlinedTextField(description, { description = it }, label = { Text("Description") }); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error) } }, confirmButton = { Button(onClick = { scope.launch { busy = true; error = ""; try { api.updateSellerProduct(p.optInt("id"), name, category, parseRupeesToPaise(price), description); onDone() } catch (t: Throwable) { error = t.message ?: "Unable to update product" } finally { busy = false } } }, enabled = !busy && name.isNotBlank() && category.isNotBlank() && description.isNotBlank() && parseRupeesToPaiseOrNull(price)?.let { it > 0 } == true) { if (busy) CircularProgressIndicator() else Text("Save changes") } }, dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text("Close") } }) }
 
-@Composable private fun SellerProductDialog(api: AarvoApiClient, onDone: () -> Unit) { var name by remember { mutableStateOf("") }; var category by remember { mutableStateOf("") }; var price by remember { mutableStateOf("") }; var description by remember { mutableStateOf("") }; var stock by remember { mutableStateOf("0") }; var hsnCode by remember { mutableStateOf("") }; var gstRate by remember { mutableStateOf("0") }; var imageUrl by remember { mutableStateOf("") }; var error by remember { mutableStateOf("") }; var busy by remember { mutableStateOf(false) }; val scope = rememberCoroutineScope(); AlertDialog(onDismissRequest = { if (!busy) onDone() }, title = { Text("Add product") }, text = { Column(verticalArrangement = Arrangement.spacedBy(7.dp)) { OutlinedTextField(name, { name = it }, label = { Text("Name") }); OutlinedTextField(category, { category = it }, label = { Text("Category") }); OutlinedTextField(price, { price = it }, label = { Text("Price ₹") }); OutlinedTextField(description, { description = it }, label = { Text("Description") }); OutlinedTextField(stock, { stock = it }, label = { Text("Stock") }); OutlinedTextField(hsnCode, { hsnCode = it.uppercase().take(8) }, label = { Text("HSN code (required)") }); OutlinedTextField(gstRate, { gstRate = it }, label = { Text("GST rate % (0, 5, 12, 18, 28)") }); OutlinedTextField(imageUrl, { imageUrl = it }, label = { Text("Product image URL (optional)") }); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error) } }, confirmButton = { Button(onClick = { scope.launch { busy = true; try { val pricePaise = parseRupeesToPaise(price); val stockCount = stock.toIntOrNull() ?: error("Enter a valid stock quantity"); val gst = gstRate.toDoubleOrNull() ?: error("Enter a valid GST rate"); if (!hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) error("Enter a valid 4–8 character HSN code"); if (gst !in listOf(0.0,5.0,12.0,18.0,28.0)) error("Choose GST rate 0, 5, 12, 18 or 28"); val product = api.createSellerProduct(name, category, pricePaise, description, stockCount, false, hsnCode, gst); if (imageUrl.isNotBlank()) api.productImageAdd(product.getJSONObject("product").getInt("id"), imageUrl.trim(), name, 0, true); onDone() } catch (t: Throwable) { error = t.message ?: "Unable to create product" } finally { busy = false } } }, enabled = !busy && name.isNotBlank() && category.isNotBlank() && parseRupeesToPaiseOrNull(price)?.let { it > 0 } == true && description.isNotBlank() && hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) { Text(if (busy) "Saving…" else "Save draft") } }, dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text("Close") } }) }
+@Composable private fun SellerProductDialog(api: AarvoApiClient, onDone: () -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("") }
+    var price by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var stock by remember { mutableStateOf("0") }
+    var hsnCode by remember { mutableStateOf("") }
+    var gstRate by remember { mutableStateOf("0") }
+    var imageUrl by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDone() },
+        title = { Text("Add product") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
+                OutlinedTextField(category, { category = it }, label = { Text("Category") }, singleLine = true)
+                OutlinedTextField(price, { price = it }, label = { Text("Price ₹") }, singleLine = true)
+                OutlinedTextField(description, { description = it }, label = { Text("Description") })
+                OutlinedTextField(stock, { stock = it.filter(Char::isDigit).take(7) }, label = { Text("Stock") }, singleLine = true)
+                OutlinedTextField(hsnCode, { hsnCode = it.filter(Char::isLetterOrDigit).uppercase().take(8) }, label = { Text("HSN code (required)") }, singleLine = true)
+                OutlinedTextField(gstRate, { gstRate = it }, label = { Text("GST rate % (0, 5, 12, 18, 28)") }, singleLine = true)
+                OutlinedTextField(imageUrl, { imageUrl = it.trim() }, label = { Text("Product image URL (optional)") }, singleLine = true)
+                if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                scope.launch {
+                    busy = true
+                    error = ""
+                    try {
+                        val pricePaise = parseRupeesToPaiseOrNull(price) ?: throw IllegalArgumentException("Enter a valid price greater than ₹0")
+                        val stockCount = stock.toIntOrNull() ?: throw IllegalArgumentException("Enter a valid stock quantity")
+                        if (stockCount < 0) throw IllegalArgumentException("Stock cannot be negative")
+                        val gst = gstRate.toDoubleOrNull() ?: throw IllegalArgumentException("Enter a valid GST rate")
+                        if (name.trim().isEmpty() || category.trim().isEmpty() || description.trim().isEmpty()) throw IllegalArgumentException("Name, category and description are required")
+                        if (!hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) throw IllegalArgumentException("Enter a valid 4–8 character HSN code")
+                        if (gst !in listOf(0.0, 5.0, 12.0, 18.0, 28.0)) throw IllegalArgumentException("Choose GST rate 0, 5, 12, 18 or 28")
+                        if (imageUrl.isNotBlank() && !(imageUrl.startsWith("https://", true) || imageUrl.startsWith("http://", true))) throw IllegalArgumentException("Image URL must start with https:// or http://")
+                        val created = api.createSellerProduct(name.trim(), category.trim(), pricePaise, description.trim(), stockCount, false, hsnCode, gst)
+                        val productId = created.getJSONObject("product").getInt("id")
+                        if (imageUrl.isNotBlank()) {
+                            try { api.productImageAdd(productId, imageUrl.trim(), name.trim(), 0, true) }
+                            catch (imageError: Throwable) { error = "Product saved, but image was not added: ${imageError.message ?: "check image URL"}"; return@launch }
+                        }
+                        onDone()
+                    } catch (t: Throwable) {
+                        error = t.message ?: "Unable to create product"
+                    } finally { busy = false }
+                }
+            }, enabled = !busy && name.isNotBlank() && category.isNotBlank() && description.isNotBlank() && parseRupeesToPaiseOrNull(price)?.let { it > 0 } == true && stock.toIntOrNull()?.let { it >= 0 } == true && hsnCode.matches(Regex("[A-Za-z0-9]{4,8}") ) && gstRate.toDoubleOrNull() in listOf(0.0, 5.0, 12.0, 18.0, 28.0)) {
+                if (busy) CircularProgressIndicator() else Text("Save draft")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text("Close") } }
+    )
+}
 
 @Composable private fun SellerOrderRow(o: JSONObject, api: AarvoApiClient, reload: () -> Unit) { var busy by remember { mutableStateOf(false) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); val id = o.optString("id"); val status = o.optString("status"); val nextStatus = when (status) { "PAID" -> "PACKED"; "PACKED" -> "SHIPPED"; "SHIPPED" -> "OUT_FOR_DELIVERY"; "OUT_FOR_DELIVERY" -> "DELIVERED"; else -> "" }; Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) { Text("Order #$id", fontWeight = FontWeight.SemiBold); Text("Status: $status • Payment: ${o.optString("payment_status")}"); Text("Seller amount: ${formatPaise(o.optJSONArray("items")?.let { arr -> (0 until arr.length()).sumOf { arr.getJSONObject(it).optLong("sellerAmountPaise") } } ?: 0L)}"); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error); if (nextStatus.isNotBlank()) TextButton(onClick = { scope.launch { busy = true; error = ""; try { api.updateOrderTracking(id, nextStatus, note = "Seller marked order $nextStatus"); reload() } catch (t: Throwable) { error = t.message ?: "Unable to update order status" } finally { busy = false } } }, enabled = !busy) { Text("Mark $nextStatus") } } } }
 
