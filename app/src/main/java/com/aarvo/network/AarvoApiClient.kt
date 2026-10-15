@@ -77,6 +77,7 @@ class AarvoApiClient(
     suspend fun deleteAddress(addressId: String): JSONObject { require(addressId.trim().isNotBlank()) { "Address ID is required" }; return delete("/v1/addresses/${addressId.trim()}") }
     suspend fun setDefaultAddress(addressId: String): JSONObject { require(addressId.trim().isNotBlank()) { "Address ID is required" }; return post("/v1/addresses/${addressId.trim()}/default", JSONObject()) }
     suspend fun sellerKycDocuments(): JSONArray = getObject("/v1/seller/kyc-documents").optJSONArray("documents") ?: JSONArray()
+    suspend fun submitSellerKycDocuments(): JSONObject = post("/v1/seller/kyc-documents/submit", JSONObject())
     suspend fun presignSellerKycDocument(filename: String, contentType: String, sizeBytes: Long, documentType: String): JSONObject =
         post("/v1/seller/kyc-documents/presign", JSONObject().put("filename", filename).put("contentType", contentType).put("sizeBytes", sizeBytes).put("documentType", documentType))
     suspend fun confirmSellerKycDocument(documentId: String, objectKey: String, filename: String, contentType: String, documentType: String): JSONObject =
