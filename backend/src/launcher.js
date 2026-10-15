@@ -12,7 +12,8 @@ const cartImport = "import { registerCartCompletion } from './cart-completion.js
 const settlementImport = "import { registerSettlementCompletion } from './settlement-completion.js';";
 const gapImport = "import { registerMarketplaceGapCompletion } from './marketplace-gap-completion.js';";
 const sellerImport = "import { registerSellerOnboarding } from './seller-onboarding.js';";
-const kycDocsImport = "import { registerSellerKycDocuments } from './seller-kyc-documents.js';";
+const kycDocsImport = "import { registerSellerKycDocuments } from './seller-kyc-documents.js';
+import { registerProductImageUploads } from './product-image-uploads.js';";
 const riderImport = "import { registerRiderDelivery } from './rider-delivery.js';";
 const thirdPartyDeliveryImport = "import { registerThirdPartyDelivery } from './third-party-delivery.js';";
 const offerImport = "import { registerOfferCompletion } from './offer-completion.js';";
@@ -21,7 +22,8 @@ const productDealsImport = "import { registerProductDeals } from './product-deal
 // Keep the runtime-generated server deterministic: randomInt must survive every launcher rewrite.
 const cryptoImport = "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';";
 const cryptoImportWithRandomInt = "import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';";
-const runtimeImports = [marketplaceImport, cartImport, settlementImport, gapImport, sellerImport, kycDocsImport, riderImport, thirdPartyDeliveryImport, offerImport, productDealsImport];
+const productImagesImport = "import { registerProductImageUploads } from './product-image-uploads.js';";
+const runtimeImports = [marketplaceImport, cartImport, settlementImport, gapImport, sellerImport, kycDocsImport, productImagesImport, riderImport, thirdPartyDeliveryImport, offerImport, productDealsImport];
 const cryptoAnchor = source.includes(cryptoImportWithRandomInt) ? cryptoImportWithRandomInt : cryptoImport;
 if (!source.includes(cryptoImportWithRandomInt)) {
   source = source.replace(cryptoImport, cryptoImportWithRandomInt);
@@ -45,6 +47,7 @@ const routeRegistrations = [
   ["await registerMarketplaceGapCompletion({ app, pool, requireRole, audit });", "marketplace gap"],
   ["await registerSellerOnboarding({ app, pool, requireRole, audit });", "seller onboarding"],
   ["await registerSellerKycDocuments({ app, pool, requireRole, audit });", "seller KYC documents"],
+  ["await registerProductImageUploads({ app, pool, requireRole, audit });", "public product image uploads"],
   ["await registerRiderDelivery({ app, pool, requireRole, audit });", "rider delivery"],
   ["await registerThirdPartyDelivery({ app, pool, requireRole, audit });", "third-party delivery"],
   ["await registerOfferCompletion({ app, pool, requireRole, audit });", "offers"],
