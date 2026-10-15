@@ -22,6 +22,7 @@ function storageClient() {
 }
 
 export async function registerSellerKycDocuments({ app, pool, requireRole, audit }) {
+  app.log.info({ privateKycStorageConfigured: Boolean(storageClient()), databaseConfigured: Boolean(pool) }, 'AARVO seller KYC readiness');
   if (pool) {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS seller_kyc_documents (
