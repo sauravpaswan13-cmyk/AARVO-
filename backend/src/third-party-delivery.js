@@ -122,7 +122,7 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
 
   const q=await pool.query(`SELECT o.id,o.status,o.address_json,o.total_paise,o.subtotal_paise,o.delivery_fee_paise,o.payment_status,
       u.email AS buyer_email,
-      COALESCE((SELECT json_agg(json_build_object('productId',ol.product_id,'quantity',ol.quantity,'lineTotalPaise',(ol.unit_price_paise * ol.quantity))) FROM order_lines ol WHERE ol.order_id=o.id),'[]'::json) AS lines
+      COALESCE((SELECT json_agg(json_build_object('productId',ol.product_id,'quantity',ol.quantity,'unitPricePaise',ol.unit_price_paise,'lineTotalPaise',(ol.unit_price_paise * ol.quantity))) FROM order_lines ol WHERE ol.order_id=o.id),'[]'::json) AS lines
       FROM orders o LEFT JOIN users u ON u.id=o.buyer_id WHERE o.id=$1`,[orderId]);
   if(!q.rowCount)throw Object.assign(new Error('ORDER_NOT_FOUND'),{code:'ORDER_NOT_FOUND',status:404});
   const o=q.rows[0];
@@ -159,7 +159,7 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
     const pickup=await ensureSellerPickup(seller);
     const items=sellerLines.map(({line,product})=>({
       name:clean(product.name||('AARVO Product '+line.productId),120),sku:clean(String(line.productId),80),
-      units:Number(line.quantity)||1,selling_price:(Number(product.price_paise||0)/100).toFixed(2),discount:0,tax:0,hsn:''
+      units:Number(line.quantity)||1,selling_price:(Number(line.unitPricePaise||0)/100).toFixed(2),discount:0,tax:0,hsn:''
     }));
     const subtotalPaise=sellerLines.reduce((sum,{line})=>sum+Number(line.lineTotalPaise||0),0);
     const sellerOrderId=('AARVO'+String(o.id).replace(/-/g,'')+'S'+String(sellerId).replace(/-/g,'')).slice(0,50);
@@ -192,7 +192,18 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
       VALUES($1,'shiprocket',$2,$3,$4,$5,'OUT_FOR_PICKUP',$6,$7) RETURNING *`,
       [o.id,String(srOrderId),String(srShipmentId),awbCode,courier,trackingUrl,JSON.stringify(stored)]);
     createdRows.push(row.rows[0]);
-    await audit(pool,actor,'ORDER',o.id,'THIRD_PARTY_DELIVERY_CREATED',{provider:'shiprocket',providerOrderId:String(srOrderId),shipmentId:String(srShipmentId),awb:awbCode,courier,sellerId,pickupLocation:pickup});
+    // Manifest generation is required by Shiprocket after AWB + pickup. Persist
+    // the shipment first so a manifest API failure can never cause a duplicate order.
+    let manifest=null;
+    try {
+      manifest=await providerRequest('/v1/external/manifests/generate',{shipment_id:[Number(srShipmentId)]});
+    } catch (error) {
+      manifest={error:error.code||'SHIPROCKET_MANIFEST_FAILED',message:String(error.message||'Manifest generation failed').slice(0,200)};
+    }
+    const storedPayload={...stored,manifest};
+    const saved=await pool.query('UPDATE third_party_delivery_shipments SET provider_payload=$1,updated_at=now() WHERE id=$2 RETURNING *',[JSON.stringify(storedPayload),row.rows[0].id]);
+    createdRows[createdRows.length-1]=saved.rows[0];
+    await audit(pool,actor,'ORDER',o.id,'THIRD_PARTY_DELIVERY_CREATED',{provider:'shiprocket',providerOrderId:String(srOrderId),shipmentId:String(srShipmentId),awb:awbCode,courier,sellerId,pickupLocation:pickup,manifestGenerated:!manifest?.error});
     sellerIndex++;
   }
   const tracking=createdRows.map(row=>({status:row.status,carrier:row.courier_name||'Shiprocket',provider:'shiprocket',providerOrderId:row.provider_order_id,shipmentId:row.provider_shipment_id,awb:row.awb,trackingUrl:row.tracking_url,updatedAt:new Date().toISOString()}));
