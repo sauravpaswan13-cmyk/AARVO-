@@ -87,8 +87,24 @@ app.post('/v1/seller/products/:id/publish', { preHandler: requireRole('SELLER') 
   const publish = request.body?.publish !== false;
   const seller = await pool.query('SELECT verified,payout_account_ready FROM seller_profiles WHERE seller_id=$1', [request.user.sub]);
   if (!seller.rowCount) return reply.code(403).send({ error: 'SELLER_PROFILE_REQUIRED' });
-  const allowed = seller.rows[0].verified && seller.rows[0].payout_account_ready;
-  if (publish && !allowed) return reply.code(403).send({ error: 'SELLER_VERIFICATION_AND_PAYOUT_REQUIRED' });
+  const verified = Boolean(seller.rows[0].verified);
+  const payoutReady = Boolean(seller.rows[0].payout_account_ready);
+  if (publish && !verified) {
+    return reply.code(403).send({
+      error: 'SELLER_VERIFICATION_REQUIRED',
+      verificationStatus: 'PENDING',
+      payoutStatus: payoutReady ? 'READY' : 'SETUP_REQUIRED',
+      message: 'Seller KYC verification is required before publishing products.'
+    });
+  }
+  if (publish && !payoutReady) {
+    return reply.code(403).send({
+      error: 'SELLER_PAYOUT_SETUP_REQUIRED',
+      verificationStatus: 'VERIFIED',
+      payoutStatus: 'SETUP_REQUIRED',
+      message: 'Seller KYC is verified, but payout onboarding must be completed before publishing products.'
+    });
+  }
   const result = await pool.query('UPDATE products SET is_published=$1,updated_at=now() WHERE id=$2 AND seller_id=$3 RETURNING id,is_published', [publish, request.params.id, request.user.sub]);
   if (!result.rowCount) return reply.code(404).send({ error: 'PRODUCT_NOT_FOUND' });
   await audit(pool, request.user, 'PRODUCT', request.params.id, publish ? 'PUBLISHED' : 'UNPUBLISHED');
