@@ -1,0 +1,9 @@
+-- Seller pickup details required for per-seller Shiprocket pickup locations.
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS business_name TEXT;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS business_email TEXT;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS pickup_phone TEXT;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS pickup_address TEXT;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS pickup_address_2 TEXT;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS pickup_city TEXT;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS pickup_state TEXT;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS pickup_postal_code TEXT;
