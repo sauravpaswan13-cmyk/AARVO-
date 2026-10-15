@@ -194,3 +194,13 @@ CREATE INDEX IF NOT EXISTS orders_buyer_idx ON orders (buyer_id, created_at DESC
 CREATE INDEX IF NOT EXISTS orders_status_idx ON orders (status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS ledger_seller_idx ON seller_ledger (seller_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS payment_events_order_idx ON payment_events (order_id, created_at DESC);
+
+-- Seller-specific Shiprocket pickup details; safe for existing and fresh databases.
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS business_name TEXT;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS business_email TEXT;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS pickup_phone TEXT;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS pickup_address TEXT;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS pickup_address_2 TEXT;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS pickup_city TEXT;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS pickup_state TEXT;
+ALTER TABLE seller_profiles ADD COLUMN IF NOT EXISTS pickup_postal_code TEXT;
