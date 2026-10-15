@@ -36,10 +36,12 @@ if (!source.includes("randomInt")) {
 }
 
 if (!source.includes('await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });')) {
-  source = source.replace(
-    "app.listen(PORT, '0.0.0.0', () => {",
-    "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\nawait registerCartCompletion({ app, pool, requireRole, audit });\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\nawait registerMarketplaceGapCompletion({ app, pool, requireRole, audit });\nawait registerSellerOnboarding({ app, pool, requireRole, audit });\nawait registerSellerKycDocuments({ app, pool, requireRole, audit });\nawait registerRiderDelivery({ app, pool, requireRole, audit });\nawait registerThirdPartyDelivery({ app, pool, requireRole, audit });\nawait registerOfferCompletion({ app, pool, requireRole, audit });\nawait registerProductDeals({ app, pool, requireRole, audit });\napp.listen(PORT, '0.0.0.0', () => {"
-  );
+  const listenMarker = source.includes("app.listen(PORT, '0.0.0.0', () => {")
+    ? "app.listen(PORT, '0.0.0.0', () => {"
+    : "const port=Number(process.env.PORT||8080);await app.listen({port,host:'0.0.0.0'});";
+  const registrations = "await registerMarketplaceCompletion({ app, pool, requireAuth, requireRole, audit });\\nawait registerCartCompletion({ app, pool, requireRole, audit });\\nawait registerSettlementCompletion({ app, pool, requireRole, audit, razorpay });\\nawait registerMarketplaceGapCompletion({ app, pool, requireRole, audit });\\nawait registerSellerOnboarding({ app, pool, requireRole, audit });\\nawait registerSellerKycDocuments({ app, pool, requireRole, audit });\\nawait registerRiderDelivery({ app, pool, requireRole, audit });\\nawait registerThirdPartyDelivery({ app, pool, requireRole, audit });\\nawait registerOfferCompletion({ app, pool, requireRole, audit });\\nawait registerProductDeals({ app, pool, requireRole, audit });\\n";
+  if (!source.includes(listenMarker)) throw new Error("AARVO launcher safety check: listen marker missing");
+  source = source.replace(listenMarker, registrations + listenMarker);
 }
 
 if (!source.includes("commission-rules.js")) {
