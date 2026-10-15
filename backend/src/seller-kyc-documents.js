@@ -85,6 +85,20 @@ export async function registerSellerKycDocuments({ app, pool, requireRole, audit
     return { document: result.rows[0] };
   });
 
+  app.post('/v1/seller/kyc-documents/submit', { preHandler: requireRole('SELLER'), config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
+    if (!pool) return fail(reply, 503, 'DATABASE_NOT_CONFIGURED');
+    const result = await pool.query(
+      "SELECT id FROM seller_kyc_documents WHERE seller_id=$1 ORDER BY uploaded_at DESC",
+      [request.user.sub]
+    );
+    if (!result.rowCount) return fail(reply, 400, 'NO_KYC_DOCUMENTS_UPLOADED');
+    await audit(pool, request.user, 'SELLER_KYC_DOCUMENTS', request.user.sub, 'DOCUMENTS_SUBMITTED_FOR_REVIEW', {
+      documentCount: result.rowCount,
+      documentIds: result.rows.map(row => row.id)
+    });
+    return { status: 'SUBMITTED', documentCount: result.rowCount, message: 'KYC documents submitted for admin review.' };
+  });
+
   app.get('/v1/seller/kyc-documents', { preHandler: requireRole('SELLER') }, async (request, reply) => {
     if (!pool) return fail(reply, 503, 'DATABASE_NOT_CONFIGURED');
     const result = await pool.query('SELECT id,document_type,original_filename,content_type,size_bytes,status,review_note,uploaded_at,reviewed_at FROM seller_kyc_documents WHERE seller_id=$1 ORDER BY uploaded_at DESC', [request.user.sub]);
