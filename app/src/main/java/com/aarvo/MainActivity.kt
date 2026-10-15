@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
@@ -84,6 +85,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -1215,7 +1218,6 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
     var stock by remember { mutableStateOf("0") }
     var hsnCode by remember { mutableStateOf("") }
     var gstRate by remember { mutableStateOf("0") }
-    var imageUrl by remember { mutableStateOf("") }
     var selectedImages by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
     val context = LocalContext.current
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris -> selectedImages = uris.take(5) }
@@ -1226,17 +1228,16 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
         onDismissRequest = { if (!busy) onDone() },
         title = { Text("Add product") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
-                OutlinedTextField(category, { category = it }, label = { Text("Category") }, singleLine = true)
-                OutlinedTextField(price, { price = it }, label = { Text("Price ₹") }, singleLine = true)
-                OutlinedTextField(description, { description = it }, label = { Text("Description") })
-                OutlinedTextField(stock, { stock = it.filter(Char::isDigit).take(7) }, label = { Text("Stock") }, singleLine = true)
-                OutlinedTextField(hsnCode, { hsnCode = it.filter(Char::isLetterOrDigit).uppercase().take(8) }, label = { Text("HSN code (required)") }, singleLine = true)
-                OutlinedTextField(gstRate, { gstRate = it }, label = { Text("GST rate % (0, 5, 12, 18, 28)") }, singleLine = true)
-                OutlinedTextField(imageUrl, { imageUrl = it.trim() }, label = { Text("Product image URL (optional)") }, singleLine = true)
-                Button(onClick = { imagePicker.launch("image/*") }, enabled = !busy && selectedImages.size < 5) { Text("Choose photos from Gallery (${selectedImages.size}/5)") }
+            Column(modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(category, { category = it }, label = { Text("Category") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(price, { price = it }, label = { Text("Price ₹") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(description, { description = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
+                Button(onClick = { imagePicker.launch("image/*") }, enabled = !busy && selectedImages.size < 5, modifier = Modifier.fillMaxWidth()) { Text("Choose photos from Gallery (${selectedImages.size}/5)") }
                 if (selectedImages.isNotEmpty()) Text("${selectedImages.size} photo(s) selected. JPG, PNG and WebP; maximum 8 MB each.")
+                OutlinedTextField(stock, { stock = it.filter(Char::isDigit).take(7) }, label = { Text("Stock") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(hsnCode, { hsnCode = it.filter(Char::isLetterOrDigit).uppercase().take(8) }, label = { Text("HSN code (optional when not applicable)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(gstRate, { gstRate = it }, label = { Text("GST rate % (0, 5, 12, 18, 28)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
             }
         },
@@ -1251,25 +1252,23 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                         if (stockCount < 0) throw IllegalArgumentException("Stock cannot be negative")
                         val gst = gstRate.toDoubleOrNull() ?: throw IllegalArgumentException("Enter a valid GST rate")
                         if (name.trim().isEmpty() || category.trim().isEmpty() || description.trim().isEmpty()) throw IllegalArgumentException("Name, category and description are required")
-                        if (!hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) throw IllegalArgumentException("Enter a valid 4–8 character HSN code")
+                        if (hsnCode.isNotBlank() && !hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) throw IllegalArgumentException("HSN code must contain 4–8 letters or numbers when entered")
                         if (gst !in listOf(0.0, 5.0, 12.0, 18.0, 28.0)) throw IllegalArgumentException("Choose GST rate 0, 5, 12, 18 or 28")
-                        if (imageUrl.isNotBlank() && !(imageUrl.startsWith("https://", true) || imageUrl.startsWith("http://", true))) throw IllegalArgumentException("Image URL must start with https:// or http://")
-                        if (selectedImages.size + (if (imageUrl.isNotBlank()) 1 else 0) > 5) throw IllegalArgumentException("A product can have at most 5 photos including the image URL.")
+                        if (selectedImages.isEmpty()) throw IllegalArgumentException("Please choose at least one product photo from Gallery.")
                         val created = api.createSellerProduct(name.trim(), category.trim(), pricePaise, description.trim(), stockCount, false, hsnCode, gst)
                         val productId = created.getJSONObject("product").getInt("id")
-                        if (imageUrl.isNotBlank()) api.productImageAdd(productId, imageUrl.trim(), name.trim(), 0, true)
                         selectedImages.forEachIndexed { index, uri ->
                             val mime = context.contentResolver.getType(uri)?.lowercase() ?: "image/jpeg"
                             if (mime !in setOf("image/jpeg", "image/png", "image/webp")) throw IllegalArgumentException("Choose JPG, PNG or WebP photos only.")
                             val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IllegalArgumentException("Could not read a selected photo.")
-                            api.uploadSellerProductImage(productId, bytes, mime, name.trim(), index + (if (imageUrl.isNotBlank()) 1 else 0))
+                            api.uploadSellerProductImage(productId, bytes, mime, name.trim(), index)
                         }
                         onDone()
                     } catch (t: Throwable) {
                         error = t.message ?: "Unable to create product"
                     } finally { busy = false }
                 }
-            }, enabled = !busy && name.isNotBlank() && category.isNotBlank() && description.isNotBlank() && parseRupeesToPaiseOrNull(price)?.let { it > 0 } == true && stock.toIntOrNull()?.let { it >= 0 } == true && hsnCode.matches(Regex("[A-Za-z0-9]{4,8}") ) && gstRate.toDoubleOrNull() in listOf(0.0, 5.0, 12.0, 18.0, 28.0)) {
+            }, enabled = !busy && name.isNotBlank() && category.isNotBlank() && description.isNotBlank() && parseRupeesToPaiseOrNull(price)?.let { it > 0 } == true && stock.toIntOrNull()?.let { it >= 0 } == true && (hsnCode.isBlank() || hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) && gstRate.toDoubleOrNull() in listOf(0.0, 5.0, 12.0, 18.0, 28.0)) {
                 if (busy) CircularProgressIndicator() else Text("Save draft")
             }
         },
