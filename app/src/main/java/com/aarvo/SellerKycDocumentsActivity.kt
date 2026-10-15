@@ -165,6 +165,30 @@ private fun SellerKycDocumentsScreen(context: Context, api: AarvoApiClient, onBa
             }
         }
         if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary)
+        Button(
+            onClick = {
+                scope.launch {
+                    busy = true
+                    message = ""
+                    try {
+                        val result = api.submitSellerKycDocuments()
+                        refresh()
+                        val count = result.optInt("documentCount", documents.size)
+                        message = "KYC submitted successfully. $count document(s) sent for admin review."
+                    } catch (e: Exception) {
+                        message = if (e.message?.contains("NO_KYC_DOCUMENTS_UPLOADED") == true) {
+                            "Submit karne se pehle kam se kam ek KYC document upload kijiye."
+                        } else {
+                            e.message ?: "KYC submission failed. Please retry."
+                        }
+                    } finally {
+                        busy = false
+                    }
+                }
+            },
+            enabled = !busy && documents.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (busy) "Submitting…" else "Save & Submit for Admin Review") }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { scope.launch { busy = true; try { refresh(); message = "Document list refreshed." } catch (e: Exception) { message = e.message ?: "Refresh failed." } finally { busy = false } } }, enabled = !busy, modifier = Modifier.weight(1f)) { Text("Refresh") }
             Button(onClick = onBack, enabled = !busy, modifier = Modifier.weight(1f)) { Text("Back") }
