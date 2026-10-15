@@ -93,7 +93,7 @@ function pickupRows(data){
 async function ensureSellerPickup(seller){
   const name=clean(seller.business_name||seller.name||'AARVO Seller',80);
   const email=clean(seller.business_email||'',254);
-  const phone=clean(seller.phone||'',20).replace(/\D/g,'');
+  const phone=clean(seller.pickup_phone||seller.phone||'',20).replace(/\D/g,'');
   const address=clean(seller.pickup_address||'',80);
   const city=clean(seller.pickup_city||'',80);
   const state=clean(seller.pickup_state||'',80);
@@ -146,7 +146,7 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
   }
   if(!groups.size)throw Object.assign(new Error('DELIVERY_ITEMS_MISSING'),{code:'DELIVERY_ITEMS_MISSING',status:409});
   const sellerIds=[...groups.keys()];
-  const sellerResult=await pool.query(`SELECT sp.seller_id,sp.phone,COALESCE(NULLIF(sp.business_name,''),u.display_name,'AARVO Seller') AS business_name,COALESCE(NULLIF(sp.business_email,''),u.email) AS business_email,sp.pickup_address,sp.pickup_city,sp.pickup_state,sp.pickup_postal_code FROM seller_profiles sp LEFT JOIN users u ON u.id=sp.seller_id WHERE sp.seller_id=ANY($1::text[])`,[sellerIds]);
+  const sellerResult=await pool.query(`SELECT sp.seller_id,COALESCE(NULLIF(sp.pickup_phone,''),sp.phone) AS phone,COALESCE(NULLIF(sp.business_name,''),u.display_name,'AARVO Seller') AS business_name,COALESCE(NULLIF(sp.business_email,''),u.email) AS business_email,sp.pickup_address,sp.pickup_city,sp.pickup_state,sp.pickup_postal_code FROM seller_profiles sp LEFT JOIN users u ON u.id=sp.seller_id WHERE sp.seller_id=ANY($1::text[])`,[sellerIds]);
   const sellerMap=new Map(sellerResult.rows.map(s=>[String(s.seller_id),s]));
   const customer=splitName(a.fullName);
   const shipping=Number(o.delivery_fee_paise||0)/100;
