@@ -147,7 +147,7 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
   }
   if(!groups.size)throw Object.assign(new Error('DELIVERY_ITEMS_MISSING'),{code:'DELIVERY_ITEMS_MISSING',status:409});
   const sellerIds=[...groups.keys()];
-  const sellerResult=await pool.query(`SELECT seller_id,phone,business_name,business_email,pickup_address,pickup_city,pickup_state,pickup_postal_code FROM seller_profiles WHERE seller_id=ANY($1::uuid[])`,[sellerIds]);
+  const sellerResult=await pool.query(`SELECT sp.seller_id,sp.phone,COALESCE(NULLIF(sp.business_name,''),u.display_name,'AARVO Seller') AS business_name,COALESCE(NULLIF(sp.business_email,''),u.email) AS business_email,sp.pickup_address,sp.pickup_city,sp.pickup_state,sp.pickup_postal_code FROM seller_profiles sp LEFT JOIN users u ON u.id=sp.seller_id WHERE sp.seller_id=ANY($1::uuid[])`,[sellerIds]);
   const sellerMap=new Map(sellerResult.rows.map(s=>[String(s.seller_id),s]));
   const customer=splitName(a.fullName);
   const shipping=Number(o.delivery_fee_paise||0)/100;
