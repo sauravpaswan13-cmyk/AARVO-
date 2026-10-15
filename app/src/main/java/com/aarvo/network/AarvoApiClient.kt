@@ -76,6 +76,11 @@ class AarvoApiClient(
     suspend fun updateAddress(addressId: String, address: JSONObject, isDefault: Boolean = false): JSONObject { require(addressId.trim().isNotBlank()) { "Address ID is required" }; return put("/v1/addresses/${addressId.trim()}", JSONObject(address.toString()).put("isDefault", isDefault)) }
     suspend fun deleteAddress(addressId: String): JSONObject { require(addressId.trim().isNotBlank()) { "Address ID is required" }; return delete("/v1/addresses/${addressId.trim()}") }
     suspend fun setDefaultAddress(addressId: String): JSONObject { require(addressId.trim().isNotBlank()) { "Address ID is required" }; return post("/v1/addresses/${addressId.trim()}/default", JSONObject()) }
+    suspend fun sellerKycDocuments(): JSONArray = getObject("/v1/seller/kyc-documents").optJSONArray("documents") ?: JSONArray()
+    suspend fun presignSellerKycDocument(filename: String, contentType: String, sizeBytes: Long, documentType: String): JSONObject =
+        post("/v1/seller/kyc-documents/presign", JSONObject().put("filename", filename).put("contentType", contentType).put("sizeBytes", sizeBytes).put("documentType", documentType))
+    suspend fun confirmSellerKycDocument(documentId: String, objectKey: String, filename: String, contentType: String, documentType: String): JSONObject =
+        post("/v1/seller/kyc-documents/confirm", JSONObject().put("documentId", documentId).put("objectKey", objectKey).put("filename", filename).put("contentType", contentType).put("documentType", documentType))
     suspend fun sellerOnboarding(): JSONObject = getObject("/v1/seller/onboarding")
     suspend fun saveSellerOnboarding(payload: JSONObject): JSONObject = put("/v1/seller/onboarding", payload)
     suspend fun sellerProfile(): JSONObject = getObject("/v1/seller/profile")
