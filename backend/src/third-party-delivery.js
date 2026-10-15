@@ -98,9 +98,8 @@ async function ensureSellerPickup(seller){
   const city=clean(seller.pickup_city||'',80);
   const state=clean(seller.pickup_state||'',80);
   const pin=clean(seller.pickup_postal_code||'',6);
-  if(!email||!phone||!address||address.length<3||!city||!state||!/^\d{6}$/.test(pin)){
-    if(pickupLocation()) return pickupLocation();
-    throw Object.assign(new Error('SELLER_PICKUP_ADDRESS_INCOMPLETE'),{code:'SELLER_PICKUP_ADDRESS_INCOMPLETE',status:409,data:{sellerId:seller.seller_id,required:['business email','pickup phone','pickup address','city','state','6-digit PIN']}});
+  if(!email||!phone||phone.length<10||phone.length>13||!address||address.length<3||!city||!state||!/^\d{6}$/.test(pin)){
+    throw Object.assign(new Error('SELLER_PICKUP_ADDRESS_INCOMPLETE'),{code:'SELLER_PICKUP_ADDRESS_INCOMPLETE',status:409,data:{sellerId:seller.seller_id,required:['seller account/business email','pickup phone','pickup address','city','state','6-digit PIN']}});
   }
   const nickname=pickupNickname(seller.seller_id);
   const listed=await providerRequest(shiprocketPath.listPickups,undefined,'GET');
