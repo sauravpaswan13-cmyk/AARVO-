@@ -1268,7 +1268,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                         error = t.message ?: "Unable to create product"
                     } finally { busy = false }
                 }
-            }, enabled = !busy && name.isNotBlank() && category.isNotBlank() && description.isNotBlank() && parseRupeesToPaiseOrNull(price)?.let { it > 0 } == true && stock.toIntOrNull()?.let { it >= 0 } == true && (hsnCode.isBlank() || hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) && (gstRate.isBlank() || gstRate.toDoubleOrNull() in listOf(0.0, 5.0, 12.0, 18.0, 28.0))) {
+            }, enabled = !busy && name.isNotBlank() && category.isNotBlank() && description.isNotBlank() && parseRupeesToPaiseOrNull(price)?.let { it > 0 } == true && stock.toIntOrNull()?.let { it >= 0 } == true && (hsnCode.isBlank() || hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) && (gstRate.isBlank() || gstRate.toDoubleOrNull()?.let { it in listOf(0.0, 5.0, 12.0, 18.0, 28.0) } == true)) {
                 if (busy) CircularProgressIndicator() else Text("Save draft")
             }
         },
