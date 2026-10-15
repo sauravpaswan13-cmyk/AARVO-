@@ -12,8 +12,7 @@ const cartImport = "import { registerCartCompletion } from './cart-completion.js
 const settlementImport = "import { registerSettlementCompletion } from './settlement-completion.js';";
 const gapImport = "import { registerMarketplaceGapCompletion } from './marketplace-gap-completion.js';";
 const sellerImport = "import { registerSellerOnboarding } from './seller-onboarding.js';";
-const kycDocsImport = "import { registerSellerKycDocuments } from './seller-kyc-documents.js';
-import { registerProductImageUploads } from './product-image-uploads.js';";
+const kycDocsImport = "import { registerSellerKycDocuments } from './seller-kyc-documents.js';";
 const riderImport = "import { registerRiderDelivery } from './rider-delivery.js';";
 const thirdPartyDeliveryImport = "import { registerThirdPartyDelivery } from './third-party-delivery.js';";
 const offerImport = "import { registerOfferCompletion } from './offer-completion.js';";
