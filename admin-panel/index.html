@@ -90,25 +90,19 @@ async function submitKycReview(id){
 }
 async function reviewSeller(id,decision){
  if(!id)return;
- const sellerButton=event?.currentTarget;
- if(sellerButton){sellerButton.disabled=true;sellerButton.textContent='Please wait…'}
  let reason='';
  try{
   if(decision==='REJECT'){reason=prompt('Rejection reason (required):')||'';if(!reason.trim())return alert('Rejection reason is required.')}
   if(!confirm(decision==='APPROVE'?'Approve this seller onboarding? Approval is allowed only after KYC is VERIFIED.':'Reject this seller onboarding?'))return;
-  setActionModalMessageOnly('Saving seller decision…');
+  const m=document.getElementById('sellerMsg');m.className='muted';m.textContent='Saving seller decision…';
   await api('/v1/admin/sellers/'+encodeURIComponent(id)+'/onboarding/review',{method:'POST',body:JSON.stringify({decision,reason})});
-  alert(decision==='APPROVE'?'Seller approved successfully.':'Seller rejected successfully.');
+  m.className='ok';m.textContent=decision==='APPROVE'?'Seller approved successfully.':'Seller rejected successfully.';
   await loadSellers();
  }catch(e){
-  alert('Seller review failed: '+e.message);
   const m=document.getElementById('sellerMsg');m.className='err';m.textContent='Seller review failed: '+e.message;
- }finally{
-  if(sellerButton){sellerButton.disabled=false;sellerButton.textContent=decision==='APPROVE'?'Approve':'Reject'}
+  alert('Seller review failed: '+e.message);
  }
 }
-
-
 
 function openActionModal(title,body){
  const modal=document.getElementById('actionModal');document.getElementById('actionModalTitle').textContent=title;document.getElementById('actionModalBody').innerHTML=body;setActionMessage('');modal.classList.remove('hidden');
@@ -116,7 +110,6 @@ function openActionModal(title,body){
 function closeActionModal(){document.getElementById('actionModal').classList.add('hidden')}
 function setActionBody(body){document.getElementById('actionModalBody').innerHTML=body}
 function setActionMessage(message,isError=false){const el=document.getElementById('actionModalMsg');el.className=isError?'err':'muted';el.textContent=message}
-function setActionModalMessageOnly(message){openActionModal('Please wait', '<p>'+esc(message)+'</p>')}
 
 function moneyPaise(v){return '₹'+(Number(v||0)/100).toLocaleString('en-IN',{maximumFractionDigits:2})}
 function orderAddress(o){let a=o.address_json||o.address||{};if(typeof a==='string'){try{a=JSON.parse(a)}catch{a={}}}return [a.fullName||a.name,a.phone,a.line1,a.line2,a.city,a.state,a.postalCode].filter(Boolean).join(' • ')}
