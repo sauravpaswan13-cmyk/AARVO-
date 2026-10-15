@@ -166,3 +166,10 @@ test('rider/admin assignment regression keeps role ownership and lifecycle trans
   assert.match(riderDashboard, /riderUpdateAssignment\(/);
   assert.match(apiClient, /adminAssignRider\(/);
 });
+
+test('Shiprocket webhook validates the documented x-api-key security token', () => {
+  const delivery = fs.readFileSync(path.join(ROOT, 'backend/src/third-party-delivery.js'), 'utf8');
+  assert.match(delivery, /request\.headers\['x-api-key'\]/);
+  assert.match(delivery, /verifyWebhookToken/);
+  assert.doesNotMatch(delivery, /x-aarvo-delivery-signature/);
+});
