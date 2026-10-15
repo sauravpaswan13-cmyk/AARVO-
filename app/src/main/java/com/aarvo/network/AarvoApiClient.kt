@@ -92,6 +92,22 @@ class AarvoApiClient(
     suspend fun publishSellerProduct(productId: Int): JSONObject { require(productId > 0) { "Product ID is required" }; return post("/v1/seller/products/$productId/publish", JSONObject()) }
     suspend fun updateInventory(productId: Int, stockQuantity: Int): JSONObject { require(productId > 0) { "Product ID is required" }; require(stockQuantity >= 0) { "Product stock cannot be negative" }; return post("/v1/seller/products/$productId/inventory", JSONObject().put("stockQuantity", stockQuantity)) }
     suspend fun productImageAdd(productId: Int, imageUrl: String, altText: String = "", sortOrder: Int = 0, isPrimary: Boolean = true): JSONObject { require(productId > 0) { "Product ID is required" }; require(imageUrl.startsWith("https://") || imageUrl.startsWith("http://")) { "Image URL must use HTTP or HTTPS" }; return post("/v1/seller/products/$productId/images", JSONObject().put("imageUrl", imageUrl.trim()).put("altText", altText.trim()).put("sortOrder", sortOrder).put("isPrimary", isPrimary)) }
+    suspend fun uploadSellerProductImage(productId: Int, bytes: ByteArray, contentType: String, altText: String = "", sortOrder: Int = 0): JSONObject = withContext(Dispatchers.IO) {
+        require(productId > 0) { "Product ID is required" }
+        require(bytes.isNotEmpty() && bytes.size <= 8 * 1024 * 1024) { "Each product photo must be 8 MB or smaller." }
+        require(contentType in setOf("image/jpeg", "image/png", "image/webp")) { "Choose a JPG, PNG or WebP photo." }
+        val ticket = post("/v1/seller/products/$productId/images/upload-ticket", JSONObject().put("contentType", contentType).put("sizeBytes", bytes.size))
+        val uploadUrl = ticket.optString("uploadUrl")
+        require(uploadUrl.startsWith("https://")) { "Public image storage did not return a secure upload link." }
+        val headers = ticket.optJSONObject("requiredHeaders") ?: JSONObject()
+        val request = Request.Builder().url(uploadUrl).apply {
+            for (key in headers.keys()) header(key, headers.optString(key))
+        }.put(bytes.toRequestBody(contentType.toMediaType())).build()
+        val response = client.newCall(request).execute()
+        if (!response.isSuccessful) { val code=response.code; response.close(); error("Product photo upload failed (HTTP $code). Check public image storage settings.") }
+        response.close()
+        post("/v1/seller/products/$productId/images/confirm-upload", JSONObject().put("objectKey", ticket.optString("objectKey")).put("imageId", ticket.optString("imageId")).put("altText", altText.trim()).put("sortOrder", sortOrder))
+    }
     suspend fun productImageDelete(productId: Int, imageId: Long): JSONObject { require(productId > 0) { "Product ID is required" }; require(imageId > 0) { "Image ID is required" }; return delete("/v1/seller/products/$productId/images/$imageId") }
     suspend fun sellerOrders(): JSONArray = get("/v1/seller/orders")
     suspend fun updateOrderTracking(orderId: String, status: String, trackingCode: String = "", carrier: String = "", note: String = ""): JSONObject { require(orderId.trim().isNotBlank()) { "Order ID is required" }; require(status.trim().isNotBlank()) { "Tracking status is required" }; return post("/v1/orders/${orderId.trim()}/tracking", JSONObject().put("status", status.trim().uppercase()).put("trackingCode", trackingCode.trim()).put("carrier", carrier.trim()).put("note", note.trim())) }
