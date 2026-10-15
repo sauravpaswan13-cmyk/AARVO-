@@ -1217,7 +1217,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
     var description by remember { mutableStateOf("") }
     var stock by remember { mutableStateOf("0") }
     var hsnCode by remember { mutableStateOf("") }
-    var gstRate by remember { mutableStateOf("0") }
+    var gstRate by remember { mutableStateOf("") }
     var selectedImages by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
     val context = LocalContext.current
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris -> selectedImages = uris.take(5) }
@@ -1237,7 +1237,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                 if (selectedImages.isNotEmpty()) Text("${selectedImages.size} photo(s) selected. JPG, PNG and WebP; maximum 8 MB each.")
                 OutlinedTextField(stock, { stock = it.filter(Char::isDigit).take(7) }, label = { Text("Stock") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(hsnCode, { hsnCode = it.filter(Char::isLetterOrDigit).uppercase().take(8) }, label = { Text("HSN code (optional when not applicable)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(gstRate, { gstRate = it }, label = { Text("GST rate % (0, 5, 12, 18, 28)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(gstRate, { gstRate = it }, label = { Text("GST rate % (optional for draft)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
             }
         },
@@ -1250,10 +1250,10 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                         val pricePaise = parseRupeesToPaiseOrNull(price) ?: throw IllegalArgumentException("Enter a valid price greater than ₹0")
                         val stockCount = stock.toIntOrNull() ?: throw IllegalArgumentException("Enter a valid stock quantity")
                         if (stockCount < 0) throw IllegalArgumentException("Stock cannot be negative")
-                        val gst = gstRate.toDoubleOrNull() ?: throw IllegalArgumentException("Enter a valid GST rate")
+                        val gst = if (gstRate.isBlank()) 0.0 else gstRate.toDoubleOrNull() ?: throw IllegalArgumentException("Enter a valid GST rate")
                         if (name.trim().isEmpty() || category.trim().isEmpty() || description.trim().isEmpty()) throw IllegalArgumentException("Name, category and description are required")
                         if (hsnCode.isNotBlank() && !hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) throw IllegalArgumentException("HSN code must contain 4–8 letters or numbers when entered")
-                        if (gst !in listOf(0.0, 5.0, 12.0, 18.0, 28.0)) throw IllegalArgumentException("Choose GST rate 0, 5, 12, 18 or 28")
+                        if (gstRate.isNotBlank() && gst !in listOf(0.0, 5.0, 12.0, 18.0, 28.0)) throw IllegalArgumentException("Choose GST rate 0, 5, 12, 18 or 28, or leave blank for draft")
                         if (selectedImages.isEmpty()) throw IllegalArgumentException("Please choose at least one product photo from Gallery.")
                         val created = api.createSellerProduct(name.trim(), category.trim(), pricePaise, description.trim(), stockCount, false, hsnCode, gst)
                         val productId = created.getJSONObject("product").getInt("id")
@@ -1268,7 +1268,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                         error = t.message ?: "Unable to create product"
                     } finally { busy = false }
                 }
-            }, enabled = !busy && name.isNotBlank() && category.isNotBlank() && description.isNotBlank() && parseRupeesToPaiseOrNull(price)?.let { it > 0 } == true && stock.toIntOrNull()?.let { it >= 0 } == true && (hsnCode.isBlank() || hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) && gstRate.toDoubleOrNull() in listOf(0.0, 5.0, 12.0, 18.0, 28.0)) {
+            }, enabled = !busy && name.isNotBlank() && category.isNotBlank() && description.isNotBlank() && parseRupeesToPaiseOrNull(price)?.let { it > 0 } == true && stock.toIntOrNull()?.let { it >= 0 } == true && (hsnCode.isBlank() || hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) && (gstRate.isBlank() || gstRate.toDoubleOrNull() in listOf(0.0, 5.0, 12.0, 18.0, 28.0))) {
                 if (busy) CircularProgressIndicator() else Text("Save draft")
             }
         },
