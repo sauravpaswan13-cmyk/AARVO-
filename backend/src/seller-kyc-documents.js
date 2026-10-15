@@ -58,7 +58,7 @@ export async function registerSellerKycDocuments({ app, pool, requireRole, audit
     const key = `seller-kyc/${request.user.sub}/${id}${ext}`;
     const command = new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType, Metadata: { sellerid: String(request.user.sub), documentid: id } });
     const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 });
-    return { uploadUrl, documentId: id, objectKey: key, expiresInSeconds: 300, requiredHeaders: { 'Content-Type': contentType } };
+    return { uploadUrl, documentId: id, objectKey: key, expiresInSeconds: 300, requiredHeaders: { 'Content-Type': contentType, 'x-amz-meta-sellerid': String(request.user.sub), 'x-amz-meta-documentid': id } };
   });
 
   app.post('/v1/seller/kyc-documents/confirm', { preHandler: requireRole('SELLER'), config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
