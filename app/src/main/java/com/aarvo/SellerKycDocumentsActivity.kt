@@ -100,8 +100,15 @@ private fun SellerKycDocumentsScreen(context: Context, api: AarvoApiClient, onBa
                 val ticket = api.presignSellerKycDocument(filename, mime, bytes.size.toLong(), documentType)
                 val uploadUrl = ticket.optString("uploadUrl")
                 if (uploadUrl.isBlank()) error("Secure upload link was not returned by the server.")
-                val putRequest = Request.Builder().url(uploadUrl)
-                    .header("Content-Type", mime)
+                val requiredHeaders = ticket.optJSONObject("requiredHeaders")
+                    ?: JSONObject().put("Content-Type", mime)
+                val putBuilder = Request.Builder().url(uploadUrl)
+                val headerKeys = requiredHeaders.keys()
+                while (headerKeys.hasNext()) {
+                    val header = headerKeys.next()
+                    putBuilder.header(header, requiredHeaders.optString(header))
+                }
+                val putRequest = putBuilder
                     .put(bytes.toRequestBody(mime.toMediaType()))
                     .build()
                 val uploadResult = withContext(Dispatchers.IO) {
