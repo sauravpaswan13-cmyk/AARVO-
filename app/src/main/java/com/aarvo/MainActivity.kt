@@ -1254,10 +1254,10 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                         if (!hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) throw IllegalArgumentException("Enter a valid 4–8 character HSN code")
                         if (gst !in listOf(0.0, 5.0, 12.0, 18.0, 28.0)) throw IllegalArgumentException("Choose GST rate 0, 5, 12, 18 or 28")
                         if (imageUrl.isNotBlank() && !(imageUrl.startsWith("https://", true) || imageUrl.startsWith("http://", true))) throw IllegalArgumentException("Image URL must start with https:// or http://")
+                        if (selectedImages.size + (if (imageUrl.isNotBlank()) 1 else 0) > 5) throw IllegalArgumentException("A product can have at most 5 photos including the image URL.")
                         val created = api.createSellerProduct(name.trim(), category.trim(), pricePaise, description.trim(), stockCount, false, hsnCode, gst)
                         val productId = created.getJSONObject("product").getInt("id")
                         if (imageUrl.isNotBlank()) api.productImageAdd(productId, imageUrl.trim(), name.trim(), 0, true)
-                        if (selectedImages.size + (if (imageUrl.isNotBlank()) 1 else 0) > 5) throw IllegalArgumentException("A product can have at most 5 photos including the image URL.")
                         selectedImages.forEachIndexed { index, uri ->
                             val mime = context.contentResolver.getType(uri)?.lowercase() ?: "image/jpeg"
                             if (mime !in setOf("image/jpeg", "image/png", "image/webp")) throw IllegalArgumentException("Choose JPG, PNG or WebP photos only.")
