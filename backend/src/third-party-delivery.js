@@ -121,7 +121,7 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
 
   const q=await pool.query(`SELECT o.id,o.status,o.address_json,o.total_paise,o.subtotal_paise,o.delivery_fee_paise,o.payment_status,
       u.email AS buyer_email,
-      COALESCE((SELECT json_agg(json_build_object('productId',ol.product_id,'quantity',ol.quantity,'lineTotalPaise',ol.line_total_paise)) FROM order_lines ol WHERE ol.order_id=o.id),'[]'::json) AS lines
+      COALESCE((SELECT json_agg(json_build_object('productId',ol.product_id,'quantity',ol.quantity,'lineTotalPaise',(ol.unit_price_paise * ol.quantity))) FROM order_lines ol WHERE ol.order_id=o.id),'[]'::json) AS lines
       FROM orders o LEFT JOIN users u ON u.id=o.buyer_id WHERE o.id=$1`,[orderId]);
   if(!q.rowCount)throw Object.assign(new Error('ORDER_NOT_FOUND'),{code:'ORDER_NOT_FOUND',status:404});
   const o=q.rows[0];
