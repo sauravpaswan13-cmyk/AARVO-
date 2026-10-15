@@ -57,7 +57,8 @@ export async function registerProductImageUploads({app,pool,requireRole,audit}) 
     const db=await pool.connect();
     try {
       await db.query('BEGIN');
-      const count=await db.query('SELECT count(*)::int AS count FROM product_images WHERE product_id=$1 FOR UPDATE',[request.params.id]);
+      await db.query('SELECT id FROM products WHERE id=$1 AND seller_id=$2 FOR UPDATE',[request.params.id,request.user.sub]);
+      const count=await db.query('SELECT count(*)::int AS count FROM product_images WHERE product_id=$1',[request.params.id]);
       if(Number(count.rows[0].count)>=5) { await db.query('ROLLBACK'); return fail(reply,409,'PRODUCT_IMAGE_LIMIT_REACHED'); }
       const isPrimary=Number(count.rows[0].count)===0;
       const inserted=await db.query('INSERT INTO product_images(product_id,seller_id,image_url,alt_text,sort_order,is_primary) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,image_url,alt_text,sort_order,is_primary',[request.params.id,request.user.sub,publicUrl,altText||product.rows[0].name,Number(b.sortOrder)||0,isPrimary]);
