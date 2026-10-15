@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { S3Client, PutObjectCommand, HeadObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, HeadObjectCommand, HeadBucketCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 const BUCKET = process.env.AARVO_KYC_BUCKET || 'aarvo-seller-kyc-private';
@@ -22,7 +22,17 @@ function storageClient() {
 }
 
 export async function registerSellerKycDocuments({ app, pool, requireRole, audit }) {
-  app.log.info({ privateKycStorageConfigured: Boolean(storageClient()), databaseConfigured: Boolean(pool) }, 'AARVO seller KYC readiness');
+  const kycStorageClient = storageClient();
+  let privateKycStorageReachable = false;
+  if (kycStorageClient) {
+    try {
+      await kycStorageClient.send(new HeadBucketCommand({ Bucket: BUCKET }));
+      privateKycStorageReachable = true;
+    } catch (error) {
+      app.log.error({ privateKycStorageConfigured: true, privateKycStorageReachable: false, errorName: error?.name, statusCode: error?.$metadata?.httpStatusCode }, 'AARVO private KYC storage connectivity check failed');
+    }
+  }
+  app.log.info({ privateKycStorageConfigured: Boolean(kycStorageClient), privateKycStorageReachable, databaseConfigured: Boolean(pool) }, 'AARVO seller KYC readiness');
   if (pool) {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS seller_kyc_documents (
