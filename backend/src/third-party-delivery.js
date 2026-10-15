@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual } from 'node:crypto';
 
 const clean=(v,max=500)=>String(v??'').trim().slice(0,max);
 const enabled=()=>String(process.env.THIRD_PARTY_DELIVERY_ENABLED||'false').toLowerCase()==='true';
@@ -59,11 +59,12 @@ async function providerRequest(path,payload,method='POST'){
   return data;
 }
 
-function verifySignature(raw,signature){
-  const secret=webhookSecret(); if(!secret)return false;
-  const supplied=clean(signature,512).replace(/^sha256=/,''); if(!supplied)return false;
-  const expected=createHmac('sha256',secret).update(raw).digest('hex');
-  try{return timingSafeEqual(Buffer.from(expected),Buffer.from(supplied))}catch{return false}
+function verifyWebhookToken(supplied){
+  const expected=webhookSecret();
+  const received=String(supplied||'').trim();
+  if(!expected||!received)return false;
+  const a=Buffer.from(expected,'utf8'),b=Buffer.from(received,'utf8');
+  return a.length===b.length&&timingSafeEqual(a,b);
 }
 function splitName(name){
   const parts=clean(name,120).split(/\s+/).filter(Boolean);
@@ -216,7 +217,7 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
     if(!pool)return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
     if(String(request.params.provider).toLowerCase()!==provider())return reply.code(404).send({error:'DELIVERY_PROVIDER_NOT_FOUND'});
     const raw=typeof request.rawBody==='string'?request.rawBody:JSON.stringify(request.body||{});
-    if(webhookSecret()&&!verifySignature(raw,request.headers['x-aarvo-delivery-signature']))return reply.code(401).send({error:'INVALID_DELIVERY_WEBHOOK_SIGNATURE'});
+    if(webhookSecret()&&!verifyWebhookToken(request.headers['x-api-key']))return reply.code(401).send({error:'INVALID_DELIVERY_WEBHOOK_SIGNATURE'});
     const data=request.body||{};
     const shipmentId=clean(data.shipment_id||data.shipmentId||data.awb||data.awb_code||data.id||data?.tracking_data?.shipment_id,200);
     const awb=clean(data.awb||data.awb_code||data?.tracking_data?.shipment_track?.[0]?.awb_code,120);
