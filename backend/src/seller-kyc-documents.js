@@ -103,11 +103,17 @@ export async function registerSellerKycDocuments({ app, pool, requireRole, audit
       [request.user.sub]
     );
     if (!result.rowCount) return fail(reply, 400, 'NO_KYC_DOCUMENTS_UPLOADED');
+    // Keep the seller-level review status in sync with the submitted document records.
+    // Without this update, the Admin Seller Approvals table continues to display PENDING.
+    await pool.query(
+      "UPDATE seller_profiles SET kyc_review_status='IN_REVIEW', kyc_review_notes=NULL WHERE seller_id=$1",
+      [request.user.sub]
+    );
     await audit(pool, request.user, 'SELLER_KYC_DOCUMENTS', request.user.sub, 'DOCUMENTS_SUBMITTED_FOR_REVIEW', {
       documentCount: result.rowCount,
       documentIds: result.rows.map(row => row.id)
     });
-    return { status: 'SUBMITTED', documentCount: result.rowCount, message: 'KYC documents submitted for admin review.' };
+    return { status: 'IN_REVIEW', documentCount: result.rowCount, message: 'KYC documents submitted for admin review.' };
   });
 
   app.get('/v1/seller/kyc-documents', { preHandler: requireRole('SELLER') }, async (request, reply) => {
