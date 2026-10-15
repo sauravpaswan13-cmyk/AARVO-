@@ -5,6 +5,8 @@
 <title>AARVO Admin</title>
 <style>
 :root{font-family:Inter,system-ui,sans-serif;background:#0b0b0f;color:#f5f5f7}*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#0b0b0f,#17121d);min-height:100vh}.wrap{max-width:1200px;margin:auto;padding:24px}.card{background:#17171d;border:1px solid #2c2c36;border-radius:18px;padding:20px;box-shadow:0 12px 40px #0006}.login{max-width:430px;margin:10vh auto}.brand{font-size:30px;font-weight:800;letter-spacing:.08em}.muted{color:#a8a8b3}input,button,textarea,select{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #393944;background:#101015;color:#fff;margin-top:10px}button{background:#fff;color:#111;font-weight:700;cursor:pointer}button:disabled{opacity:.5}.hidden{display:none}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:20px}.logout{width:auto;background:transparent;color:#fff;border-color:#555}.nav{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}.nav button{width:auto;margin:0;background:#24242c;color:#ddd}.nav button.active{background:#fff;color:#111}.heroLink{display:inline-flex;align-items:center;text-decoration:none;width:auto;margin:0;padding:12px 14px;border-radius:10px;background:#24242c;color:#fff;border:1px solid #393944;font-weight:700}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:15px}.stat{font-size:28px;font-weight:800;margin-top:8px}.err{color:#ff7b7b;margin-top:12px}.ok{color:#75e0a0;margin-top:12px}.panel{display:none}.panel.active{display:block}.table{width:100%;border-collapse:collapse}.table th,.table td{text-align:left;padding:12px;border-bottom:1px solid #30303a;font-size:13px;vertical-align:top}.table th{color:#aaa}.pill{display:inline-block;padding:5px 8px;border-radius:999px;background:#282832;font-size:11px;font-weight:800}.pill.good{background:#143b2a;color:#75e0a0}.pill.warn{background:#46371a;color:#ffd477}.pill.bad{background:#431e25;color:#ff9aa5}.actions{display:flex;gap:7px}.actions button{width:auto;margin:0;padding:8px 10px}.approve{background:#d9ffe9}.reject{background:#ffdce0}.detail{line-height:1.7;color:#d5d5dd}.detail b{color:#fff}.empty{text-align:center;padding:25px;color:#aaa}
+
+.modal{position:fixed;inset:0;z-index:9999;background:#000b;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}.modal.hidden{display:none}.modalCard{width:min(640px,100%);max-height:90vh;overflow:auto;background:#17171d;border:1px solid #393944;border-radius:18px;padding:18px;box-shadow:0 20px 70px #000b}.modalHead{display:flex;align-items:center;justify-content:space-between;gap:12px}.modalHead h2{margin:0;font-size:20px}.modalHead button{width:auto;margin:0}.modalActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.modalActions button{width:auto;min-width:120px}.docRow{padding:12px 0;border-bottom:1px solid #30303a;overflow-wrap:anywhere}.modal select,.modal textarea{width:100%;padding:12px;border-radius:10px;border:1px solid #393944;background:#101015;color:#fff;margin-top:8px}.modal label{display:block;margin-top:12px;color:#ddd}.modal .err{overflow-wrap:anywhere}
 </style></head>
 <body><main class="wrap">
 <section id="login" class="card login"><div class="brand">AARVO</div><h2>Private Admin</h2><p class="muted">This panel is separate from the customer Android app.</p><input id="email" type="email" placeholder="Admin email"><input id="password" type="password" placeholder="Admin password"><button id="loginBtn">Sign in as Admin</button><div id="loginMsg"></div></section>
@@ -12,7 +14,12 @@
 <div class="nav"><button class="active" onclick="showPanel('overview',this)">Overview</button><button onclick="showPanel('sellers',this)">Seller Approvals</button><button onclick="showPanel('orders',this)">Orders & Delivery</button><button onclick="showPanel('deals',this)">Top Deals</button><a class="heroLink" href="hero.html">Hero Banner</a></div>
 <div id="overview" class="panel active"><div class="grid"><div class="card"><div class="muted">Admin access</div><div class="stat">ACTIVE</div></div><div class="card"><div class="muted">Seller management</div><div class="stat">READY</div></div><div class="card"><div class="muted">Orders</div><div class="stat">READY</div></div><div class="card"><div class="muted">Catalog</div><div class="stat">READY</div></div></div><div class="card" style="margin-top:18px"><h2>Marketplace controls</h2><p class="muted">Seller approval, products, orders, refunds, banners, commissions and reports are controlled from this private panel.</p><div class="ok">Authenticated as ADMIN.</div></div></div>
 <div id="orders" class="panel"><div class="card"><div class="top" style="margin-bottom:8px"><div><h2 style="margin:0">Orders & Delivery</h2><div class="muted">Review order status, payment state and shipping. Shipment creation requires the delivery provider to be configured on the server.</div></div><button style="width:auto;margin:0" onclick="loadOrders()">Refresh</button></div><div id="orderMsg" class="muted" style="margin:12px 0">Open this section to load orders.</div><div style="overflow:auto"><table class="table"><thead><tr><th>Order</th><th>Buyer / Delivery</th><th>Amount</th><th>Payment</th><th>Status</th><th>Actions</th></tr></thead><tbody id="orderRows"></tbody></table></div></div></div><div id="deals" class="panel"><div class="card"><h2>Top Deals & Offers</h2><p class="muted">Publish your own deals for published products, or review seller-submitted deals. Approved discounts apply at checkout while active.</p><div class="grid"><div><label>Product ID</label><input id="dealProductId" type="number" min="1" placeholder="Product ID"></div><div><label>Discount (%)</label><input id="dealDiscount" type="number" min="1" max="80" value="10"></div><div><label>Ends at</label><input id="dealEndsAt" type="datetime-local"></div><div><label>Admin note</label><input id="dealAdminNote" maxlength="500" placeholder="Optional note"></div></div><button style="max-width:240px" onclick="createAdminDeal()">Publish Admin Deal</button><div id="dealCreateMsg" class="muted" style="margin-top:8px"></div></div><div class="card" style="margin-top:16px"><div class="top"><h2 style="margin:0">Seller Requests & Live Deals</h2><button style="width:auto" onclick="loadDeals()">Refresh</button></div><div id="dealMsg" class="muted">Loading…</div><div style="overflow:auto"><table class="table"><thead><tr><th>Product</th><th>Seller</th><th>Price</th><th>Discount</th><th>Ends</th><th>Status</th><th>Action</th></tr></thead><tbody id="dealRows"></tbody></table></div></div></div><div id="sellers" class="panel"><div class="card"><div class="top" style="margin-bottom:8px"><div><h2 style="margin:0">Seller Onboarding Review</h2><div class="muted">Review submitted business, KYC, payout and pickup details.</div></div><button style="width:auto;margin:0" onclick="loadSellers()">Refresh</button></div><div id="sellerMsg" class="muted" style="margin:12px 0">Loading…</div><div style="overflow:auto"><table class="table"><thead><tr><th>Seller</th><th>Business / KYC</th><th>Payout</th><th>Pickup</th><th>Status</th><th>Action</th></tr></thead><tbody id="sellerRows"></tbody></table></div></div></div>
-</section></main>
+</section>
+<div id="actionModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="actionModalTitle">
+ <div class="modalCard"><div class="modalHead"><h2 id="actionModalTitle">Seller action</h2><button type="button" class="logout" onclick="closeActionModal()">Close</button></div>
+ <div id="actionModalBody"></div><div id="actionModalMsg" class="muted" role="status" aria-live="polite"></div></div>
+</div>
+</main>
 <script>
 const API=(window.AARVO_API_BASE_URL||'https://aarvo-api.onrender.com').replace(/\/$/,'');
 const login=document.getElementById('login'),app=document.getElementById('app'),msg=document.getElementById('loginMsg');
@@ -27,9 +34,89 @@ function pickList(d){return Array.isArray(d)?d:(d.sellers||d.onboardings||d.item
 function esc(x){return String(x??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]))}
 function statusPill(s){const x=String(s||'PENDING').toUpperCase();const c=x==='APPROVED'?'good':x==='REJECTED'?'bad':x==='SUBMITTED'?'warn':'';return '<span class="pill '+c+'">'+esc(x)+'</span>'}
 async function loadSellers(){const m=document.getElementById('sellerMsg'),rows=document.getElementById('sellerRows');m.textContent='Loading seller applications…';rows.innerHTML='';try{const d=await api('/v1/admin/sellers/onboarding');const list=pickList(d);if(!list.length){rows.innerHTML='<tr><td colspan="6" class="empty">No seller onboarding records found.</td></tr>';m.textContent='No applications pending.';return}m.textContent=list.length+' seller record(s)';rows.innerHTML=list.map((s,i)=>{const id=s.seller_id||s.sellerId||s.user_id||s.userId||s.id;const name=s.business_name||s.businessName||s.store_name||s.storeName||'Seller';const kyc=[s.pan&&('PAN: '+s.pan),s.gstin&&('GST: '+s.gstin),'KYC review: '+(s.kyc_review_status||'PENDING'),s.kyc_review_notes&&('Review note: '+s.kyc_review_notes),s.account_holder_name&&('Account holder: '+s.account_holder_name),s.ifsc&&('IFSC: '+s.ifsc),s.pickup_address&&('Address: '+s.pickup_address)].filter(Boolean).map(esc).join('<br>')||'KYC not provided';const payout=s.payout_account_ready?'Ready':(s.bank_account_last4?'•••• '+s.bank_account_last4:'Not ready');const pickup=[s.pickup_city,s.pickup_state,s.pickup_postal_code].filter(Boolean).join(', ')||'Not set';return '<tr><td><b>'+esc(name)+'</b><br><span class="muted">'+esc(s.business_email||s.email||'')+'</span></td><td>'+kyc+'</td><td>'+esc(payout)+'</td><td>'+esc(pickup)+'</td><td>'+statusPill(s.onboarding_status||s.status)+'</td><td><div class="actions"><button onclick="viewKycDocuments('+JSON.stringify(id)+')">Documents</button><button onclick="reviewKyc('+JSON.stringify(id)+')">Review KYC</button><button class="approve" onclick="reviewSeller('+JSON.stringify(id)+',\'APPROVE\')">Approve</button><button class="reject" onclick="reviewSeller('+JSON.stringify(id)+',\'REJECT\')">Reject</button></div></td></tr>'}).join('')}catch(e){m.className='err';m.textContent='Could not load seller applications: '+e.message}}
-async function viewKycDocuments(id){try{const d=await api('/v1/admin/sellers/'+encodeURIComponent(id)+'/kyc-documents');const docs=d.documents||[];if(!docs.length)return alert('No KYC documents uploaded yet.');const menu=docs.map((x,i)=>(i+1)+'. '+x.document_type+' — '+x.original_filename+' ('+x.status+')').join('\\n');const n=Number(prompt('Seller KYC documents:\\n'+menu+'\\n\\nEnter document number to open/download:', '1'));if(!Number.isInteger(n)||n<1||n>docs.length)return;const doc=docs[n-1];const signed=await api('/v1/admin/sellers/'+encodeURIComponent(id)+'/kyc-documents/'+encodeURIComponent(doc.id)+'/download');window.open(signed.url,'_blank','noopener');const decision=prompt('After checking the document, enter ACCEPTED or REJECTED. Leave blank to only view.','');if(!decision)return;const status=decision.trim().toUpperCase();if(!['ACCEPTED','REJECTED'].includes(status))return alert('Invalid document review status.');const note=status==='REJECTED'?(prompt('Reason for rejection (required):','')||''):((prompt('Optional review note:','')||''));if(status==='REJECTED'&&!note.trim())return alert('Rejection reason is required.');await api('/v1/admin/sellers/'+encodeURIComponent(id)+'/kyc-documents/'+encodeURIComponent(doc.id)+'/review',{method:'POST',body:JSON.stringify({status,note})});alert('Document review saved.');loadSellers()}catch(e){alert('Could not open/review documents: '+e.message)}}
-async function reviewKyc(id){if(!id)return;const status=prompt('KYC status: IN_REVIEW, VERIFIED, or REJECTED. Only choose VERIFIED after checking original documents.','IN_REVIEW');if(!status)return;const normalized=status.trim().toUpperCase();if(!['IN_REVIEW','VERIFIED','REJECTED'].includes(normalized))return alert('Invalid KYC status.');if(normalized==='VERIFIED'&&prompt('Type VERIFIED to confirm original documents were checked:')!=='VERIFIED')return;const notes=prompt('Review notes (required for REJECTED):','')||'';if(normalized==='REJECTED'&&!notes.trim())return alert('Notes are required.');try{await api('/v1/admin/sellers/'+encodeURIComponent(id)+'/kyc-review',{method:'POST',body:JSON.stringify({status:normalized,notes})});alert('KYC review status saved.');loadSellers()}catch(e){alert('KYC review failed: '+e.message)}}
-async function reviewSeller(id,decision){if(!id)return;let reason='';if(decision==='REJECT'){reason=prompt('Rejection reason (required):')||'';if(!reason.trim())return alert('Rejection reason is required.')}if(!confirm(decision==='APPROVE'?'Approve this seller onboarding?':'Reject this seller onboarding?'))return;try{await api('/v1/admin/sellers/'+encodeURIComponent(id)+'/onboarding/review',{method:'POST',body:JSON.stringify({decision,reason})});alert(decision==='APPROVE'?'Seller approved.':'Seller rejected.');loadSellers()}catch(e){alert('Review failed: '+e.message)}}
+async function viewKycDocuments(id){
+ if(!id)return;
+ openActionModal('Seller documents','<p class="muted">Loading private documents…</p>');
+ try{
+  const d=await api('/v1/admin/sellers/'+encodeURIComponent(id)+'/kyc-documents');
+  const docs=d.documents||[];
+  if(!docs.length){
+   setActionBody('<p>No KYC documents are recorded for this seller yet.</p><p class="muted">If the seller has uploaded a file but it is missing here, confirm private document storage is configured in the API service and ask the seller to upload again.</p>');
+   return;
+  }
+  setActionBody(docs.map((doc,i)=>'<div class="docRow"><b>'+esc(doc.document_type||'Document')+'</b><br>'+esc(doc.original_filename||'Unnamed file')+'<br><span class="muted">Status: '+esc(doc.status||'SUBMITTED')+' · '+Math.ceil(Number(doc.size_bytes||0)/1024)+' KB</span><div class="modalActions"><button type="button" onclick="openSellerDocument('+JSON.stringify(String(id))+','+JSON.stringify(String(doc.id))+')">Open / Download</button><button type="button" onclick="reviewSellerDocument('+JSON.stringify(String(id))+','+JSON.stringify(String(doc.id))+')">Review document</button></div></div>').join(''));
+ }catch(e){setActionMessage('Could not load documents: '+e.message,true)}
+}
+async function openSellerDocument(sellerId,documentId){
+ try{
+  setActionMessage('Creating secure document link…');
+  const d=await api('/v1/admin/sellers/'+encodeURIComponent(sellerId)+'/kyc-documents/'+encodeURIComponent(documentId)+'/download');
+  if(!d.url)throw new Error('API did not return a document link.');
+  const opened=window.open(d.url,'_blank','noopener');
+  if(!opened){setActionMessage('Your browser blocked the document tab. Use the link below to open it.',true);setActionBody(document.getElementById('actionModalBody').innerHTML+'<p><a class="heroLink" href="'+esc(d.url)+'" target="_blank" rel="noopener">Open secure document</a></p>');return}
+  setActionMessage('Secure document link opened. It expires shortly.');
+ }catch(e){setActionMessage('Could not open document: '+e.message,true)}
+}
+async function reviewSellerDocument(sellerId,documentId){
+ const status=prompt('Document status: ACCEPTED or REJECTED','ACCEPTED');
+ if(!status)return;
+ const normalized=status.trim().toUpperCase();
+ if(!['ACCEPTED','REJECTED'].includes(normalized)){setActionMessage('Choose ACCEPTED or REJECTED.',true);return}
+ const note=normalized==='REJECTED'?(prompt('Reason for rejection (required):')||''):(prompt('Optional review note:')||'');
+ if(normalized==='REJECTED'&&!note.trim()){setActionMessage('A rejection reason is required.',true);return}
+ try{
+  setActionMessage('Saving document review…');
+  await api('/v1/admin/sellers/'+encodeURIComponent(sellerId)+'/kyc-documents/'+encodeURIComponent(documentId)+'/review',{method:'POST',body:JSON.stringify({status:normalized,note})});
+  setActionMessage('Document review saved successfully.');
+  await viewKycDocuments(sellerId); await loadSellers();
+ }catch(e){setActionMessage('Could not save document review: '+e.message,true)}
+}
+async function reviewKyc(id){
+ if(!id)return;
+ openActionModal('Review seller KYC','<p>Choose the review result. Mark VERIFIED only after checking the original documents.</p><label for="kycDecision">KYC status</label><select id="kycDecision"><option value="IN_REVIEW">In review</option><option value="VERIFIED">Verified — original documents checked</option><option value="REJECTED">Rejected</option></select><label for="kycNotes">Review notes (required for rejection)</label><textarea id="kycNotes" rows="3" maxlength="1000" placeholder="Enter notes or rejection reason"></textarea><div class="modalActions"><button type="button" class="approve" onclick="submitKycReview('+JSON.stringify(String(id))+')">Save KYC review</button></div>');
+}
+async function submitKycReview(id){
+ const status=document.getElementById('kycDecision')?.value;
+ const notes=document.getElementById('kycNotes')?.value.trim()||'';
+ if(status==='REJECTED'&&!notes){setActionMessage('Enter a rejection reason before saving.',true);return}
+ if(status==='VERIFIED'&&!confirm('Confirm that you personally checked the seller’s original documents?'))return;
+ try{
+  setActionMessage('Saving KYC review…');
+  await api('/v1/admin/sellers/'+encodeURIComponent(id)+'/kyc-review',{method:'POST',body:JSON.stringify({status,notes})});
+  setActionMessage('KYC review saved. Refreshing seller status…');
+  await loadSellers();
+  setActionMessage('KYC review saved successfully.');
+ }catch(e){setActionMessage('KYC review failed: '+e.message,true)}
+}
+async function reviewSeller(id,decision){
+ if(!id)return;
+ const sellerButton=event?.currentTarget;
+ if(sellerButton){sellerButton.disabled=true;sellerButton.textContent='Please wait…'}
+ let reason='';
+ try{
+  if(decision==='REJECT'){reason=prompt('Rejection reason (required):')||'';if(!reason.trim())return alert('Rejection reason is required.')}
+  if(!confirm(decision==='APPROVE'?'Approve this seller onboarding? Approval is allowed only after KYC is VERIFIED.':'Reject this seller onboarding?'))return;
+  setActionModalMessageOnly('Saving seller decision…');
+  await api('/v1/admin/sellers/'+encodeURIComponent(id)+'/onboarding/review',{method:'POST',body:JSON.stringify({decision,reason})});
+  alert(decision==='APPROVE'?'Seller approved successfully.':'Seller rejected successfully.');
+  await loadSellers();
+ }catch(e){
+  alert('Seller review failed: '+e.message);
+  const m=document.getElementById('sellerMsg');m.className='err';m.textContent='Seller review failed: '+e.message;
+ }finally{
+  if(sellerButton){sellerButton.disabled=false;sellerButton.textContent=decision==='APPROVE'?'Approve':'Reject'}
+ }
+}
+
+
+
+function openActionModal(title,body){
+ const modal=document.getElementById('actionModal');document.getElementById('actionModalTitle').textContent=title;document.getElementById('actionModalBody').innerHTML=body;setActionMessage('');modal.classList.remove('hidden');
+}
+function closeActionModal(){document.getElementById('actionModal').classList.add('hidden')}
+function setActionBody(body){document.getElementById('actionModalBody').innerHTML=body}
+function setActionMessage(message,isError=false){const el=document.getElementById('actionModalMsg');el.className=isError?'err':'muted';el.textContent=message}
+function setActionModalMessageOnly(message){openActionModal('Please wait', '<p>'+esc(message)+'</p>')}
 
 function moneyPaise(v){return '₹'+(Number(v||0)/100).toLocaleString('en-IN',{maximumFractionDigits:2})}
 function orderAddress(o){let a=o.address_json||o.address||{};if(typeof a==='string'){try{a=JSON.parse(a)}catch{a={}}}return [a.fullName||a.name,a.phone,a.line1,a.line2,a.city,a.state,a.postalCode].filter(Boolean).join(' • ')}
