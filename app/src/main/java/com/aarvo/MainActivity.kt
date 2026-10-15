@@ -663,61 +663,6 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                 }
             }
         }
-        // 5. AARVO Verified Seller Marketplace (No Fake Products)
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFAF8FF)),
-                border = BorderStroke(1.dp, Color(0xFFE5DEFF))
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF4B16D8)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("🛡️", fontSize = 14.sp)
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text("AARVO Verified Seller Marketplace", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF171329))
-                            Text("Real Sellers • 100% Genuine Invoices • Buyer Protected", fontSize = 10.sp, color = Color(0xFF706A80))
-                        }
-                    }
-
-                    Spacer(Modifier.height(10.dp))
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
-                        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("🏪", fontSize = 20.sp)
-                                Spacer(Modifier.width(8.dp))
-                                Column {
-                                    Text("Are you a merchant?", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF171329))
-                                    Text("Sell to millions of AARVO shoppers", fontSize = 10.sp, color = Color(0xFF706A80))
-                                }
-                            }
-                            Button(
-                                onClick = { onOpenSeller() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4B16D8)),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text("Start Selling", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                            }
-                        }
-                    }
-                }
-            }
-        }
         // 6. AARVO Mega Sale Banner
         item {
             Card(
