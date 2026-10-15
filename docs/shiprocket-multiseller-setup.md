@@ -35,3 +35,6 @@ The legacy `SHIPROCKET_PICKUP_LOCATION` is not used as a substitute for a missin
 6. Only then enable delivery in production.
 
 Do not run real shipments just to test credentials; Shiprocket shipment creation can create billable/operational courier bookings. Do not expose API credentials in screenshots, GitHub, or chat.
+
+
+**Shiprocket webhook security:** set `THIRD_PARTY_DELIVERY_WEBHOOK_SECRET` to the same security token entered in Shiprocket Settings → API → Webhooks. Shiprocket sends it in the `x-api-key` header; AARVO validates that header using a constant-time comparison. Do not use an HMAC signature header for this integration.
