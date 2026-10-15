@@ -1,6 +1,7 @@
 package com.aarvo
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -31,12 +32,12 @@ class SellerOnboardingActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val prefs = getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)
         val api = AarvoApiClient { prefs.getString("auth_token", null) }
-        setContent { AarvoTheme { SellerOnboardingScreen(api, ::finish) } }
+        setContent { AarvoTheme { SellerOnboardingScreen(api, ::finish) { startActivity(Intent(this, SellerKycDocumentsActivity::class.java)) } } }
     }
 }
 
 @Composable
-private fun SellerOnboardingScreen(api: AarvoApiClient, onDone: () -> Unit) {
+private fun SellerOnboardingScreen(api: AarvoApiClient, onDone: () -> Unit, onOpenKyc: () -> Unit) {
     val scope = rememberCoroutineScope()
     var loading by remember { mutableStateOf(true) }
     var saving by remember { mutableStateOf(false) }
@@ -131,6 +132,7 @@ private fun SellerOnboardingScreen(api: AarvoApiClient, onDone: () -> Unit) {
 
         Button(onClick={save(false)},enabled=!saving&&!loading,modifier=Modifier.fillMaxWidth()){Text(if(saving)"Saving…" else "Save Draft")}
         Button(onClick={save(true)},enabled=!saving&&!loading,modifier=Modifier.fillMaxWidth()){Text("Submit for Admin Review")}
+        Button(onClick=onOpenKyc,enabled=!saving,modifier=Modifier.fillMaxWidth()){Text("Upload KYC Documents")}
         Button(onClick=onDone,enabled=!saving,modifier=Modifier.fillMaxWidth()){Text("Back")}
         if(message.isNotBlank()) Text(message,color=MaterialTheme.colorScheme.primary)
     }

@@ -1063,6 +1063,11 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                                 activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java))
                             }
                         }
+                        item {
+                            AccountOptionRow(Icons.Default.Favorite, "Seller KYC Documents", "Upload PAN, address proof or business proof securely") {
+                                activity.startActivity(Intent(activity, SellerKycDocumentsActivity::class.java))
+                            }
+                        }
                     }
                     item {
                         Text("More", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
