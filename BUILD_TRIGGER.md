@@ -15,3 +15,4 @@ Exact AARVO A entry-logo build trigger 2026-09-27 19:xx IST.
 
 Build #771 logo verification and exact AARVO A logo applied to Splash + Welcome 2026-09-27 20:xx IST.
 Remove AARVO Verified Seller Network section from Home Screen 2026-10-15.
+Match 100% web screen design: unified royal blue header with large search bar, bottom nav colors, top deals styling 2026-10-20.

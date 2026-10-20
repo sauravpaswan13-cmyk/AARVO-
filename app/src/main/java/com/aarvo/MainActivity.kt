@@ -408,49 +408,127 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     ) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF4B16D8), titleContentColor = Color.White, actionIconContentColor = Color.White, navigationIconContentColor = Color.White),
-                    navigationIcon = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF2418D8))
+                        .padding(bottom = 12.dp)
+                ) {
+                    // Top Bar: Hamburger Menu, AARVO Brand Logo + Name, Notifications and Cart
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, "Menu", tint = Color.White)
                         }
-                    },
-                    title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { selectedTab = 0 }
+                        ) {
                             androidx.compose.foundation.Image(
                                 painter = coil3.compose.rememberAsyncImagePainter(model = R.drawable.aarvo_brand_logo),
                                 contentDescription = "AARVO logo",
-                                modifier = Modifier.size(30.dp)
+                                modifier = Modifier.size(32.dp)
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text("AARVO", fontWeight = FontWeight.ExtraBold, color = Color.White)
+                            Text(
+                                "AARVO",
+                                fontWeight = FontWeight.Black,
+                                color = Color.White,
+                                fontSize = 22.sp
+                            )
                         }
-                    },
-                    actions = {
-                        if (unreadNotificationCount > 0) {
-                            BadgedBox(badge = { Badge { Text(unreadNotificationCount.toString()) } }) {
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (unreadNotificationCount > 0) {
+                                BadgedBox(badge = { Badge { Text(unreadNotificationCount.toString()) } }) {
+                                    IconButton(onClick = { showNotifications = true }) {
+                                        Icon(Icons.Default.Notifications, "Notifications", tint = Color.White)
+                                    }
+                                }
+                            } else {
                                 IconButton(onClick = { showNotifications = true }) {
                                     Icon(Icons.Default.Notifications, "Notifications", tint = Color.White)
                                 }
                             }
-                        } else {
-                            IconButton(onClick = { showNotifications = true }) {
-                                Icon(Icons.Default.Notifications, "Notifications", tint = Color.White)
-                            }
-                        }
-                        if (cartBadgeCount > 0) {
-                            BadgedBox(badge = { Badge { Text(cartBadgeCount.toString()) } }) {
+                            if (cartBadgeCount > 0) {
+                                BadgedBox(badge = { Badge { Text(cartBadgeCount.toString()) } }) {
+                                    IconButton(onClick = { selectedTab = 3 }) {
+                                        Icon(Icons.Default.ShoppingCart, "Cart", tint = Color.White)
+                                    }
+                                }
+                            } else {
                                 IconButton(onClick = { selectedTab = 3 }) {
                                     Icon(Icons.Default.ShoppingCart, "Cart", tint = Color.White)
                                 }
                             }
-                        } else {
-                            IconButton(onClick = { selectedTab = 3 }) {
-                                Icon(Icons.Default.ShoppingCart, "Cart", tint = Color.White)
-                            }
                         }
                     }
-                )
+
+                    // Bada Search Bar inside the Blue Screen matching user's exact design
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp)
+                            .height(48.dp),
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 2.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = Color(0xFF94A3B8),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Box(modifier = Modifier.weight(1f)) {
+                                if (query.isEmpty()) {
+                                    Text(
+                                        "Search for products, brands and more...",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 13.sp,
+                                        maxLines = 1
+                                    )
+                                }
+                                androidx.compose.foundation.text.BasicTextField(
+                                    value = query,
+                                    onValueChange = {
+                                        query = it
+                                        if (selectedTab != 0 && selectedTab != 1) selectedTab = 0
+                                    },
+                                    singleLine = true,
+                                    textStyle = androidx.compose.ui.text.TextStyle(
+                                        color = Color(0xFF1E293B),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            if (query.isNotEmpty()) {
+                                IconButton(onClick = { query = "" }, modifier = Modifier.size(24.dp)) {
+                                    Text("✕", fontSize = 12.sp, color = Color(0xFF94A3B8))
+                                }
+                            }
+                            Text(
+                                "🎙️",
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+                }
             },
             bottomBar = {
                 NavigationBar(containerColor = Color.White) {
@@ -459,21 +537,21 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         onClick = { selectedTab = 0 },
                         icon = { Icon(Icons.Default.Home, "Home") },
                         label = { Text("Home", fontSize = 10.sp, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF2418D8), selectedTextColor = Color(0xFF2418D8), unselectedIconColor = Color(0xFF64748B), unselectedTextColor = Color(0xFF64748B), indicatorColor = Color.Transparent)
                     )
                     NavigationBarItem(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
                         icon = { Text("🔲", fontSize = 18.sp) },
                         label = { Text("Categories", fontSize = 10.sp, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF2418D8), selectedTextColor = Color(0xFF2418D8), unselectedIconColor = Color(0xFF64748B), unselectedTextColor = Color(0xFF64748B), indicatorColor = Color.Transparent)
                     )
                     NavigationBarItem(
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
                         icon = { Text("🏷️", fontSize = 18.sp) },
                         label = { Text("Offers", fontSize = 10.sp, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF2418D8), selectedTextColor = Color(0xFF2418D8), unselectedIconColor = Color(0xFF64748B), unselectedTextColor = Color(0xFF64748B), indicatorColor = Color.Transparent)
                     )
                     NavigationBarItem(
                         selected = selectedTab == 3,
@@ -488,14 +566,14 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                             }
                         },
                         label = { Text("Cart", fontSize = 10.sp, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF2418D8), selectedTextColor = Color(0xFF2418D8), unselectedIconColor = Color(0xFF64748B), unselectedTextColor = Color(0xFF64748B), indicatorColor = Color.Transparent)
                     )
                     NavigationBarItem(
                         selected = selectedTab == 4,
                         onClick = { selectedTab = 4 },
                         icon = { Icon(Icons.Default.Person, "Account") },
                         label = { Text("Account", fontSize = 10.sp, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF4B16D8), selectedTextColor = Color(0xFF4B16D8), indicatorColor = Color(0xFFEDE9FE))
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF2418D8), selectedTextColor = Color(0xFF2418D8), unselectedIconColor = Color(0xFF64748B), unselectedTextColor = Color(0xFF64748B), indicatorColor = Color.Transparent)
                     )
                 }
             }
@@ -575,7 +653,8 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
     val scope = rememberCoroutineScope()
     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // Home order: search first, Hero Live second, categories third.
-        item { HomeSearchFirst(query, onQueryChange) }
+        // Search bar moved to unified Blue Header
+        item { Spacer(Modifier.height(2.dp)) }
         item { LiveHero(api = api, modifier = Modifier.fillMaxWidth()) }
         // 3. 10 Categories Grid (Matching Screenshot)
         item {
@@ -634,7 +713,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
             Card(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onOpenOffers() },
                 shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFF7A00))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF2418D8))
             ) {
                 Row(
                     Modifier.fillMaxWidth().padding(14.dp),
