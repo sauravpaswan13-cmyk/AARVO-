@@ -18,3 +18,4 @@ Remove AARVO Verified Seller Network section from Home Screen 2026-10-15.
 Match 100% web screen design: unified royal blue header with large search bar, bottom nav colors, top deals styling 2026-10-20.
 Fix missing Search icon import in MainActivity for Android build 2026-10-20.
 Add global theme switching (light/dark) with persistence and header toggle button 2026-10-23.
+Updated metadata for AARVO 2026-10-23
