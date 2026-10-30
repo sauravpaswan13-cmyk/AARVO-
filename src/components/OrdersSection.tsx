@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Copy,
   ShoppingCart,
+  Download,
 } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 
@@ -586,27 +587,110 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
     setSelectedOrder(order);
   };
 
+  const handleDownloadCSV = () => {
+    haptics.success();
+    if (filteredOrders.length === 0) {
+      onShowToast('No orders found to export in current view.');
+      return;
+    }
+
+    // CSV Headers
+    const headers = [
+      'Order ID',
+      'Order Date',
+      'Status',
+      'Status Stage',
+      'Amount (INR)',
+      'Total Items Qty',
+      'Products Summary',
+      'Carrier',
+      'Tracking AWB',
+      'Estimated Delivery',
+      'Payment Method',
+      'Delivery Address',
+    ];
+
+    const escapeCSV = (val: string | number | undefined | null) => {
+      if (val === undefined || val === null) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = filteredOrders.map((ord) => {
+      const itemsSummary = ord.items
+        .map((i) => `${i.name} (Qty: ${i.quantity}, ₹${i.price})`)
+        .join('; ');
+      const totalQty = ord.items.reduce((sum, i) => sum + i.quantity, 0);
+
+      return [
+        ord.id,
+        ord.date,
+        ord.status,
+        `Step ${ord.statusStep} of 3 (${ord.status})`,
+        ord.total,
+        totalQty,
+        itemsSummary,
+        ord.carrier,
+        ord.trackingNumber,
+        ord.estimatedDelivery,
+        ord.paymentMethod,
+        ord.deliveryAddress,
+      ]
+        .map(escapeCSV)
+        .join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.map(escapeCSV).join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const formattedDate = new Date().toISOString().slice(0, 10);
+    link.download = `aarvo_orders_delivery_${filter.toLowerCase()}_${formattedDate}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    onShowToast(`Exported ${filteredOrders.length} order(s) to CSV! 📊`);
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-[#F7F5FF] dark:bg-[#0A0718] pb-12 animate-in fade-in duration-200">
       {/* Top Header Bar */}
       <div className="bg-[#2418D8] text-white px-4 pt-3 pb-4 sticky top-0 z-20 shadow-md">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              haptics.light();
-              onBack();
-            }}
-            className="p-1.5 hover:bg-white/15 rounded-xl transition-colors active:scale-95 cursor-pointer"
-            aria-label="Back to Account"
-          >
-            <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
-          </button>
-          <div>
-            <h1 className="font-display font-black text-lg leading-tight">My Orders</h1>
-            <p className="text-[11px] text-purple-200">
-              Tap any order to view details &amp; live tracking ({orders.length} total)
-            </p>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              onClick={() => {
+                haptics.light();
+                onBack();
+              }}
+              className="p-1.5 hover:bg-white/15 rounded-xl transition-colors active:scale-95 cursor-pointer shrink-0"
+              aria-label="Back to Account"
+            >
+              <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="font-display font-black text-base sm:text-lg leading-tight truncate">
+                Orders &amp; Delivery
+              </h1>
+              <p className="text-[11px] text-purple-200 truncate">
+                Track packages &amp; purchase history ({orders.length} total)
+              </p>
+            </div>
           </div>
+
+          {/* Download CSV Action Button */}
+          <button
+            type="button"
+            onClick={handleDownloadCSV}
+            className="px-2.5 py-1.5 bg-white/20 hover:bg-white text-white hover:text-[#2418D8] border border-white/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs shrink-0"
+            title="Download CSV export"
+          >
+            <Download className="w-3.5 h-3.5 stroke-[2.2]" />
+            <span className="text-[11px] font-extrabold">Download CSV</span>
+          </button>
         </div>
 
         {/* Search Order bar */}
@@ -650,6 +734,23 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Sub-toolbar: Order count & Download CSV export link */}
+      <div className="px-3.5 pt-2.5 pb-1 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+        <span className="font-medium text-[11px]">
+          Showing <strong className="text-slate-800 dark:text-slate-200">{filteredOrders.length}</strong> of {orders.length} order{orders.length > 1 ? 's' : ''}
+          {filter !== 'All' && <span className="text-[#2418D8] dark:text-[#7B73FF] ml-1 font-bold">({filter})</span>}
+        </span>
+
+        <button
+          type="button"
+          onClick={handleDownloadCSV}
+          className="text-[#2418D8] dark:text-[#7B73FF] hover:underline font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+        >
+          <Download className="w-3 h-3" />
+          <span>Export CSV</span>
+        </button>
       </div>
 
       {/* Orders List Container */}

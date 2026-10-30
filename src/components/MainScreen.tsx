@@ -1544,7 +1544,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               >
                 <div className="flex items-center gap-3">
                   <Package className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF]" />
-                  <span>My Orders &amp; Track Packages</span>
+                  <span>Orders &amp; Delivery Tracking</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] bg-blue-50 dark:bg-blue-950/60 text-[#2418D8] dark:text-[#7B73FF] font-bold px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-900/50">
@@ -1794,7 +1794,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   >
                     <div className="flex items-center gap-3">
                       <Package className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF]" />
-                      <span>My Orders &amp; Tracking</span>
+                      <span>Orders &amp; Delivery</span>
                     </div>
                     <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-950 text-[#2418D8] dark:text-[#7B73FF] px-2 py-0.5 rounded-full">
                       {orders.length}
