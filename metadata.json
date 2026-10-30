@@ -1,0 +1,6 @@
+{
+  "name": "AARVO Shopping",
+  "description": "AARVO Online Shopping Marketplace - Shop Mobiles, Fashion, Electronics, Home & Living and Top Deals with doorstep delivery",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

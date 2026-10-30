@@ -15,6 +15,15 @@ keystore.properties
 .idea/
 *.iml
 
+# Node / Web Applet
+node_modules/
+build/
+dist/
+coverage/
+*.log
+.env*
+!.env.example
+
 # OS
 .DS_Store
 Thumbs.db
