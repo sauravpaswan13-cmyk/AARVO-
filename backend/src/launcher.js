@@ -14,7 +14,7 @@ const gapImport = "import { registerMarketplaceGapCompletion } from './marketpla
 const sellerImport = "import { registerSellerOnboarding } from './seller-onboarding.js';";
 const kycDocsImport = "import { registerSellerKycDocuments } from './seller-kyc-documents.js';";
 const riderImport = "import { registerRiderDelivery } from './rider-delivery.js';";
-const thirdPartyDeliveryImport = "import { registerThirdPartyDelivery } from './third-party-delivery.js';";
+const thirdPartyDeliveryImport = "import { createThirdPartyShipmentForOrder, registerThirdPartyDelivery } from './third-party-delivery.js';";
 const offerImport = "import { registerOfferCompletion } from './offer-completion.js';";
 const productDealsImport = "import { registerProductDeals } from './product-deals.js';";
 
