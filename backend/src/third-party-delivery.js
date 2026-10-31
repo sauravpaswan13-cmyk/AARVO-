@@ -224,11 +224,10 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
       throw error;
     }
   });
-  app.post('/v1/webhooks/delivery/:provider',async(request,reply)=>{
+  const handleDeliveryWebhook=async(request,reply,routeProvider)=>{
     if(!pool)return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
-    if(String(request.params.provider).toLowerCase()!==provider())return reply.code(404).send({error:'DELIVERY_PROVIDER_NOT_FOUND'});
-    const raw=typeof request.rawBody==='string'?request.rawBody:JSON.stringify(request.body||{});
-    if(webhookSecret()&&!verifyWebhookToken(request.headers['x-api-key']))return reply.code(401).send({error:'INVALID_DELIVERY_WEBHOOK_SIGNATURE'});
+    if(String(routeProvider||'').toLowerCase()!==provider())return reply.code(404).send({error:'DELIVERY_PROVIDER_NOT_FOUND'});
+    if(!webhookSecret()||!verifyWebhookToken(request.headers['x-api-key']))return reply.code(401).send({error:'INVALID_DELIVERY_WEBHOOK_SIGNATURE'});
     const data=request.body||{};
     const shipmentId=clean(data.shipment_id||data.shipmentId||data.awb||data.awb_code||data.id||data?.tracking_data?.shipment_id,200);
     const awb=clean(data.awb||data.awb_code||data?.tracking_data?.shipment_track?.[0]?.awb_code,120);
@@ -243,5 +242,9 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
         [JSON.stringify({status:next==='RTO'?'CANCELLED':next,provider:'shiprocket',shipments:rows.rows,updatedAt:new Date().toISOString()}),row.order_id]);
     }
     return {received:true,matched:true};
-  });
+  };
+  // Shiprocket rejects webhook URLs containing its brand keywords. Keep the
+  // provider-specific route for existing integrations and expose this neutral URL.
+  app.post('/v1/webhooks/delivery/events',(request,reply)=>handleDeliveryWebhook(request,reply,provider()));
+  app.post('/v1/webhooks/delivery/:provider',(request,reply)=>handleDeliveryWebhook(request,reply,request.params.provider));
 }
