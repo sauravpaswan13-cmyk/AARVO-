@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken';
 import Razorpay from 'razorpay';
 import { assistant, smartSearch, summarizeReviews, compareProducts, sellerListing, smartDealHints, aiConfigured } from './ai.js';
 import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
-import { createThirdPartyShipmentForOrder } from './third-party-delivery.js';
+import { createThirdPartyShipmentForOrder, registerThirdPartyDelivery } from './third-party-delivery.js';
 
 const app = Fastify({ logger: true });
 const { Pool } = pg;
@@ -284,6 +284,8 @@ app.get('/v1/admin/orders',{preHandler:requireRole('ADMIN')},async(request,reply
 app.get('/v1/admin/riders',{preHandler:requireRole('ADMIN')},async(request,reply)=>{if(!pool)return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});return(await pool.query('SELECT r.rider_id,u.display_name,r.phone,r.active,r.current_city FROM rider_profiles r JOIN users u ON u.id=r.rider_id ORDER BY r.created_at DESC')).rows;});
 app.post('/v1/admin/riders',{preHandler:requireRole('ADMIN')},async(request,reply)=>{if(!pool||!JWT_SECRET)return reply.code(503).send({error:!pool?'DATABASE_NOT_CONFIGURED':'AUTH_NOT_CONFIGURED'});const name=String(request.body?.displayName||'').trim(),phone=normalizePhone(request.body?.phone),password=String(request.body?.password||'');if(!name||!phone||password.length<8)return reply.code(400).send({error:'INVALID_RIDER'});const client=await pool.connect();try{await client.query('BEGIN');const id=randomBytes(12).toString('hex');const u=await client.query("INSERT INTO users(id,display_name,password_hash,role,phone,phone_verified) VALUES($1,$2,$3,'RIDER',$4,true) RETURNING id,display_name,phone,role",[id,name,hashPassword(password),phone]);await client.query('INSERT INTO rider_profiles(rider_id,phone) VALUES($1,$2)',[id,phone]);await audit(client,request.user,'RIDER',id,'CREATED');await client.query('COMMIT');return{user:u.rows[0]};}catch(e){await client.query('ROLLBACK');if(e.code==='23505')return reply.code(409).send({error:'PHONE_ALREADY_REGISTERED'});throw e;}finally{client.release();}});
 
+
+await registerThirdPartyDelivery({ app, pool, requireRole, audit });
 
 app.setErrorHandler((error,request,reply)=>{request.log.error(error);const status=error.statusCode&&error.statusCode<500?error.statusCode:500;reply.code(status).send({error:status<500&&error.publicMessage?error.publicMessage:'INTERNAL_SERVER_ERROR'});
 });
