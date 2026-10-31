@@ -105,8 +105,36 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     }
     return [
       {
+        id: 'ARV-984320',
+        date: 'Today, Oct 30, 2026',
+        total: 3198,
+        status: 'Processing',
+        statusStep: 1,
+        estimatedDelivery: 'Preparing dispatch, arrives Nov 02',
+        trackingNumber: 'SHIPROCKET-992014',
+        carrier: 'Shiprocket Surface &bull; AWB 992014',
+        paymentMethod: 'UPI (Paytm)',
+        deliveryAddress: 'Flat 402, Green Glen Heights, Outer Ring Road, Bangalore - 560103',
+        items: [
+          {
+            id: 'p4',
+            name: 'Puma Men Running Shoes (Black, UK 9)',
+            price: 1599,
+            quantity: 2,
+            image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop&q=80',
+            category: 'Footwear',
+          },
+        ],
+        timeline: [
+          { status: 'Order Placed & Verified', time: '09:30 AM', description: 'Order confirmed with Instant UPI Payment', completed: true },
+          { status: 'Seller Packaging', time: '11:00 AM', description: 'Seller is packing items at warehouse', completed: true },
+          { status: 'Courier Pickup Scheduled', time: 'Expected Today', description: 'Courier partner scheduled to pick up package', completed: false },
+          { status: 'Out for Delivery', time: 'Nov 02', description: 'Final doorstep delivery with OTP', completed: false },
+        ],
+      },
+      {
         id: 'ARV-924180',
-        date: 'Today, Oct 27, 2026',
+        date: 'Oct 27, 2026',
         total: 19999,
         status: 'Shipped',
         statusStep: 2,

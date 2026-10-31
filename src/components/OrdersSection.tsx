@@ -17,7 +17,21 @@ import {
   Copy,
   ShoppingCart,
   Download,
+  BarChart2,
+  TrendingUp,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Cell,
+  CartesianGrid,
+} from 'recharts';
 import { haptics } from '../utils/haptics';
 
 export type OrderStatus = 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
@@ -564,15 +578,62 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
   onShowToast,
   onNavigateToCart,
 }) => {
-  const [filter, setFilter] = useState<'All' | 'Active' | 'Delivered'>('All');
+  const [filter, setFilter] = useState<'All' | 'Active' | 'Processing' | 'Shipped' | 'Delivered'>('All');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isDashboardExpanded, setIsDashboardExpanded] = useState(true);
+
+  // Status statistics for summary dashboard
+  const statusCounts = {
+    Processing: orders.filter((o) => o.status === 'Processing').length,
+    Shipped: orders.filter((o) => o.status === 'Shipped').length,
+    Delivered: orders.filter((o) => o.status === 'Delivered').length,
+    Cancelled: orders.filter((o) => o.status === 'Cancelled').length,
+  };
+
+  const statusAmounts = {
+    Processing: orders.filter((o) => o.status === 'Processing').reduce((sum, o) => sum + o.total, 0),
+    Shipped: orders.filter((o) => o.status === 'Shipped').reduce((sum, o) => sum + o.total, 0),
+    Delivered: orders.filter((o) => o.status === 'Delivered').reduce((sum, o) => sum + o.total, 0),
+    Cancelled: orders.filter((o) => o.status === 'Cancelled').reduce((sum, o) => sum + o.total, 0),
+  };
+
+  const totalOrdersCount = orders.length;
+  const totalOrdersAmount = orders.reduce((sum, o) => sum + o.total, 0);
+
+  // Bar chart data for Recharts
+  const chartData = [
+    {
+      statusKey: 'Processing' as const,
+      name: 'Processing',
+      count: statusCounts.Processing,
+      amount: statusAmounts.Processing,
+      color: '#F59E0B',
+      lightBg: 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/40',
+    },
+    {
+      statusKey: 'Shipped' as const,
+      name: 'Shipped',
+      count: statusCounts.Shipped,
+      amount: statusAmounts.Shipped,
+      color: '#2418D8',
+      lightBg: 'bg-blue-50 dark:bg-blue-950/30 text-[#2418D8] dark:text-[#7B73FF] border-blue-200 dark:border-blue-800/40',
+    },
+    {
+      statusKey: 'Delivered' as const,
+      name: 'Delivered',
+      count: statusCounts.Delivered,
+      amount: statusAmounts.Delivered,
+      color: '#10B981',
+      lightBg: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40',
+    },
+  ];
 
   const filteredOrders = orders.filter((order) => {
     const matchesFilter =
       filter === 'All' ||
       (filter === 'Active' && (order.status === 'Processing' || order.status === 'Shipped')) ||
-      (filter === 'Delivered' && order.status === 'Delivered');
+      filter === order.status;
 
     const matchesSearch =
       searchQuery === '' ||
@@ -655,6 +716,35 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
     onShowToast(`Exported ${filteredOrders.length} order(s) to CSV! 📊`);
   };
 
+  // Custom tooltip for Recharts Bar Chart
+  const CustomBarTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const item = payload[0].payload;
+      const percentage = totalOrdersCount > 0 ? Math.round((item.count / totalOrdersCount) * 100) : 0;
+      return (
+        <div className="bg-slate-900/95 dark:bg-[#1A1638]/95 backdrop-blur-md text-white px-3 py-2.5 rounded-xl shadow-xl border border-white/10 text-xs space-y-1.5 z-30 pointer-events-none">
+          <div className="flex items-center gap-2 font-bold pb-1 border-b border-white/10">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+            <span className="text-white">{item.name}</span>
+            <span className="text-[10px] text-slate-400 font-mono ml-auto">({percentage}%)</span>
+          </div>
+          <div className="text-[11px] text-slate-300 flex items-center justify-between gap-4">
+            <span>Order Count:</span>
+            <strong className="text-white font-mono">{item.count}</strong>
+          </div>
+          <div className="text-[11px] text-slate-300 flex items-center justify-between gap-4">
+            <span>Total Value:</span>
+            <strong className="text-emerald-400 font-mono">₹{item.amount.toLocaleString('en-IN')}</strong>
+          </div>
+          <p className="text-[9px] text-purple-300 pt-0.5">
+            Click bar to filter list
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-[#F7F5FF] dark:bg-[#0A0718] pb-12 animate-in fade-in duration-200">
       {/* Top Header Bar */}
@@ -715,29 +805,328 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
           </div>
         </div>
 
-        {/* Filter Pills */}
+        {/* Filter Pills with Counts */}
         <div className="flex items-center gap-2 mt-3 overflow-x-auto no-scrollbar">
-          {(['All', 'Active', 'Delivered'] as const).map((tab) => (
+          {(['All', 'Active', 'Processing', 'Shipped', 'Delivered'] as const).map((tab) => {
+            const countLabel =
+              tab === 'All'
+                ? totalOrdersCount
+                : tab === 'Active'
+                ? statusCounts.Processing + statusCounts.Shipped
+                : statusCounts[tab];
+
+            return (
+              <button
+                key={tab}
+                onClick={() => {
+                  haptics.selection();
+                  setFilter(tab);
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                  filter === tab
+                    ? 'bg-white text-[#2418D8] shadow-sm font-black'
+                    : 'bg-white/15 text-white/90 hover:bg-white/25 border border-white/15'
+                }`}
+              >
+                <span>{tab === 'Active' ? 'Active / In Transit' : tab}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    filter === tab
+                      ? 'bg-[#2418D8]/10 text-[#2418D8]'
+                      : 'bg-white/20 text-white'
+                  }`}
+                >
+                  {countLabel}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ================================================================= */}
+      {/* SUMMARY DASHBOARD WITH STATUS COUNTS & RECHARTS BAR CHART         */}
+      {/* ================================================================= */}
+      <div className="p-3 pb-1 space-y-2.5">
+        <div className="bg-white dark:bg-[#14112B] rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-xs p-3.5 space-y-3">
+          {/* Dashboard Header Bar */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#2418D8]/10 text-[#2418D8] dark:bg-[#7B73FF]/15 dark:text-[#7B73FF] flex items-center justify-center shrink-0">
+                <BarChart2 className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <h2 className="font-display font-black text-xs sm:text-sm text-slate-900 dark:text-white">
+                    Orders Summary Dashboard
+                  </h2>
+                  <span className="inline-flex items-center px-1.5 py-0.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 text-[9px] font-extrabold rounded-md border border-emerald-200 dark:border-emerald-800/50">
+                    Live Status
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  {totalOrdersCount} Total Orders &bull; Total Value: ₹{totalOrdersAmount.toLocaleString('en-IN')}
+                </p>
+              </div>
+            </div>
+
+            {/* Collapse / Expand Toggle Button */}
             <button
-              key={tab}
+              type="button"
+              onClick={() => {
+                haptics.light();
+                setIsDashboardExpanded((prev) => !prev);
+              }}
+              className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all text-xs font-bold flex items-center gap-1 active:scale-95 cursor-pointer"
+              title={isDashboardExpanded ? 'Collapse chart view' : 'Expand chart view'}
+            >
+              <span className="text-[11px] font-medium hidden sm:inline">
+                {isDashboardExpanded ? 'Hide Chart' : 'Show Chart'}
+              </span>
+              {isDashboardExpanded ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+
+          {/* Status Counts Metric Cards Grid (4 columns) */}
+          <div className="grid grid-cols-4 gap-2">
+            {/* 1. All Orders Metric */}
+            <button
+              type="button"
               onClick={() => {
                 haptics.selection();
-                setFilter(tab);
+                setFilter('All');
               }}
-              className={`px-3 py-1 rounded-full text-xs font-bold transition-all active:scale-95 cursor-pointer ${
-                filter === tab
-                  ? 'bg-white text-[#2418D8] shadow-sm font-black'
-                  : 'bg-white/15 text-white/90 hover:bg-white/25 border border-white/15'
+              className={`p-2.5 rounded-xl border text-left transition-all active:scale-95 cursor-pointer flex flex-col justify-between ${
+                filter === 'All'
+                  ? 'bg-[#2418D8]/10 dark:bg-[#2418D8]/20 border-[#2418D8] shadow-xs'
+                  : 'bg-slate-50 dark:bg-[#1A1638] border-slate-100 dark:border-slate-800 hover:border-slate-300'
               }`}
             >
-              {tab === 'Active' ? 'Active / In Transit' : tab}
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight truncate">
+                  Total
+                </span>
+                <Package className="w-3.5 h-3.5 text-[#2418D8] dark:text-[#7B73FF] shrink-0" />
+              </div>
+              <div className="mt-1">
+                <span className="font-display font-black text-sm sm:text-base text-slate-900 dark:text-white">
+                  {totalOrdersCount}
+                </span>
+                <span className="text-[9px] text-slate-400 block truncate font-mono">
+                  ₹{totalOrdersAmount.toLocaleString('en-IN')}
+                </span>
+              </div>
             </button>
-          ))}
+
+            {/* 2. Processing Metric */}
+            <button
+              type="button"
+              onClick={() => {
+                haptics.selection();
+                setFilter(filter === 'Processing' ? 'All' : 'Processing');
+              }}
+              className={`p-2.5 rounded-xl border text-left transition-all active:scale-95 cursor-pointer flex flex-col justify-between ${
+                filter === 'Processing'
+                  ? 'bg-amber-500/15 dark:bg-amber-500/25 border-amber-500 shadow-xs'
+                  : 'bg-slate-50 dark:bg-[#1A1638] border-slate-100 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-700'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-tight truncate">
+                  Processing
+                </span>
+                <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              </div>
+              <div className="mt-1">
+                <span className="font-display font-black text-sm sm:text-base text-slate-900 dark:text-white">
+                  {statusCounts.Processing}
+                </span>
+                <span className="text-[9px] text-slate-400 block truncate font-mono">
+                  ₹{statusAmounts.Processing.toLocaleString('en-IN')}
+                </span>
+              </div>
+            </button>
+
+            {/* 3. Shipped Metric */}
+            <button
+              type="button"
+              onClick={() => {
+                haptics.selection();
+                setFilter(filter === 'Shipped' ? 'All' : 'Shipped');
+              }}
+              className={`p-2.5 rounded-xl border text-left transition-all active:scale-95 cursor-pointer flex flex-col justify-between ${
+                filter === 'Shipped'
+                  ? 'bg-blue-500/15 dark:bg-blue-500/25 border-blue-600 shadow-xs'
+                  : 'bg-slate-50 dark:bg-[#1A1638] border-slate-100 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-tight truncate">
+                  Shipped
+                </span>
+                <Truck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+              </div>
+              <div className="mt-1">
+                <span className="font-display font-black text-sm sm:text-base text-slate-900 dark:text-white">
+                  {statusCounts.Shipped}
+                </span>
+                <span className="text-[9px] text-slate-400 block truncate font-mono">
+                  ₹{statusAmounts.Shipped.toLocaleString('en-IN')}
+                </span>
+              </div>
+            </button>
+
+            {/* 4. Delivered Metric */}
+            <button
+              type="button"
+              onClick={() => {
+                haptics.selection();
+                setFilter(filter === 'Delivered' ? 'All' : 'Delivered');
+              }}
+              className={`p-2.5 rounded-xl border text-left transition-all active:scale-95 cursor-pointer flex flex-col justify-between ${
+                filter === 'Delivered'
+                  ? 'bg-emerald-500/15 dark:bg-emerald-500/25 border-emerald-500 shadow-xs'
+                  : 'bg-slate-50 dark:bg-[#1A1638] border-slate-100 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight truncate">
+                  Delivered
+                </span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              </div>
+              <div className="mt-1">
+                <span className="font-display font-black text-sm sm:text-base text-slate-900 dark:text-white">
+                  {statusCounts.Delivered}
+                </span>
+                <span className="text-[9px] text-slate-400 block truncate font-mono">
+                  ₹{statusAmounts.Delivered.toLocaleString('en-IN')}
+                </span>
+              </div>
+            </button>
+          </div>
+
+          {/* Recharts Bar Chart Section */}
+          {isDashboardExpanded && (
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-[11px] text-slate-700 dark:text-slate-300">
+                    Status Distribution
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    (Tap any bar to filter)
+                  </span>
+                </div>
+                {filter !== 'All' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptics.light();
+                      setFilter('All');
+                    }}
+                    className="text-[10px] font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline cursor-pointer"
+                  >
+                    Reset Filter (Show All)
+                  </button>
+                )}
+              </div>
+
+              {/* Bar Chart Container using Recharts */}
+              <div className="h-44 w-full bg-slate-50/70 dark:bg-[#100D24] rounded-xl p-2 border border-slate-100 dark:border-slate-800/50">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 12, right: 12, left: -22, bottom: 2 }}
+                    onClick={(state: any) => {
+                      if (state && state.activePayload && state.activePayload.length) {
+                        const clicked = state.activePayload[0].payload.statusKey;
+                        haptics.selection();
+                        setFilter(filter === clicked ? 'All' : clicked);
+                      }
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.12} />
+                    <XAxis
+                      dataKey="name"
+                      tickLine={false}
+                      axisLine={{ stroke: '#CBD5E1', opacity: 0.2 }}
+                      tick={{ fontSize: 11, fontWeight: 700, fill: '#64748B' }}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 10, fill: '#94A3B8' }}
+                    />
+                    <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'rgba(36, 24, 216, 0.04)', radius: 6 }} />
+                    <Bar
+                      dataKey="count"
+                      radius={[6, 6, 0, 0]}
+                      maxBarSize={44}
+                      className="cursor-pointer"
+                    >
+                      {chartData.map((entry, index) => {
+                        const isSelected = filter === 'All' || filter === entry.statusKey;
+                        return (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={entry.color}
+                            opacity={isSelected ? 1 : 0.35}
+                          />
+                        );
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Proportional Distribution Bar */}
+              <div className="space-y-1.5 pt-1">
+                <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
+                  {chartData.map((item) => {
+                    const pct = totalOrdersCount > 0 ? (item.count / totalOrdersCount) * 100 : 0;
+                    if (pct <= 0) return null;
+                    return (
+                      <div
+                        key={item.statusKey}
+                        style={{ width: `${pct}%`, backgroundColor: item.color }}
+                        className="h-full transition-all duration-300"
+                        title={`${item.name}: ${item.count} (${Math.round(pct)}%)`}
+                      />
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium px-0.5">
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      Processing ({statusCounts.Processing})
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-[#2418D8]" />
+                      Shipped ({statusCounts.Shipped})
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      Delivered ({statusCounts.Delivered})
+                    </span>
+                  </div>
+                  <span className="font-mono text-slate-500">100% Tracked</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Sub-toolbar: Order count & Download CSV export link */}
-      <div className="px-3.5 pt-2.5 pb-1 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+      <div className="px-3.5 pt-1.5 pb-1 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
         <span className="font-medium text-[11px]">
           Showing <strong className="text-slate-800 dark:text-slate-200">{filteredOrders.length}</strong> of {orders.length} order{orders.length > 1 ? 's' : ''}
           {filter !== 'All' && <span className="text-[#2418D8] dark:text-[#7B73FF] ml-1 font-bold">({filter})</span>}
