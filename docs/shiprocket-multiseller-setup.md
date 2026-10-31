@@ -19,8 +19,8 @@ Set secrets directly in Render; never commit them or send them in chat:
 - `THIRD_PARTY_DELIVERY_PROVIDER=shiprocket`
 - `THIRD_PARTY_DELIVERY_BASE_URL=https://apiv2.shiprocket.in`
 - `SHIPROCKET_API_EMAIL` and `SHIPROCKET_API_PASSWORD` for the API user created in Shiprocket Settings → API.
-- `THIRD_PARTY_DELIVERY_WEBHOOK_SECRET` only when a matching signature-verification setup is configured.
-- `THIRD_PARTY_DELIVERY_WEBHOOK_URL=https://aarvo-api.onrender.com/v1/webhooks/delivery/shiprocket`
+- `THIRD_PARTY_DELIVERY_WEBHOOK_SECRET` must be a strong secret and must exactly match the Shiprocket Webhook Token.
+- `THIRD_PARTY_DELIVERY_WEBHOOK_URL=https://aarvo-api.onrender.com/v1/webhooks/delivery/events`
 - Package dimensions and weight defaults; replace defaults with realistic per-package values before production.
 
 The legacy `SHIPROCKET_PICKUP_LOCATION` is not used as a substitute for a missing seller address. The backend must not ship a seller's parcel from another seller's or AARVO's address.
@@ -37,4 +37,4 @@ The legacy `SHIPROCKET_PICKUP_LOCATION` is not used as a substitute for a missin
 Do not run real shipments just to test credentials; Shiprocket shipment creation can create billable/operational courier bookings. Do not expose API credentials in screenshots, GitHub, or chat.
 
 
-**Shiprocket webhook security:** set `THIRD_PARTY_DELIVERY_WEBHOOK_SECRET` to the same security token entered in Shiprocket Settings → API → Webhooks. Shiprocket sends it in the `x-api-key` header; AARVO validates that header using a constant-time comparison. Do not use an HMAC signature header for this integration.
+**Shiprocket webhook security:** set `THIRD_PARTY_DELIVERY_WEBHOOK_SECRET` to the same security token entered in Shiprocket Settings → API → Webhooks. The Shiprocket URL must use the neutral endpoint `https://aarvo-api.onrender.com/v1/webhooks/delivery/events`; do not use the legacy provider-specific path because Shiprocket prohibits its brand keywords in webhook URLs. Shiprocket sends it in the `x-api-key` header; AARVO validates that header using a constant-time comparison. Do not use an HMAC signature header for this integration.
