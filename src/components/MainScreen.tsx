@@ -39,11 +39,13 @@ import {
   Heart,
   Truck,
   AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
 import { OfflineStatus } from './OfflineStatus';
 import { ScrollToTop } from './ScrollToTop';
 import { MainScreenSkeleton } from './MainScreenSkeleton';
 import { ProductDetailModal, Product } from './ProductDetailModal';
+import { Product360ViewerModal } from './Product360ViewerModal';
 import { OrdersSection, Order, OrderItem } from './OrdersSection';
 import { haptics } from '../utils/haptics';
 
@@ -96,6 +98,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [couponApplied, setCouponApplied] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [product360Modal, setProduct360Modal] = useState<Product | null>(null);
 
   // Orders purchase history state with realistic data
   const [orders, setOrders] = useState<Order[]>(() => {
@@ -997,6 +1000,21 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           }`}
                         />
                       </button>
+
+                      {/* Flipkart 360° Quick Trigger Badge */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          haptics.selection();
+                          setProduct360Modal(product);
+                        }}
+                        className="absolute bottom-1.5 right-1.5 bg-slate-900/85 hover:bg-[#2418D8] text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md backdrop-blur-xs transition-colors z-10 cursor-pointer"
+                        title="Explore in 360° View"
+                      >
+                        <RotateCcw className="w-2.5 h-2.5 animate-spin-slow" />
+                        <span>360°</span>
+                      </button>
                     </div>
 
                     <div>
@@ -1127,6 +1145,21 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             : 'stroke-current fill-none'
                         }`}
                       />
+                    </button>
+
+                    {/* Flipkart 360° Quick Trigger Badge */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        haptics.selection();
+                        setProduct360Modal(product);
+                      }}
+                      className="absolute bottom-1.5 right-1.5 bg-slate-900/85 hover:bg-[#2418D8] text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md backdrop-blur-xs transition-colors z-10 cursor-pointer"
+                      title="Explore in 360° View"
+                    >
+                      <RotateCcw className="w-2.5 h-2.5 animate-spin-slow" />
+                      <span>360°</span>
                     </button>
                   </div>
 
@@ -1274,6 +1307,21 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                               : 'stroke-current fill-none'
                           }`}
                         />
+                      </button>
+
+                      {/* Flipkart 360° Quick Trigger Badge */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          haptics.selection();
+                          setProduct360Modal(product);
+                        }}
+                        className="absolute bottom-1.5 right-1.5 bg-slate-900/85 hover:bg-[#2418D8] text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md backdrop-blur-xs transition-colors z-10 cursor-pointer"
+                        title="Explore in 360° View"
+                      >
+                        <RotateCcw className="w-2.5 h-2.5 animate-spin-slow" />
+                        <span>360°</span>
                       </button>
                     </div>
 
@@ -2357,6 +2405,21 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           onBuyNow={(prod) => {
             addToCart(prod);
             setSelectedProduct(null);
+            switchTab('cart');
+          }}
+        />
+
+        {/* ================================================================= */}
+        {/* 14. FLIPKART-STYLE 360° PRODUCT VIEWER MODAL                      */}
+        {/* ================================================================= */}
+        <Product360ViewerModal
+          product={product360Modal}
+          isOpen={!!product360Modal}
+          onClose={() => setProduct360Modal(null)}
+          onAddToCart={(prod) => addToCart(prod)}
+          onBuyNow={(prod) => {
+            addToCart(prod);
+            setProduct360Modal(null);
             switchTab('cart');
           }}
         />

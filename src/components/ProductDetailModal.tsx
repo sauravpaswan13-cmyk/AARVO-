@@ -12,6 +12,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { haptics } from '../utils/haptics';
+import { Product360ViewerModal } from './Product360ViewerModal';
 
 export interface Product {
   id: string;
@@ -51,11 +52,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 }) => {
   const [selectedQty, setSelectedQty] = useState(1);
   const [copiedShare, setCopiedShare] = useState(false);
+  const [is360Open, setIs360Open] = useState(false);
 
   useEffect(() => {
     // Reset quantity whenever new product opens
     setSelectedQty(1);
     setCopiedShare(false);
+    setIs360Open(false);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -195,7 +198,59 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <CheckCircle2 className="w-3 h-3" />
               In Stock &bull; Ready to Ship
             </span>
+
+            {/* Flipkart-Style 360° View Badge on Hero Image */}
+            <button
+              type="button"
+              onClick={() => {
+                haptics.selection();
+                setIs360Open(true);
+              }}
+              className="absolute bottom-3 right-3 z-10 bg-white/95 dark:bg-[#14112B]/95 hover:bg-white text-slate-900 dark:text-white px-3 py-1.5 rounded-full shadow-lg border border-slate-200/90 dark:border-slate-700 flex items-center gap-2 transition-all active:scale-95 hover:scale-105 group/badge cursor-pointer ring-2 ring-indigo-500/20"
+            >
+              <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-[#2418D8] to-purple-600 text-white flex items-center justify-center">
+                <RotateCcw className="w-3 h-3 animate-spin-slow" />
+              </div>
+              <div className="text-left leading-none">
+                <span className="text-[10px] font-black uppercase tracking-wider block text-[#2418D8] dark:text-[#7B73FF]">
+                  360° VIEW
+                </span>
+                <span className="text-[8px] text-slate-500 dark:text-slate-400 font-semibold">
+                  Tap to rotate
+                </span>
+              </div>
+            </button>
           </div>
+
+          {/* Flipkart-style 360° Interactive Banner */}
+          <button
+            type="button"
+            onClick={() => {
+              haptics.selection();
+              setIs360Open(true);
+            }}
+            className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-purple-950/40 border border-blue-200/80 dark:border-blue-900/60 flex items-center justify-between text-left transition-all hover:border-[#2418D8] active:scale-[0.98] cursor-pointer shadow-xs"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#2418D8] text-white flex items-center justify-center shadow-xs">
+                <RotateCcw className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <span>Explore Product in 360° View</span>
+                  <span className="text-[9px] bg-[#2418D8] text-white px-1.5 py-0.2 rounded font-black">
+                    FLIPKART 3D
+                  </span>
+                </span>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Swipe to rotate, zoom angles &amp; inspect hardware details
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-[#2418D8] dark:text-[#7B73FF] flex items-center">
+              View &rarr;
+            </span>
+          </button>
 
           {/* Title & Ratings */}
           <div>
@@ -343,6 +398,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* 360° Flipkart-Style Product Viewer Modal */}
+      <Product360ViewerModal
+        product={product}
+        isOpen={is360Open}
+        onClose={() => setIs360Open(false)}
+        onAddToCart={onAddToCart}
+        onBuyNow={onBuyNow}
+      />
     </div>
   );
 };
