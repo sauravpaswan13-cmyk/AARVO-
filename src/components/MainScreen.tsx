@@ -38,6 +38,7 @@ import {
   Moon,
   Heart,
   Truck,
+  AlertTriangle,
 } from 'lucide-react';
 import { OfflineStatus } from './OfflineStatus';
 import { ScrollToTop } from './ScrollToTop';
@@ -87,6 +88,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isSellerModalOpen, setIsSellerModalOpen] = useState(false);
+  const [sellerModalTab, setSellerModalTab] = useState<'overview' | 'register'>('overview');
   const [sellerRegistered, setSellerRegistered] = useState(false);
   const [sellerForm, setSellerForm] = useState({ business: '', category: 'Fashion', phone: '' });
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
@@ -261,8 +263,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  // Sample real catalog products
-  const allProducts: Product[] = [
+  // Sample real catalog products with stock inventory data
+  const [allProducts, setAllProducts] = useState<Product[]>([
     {
       id: 'p1',
       name: 'OnePlus Nord CE4 5G (8GB RAM, 128GB Storage)',
@@ -274,6 +276,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       reviewsCount: 1420,
       discount: '20% OFF',
       inStock: true,
+      stockQuantity: 14,
       seller: 'TechPro Retail India',
     },
     {
@@ -287,6 +290,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       reviewsCount: 890,
       discount: '62% OFF',
       inStock: true,
+      stockQuantity: 3,
       seller: 'Aarvo Trends Fashion',
     },
     {
@@ -300,6 +304,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       reviewsCount: 3120,
       discount: '20% OFF',
       inStock: true,
+      stockQuantity: 18,
       seller: 'Sony Authorized Store',
     },
     {
@@ -313,6 +318,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       reviewsCount: 450,
       discount: '50% OFF',
       inStock: true,
+      stockQuantity: 2,
       seller: 'Urban Home Comfort',
     },
     {
@@ -326,6 +332,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       reviewsCount: 2240,
       discount: '45% OFF',
       inStock: true,
+      stockQuantity: 9,
       seller: 'KitchenWorld Express',
     },
     {
@@ -339,6 +346,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       reviewsCount: 1820,
       discount: '50% OFF',
       inStock: true,
+      stockQuantity: 4,
       seller: 'GlowSkin Organics',
     },
     {
@@ -352,6 +360,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       reviewsCount: 950,
       discount: '60% OFF',
       inStock: true,
+      stockQuantity: 15,
       seller: 'Apex Sports Hub',
     },
     {
@@ -365,6 +374,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       reviewsCount: 670,
       discount: '50% OFF',
       inStock: true,
+      stockQuantity: 1,
       seller: 'KidsJoy Funland',
     },
     {
@@ -378,9 +388,20 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       reviewsCount: 1380,
       discount: '38% OFF',
       inStock: true,
+      stockQuantity: 24,
       seller: 'NutriHarvest Daily',
     },
-  ];
+  ]);
+
+  const restockProduct = (id: string, amount: number = 10) => {
+    setAllProducts((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, stockQuantity: (item.stockQuantity ?? 0) + amount } : item
+      )
+    );
+    haptics.success();
+    showToast(`Restocked +${amount} units successfully!`);
+  };
 
   // Department filter list for horizontal scrollable bar below search bar
   const departmentFilters = [
@@ -1612,16 +1633,29 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               </button>
 
               <button
-                onClick={() => setIsSellerModalOpen(true)}
-                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 flex items-center justify-between transition-colors"
+                onClick={() => {
+                  setSellerModalTab('overview');
+                  setIsSellerModalOpen(true);
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 flex items-center justify-between transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3">
                   <Store className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <span>AARVO Seller Hub Registration</span>
+                  <div className="flex items-center gap-1.5">
+                    <span>Seller Overview &amp; Hub</span>
+                    {allProducts.filter((p) => (p.stockQuantity ?? 10) < 5).length > 0 && (
+                      <span className="text-[9px] bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 font-extrabold px-1.5 py-0.5 rounded-full">
+                        {allProducts.filter((p) => (p.stockQuantity ?? 10) < 5).length} Low Stock
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-[10px] bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold">
-                  0% Fee
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold">
+                    Dashboard
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </div>
               </button>
             </div>
 
@@ -2031,120 +2065,284 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         )}
 
         {/* ================================================================= */}
-        {/* 12. REAL SELLER ONBOARDING MODAL                                  */}
+        {/* 12. SELLER OVERVIEW & ONBOARDING MODAL                            */}
         {/* ================================================================= */}
-        {isSellerModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div
-              onClick={() => setIsSellerModalOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-xs"
-            />
-            <div className="relative w-full max-w-sm bg-white dark:bg-[#181436] text-slate-900 dark:text-slate-100 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-2xl z-10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                    <Store className="w-5 h-5" />
+        {isSellerModalOpen && (() => {
+          const lowStockProducts = allProducts.filter((p) => (p.stockQuantity ?? 10) < 5);
+          const lowStockCount = lowStockProducts.length;
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div
+                onClick={() => setIsSellerModalOpen(false)}
+                className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+              />
+              <div className="relative w-full max-w-md max-h-[92vh] overflow-y-auto bg-white dark:bg-[#181436] text-slate-900 dark:text-slate-100 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 shadow-2xl z-10">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                      <Store className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-display font-black text-base text-slate-900 dark:text-white leading-tight">
+                        AARVO Seller Hub
+                      </h3>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        Seller Overview &amp; Inventory Management
+                      </p>
+                    </div>
                   </div>
-                  <h3 className="font-display font-black text-base text-slate-900 dark:text-white">
-                    AARVO Seller Hub
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setIsSellerModalOpen(false)}
-                  className="p-1 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {!sellerRegistered ? (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setSellerRegistered(true);
-                  }}
-                  className="space-y-3"
-                >
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                    Register your merchant business to start selling products on AARVO with 0% platform commission.
-                  </p>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      Business / Store Name
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Royal Apparel Ltd."
-                      value={sellerForm.business}
-                      onChange={(e) => setSellerForm({ ...sellerForm, business: e.target.value })}
-                      className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      Primary Category
-                    </label>
-                    <select
-                      value={sellerForm.category}
-                      onChange={(e) => setSellerForm({ ...sellerForm, category: e.target.value })}
-                      className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
-                    >
-                      <option value="Fashion">Fashion &amp; Apparel</option>
-                      <option value="Mobiles">Mobiles &amp; Gadgets</option>
-                      <option value="Electronics">Electronics</option>
-                      <option value="Home">Home &amp; Living</option>
-                      <option value="Grocery">Grocery &amp; Staples</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      Mobile Number
-                    </label>
-                    <input
-                      type="tel"
-                      maxLength={10}
-                      required
-                      placeholder="10-digit mobile number"
-                      value={sellerForm.phone}
-                      onChange={(e) => setSellerForm({ ...sellerForm, phone: e.target.value })}
-                      className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8] font-mono"
-                    />
-                  </div>
-
                   <button
-                    type="submit"
-                    className="w-full py-2.5 rounded-xl bg-[#2418D8] hover:bg-[#1A10B3] text-white font-bold text-xs shadow-md mt-2 transition-all active:scale-95"
+                    onClick={() => setIsSellerModalOpen(false)}
+                    className="p-1 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg cursor-pointer"
                   >
-                    Submit Seller Application
+                    <X className="w-5 h-5" />
                   </button>
-                </form>
-              ) : (
-                <div className="text-center py-4 space-y-2">
-                  <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
-                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-                    Application Received!
-                  </h4>
-                  <p className="text-xs text-slate-600 dark:text-slate-300">
-                    Welcome <strong className="text-[#2418D8] dark:text-[#7B73FF]">{sellerForm.business || 'Merchant'}</strong>! Our verification team will review your GST &amp; inventory within 24 hours.
-                  </p>
+                </div>
+
+                {/* Tabs: Seller Overview & Merchant Registration */}
+                <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl mb-3.5">
                   <button
-                    onClick={() => {
-                      setSellerRegistered(false);
-                      setIsSellerModalOpen(false);
+                    type="button"
+                    onClick={() => setSellerModalTab('overview')}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      sellerModalTab === 'overview'
+                        ? 'bg-white dark:bg-[#2418D8] text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
+                    }`}
+                  >
+                    Seller Overview
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSellerModalTab('register')}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      sellerModalTab === 'register'
+                        ? 'bg-white dark:bg-[#2418D8] text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
+                    }`}
+                  >
+                    Merchant Onboarding
+                  </button>
+                </div>
+
+                {sellerModalTab === 'overview' ? (
+                  <div className="space-y-3.5">
+                    {/* Top Stat Cards in Seller Overview */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 text-center">
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">Catalog</span>
+                        <span className="text-xl font-black text-slate-900 dark:text-white">{allProducts.length}</span>
+                        <span className="text-[9px] text-slate-400 block">Products</span>
+                      </div>
+
+                      <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 text-center">
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">Orders</span>
+                        <span className="text-xl font-black text-slate-900 dark:text-white">{orders.length}</span>
+                        <span className="text-[9px] text-emerald-500 font-semibold block">Fulfilment</span>
+                      </div>
+
+                      {/* LOW STOCK ALERT CARD */}
+                      <div
+                        className={`p-2.5 rounded-2xl border transition-all text-center ${
+                          lowStockCount > 0
+                            ? 'bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/80 ring-2 ring-amber-400/30'
+                            : 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                          <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <span>Low Stock</span>
+                        </div>
+                        <span
+                          className={`text-xl font-black block mt-0.5 ${
+                            lowStockCount > 0
+                              ? 'text-red-600 dark:text-red-400'
+                              : 'text-emerald-600 dark:text-emerald-400'
+                          }`}
+                        >
+                          {lowStockCount}
+                        </span>
+                        <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 block truncate">
+                          &lt; 5 units left
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Low Stock Alert Banner */}
+                    {lowStockCount > 0 ? (
+                      <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-2xl flex items-start gap-2.5">
+                        <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="text-xs font-bold text-red-800 dark:text-red-300">
+                            Low Stock Alert: {lowStockCount} Product{lowStockCount > 1 ? 's' : ''} Need Attention
+                          </h4>
+                          <p className="text-[11px] text-red-700/80 dark:text-red-400 mt-0.5 leading-tight">
+                            Products with less than 5 units remaining in the catalog are at risk of stockout. Restock below to keep listings active.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                          Healthy Inventory: All products have 5 or more units remaining.
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Catalog Low Stock Products List */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                        <span>Items with &lt; 5 units remaining</span>
+                        <span className="text-[10px] bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 font-extrabold px-1.5 py-0.5 rounded-full">
+                          {lowStockCount} Alert{lowStockCount !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                        {lowStockProducts.map((product) => (
+                          <div
+                            key={product.id}
+                            className="flex items-center justify-between gap-2 p-2 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 text-xs"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <img
+                                src={product.image}
+                                alt={product.name}
+                                className="w-9 h-9 rounded-lg object-cover shrink-0 border border-amber-200/50"
+                              />
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-900 dark:text-white truncate text-[11px]">
+                                  {product.name}
+                                </p>
+                                <div className="flex items-center gap-1.5 text-[10px]">
+                                  <span className="text-slate-500 dark:text-slate-400">{product.category}</span>
+                                  <span className="text-slate-300">•</span>
+                                  <span className="font-extrabold text-red-600 dark:text-red-400">
+                                    {product.stockQuantity} remaining
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => restockProduct(product.id, 10)}
+                              className="px-2.5 py-1 bg-[#2418D8] hover:bg-[#1A10B3] text-white text-[10px] font-bold rounded-lg shadow-xs active:scale-95 transition-all shrink-0 cursor-pointer"
+                            >
+                              +10 Restock
+                            </button>
+                          </div>
+                        ))}
+
+                        {lowStockCount === 0 && (
+                          <div className="p-3 text-center text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 rounded-xl">
+                            All products are well-stocked. No replenishment needed!
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Link to Dedicated Web Seller Central */}
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                      <a
+                        href="/seller-panel/index.html"
+                        className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-purple-700 dark:hover:bg-purple-600 text-white font-bold text-xs shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+                      >
+                        <Store className="w-3.5 h-3.5" />
+                        <span>Open Web Seller Central Dashboard</span>
+                      </a>
+                    </div>
+                  </div>
+                ) : !sellerRegistered ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      setSellerRegistered(true);
                     }}
-                    className="mt-3 px-4 py-1.5 rounded-xl bg-slate-900 dark:bg-purple-600 text-white text-xs font-bold"
+                    className="space-y-3"
                   >
-                    Close
-                  </button>
-                </div>
-              )}
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Register your merchant business to start selling products on AARVO with 0% platform commission.
+                    </p>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        Business / Store Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Royal Apparel Ltd."
+                        value={sellerForm.business}
+                        onChange={(e) => setSellerForm({ ...sellerForm, business: e.target.value })}
+                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        Primary Category
+                      </label>
+                      <select
+                        value={sellerForm.category}
+                        onChange={(e) => setSellerForm({ ...sellerForm, category: e.target.value })}
+                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                      >
+                        <option value="Fashion">Fashion &amp; Apparel</option>
+                        <option value="Mobiles">Mobiles &amp; Gadgets</option>
+                        <option value="Electronics">Electronics</option>
+                        <option value="Home">Home &amp; Living</option>
+                        <option value="Grocery">Grocery &amp; Staples</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        Mobile Number
+                      </label>
+                      <input
+                        type="tel"
+                        maxLength={10}
+                        required
+                        placeholder="10-digit mobile number"
+                        value={sellerForm.phone}
+                        onChange={(e) => setSellerForm({ ...sellerForm, phone: e.target.value })}
+                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8] font-mono"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-2.5 rounded-xl bg-[#2418D8] hover:bg-[#1A10B3] text-white font-bold text-xs shadow-md mt-2 transition-all active:scale-95"
+                    >
+                      Submit Seller Application
+                    </button>
+                  </form>
+                ) : (
+                  <div className="text-center py-4 space-y-2">
+                    <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                      Application Received!
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-300">
+                      Welcome <strong className="text-[#2418D8] dark:text-[#7B73FF]">{sellerForm.business || 'Merchant'}</strong>! Our verification team will review your GST &amp; inventory within 24 hours.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setSellerRegistered(false);
+                        setIsSellerModalOpen(false);
+                      }}
+                      className="mt-3 px-4 py-1.5 rounded-xl bg-slate-900 dark:bg-purple-600 text-white text-xs font-bold"
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ================================================================= */}
         {/* 13. PRODUCT DETAIL MODAL (Larger images, description, buy/cart)   */}

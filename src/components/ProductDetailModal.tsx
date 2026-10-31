@@ -24,6 +24,7 @@ export interface Product {
   reviewsCount: number;
   discount: string;
   inStock: boolean;
+  stockQuantity?: number;
   seller: string;
   description?: string;
   highlights?: string[];
