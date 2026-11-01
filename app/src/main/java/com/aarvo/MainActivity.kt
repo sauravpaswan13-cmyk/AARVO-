@@ -350,8 +350,20 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     if (selectedProduct != null) { val product = selectedProduct!!; ProductDetailsScreen(product, product.id in wishlist, { selectedProduct = null }, { wishlist = wishlistStore.toggle(product.id) }, cartViewModel::add); return }
     if (showLoginRequired) LoginRequiredDialog({ showLoginRequired = false; onLogin() }, { showLoginRequired = false })
     if (showNotifications) { NotificationsScreen(PaddingValues(0.dp), api) { showNotifications = false }; return }
-    if (showCheckout) CheckoutDialog(api, cartItems.sumOf { it.pricePaise }, checkoutLoading, checkoutMessage, { if (!checkoutLoading) showCheckout = false }) { fullName, phone, line1, city, state, postalCode ->
-        checkoutLoading = true; checkoutMessage = "Creating secure order..."; scope.launch { try { val items = JSONArray().apply { cartViewModel.distinctItems().forEach { product -> put(JSONObject().put("productId", product.id).put("quantity", cartViewModel.quantity(product.id))) } }; val address = JSONObject().apply { put("fullName", fullName.trim()); put("phone", phone.trim()); put("line1", line1.trim()); put("line2", ""); put("city", city.trim()); put("state", state.trim()); put("postalCode", postalCode.trim()); put("country", "IN") }; val order = api.createOrder(items, address); val options = JSONObject().apply { put("key", order.getString("keyId")); put("amount", order.getLong("amountPaise")); put("currency", order.getString("currency")); put("name", "AARVO"); put("description", "AARVO marketplace order"); put("order_id", order.getString("gatewayOrderId")); put("prefill", JSONObject().put("name", fullName.trim()).put("contact", phone.trim())); put("notes", JSONObject().put("order_id", order.getString("orderId"))) }; if (order.optString("paymentMode") == "TEST") { checkoutMessage = "Test checkout complete. Order confirmed."; cartViewModel.clear(); showCheckout = false; checkoutLoading = false } else { checkoutMessage = "Opening secure payment..."; activity.startRazorpayPayment(options) { paymentId, paymentError -> scope.launch { if (paymentId != null) { val signature = PaymentBridge.lastSignature; val gatewayOrderId = PaymentBridge.lastOrderId ?: order.getString("gatewayOrderId"); if (!signature.isNullOrBlank()) { try { api.verifyPayment(order.getString("orderId"), paymentId, gatewayOrderId, signature); checkoutMessage = "Payment verified. Order confirmed."; cartViewModel.clear(); showCheckout = false } catch (t: Throwable) { checkoutMessage = t.message ?: "Payment verification failed. Order was not confirmed." } } else checkoutMessage = "Payment completed but verification data was missing. Order remains unconfirmed." } else { checkoutMessage = paymentError ?: "Payment cancelled or failed."; try { api.cancelOrder(order.getString("orderId"), "BUYER_PAYMENT_CANCELLED") } catch (_: Throwable) { } }; checkoutLoading = false; PaymentBridge.clear() } } } } catch (t: Throwable) { checkoutLoading = false; checkoutMessage = t.message ?: "Unable to create order." } } }
+    if (showCheckout) CheckoutDialog(api, cartItems.sumOf { it.pricePaise }, checkoutLoading, checkoutMessage, { if (!checkoutLoading) showCheckout = false }) { fullName, phone, line1, city, state, postalCode, paymentMethod ->
+        checkoutLoading = true; checkoutMessage = "Creating secure order..."; scope.launch { try {
+            val items = JSONArray().apply { cartViewModel.distinctItems().forEach { product -> put(JSONObject().put("productId", product.id).put("quantity", cartViewModel.quantity(product.id))) } }
+            val address = JSONObject().apply { put("fullName", fullName.trim()); put("phone", phone.trim()); put("line1", line1.trim()); put("line2", ""); put("city", city.trim()); put("state", state.trim()); put("postalCode", postalCode.trim()); put("country", "IN") }
+            val order = api.createOrder(items, address, paymentMethod)
+            if (order.optString("paymentMode") == "COD") {
+                checkoutMessage = "COD order placed successfully. Pay cash on delivery."; cartViewModel.clear(); showCheckout = false; checkoutLoading = false
+            } else {
+                val options = JSONObject().apply { put("key", order.getString("keyId")); put("amount", order.getLong("amountPaise")); put("currency", order.getString("currency")); put("name", "AARVO"); put("description", "AARVO marketplace order"); put("order_id", order.getString("gatewayOrderId")); put("prefill", JSONObject().put("name", fullName.trim()).put("contact", phone.trim())); put("notes", JSONObject().put("order_id", order.getString("orderId"))) }
+                if (order.optString("paymentMode") == "TEST") { checkoutMessage = "Test checkout complete. Order confirmed."; cartViewModel.clear(); showCheckout = false; checkoutLoading = false }
+                else { checkoutMessage = "Opening secure payment..."; activity.startRazorpayPayment(options) { paymentId, paymentError -> scope.launch { if (paymentId != null) { val signature = PaymentBridge.lastSignature; val gatewayOrderId = PaymentBridge.lastOrderId ?: order.getString("gatewayOrderId"); if (!signature.isNullOrBlank()) { try { api.verifyPayment(order.getString("orderId"), paymentId, gatewayOrderId, signature); checkoutMessage = "Payment verified. Order confirmed."; cartViewModel.clear(); showCheckout = false } catch (t: Throwable) { checkoutMessage = t.message ?: "Payment verification failed. Order was not confirmed." } } else checkoutMessage = "Payment completed but verification data was missing. Order remains unconfirmed." } else { checkoutMessage = paymentError ?: "Payment cancelled or failed."; try { api.cancelOrder(order.getString("orderId"), "BUYER_PAYMENT_CANCELLED") } catch (_: Throwable) { } }; checkoutLoading = false; PaymentBridge.clear() } } }
+            }
+        } catch (t: Throwable) { checkoutLoading = false; checkoutMessage = t.message ?: "Unable to create order." } }
+    }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -951,7 +963,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
     }
 }
 
-@Composable private fun CheckoutDialog(api: AarvoApiClient, totalPaise: Long, loading: Boolean, message: String, onDismiss: () -> Unit, onPlaceOrder: (String, String, String, String, String, String) -> Unit) {
+@Composable private fun CheckoutDialog(api: AarvoApiClient, totalPaise: Long, loading: Boolean, message: String, onDismiss: () -> Unit, onPlaceOrder: (String, String, String, String, String, String, String) -> Unit) {
     var fullName by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var line1 by remember { mutableStateOf("") }
@@ -961,6 +973,8 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
     var savedAddresses by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var selectedAddressId by remember { mutableStateOf("") }
     var addressLoading by remember { mutableStateOf(true) }
+    var availablePaymentMethods by remember { mutableStateOf(listOf("RAZORPAY")) }
+    var selectedPaymentMethod by remember { mutableStateOf("RAZORPAY") }
     fun applyAddress(address: JSONObject) {
         selectedAddressId = address.optString("id")
         fullName = address.optString("full_name", address.optString("fullName"))
@@ -978,8 +992,9 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
             savedAddresses.firstOrNull { it.optBoolean("is_default", false) || it.optBoolean("isDefault", false) }?.let(::applyAddress)
         } catch (_: Throwable) { savedAddresses = emptyList() }
         finally { addressLoading = false }
+        try { val options = api.checkoutOptions(); val methods = options.optJSONArray("paymentMethods"); if (methods != null) availablePaymentMethods = buildList { for (i in 0 until methods.length()) add(methods.getString(i)) }; if (selectedPaymentMethod !in availablePaymentMethods) selectedPaymentMethod = availablePaymentMethods.firstOrNull() ?: "RAZORPAY" } catch (_: Throwable) { availablePaymentMethods = listOf("RAZORPAY") }
     }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Secure checkout") }, text = {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Checkout") }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Cart value: ${formatPaise(totalPaise)}", fontWeight = FontWeight.Bold)
             if (addressLoading) Text("Loading saved delivery addresses...")
@@ -1000,10 +1015,12 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
             OutlinedTextField(city, { city = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("City") })
             OutlinedTextField(state, { state = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("State") })
             OutlinedTextField(postalCode, { postalCode = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("PIN code") })
+            Text("Payment method", fontWeight = FontWeight.SemiBold)
+            availablePaymentMethods.forEach { method -> TextButton(onClick = { selectedPaymentMethod = method }, modifier = Modifier.fillMaxWidth()) { Text((if (selectedPaymentMethod == method) "✓ " else "") + if (method == "COD") "Cash on Delivery" else "Pay Online (Razorpay)") } }
             if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary)
-            Text("Payment is processed by Razorpay. AARVO verifies it on the server before confirming the order.", style = MaterialTheme.typography.bodySmall)
+            Text(if (selectedPaymentMethod == "COD") "Pay cash when your order is delivered. Cash collection is recorded by AARVO after delivery." else "Online payment is processed by Razorpay and verified securely by AARVO.", style = MaterialTheme.typography.bodySmall)
         }
-    }, confirmButton = { Button(onClick = { onPlaceOrder(fullName, phone, line1, city, state, postalCode) }, enabled = !loading && fullName.isNotBlank() && Regex("^[6-9][0-9]{9}$").matches(phone.trim()) && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && Regex("^[0-9]{6}$").matches(postalCode.trim())) { if (loading) CircularProgressIndicator() else Text("Pay securely") } }, dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text("Close") } })
+    }, confirmButton = { Button(onClick = { onPlaceOrder(fullName, phone, line1, city, state, postalCode, selectedPaymentMethod) }, enabled = !loading && fullName.isNotBlank() && Regex("^[6-9][0-9]{9}$").matches(phone.trim()) && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && Regex("^[0-9]{6}$").matches(postalCode.trim())) { if (loading) CircularProgressIndicator() else Text(if (selectedPaymentMethod == "COD") "Place COD order" else "Pay securely") } }, dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text("Close") } })
 }
 
 @Composable private fun AccountScreen(padding: PaddingValues, userName: String, role: String, api: AarvoApiClient, activity: MainActivity, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit, onWishlist: () -> Unit, onNotifications: () -> Unit) {
