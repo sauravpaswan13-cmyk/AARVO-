@@ -13,7 +13,7 @@ const otpDelivery = read('backend/src/otp-delivery.js');
 
 
 test('order lifecycle contract keeps seller status transitions and buyer tracking access guarded', () => {
-  assert.match(server, /const transitionMap=\{PAID:\['PACKED','CANCELLED'\],PACKED:\['SHIPPED','CANCELLED'\],SHIPPED:\['OUT_FOR_DELIVERY','DELIVERED'\],OUT_FOR_DELIVERY:\['DELIVERED'\],DELIVERED:\[\]\};/);
+  assert.match(server, /const transitionMap=\{PAID:\['PACKED','CANCELLED'\],CONFIRMED:\['PACKED','CANCELLED'\],PACKED:\['SHIPPED','CANCELLED'\],SHIPPED:\['OUT_FOR_DELIVERY','DELIVERED'\],OUT_FOR_DELIVERY:\['DELIVERED'\],DELIVERED:\[\]\};/);
   assert.match(server, /app\.post\('\/v1\/orders\/:id\/tracking'/);
   assert.match(server, /SELLER_OR_ADMIN_REQUIRED/);
   assert.match(server, /INVALID_ORDER_TRANSITION/);
@@ -49,4 +49,33 @@ test('COD/manual settlement migration is additive and keeps Razorpay as the lega
   assert.match(migration, /settlement_reference TEXT/);
   assert.match(schema, /payment_method TEXT NOT NULL DEFAULT 'RAZORPAY'/);
   assert.match(schema, /MANUAL_PAYOUT/);
+});
+
+
+test('COD checkout is disabled by default and never calls Razorpay for COD orders', () => {
+  assert.match(server, /AARVO_COD_ENABLED/);
+  assert.match(server, /app\.get\('\/v1\/checkout\/options'/);
+  assert.match(server, /paymentMethod === 'COD' && !codEnabled/);
+  assert.match(server, /paymentMethod === 'COD' \? null/);
+  assert.match(server, /'COD_PENDING'/);
+  assert.match(server, /'CONFIRMED'/);
+  assert.match(server, /IDEMPOTENCY_PAYMENT_METHOD_MISMATCH/);
+  assert.match(server, /COD_CANCELLED/);
+});
+
+test('COD collection requires delivered status and creates seller sale ledger once', () => {
+  assert.match(server, /COD_COLLECTION_REQUIRES_DELIVERED_ORDER/);
+  assert.match(server, /COD_ALREADY_COLLECTED/);
+  assert.match(server, /COD_CASH_COLLECTED/);
+  assert.match(server, /cod_collected_by/);
+  assert.match(server, /AND sl\.type='SALE'/);
+});
+
+test('manual seller payouts are admin-only, feature-gated, reference-audited and balance-limited', () => {
+  assert.match(server, /app\.post\('\/v1\/admin\/sellers\/:id\/manual-payout'/);
+  assert.match(server, /MANUAL_SETTLEMENT_DISABLED/);
+  assert.match(server, /SETTLEMENT_REFERENCE_ALREADY_USED/);
+  assert.match(server, /PAYOUT_EXCEEDS_AVAILABLE_BALANCE/);
+  assert.match(server, /MANUAL_PAYOUT_RECORDED/);
+  assert.match(server, /seller_ledger_manual_settlement_reference_uidx/);
 });
