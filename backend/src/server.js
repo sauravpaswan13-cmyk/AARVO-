@@ -229,7 +229,8 @@ app.put('/v1/seller/products/:id', { preHandler: requireRole('SELLER') }, async 
   const seller = await pool.query('SELECT verified,payout_account_ready FROM seller_profiles WHERE seller_id=$1', [request.user.sub]);
   if (!seller.rowCount) return reply.code(403).send({ error: 'SELLER_PROFILE_REQUIRED' });
   const wantsPublish = publish === undefined ? undefined : Boolean(publish);
-  const isPublished = wantsPublish === undefined ? undefined : (wantsPublish && seller.rows[0].verified && seller.rows[0].payout_account_ready);
+  const manualSettlementEnabled = String(process.env.AARVO_MANUAL_SELLER_SETTLEMENT_ENABLED || '').toLowerCase() === 'true';
+  const isPublished = wantsPublish === undefined ? undefined : (wantsPublish && seller.rows[0].verified && (seller.rows[0].payout_account_ready || manualSettlementEnabled));
   const result = isPublished === undefined ? await pool.query('UPDATE products SET name=$1,category=$2,price_paise=$3,description=$4,stock_quantity=$5,updated_at=now() WHERE id=$6 AND seller_id=$7 RETURNING id,seller_id,seller_name,name,category,price_paise,rating,description,stock_quantity,is_published,updated_at', [String(name).trim(),String(category).trim(),price,String(description).trim(),stock,request.params.id,request.user.sub]) : await pool.query('UPDATE products SET name=$1,category=$2,price_paise=$3,description=$4,stock_quantity=$5,is_published=$6,updated_at=now() WHERE id=$7 AND seller_id=$8 RETURNING id,seller_id,seller_name,name,category,price_paise,rating,description,stock_quantity,is_published,updated_at', [String(name).trim(),String(category).trim(),price,String(description).trim(),stock,isPublished,request.params.id,request.user.sub]);
   if (!result.rowCount) return reply.code(404).send({ error: 'PRODUCT_NOT_FOUND' });
   await audit(pool, request.user, 'PRODUCT', request.params.id, 'UPDATED', { published: result.rows[0].is_published });
