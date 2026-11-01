@@ -273,7 +273,7 @@ app.post('/v1/admin/sellers/:id/manual-payout', { preHandler: requireRole('ADMIN
     if (!seller.rowCount || !seller.rows[0].verified) throw httpError(403,'VERIFIED_SELLER_REQUIRED');
     const duplicate = await client.query("SELECT id FROM seller_ledger WHERE type='MANUAL_PAYOUT' AND settlement_reference=$1 FOR UPDATE",[reference]);
     if (duplicate.rowCount) throw httpError(409,'SETTLEMENT_REFERENCE_ALREADY_USED');
-    const balance = await client.query("SELECT COALESCE(SUM(CASE WHEN type='SALE' THEN amount_paise WHEN type IN ('REFUND','PAYOUT','MANUAL_PAYOUT') THEN -amount_paise ELSE 0 END),0)::bigint AS available_paise FROM seller_ledger WHERE seller_id=$1",[request.params.id]);
+    const balance = await client.query("SELECT COALESCE(SUM(CASE WHEN type='SALE' THEN amount_paise WHEN type IN ('REFUND','REVERSAL','PAYOUT','MANUAL_PAYOUT') THEN -amount_paise ELSE 0 END),0)::bigint AS available_paise FROM seller_ledger WHERE seller_id=$1",[request.params.id]);
     const available = Number(balance.rows[0].available_paise);
     if (amount > available) throw httpError(409,'PAYOUT_EXCEEDS_AVAILABLE_BALANCE');
     const entry = await client.query("INSERT INTO seller_ledger(seller_id,order_id,amount_paise,type,settlement_reference,settlement_memo,settled_by) VALUES($1,NULL,$2,'MANUAL_PAYOUT',$3,$4,$5) RETURNING id,seller_id,amount_paise,type,settlement_reference,settlement_memo,settled_by,created_at",[request.params.id,amount,reference,memo,request.user.sub]);
