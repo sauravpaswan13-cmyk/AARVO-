@@ -329,9 +329,9 @@ app.post('/v1/orders', { preHandler: requireRole('BUYER') }, async (request, rep
     for (const p of products.rows) {
       const qty = merged.get(Number(p.id));
       if (!p.is_published || p.stock_quantity < qty) throw httpError(409,`INSUFFICIENT_STOCK:${p.id}`);
-      subtotal += Number(p.price_paise) * qty;
+      subtotal += Number(p.price_paise)*qty;
     }
-    const platformFee = Math.floor(subtotal * PLATFORM_FEE_BPS / 10000);
+    const platformFee = Math.floor(subtotal*PLATFORM_FEE_BPS/10000);
     const total = subtotal + DELIVERY_FEE_PAISE + platformFee;
     const orderId = randomUUID();
     const gatewayOrder = paymentMethod === 'COD' ? null : (testCheckout ? {id:`TEST_${orderId}`} : await razorpay.orders.create({amount:total,currency:'INR',receipt:orderId}));
