@@ -65,3 +65,8 @@ ALTER TABLE seller_ledger
 CREATE INDEX IF NOT EXISTS seller_ledger_manual_settlement_idx
   ON seller_ledger (seller_id, created_at DESC)
   WHERE type = 'MANUAL_PAYOUT';
+
+-- Prevent reusing a manual payout reference across any seller.
+CREATE UNIQUE INDEX IF NOT EXISTS seller_ledger_manual_settlement_reference_uidx
+  ON seller_ledger (settlement_reference)
+  WHERE type = 'MANUAL_PAYOUT' AND settlement_reference IS NOT NULL;
