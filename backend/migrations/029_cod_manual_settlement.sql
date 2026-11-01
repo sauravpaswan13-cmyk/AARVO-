@@ -29,7 +29,7 @@ ALTER TABLE seller_ledger
   ADD COLUMN IF NOT EXISTS settlement_memo TEXT,
   ADD COLUMN IF NOT EXISTS settled_by TEXT REFERENCES users(id);
 
-DO $
+DO $$
 DECLARE
   type_attnum SMALLINT;
   constraint_row RECORD;
