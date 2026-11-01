@@ -266,6 +266,19 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
       return reply.code(error.status&&error.status<500?error.status:502).send({ok:false,authenticated:false,error:error.code||'SHIPROCKET_VALIDATION_FAILED',message:clean(error.data?.message||error.message||'Shiprocket validation failed',240),shipmentCreated:false,awbAssigned:false,pickupBooked:false});
     }
   });
+  app.get('/v1/admin/delivery/jobs',{preHandler:requireRole('ADMIN')},async(request,reply)=>{
+    if(!pool)return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
+    const status=clean(request.query?.status||'',20).toUpperCase();
+    if(status&&!['PENDING','PROCESSING','RETRY','DONE','FAILED'].includes(status))return reply.code(400).send({error:'INVALID_JOB_STATUS'});
+    const result=await pool.query("SELECT id,order_id,seller_id,status,attempts,next_attempt_at,last_error,created_at,updated_at FROM third_party_delivery_jobs WHERE ($1='' OR status=$1) ORDER BY updated_at DESC LIMIT 200",[status]);
+    return {jobs:result.rows};
+  });
+  app.post('/v1/admin/delivery/jobs/:id/retry',{preHandler:requireRole('ADMIN')},async(request,reply)=>{
+    if(!pool)return reply.code(503).send({error:'DATABASE_NOT_CONFIGURED'});
+    const result=await pool.query("UPDATE third_party_delivery_jobs SET status='RETRY',attempts=0,next_attempt_at=now(),locked_at=NULL,last_error=NULL,updated_at=now() WHERE id=$1 AND status IN ('FAILED','RETRY') RETURNING id,order_id,seller_id,status,attempts,next_attempt_at",[request.params.id]);
+    if(!result.rowCount)return reply.code(404).send({error:'RETRYABLE_DELIVERY_JOB_NOT_FOUND'});
+    return {queued:true,job:result.rows[0]};
+  });
   app.get('/v1/delivery/provider-status',{preHandler:requireRole('ADMIN')},async()=>({
     enabled:enabled(),provider:provider(),configured:Boolean((staticToken()||(apiEmail()&&apiPassword()))&&baseUrl()),
     mode:'THIRD_PARTY_ONLY',pickupLocation:pickupLocation()||'seller-specific'
