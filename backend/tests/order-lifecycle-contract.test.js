@@ -100,3 +100,9 @@ test('manual payout reduces seller available balance and is included in settleme
   assert.match(settlement, /type IN \('PAYOUT','MANUAL_PAYOUT'\) THEN amount_paise/);
   assert.match(server, /type IN \('REFUND','REVERSAL','PAYOUT','MANUAL_PAYOUT'\)/);
 });
+
+test('manual settlement mode prevents overlapping Razorpay seller payouts', () => {
+  const settlement = read('backend/src/settlement-completion.js');
+  assert.match(settlement, /MANUAL_SETTLEMENT_MODE_ACTIVE/);
+  assert.match(settlement, /AARVO_MANUAL_SELLER_SETTLEMENT_ENABLED/);
+});
