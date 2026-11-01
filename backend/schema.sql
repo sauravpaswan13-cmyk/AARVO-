@@ -159,7 +159,7 @@ CREATE TABLE IF NOT EXISTS payment_events (
   payload JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS seller_ledger (
-  id BIGSERIAL PRIMARY KEY, seller_id TEXT NOT NULL REFERENCES users(id), order_id UUID NOT NULL REFERENCES orders(id),
+  id BIGSERIAL PRIMARY KEY, seller_id TEXT NOT NULL REFERENCES users(id), order_id UUID REFERENCES orders(id),
   amount_paise INTEGER NOT NULL, type TEXT NOT NULL CHECK (type IN ('SALE','REFUND','PAYOUT','REVERSAL','MANUAL_PAYOUT')),
   gateway_transfer_id TEXT, settlement_reference TEXT, settlement_memo TEXT,
   settled_by TEXT REFERENCES users(id), created_at TIMESTAMPTZ NOT NULL DEFAULT now()
