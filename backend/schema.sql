@@ -127,6 +127,8 @@ CREATE TABLE IF NOT EXISTS orders (
   delivery_fee_paise INTEGER NOT NULL DEFAULT 0, platform_fee_paise INTEGER NOT NULL DEFAULT 0,
   total_paise INTEGER NOT NULL, payment_status TEXT NOT NULL, status TEXT NOT NULL,
   address_json JSONB NOT NULL, gateway_order_id TEXT, gateway_payment_id TEXT,
+  payment_method TEXT NOT NULL DEFAULT 'RAZORPAY' CHECK (payment_method IN ('RAZORPAY','COD')),
+  cod_collected_at TIMESTAMPTZ, cod_collected_by TEXT REFERENCES users(id), cod_collection_reference TEXT,
   tracking_json JSONB,
   payment_expires_at TIMESTAMPTZ,
   idempotency_key TEXT,
@@ -158,8 +160,9 @@ CREATE TABLE IF NOT EXISTS payment_events (
 );
 CREATE TABLE IF NOT EXISTS seller_ledger (
   id BIGSERIAL PRIMARY KEY, seller_id TEXT NOT NULL REFERENCES users(id), order_id UUID NOT NULL REFERENCES orders(id),
-  amount_paise INTEGER NOT NULL, type TEXT NOT NULL CHECK (type IN ('SALE','REFUND','PAYOUT','REVERSAL')),
-  gateway_transfer_id TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  amount_paise INTEGER NOT NULL, type TEXT NOT NULL CHECK (type IN ('SALE','REFUND','PAYOUT','REVERSAL','MANUAL_PAYOUT')),
+  gateway_transfer_id TEXT, settlement_reference TEXT, settlement_memo TEXT,
+  settled_by TEXT REFERENCES users(id), created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS delivery_events (
   id BIGSERIAL PRIMARY KEY,
@@ -192,7 +195,9 @@ CREATE INDEX IF NOT EXISTS products_search_idx ON products (category, is_publish
 CREATE INDEX IF NOT EXISTS products_seller_idx ON products (seller_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS orders_buyer_idx ON orders (buyer_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS orders_status_idx ON orders (status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS orders_payment_method_status_idx ON orders (payment_method, payment_status, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS ledger_seller_idx ON seller_ledger (seller_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS seller_ledger_manual_settlement_idx ON seller_ledger (seller_id, created_at DESC) WHERE type = 'MANUAL_PAYOUT';
 CREATE INDEX IF NOT EXISTS payment_events_order_idx ON payment_events (order_id, created_at DESC);
 
 -- Seller-specific Shiprocket pickup details; safe for existing and fresh databases.
