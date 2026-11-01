@@ -18,7 +18,14 @@ BEGIN
       CHECK (payment_method IN ('RAZORPAY', 'COD'));
   END IF;
 END
-$$;
+$;
+
+-- Existing marketplace hardening constrains payment_status to Razorpay states.
+-- Extend that known constraint without changing any legacy Razorpay values.
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_payment_status_chk;
+ALTER TABLE orders
+  ADD CONSTRAINT orders_payment_status_chk
+  CHECK (payment_status IN ('CREATED', 'AUTHORIZED', 'CAPTURED', 'FAILED', 'REFUNDED', 'COD_PENDING', 'COD_COLLECTED', 'COD_CANCELLED'));
 
 CREATE INDEX IF NOT EXISTS orders_payment_method_status_idx
   ON orders (payment_method, payment_status, status, created_at DESC);
