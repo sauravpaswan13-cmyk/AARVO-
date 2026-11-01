@@ -29,20 +29,34 @@ ALTER TABLE seller_ledger
   ADD COLUMN IF NOT EXISTS settlement_memo TEXT,
   ADD COLUMN IF NOT EXISTS settled_by TEXT REFERENCES users(id);
 
-DO $$
-DECLARE constraint_row RECORD;
+DO $
+DECLARE
+  type_attnum SMALLINT;
+  constraint_row RECORD;
 BEGIN
+  SELECT attnum INTO type_attnum
+  FROM pg_attribute
+  WHERE attrelid = 'seller_ledger'::regclass
+    AND attname = 'type'
+    AND NOT attisdropped;
+
+  IF type_attnum IS NULL THEN
+    RAISE EXCEPTION 'seller_ledger.type column is missing';
+  END IF;
+
+  -- Drop only CHECK constraints that apply exclusively to the type column.
+  -- This avoids removing unrelated ledger validation constraints.
   FOR constraint_row IN
     SELECT conname
     FROM pg_constraint
     WHERE conrelid = 'seller_ledger'::regclass
       AND contype = 'c'
-      AND pg_get_constraintdef(oid) ILIKE '%type%'
+      AND conkey = ARRAY[type_attnum]::SMALLINT[]
   LOOP
     EXECUTE format('ALTER TABLE seller_ledger DROP CONSTRAINT %I', constraint_row.conname);
   END LOOP;
 END
-$$;
+$;
 
 ALTER TABLE seller_ledger
   ADD CONSTRAINT seller_ledger_type_check
