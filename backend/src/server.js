@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken';
 import Razorpay from 'razorpay';
 import { assistant, smartSearch, summarizeReviews, compareProducts, sellerListing, smartDealHints, aiConfigured } from './ai.js';
 import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
-import { createThirdPartyShipmentForOrder, registerThirdPartyDelivery } from './third-party-delivery.js';
+import { createThirdPartyShipmentForOrder, enqueueSellerShipment, registerThirdPartyDelivery } from './third-party-delivery.js';
 
 const app = Fastify({ logger: true });
 const { Pool } = pg;
