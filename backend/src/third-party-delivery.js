@@ -114,7 +114,7 @@ async function ensureSellerPickup(seller){
   return nickname;
 }
 
-export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor=null}) {
+export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor=null,sellerId=null}) {
   if(!pool) throw Object.assign(new Error('DATABASE_NOT_CONFIGURED'),{code:'DATABASE_NOT_CONFIGURED',status:503});
   if(!enabled()) throw Object.assign(new Error('THIRD_PARTY_DELIVERY_DISABLED'),{code:'THIRD_PARTY_DELIVERY_DISABLED',status:503});
   if(provider()!=='shiprocket') throw Object.assign(new Error('UNSUPPORTED_DELIVERY_PROVIDER'),{code:'UNSUPPORTED_DELIVERY_PROVIDER',status:400});
@@ -129,9 +129,6 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
   if(!['CONFIRMED','PACKED','PROCESSING','PAID'].includes(String(o.status)))throw Object.assign(new Error('ORDER_NOT_READY_FOR_DELIVERY'),{code:'ORDER_NOT_READY_FOR_DELIVERY',status:409});
   const a=o.address_json||{};
   if(!a.fullName||!a.phone||!a.line1||!a.city||!a.state||!a.postalCode)throw Object.assign(new Error('ORDER_ADDRESS_INCOMPLETE'),{code:'ORDER_ADDRESS_INCOMPLETE',status:409});
-  const existing=await pool.query('SELECT * FROM third_party_delivery_shipments WHERE order_id=$1 ORDER BY created_at DESC LIMIT 1',[o.id]);
-  if(existing.rowCount&&!['FAILED','CANCELLED'].includes(String(existing.rows[0].status)))throw Object.assign(new Error('DELIVERY_ALREADY_CREATED'),{code:'DELIVERY_ALREADY_CREATED',status:409,shipment:existing.rows[0]});
-
   const lines=Array.isArray(o.lines)?o.lines:[];
   const productIds=lines.map(x=>Number(x.productId)).filter(Number.isFinite);
   const products=productIds.length?await pool.query('SELECT id,seller_id,name,price_paise FROM products WHERE id=ANY($1::bigint[])',[productIds]):{rows:[]};
@@ -146,6 +143,10 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
     groups.get(sellerId).push({line,product});
   }
   if(!groups.size)throw Object.assign(new Error('DELIVERY_ITEMS_MISSING'),{code:'DELIVERY_ITEMS_MISSING',status:409});
+  const packed=await pool.query("SELECT DISTINCT actor_id::text AS seller_id FROM delivery_events WHERE order_id=$1 AND status='PACKED' AND actor_id IS NOT NULL",[o.id]);
+  const packedSellerIds=new Set(packed.rows.map(x=>String(x.seller_id)));
+  for(const id of [...groups.keys()]) if(!packedSellerIds.has(id)||(sellerId&&String(sellerId)!==id)) groups.delete(id);
+  if(!groups.size)throw Object.assign(new Error('NO_SELLER_PACKED_FOR_DELIVERY'),{code:'NO_SELLER_PACKED_FOR_DELIVERY',status:409});
   const sellerIds=[...groups.keys()];
   const sellerResult=await pool.query(`SELECT sp.seller_id,COALESCE(NULLIF(sp.pickup_phone,''),sp.phone) AS phone,COALESCE(NULLIF(sp.business_name,''),u.display_name,'AARVO Seller') AS business_name,COALESCE(NULLIF(sp.business_email,''),u.email) AS business_email,sp.pickup_address,sp.pickup_city,sp.pickup_state,sp.pickup_postal_code FROM seller_profiles sp LEFT JOIN users u ON u.id=sp.seller_id WHERE sp.seller_id=ANY($1::text[])`,[sellerIds]);
   const sellerMap=new Map(sellerResult.rows.map(s=>[String(s.seller_id),s]));
@@ -153,7 +154,11 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
   const shipping=Number(o.delivery_fee_paise||0)/100;
   const createdRows=[];
   let sellerIndex=0;
-  for(const [sellerId,sellerLines] of groups){
+  for(const [sellerKey,sellerLines] of groups){
+    const sellerId=sellerKey;
+    const currentSellerIndex=sellerIndex++;
+    const existing=await pool.query('SELECT * FROM third_party_delivery_shipments WHERE order_id=$1 AND seller_id=$2 ORDER BY created_at DESC LIMIT 1',[o.id,sellerId]);
+    if(existing.rowCount&&!['FAILED','CANCELLED'].includes(String(existing.rows[0].status))){createdRows.push(existing.rows[0]);continue;}
     const seller=sellerMap.get(sellerId);
     if(!seller)throw Object.assign(new Error('SELLER_PROFILE_REQUIRED_FOR_SHIPPING'),{code:'SELLER_PROFILE_REQUIRED_FOR_SHIPPING',status:409,data:{sellerId}});
     const pickup=await ensureSellerPickup(seller);
@@ -193,9 +198,9 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
     const pickupResponse=await providerRequest(shiprocketPath.pickup,{shipment_id:[Number(srShipmentId)]});
     const trackingUrl='https://shiprocket.co/tracking/'+encodeURIComponent(awbCode);
     const stored={create:created,awb,pickup:pickupResponse,sellerId,pickupLocation:pickup};
-    const row=await pool.query(`INSERT INTO third_party_delivery_shipments(order_id,provider,provider_order_id,provider_shipment_id,awb,courier_name,status,tracking_url,provider_payload)
-      VALUES($1,'shiprocket',$2,$3,$4,$5,'OUT_FOR_PICKUP',$6,$7) RETURNING *`,
-      [o.id,String(srOrderId),String(srShipmentId),awbCode,courier,trackingUrl,JSON.stringify(stored)]);
+    const row=await pool.query(`INSERT INTO third_party_delivery_shipments(order_id,seller_id,provider,provider_order_id,provider_shipment_id,awb,courier_name,status,tracking_url,provider_payload)
+      VALUES($1,$2,'shiprocket',$3,$4,$5,$6,'OUT_FOR_PICKUP',$7,$8) RETURNING *`,
+      [o.id,sellerId,String(srOrderId),String(srShipmentId),awbCode,courier,trackingUrl,JSON.stringify(stored)]);
     createdRows.push(row.rows[0]);
     // Manifest generation is required by Shiprocket after AWB + pickup. Persist
     // the shipment first so a manifest API failure can never cause a duplicate order.
