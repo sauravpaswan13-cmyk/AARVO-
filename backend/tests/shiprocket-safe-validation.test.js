@@ -42,4 +42,6 @@ test('Shiprocket queue retries failures and recovers stale worker leases', () =>
   assert.match(source, /status IN \('PENDING','RETRY'\)/);
   assert.match(source, /attempts>=8/);
   assert.match(source, /WORKER_LEASE_EXPIRED/);
+  assert.match(source, /app.get\('\/v1\/admin\/delivery\/jobs'/);
+  assert.match(source, /app.post\('\/v1\/admin\/delivery\/jobs\/:id\/retry'/);
 });
