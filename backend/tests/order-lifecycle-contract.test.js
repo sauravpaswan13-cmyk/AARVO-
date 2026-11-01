@@ -106,3 +106,16 @@ test('manual settlement mode prevents overlapping Razorpay seller payouts', () =
   assert.match(settlement, /MANUAL_SETTLEMENT_MODE_ACTIVE/);
   assert.match(settlement, /AARVO_MANUAL_SELLER_SETTLEMENT_ENABLED/);
 });
+
+
+test('COD migration uses valid dollar-quoted blocks and extends existing payment status check', () => {
+  const migration = read('backend/migrations/029_cod_manual_settlement.sql');
+  assert.match(migration, /DO \$\$[\s\S]*?END\s+\$\$;/);
+  assert.doesNotMatch(migration, /END\s+\$;/);
+  assert.match(migration, /orders_payment_status_chk/);
+});
+
+test('Razorpay payout allocation subtracts prior manual payouts for each seller order', () => {
+  const settlement = read('backend/src/settlement-completion.js');
+  assert.match(settlement, /p\.type IN \('PAYOUT','MANUAL_PAYOUT'\)/);
+});
