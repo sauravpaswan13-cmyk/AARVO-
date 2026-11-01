@@ -126,7 +126,7 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
   if(![packageLength,packageBreadth,packageHeight,packageWeight].every(v=>Number.isFinite(v)&&v>0))
     throw Object.assign(new Error('SHIPROCKET_PACKAGE_DIMENSIONS_REQUIRED'),{code:'SHIPROCKET_PACKAGE_DIMENSIONS_REQUIRED',status:409,data:{required:['SHIPROCKET_PACKAGE_LENGTH_CM','SHIPROCKET_PACKAGE_BREADTH_CM','SHIPROCKET_PACKAGE_HEIGHT_CM','SHIPROCKET_PACKAGE_WEIGHT_KG']}});
 
-  const q=await pool.query(`SELECT o.id,o.status,o.address_json,o.total_paise,o.subtotal_paise,o.delivery_fee_paise,o.payment_status,
+  const q=await pool.query(`SELECT o.id,o.status,o.address_json,o.total_paise,o.subtotal_paise,o.delivery_fee_paise,o.payment_status,o.payment_method,
       u.email AS buyer_email,
       COALESCE((SELECT json_agg(json_build_object('productId',ol.product_id,'quantity',ol.quantity,'unitPricePaise',ol.unit_price_paise,'lineTotalPaise',(ol.unit_price_paise * ol.quantity))) FROM order_lines ol WHERE ol.order_id=o.id),'[]'::json) AS lines
       FROM orders o LEFT JOIN users u ON u.id=o.buyer_id WHERE o.id=$1`,[orderId]);
@@ -181,7 +181,7 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
       billing_city:clean(a.city,30),billing_pincode:Number(a.postalCode),billing_state:clean(a.state,100),billing_country:'India',
       billing_email:clean(q.rows[0].buyer_email||'no-reply@aarvo.in',150),billing_phone:Number(String(a.phone).replace(/\D/g,'')),
       shipping_is_billing:true,order_items:items,
-      payment_method:String(o.payment_status||'').toUpperCase()==='COD'?'COD':'Prepaid',
+      payment_method:String(o.payment_method||'').toUpperCase()==='COD'?'COD':'Prepaid',
       shipping_charges:currentSellerIndex===0?shipping:0,giftwrap_charges:0,transaction_charges:0,total_discount:0,
       sub_total:subtotalPaise/100,
       length:packageLength,breadth:packageBreadth,height:packageHeight,weight:packageWeight
