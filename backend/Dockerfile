@@ -9,6 +9,7 @@ COPY migrations ./migrations
 RUN node --check src/server.js \
     && node --check src/marketplace-completion.js \
     && node --check src/launcher.js \
+    && node --check src/third-party-delivery.js \
     && node --check src/phone-first-start.js \
     && node --check src/msg91-start.js
 RUN chown -R node:node /app
