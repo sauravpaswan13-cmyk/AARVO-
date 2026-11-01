@@ -40,8 +40,9 @@ import {
   Truck,
   AlertTriangle,
   RotateCcw,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
-import { OfflineStatus } from './OfflineStatus';
 import { ScrollToTop } from './ScrollToTop';
 import { MainScreenSkeleton } from './MainScreenSkeleton';
 import { ProductDetailModal, Product } from './ProductDetailModal';
@@ -264,6 +265,73 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2500);
+  };
+
+  // Floating Network Status state using navigator.onLine and event listeners
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    return typeof navigator !== 'undefined' ? navigator.onLine : true;
+  });
+  const [showOfflineNotice, setShowOfflineNotice] = useState<boolean>(() => {
+    return typeof navigator !== 'undefined' ? !navigator.onLine : false;
+  });
+  const [reconnectNotice, setReconnectNotice] = useState<boolean>(false);
+  const [isOfflineDismissed, setIsOfflineDismissed] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let timer: NodeJS.Timeout | null = null;
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      setShowOfflineNotice(false);
+      setIsOfflineDismissed(false);
+      setReconnectNotice(true);
+      haptics.success();
+
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        setReconnectNotice(false);
+      }, 3500);
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setReconnectNotice(false);
+      setIsOfflineDismissed(false);
+      setShowOfflineNotice(true);
+      haptics.warning();
+    };
+
+    // Initial check using navigator.onLine
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setIsOnline(false);
+      setShowOfflineNotice(true);
+    }
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  const retryConnection = () => {
+    haptics.light();
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      setIsOnline(true);
+      setShowOfflineNotice(false);
+      setReconnectNotice(true);
+      setTimeout(() => setReconnectNotice(false), 3000);
+      showToast('Internet connection restored!');
+    } else {
+      setShowOfflineNotice(false);
+      setTimeout(() => setShowOfflineNotice(true), 150);
+      showToast('Still offline. Please check your network.');
+    }
   };
 
   // Sample real catalog products with stock inventory data
@@ -549,6 +617,86 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   return (
     <div className="min-h-screen bg-[#F7F5FF] dark:bg-[#0A0718] text-slate-900 dark:text-slate-100 flex justify-center pb-16 select-none font-sans transition-colors duration-300 animate-in fade-in duration-300">
       <div className="w-full max-w-[440px] bg-white dark:bg-[#120F26] min-h-screen shadow-2xl flex flex-col relative overflow-x-hidden transition-colors duration-300">
+
+        {/* ================================================================= */}
+        {/* FLOATING NETWORK CONNECTIVITY STATUS INDICATOR                    */}
+        {/* (Uses navigator.onLine and 'online'/'offline' event listeners)     */}
+        {/* ================================================================= */}
+        {((!isOnline && showOfflineNotice && !isOfflineDismissed) || reconnectNotice) && (
+          <aside
+            role="status"
+            aria-live="polite"
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-[410px] pointer-events-auto animate-in slide-in-from-top-3 duration-300 transition-all"
+          >
+            {reconnectNotice ? (
+              // Floating "Back Online" banner
+              <div className="flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-2xl bg-emerald-950/95 text-emerald-100 text-xs font-semibold shadow-2xl border border-emerald-500/50 backdrop-blur-md">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-6 h-6 rounded-full bg-emerald-800/80 text-emerald-200 flex items-center justify-center shrink-0">
+                    <Wifi className="w-3.5 h-3.5 stroke-[2.5]" />
+                  </div>
+                  <div className="leading-tight min-w-0">
+                    <span className="font-bold text-emerald-300 text-xs block">
+                      Back Online
+                    </span>
+                    <span className="text-[10px] text-emerald-200/80 truncate block">
+                      Internet connection restored
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReconnectNotice(false)}
+                  className="p-1 text-emerald-300 hover:text-white rounded-lg cursor-pointer"
+                  aria-label="Dismiss back online alert"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              // Floating "Offline / Lost Connectivity" banner
+              <div className="flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-2xl bg-slate-950/95 text-white text-xs font-semibold shadow-2xl border border-amber-500/60 dark:border-amber-400/50 backdrop-blur-md ring-2 ring-amber-500/20">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="relative flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/20 text-amber-400 shrink-0">
+                    <span className="absolute w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping opacity-75" />
+                    <WifiOff className="w-4 h-4 stroke-[2.5] relative z-10" />
+                  </div>
+                  <div className="leading-tight min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-black text-amber-400 text-xs">
+                        No Internet Connection
+                      </span>
+                      <span className="text-[9px] bg-amber-400/20 text-amber-300 px-1.5 py-0.2 rounded font-bold">
+                        Offline
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-300 truncate block mt-0.5">
+                      You lost connectivity. Cached catalog is still viewable.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={retryConnection}
+                    className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black rounded-lg transition-transform active:scale-95 cursor-pointer shadow-xs"
+                  >
+                    Retry
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsOfflineDismissed(true)}
+                    className="p-1 text-slate-400 hover:text-white rounded-lg cursor-pointer"
+                    aria-label="Dismiss offline alert"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </aside>
+        )}
 
         {isOrdersViewOpen ? (
           <OrdersSection
@@ -1795,9 +1943,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             <span className="whitespace-nowrap">Account</span>
           </button>
         </nav>
-
-        {/* Subtle Non-Intrusive Offline Status Toast */}
-        <OfflineStatus />
 
         {/* Floating ScrollToTop Action Button (>300px) */}
         <ScrollToTop threshold={300} />
