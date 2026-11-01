@@ -231,6 +231,7 @@ async function processDeliveryQueue(pool,audit,logger) {
   const client=await pool.connect(); let job;
   try {
     await client.query('BEGIN');
+    await client.query("UPDATE third_party_delivery_jobs SET status='RETRY',next_attempt_at=now(),locked_at=NULL,updated_at=now(),last_error=COALESCE(last_error,'WORKER_LEASE_EXPIRED') WHERE status='PROCESSING' AND locked_at < now()-interval '30 minutes'");
     const claimed=await client.query("SELECT id,order_id,seller_id,attempts FROM third_party_delivery_jobs WHERE status IN ('PENDING','RETRY') AND next_attempt_at<=now() ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1");
     if(!claimed.rowCount){await client.query('COMMIT');return;}
     job=claimed.rows[0];
