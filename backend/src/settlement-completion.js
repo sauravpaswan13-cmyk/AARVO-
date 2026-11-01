@@ -3,8 +3,8 @@ export async function registerSettlementCompletion({ app, pool, requireRole, aud
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
     const sellerId = request.user.sub;
     const result = await pool.query(`
-      SELECT COALESCE(SUM(CASE WHEN type='SALE' THEN amount_paise WHEN type IN ('REFUND','REVERSAL') THEN -amount_paise WHEN type='PAYOUT' THEN -amount_paise ELSE 0 END),0)::bigint AS "availablePaise",
-             COALESCE(SUM(CASE WHEN type='PAYOUT' THEN amount_paise ELSE 0 END),0)::bigint AS "paidOutPaise"
+      SELECT COALESCE(SUM(CASE WHEN type='SALE' THEN amount_paise WHEN type IN ('REFUND','REVERSAL') THEN -amount_paise WHEN type IN ('PAYOUT','MANUAL_PAYOUT') THEN -amount_paise ELSE 0 END),0)::bigint AS "availablePaise",
+             COALESCE(SUM(CASE WHEN type IN ('PAYOUT','MANUAL_PAYOUT') THEN amount_paise ELSE 0 END),0)::bigint AS "paidOutPaise"
       FROM seller_ledger WHERE seller_id=$1
     `, [sellerId]);
     const row = result.rows[0];
@@ -13,6 +13,11 @@ export async function registerSettlementCompletion({ app, pool, requireRole, aud
 
   app.post('/v1/seller/payout', { preHandler: requireRole('SELLER') }, async (request, reply) => {
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+    // Manual settlement is the temporary seller payout rail. Do not allow a
+    // concurrent Razorpay transfer while the admin is recording manual payouts.
+    if (String(process.env.AARVO_MANUAL_SELLER_SETTLEMENT_ENABLED || '').toLowerCase() === 'true') {
+      return reply.code(409).send({ error: 'MANUAL_SETTLEMENT_MODE_ACTIVE' });
+    }
     if (!razorpay) return reply.code(503).send({ error: 'PAYMENTS_NOT_CONFIGURED' });
 
     const sellerId = request.user.sub;
@@ -30,7 +35,7 @@ export async function registerSettlementCompletion({ app, pool, requireRole, aud
       SELECT sl.id, sl.order_id, sl.amount_paise, o.gateway_payment_id,
              GREATEST(0, sl.amount_paise - COALESCE((
                SELECT SUM(p.amount_paise) FROM seller_ledger p
-               WHERE p.seller_id=sl.seller_id AND p.order_id=sl.order_id AND p.type='PAYOUT'
+               WHERE p.seller_id=sl.seller_id AND p.order_id=sl.order_id AND p.type IN ('PAYOUT','MANUAL_PAYOUT')
              ),0))::bigint AS remaining_paise
       FROM seller_ledger sl
       JOIN orders o ON o.id=sl.order_id

@@ -15,3 +15,6 @@ Apply these files in numeric order against the same PostgreSQL database:
 All migrations are intended to be idempotent. Do not rename or duplicate numeric migration prefixes; CI contains a regression check for the sequence.
 
 The application must not be pointed at a production database until the migrations have completed successfully and the expected constraints/indexes have been verified.
+
+
+- `029_cod_manual_settlement.sql` — additive COD payment-method, delivery cash-collection audit fields, and manual seller-payout ledger support. Existing orders default to `RAZORPAY`; this migration does not enable COD or change runtime behavior by itself.
