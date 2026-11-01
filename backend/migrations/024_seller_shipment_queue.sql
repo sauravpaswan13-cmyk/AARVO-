@@ -1,5 +1,5 @@
 ALTER TABLE third_party_delivery_shipments
-  ADD COLUMN IF NOT EXISTS seller_id UUID;
+  ADD COLUMN IF NOT EXISTS seller_id TEXT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS third_party_delivery_order_seller_uidx
   ON third_party_delivery_shipments(order_id,seller_id)
@@ -8,7 +8,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS third_party_delivery_order_seller_uidx
 CREATE TABLE IF NOT EXISTS third_party_delivery_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-  seller_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  seller_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'PENDING'
     CHECK (status IN ('PENDING','PROCESSING','RETRY','DONE','FAILED')),
   attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
