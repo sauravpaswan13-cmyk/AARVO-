@@ -35,7 +35,7 @@ export async function registerSettlementCompletion({ app, pool, requireRole, aud
       SELECT sl.id, sl.order_id, sl.amount_paise, o.gateway_payment_id,
              GREATEST(0, sl.amount_paise - COALESCE((
                SELECT SUM(p.amount_paise) FROM seller_ledger p
-               WHERE p.seller_id=sl.seller_id AND p.order_id=sl.order_id AND p.type='PAYOUT'
+               WHERE p.seller_id=sl.seller_id AND p.order_id=sl.order_id AND p.type IN ('PAYOUT','MANUAL_PAYOUT')
              ),0))::bigint AS remaining_paise
       FROM seller_ledger sl
       JOIN orders o ON o.id=sl.order_id
