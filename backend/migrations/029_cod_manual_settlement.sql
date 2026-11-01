@@ -18,7 +18,7 @@ BEGIN
       CHECK (payment_method IN ('RAZORPAY', 'COD'));
   END IF;
 END
-$;
+$$;
 
 -- Existing marketplace hardening constrains payment_status to Razorpay states.
 -- Extend that known constraint without changing any legacy Razorpay values.
