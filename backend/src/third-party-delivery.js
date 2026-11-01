@@ -220,7 +220,34 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
   return createdRows.length===1?createdRows[0]:{order_id:o.id,provider:'shiprocket',shipments:createdRows};
 }
 
+export async function enqueueSellerShipment({pool,orderId,sellerId}) {
+  if(!pool||!orderId||!sellerId) return {queued:false};
+  const result=await pool.query("INSERT INTO third_party_delivery_jobs(order_id,seller_id,status) VALUES($1,$2,'PENDING') ON CONFLICT(order_id,seller_id) DO UPDATE SET status=CASE WHEN third_party_delivery_jobs.status IN ('DONE','PROCESSING') THEN third_party_delivery_jobs.status ELSE 'PENDING' END,next_attempt_at=LEAST(third_party_delivery_jobs.next_attempt_at,now()),updated_at=now() RETURNING id,status",[orderId,sellerId]);
+  return {queued:true,job:result.rows[0]};
+}
+let deliveryWorkerTimer=null;
+async function processDeliveryQueue(pool,audit,logger) {
+  if(!enabled()||provider()!=='shiprocket'||!pool)return;
+  const client=await pool.connect(); let job;
+  try {
+    await client.query('BEGIN');
+    const claimed=await client.query("SELECT id,order_id,seller_id,attempts FROM third_party_delivery_jobs WHERE status IN ('PENDING','RETRY') AND next_attempt_at<=now() ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1");
+    if(!claimed.rowCount){await client.query('COMMIT');return;}
+    job=claimed.rows[0];
+    await client.query("UPDATE third_party_delivery_jobs SET status='PROCESSING',locked_at=now(),updated_at=now() WHERE id=$1",[job.id]);
+    await client.query('COMMIT');
+  } catch(error) { await client.query('ROLLBACK').catch(()=>{}); throw error; } finally { client.release(); }
+  try {
+    await createThirdPartyShipmentForOrder({pool,audit,orderId:job.order_id,sellerId:job.seller_id,actor:{sub:'SYSTEM',role:'SYSTEM'}});
+    await pool.query("UPDATE third_party_delivery_jobs SET status='DONE',last_error=NULL,locked_at=NULL,updated_at=now() WHERE id=$1",[job.id]);
+  } catch(error) {
+    const attempts=Number(job.attempts||0)+1; const terminal=attempts>=8; const delay=Math.min(21600,Math.pow(2,attempts)*60);
+    await pool.query("UPDATE third_party_delivery_jobs SET status=$2,attempts=$3,next_attempt_at=now()+($4 * interval '1 second'),last_error=$5,locked_at=NULL,updated_at=now() WHERE id=$1",[job.id,terminal?'FAILED':'RETRY',attempts,delay,String(error.code||error.message||'DELIVERY_FAILED').slice(0,160)]);
+    logger.warn({orderId:job.order_id,sellerId:job.seller_id,attempts,error:error.code||error.message},'AARVO Shiprocket job deferred');
+  }
+}
 export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
+  if(pool&&!deliveryWorkerTimer){deliveryWorkerTimer=setInterval(()=>processDeliveryQueue(pool,audit,app.log).catch(error=>app.log.error({err:error},'Shiprocket queue worker failed')),5000);deliveryWorkerTimer.unref();}
   // Safe diagnostic: authenticates with Shiprocket and reads pickup locations only.
   // It never creates an order, shipment, AWB, or pickup booking.
   app.post('/v1/admin/delivery/shiprocket/validate',{preHandler:requireRole('ADMIN')},async(request,reply)=>{
