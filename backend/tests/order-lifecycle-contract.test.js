@@ -36,3 +36,17 @@ test('manual seller settlement is opt-in and never bypasses seller verification'
   assert.match(server, /seller\.rows\[0\]\.verified && \(seller\.rows\[0\]\.payout_account_ready \|\| manualSettlementEnabled\)/);
   assert.match(server, /seller\.rows\[0\]\.verified && \(seller\.rows\[0\]\.payout_account_ready \|\| manualSettlementEnabled\), isPublished/);
 });
+
+
+test('COD/manual settlement migration is additive and keeps Razorpay as the legacy default', () => {
+  const migration = read('backend/migrations/029_cod_manual_settlement.sql');
+  const schema = read('backend/schema.sql');
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'RAZORPAY'/);
+  assert.match(migration, /payment_method IN \('RAZORPAY', 'COD'\)/);
+  assert.match(migration, /cod_collected_at TIMESTAMPTZ/);
+  assert.match(migration, /cod_collected_by TEXT REFERENCES users\(id\)/);
+  assert.match(migration, /MANUAL_PAYOUT/);
+  assert.match(migration, /settlement_reference TEXT/);
+  assert.match(schema, /payment_method TEXT NOT NULL DEFAULT 'RAZORPAY'/);
+  assert.match(schema, /MANUAL_PAYOUT/);
+});
