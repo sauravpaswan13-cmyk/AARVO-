@@ -163,6 +163,12 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
     }));
     const subtotalPaise=sellerLines.reduce((sum,{line})=>sum+Number(line.lineTotalPaise||0),0);
     const sellerOrderId=('AARVO'+String(o.id).replace(/-/g,'')+'S'+String(sellerId).replace(/-/g,'')).slice(0,50);
+    const packageLength=Number(process.env.SHIPROCKET_PACKAGE_LENGTH_CM||0);
+    const packageBreadth=Number(process.env.SHIPROCKET_PACKAGE_BREADTH_CM||0);
+    const packageHeight=Number(process.env.SHIPROCKET_PACKAGE_HEIGHT_CM||0);
+    const packageWeight=Number(process.env.SHIPROCKET_PACKAGE_WEIGHT_KG||0);
+    if(![packageLength,packageBreadth,packageHeight,packageWeight].every(v=>Number.isFinite(v)&&v>0))
+      throw Object.assign(new Error('SHIPROCKET_PACKAGE_DIMENSIONS_REQUIRED'),{code:'SHIPROCKET_PACKAGE_DIMENSIONS_REQUIRED',status:409,data:{required:['SHIPROCKET_PACKAGE_LENGTH_CM','SHIPROCKET_PACKAGE_BREADTH_CM','SHIPROCKET_PACKAGE_HEIGHT_CM','SHIPROCKET_PACKAGE_WEIGHT_KG']}});
     const payload={
       order_id:sellerOrderId,order_date:orderDate(),pickup_location:pickup,
       billing_customer_name:customer.first,billing_last_name:customer.last,
@@ -171,10 +177,9 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
       billing_email:clean(q.rows[0].buyer_email||'no-reply@aarvo.in',150),billing_phone:Number(String(a.phone).replace(/\D/g,'')),
       shipping_is_billing:true,order_items:items,
       payment_method:String(o.payment_status||'').toUpperCase()==='COD'?'COD':'Prepaid',
-      shipping_charges:sellerIndex===0?shipping:0,giftwrap_charges:0,transaction_charges:0,total_discount:0,
+      shipping_charges:currentSellerIndex===0?shipping:0,giftwrap_charges:0,transaction_charges:0,total_discount:0,
       sub_total:subtotalPaise/100,
-      length:Number(process.env.SHIPROCKET_PACKAGE_LENGTH_CM||10),breadth:Number(process.env.SHIPROCKET_PACKAGE_BREADTH_CM||10),
-      height:Number(process.env.SHIPROCKET_PACKAGE_HEIGHT_CM||10),weight:Number(process.env.SHIPROCKET_PACKAGE_WEIGHT_KG||0.5)
+      length:packageLength,breadth:packageBreadth,height:packageHeight,weight:packageWeight
     };
     const created=await providerRequest(shiprocketPath.create,payload);
     const srOrderId=created.order_id||created.orderId||created.id;
@@ -204,7 +209,6 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
     const saved=await pool.query('UPDATE third_party_delivery_shipments SET provider_payload=$1,updated_at=now() WHERE id=$2 RETURNING *',[JSON.stringify(storedPayload),row.rows[0].id]);
     createdRows[createdRows.length-1]=saved.rows[0];
     await audit(pool,actor,'ORDER',o.id,'THIRD_PARTY_DELIVERY_CREATED',{provider:'shiprocket',providerOrderId:String(srOrderId),shipmentId:String(srShipmentId),awb:awbCode,courier,sellerId,pickupLocation:pickup,manifestGenerated:!manifest?.error});
-    sellerIndex++;
   }
   const tracking=createdRows.map(row=>({status:row.status,carrier:row.courier_name||'Shiprocket',provider:'shiprocket',providerOrderId:row.provider_order_id,shipmentId:row.provider_shipment_id,awb:row.awb,trackingUrl:row.tracking_url,updatedAt:new Date().toISOString()}));
   await pool.query('UPDATE orders SET tracking_json=$1,updated_at=now() WHERE id=$2',[JSON.stringify({status:'OUT_FOR_PICKUP',provider:'shiprocket',shipments:tracking,updatedAt:new Date().toISOString()}),o.id]);
