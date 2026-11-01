@@ -72,10 +72,11 @@ test('COD collection requires delivered status and creates seller sale ledger on
 });
 
 test('manual seller payouts are admin-only, feature-gated, reference-audited and balance-limited', () => {
+  const migration = read('backend/migrations/029_cod_manual_settlement.sql');
   assert.match(server, /app\.post\('\/v1\/admin\/sellers\/:id\/manual-payout'/);
   assert.match(server, /MANUAL_SETTLEMENT_DISABLED/);
   assert.match(server, /SETTLEMENT_REFERENCE_ALREADY_USED/);
   assert.match(server, /PAYOUT_EXCEEDS_AVAILABLE_BALANCE/);
   assert.match(server, /MANUAL_PAYOUT_RECORDED/);
-  assert.match(server, /seller_ledger_manual_settlement_reference_uidx/);
+  assert.match(migration, /seller_ledger_manual_settlement_reference_uidx/);
 });
