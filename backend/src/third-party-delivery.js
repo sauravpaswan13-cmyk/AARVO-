@@ -119,6 +119,12 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
   if(!enabled()) throw Object.assign(new Error('THIRD_PARTY_DELIVERY_DISABLED'),{code:'THIRD_PARTY_DELIVERY_DISABLED',status:503});
   if(provider()!=='shiprocket') throw Object.assign(new Error('UNSUPPORTED_DELIVERY_PROVIDER'),{code:'UNSUPPORTED_DELIVERY_PROVIDER',status:400});
   if((!staticToken()&&(!apiEmail()||!apiPassword()))||!baseUrl()) throw Object.assign(new Error('SHIPROCKET_NOT_CONFIGURED'),{code:'SHIPROCKET_NOT_CONFIGURED',status:503});
+  const packageLength=Number(process.env.SHIPROCKET_PACKAGE_LENGTH_CM||0);
+  const packageBreadth=Number(process.env.SHIPROCKET_PACKAGE_BREADTH_CM||0);
+  const packageHeight=Number(process.env.SHIPROCKET_PACKAGE_HEIGHT_CM||0);
+  const packageWeight=Number(process.env.SHIPROCKET_PACKAGE_WEIGHT_KG||0);
+  if(![packageLength,packageBreadth,packageHeight,packageWeight].every(v=>Number.isFinite(v)&&v>0))
+    throw Object.assign(new Error('SHIPROCKET_PACKAGE_DIMENSIONS_REQUIRED'),{code:'SHIPROCKET_PACKAGE_DIMENSIONS_REQUIRED',status:409,data:{required:['SHIPROCKET_PACKAGE_LENGTH_CM','SHIPROCKET_PACKAGE_BREADTH_CM','SHIPROCKET_PACKAGE_HEIGHT_CM','SHIPROCKET_PACKAGE_WEIGHT_KG']}});
 
   const q=await pool.query(`SELECT o.id,o.status,o.address_json,o.total_paise,o.subtotal_paise,o.delivery_fee_paise,o.payment_status,
       u.email AS buyer_email,
@@ -168,12 +174,6 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
     }));
     const subtotalPaise=sellerLines.reduce((sum,{line})=>sum+Number(line.lineTotalPaise||0),0);
     const sellerOrderId=('AARVO'+String(o.id).replace(/-/g,'')+'S'+String(sellerId).replace(/-/g,'')).slice(0,50);
-    const packageLength=Number(process.env.SHIPROCKET_PACKAGE_LENGTH_CM||0);
-    const packageBreadth=Number(process.env.SHIPROCKET_PACKAGE_BREADTH_CM||0);
-    const packageHeight=Number(process.env.SHIPROCKET_PACKAGE_HEIGHT_CM||0);
-    const packageWeight=Number(process.env.SHIPROCKET_PACKAGE_WEIGHT_KG||0);
-    if(![packageLength,packageBreadth,packageHeight,packageWeight].every(v=>Number.isFinite(v)&&v>0))
-      throw Object.assign(new Error('SHIPROCKET_PACKAGE_DIMENSIONS_REQUIRED'),{code:'SHIPROCKET_PACKAGE_DIMENSIONS_REQUIRED',status:409,data:{required:['SHIPROCKET_PACKAGE_LENGTH_CM','SHIPROCKET_PACKAGE_BREADTH_CM','SHIPROCKET_PACKAGE_HEIGHT_CM','SHIPROCKET_PACKAGE_WEIGHT_KG']}});
     const payload={
       order_id:sellerOrderId,order_date:orderDate(),pickup_location:pickup,
       billing_customer_name:customer.first,billing_last_name:customer.last,
