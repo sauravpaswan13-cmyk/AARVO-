@@ -9,6 +9,11 @@ const DYNAMIC_CACHE_NAME = 'aarvo-dynamic-v1';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
+  '/manifest.json',
+  '/favicon.png',
+  '/pwa-192x192.png',
+  '/pwa-512x512.png',
+  '/apple-touch-icon.png',
   '/src/assets/aarvo/aarvo_logo_transparent.png',
   '/src/assets/aarvo/aarvo_logo_isolated.jpg',
   '/src/assets/aarvo/aarvo_splash_screen.jpg',
