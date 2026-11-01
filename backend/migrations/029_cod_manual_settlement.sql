@@ -56,7 +56,7 @@ BEGIN
     EXECUTE format('ALTER TABLE seller_ledger DROP CONSTRAINT %I', constraint_row.conname);
   END LOOP;
 END
-$;
+$$;
 
 ALTER TABLE seller_ledger
   ADD CONSTRAINT seller_ledger_type_check
