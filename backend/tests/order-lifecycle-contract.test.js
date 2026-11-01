@@ -29,3 +29,10 @@ test('refund and OTP runtime hardening remains wired into the production launche
   assert.match(launcher, /OTP_DELIVERY_FAILED/);
   assert.match(otpDelivery, /setTimeout\(\(\) => controller\.abort\(\), 10000\)/);
 });
+
+
+test('manual seller settlement is opt-in and never bypasses seller verification', () => {
+  assert.match(server, /AARVO_MANUAL_SELLER_SETTLEMENT_ENABLED/);
+  assert.match(server, /seller\.rows\[0\]\.verified && \(seller\.rows\[0\]\.payout_account_ready \|\| manualSettlementEnabled\)/);
+  assert.match(server, /seller\.rows\[0\]\.verified && \(seller\.rows\[0\]\.payout_account_ready \|\| manualSettlementEnabled\), isPublished/);
+});
