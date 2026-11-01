@@ -80,3 +80,23 @@ test('manual seller payouts are admin-only, feature-gated, reference-audited and
   assert.match(server, /MANUAL_PAYOUT_RECORDED/);
   assert.match(migration, /seller_ledger_manual_settlement_reference_uidx/);
 });
+
+
+test('COD payment states are accepted by the existing production orders constraint', () => {
+  const migration = read('backend/migrations/029_cod_manual_settlement.sql');
+  assert.match(migration, /DROP CONSTRAINT IF EXISTS orders_payment_status_chk/);
+  assert.match(migration, /'COD_PENDING', 'COD_COLLECTED', 'COD_CANCELLED'/);
+});
+
+test('Shiprocket receives COD rather than prepaid for COD orders', () => {
+  const delivery = read('backend/src/third-party-delivery.js');
+  assert.match(delivery, /o\.delivery_fee_paise,o\.payment_status,o\.payment_method/);
+  assert.match(delivery, /payment_method:String\(o\.payment_method\|\|''\)\.toUpperCase\(\)==='COD'\?'COD':'Prepaid'/);
+});
+
+test('manual payout reduces seller available balance and is included in settlement totals', () => {
+  const settlement = read('backend/src/settlement-completion.js');
+  assert.match(settlement, /type IN \('PAYOUT','MANUAL_PAYOUT'\) THEN -amount_paise/);
+  assert.match(settlement, /type IN \('PAYOUT','MANUAL_PAYOUT'\) THEN amount_paise/);
+  assert.match(server, /type IN \('REFUND','REVERSAL','PAYOUT','MANUAL_PAYOUT'\)/);
+});
