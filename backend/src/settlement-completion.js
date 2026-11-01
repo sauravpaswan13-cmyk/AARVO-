@@ -13,6 +13,11 @@ export async function registerSettlementCompletion({ app, pool, requireRole, aud
 
   app.post('/v1/seller/payout', { preHandler: requireRole('SELLER') }, async (request, reply) => {
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+    // Manual settlement is the temporary seller payout rail. Do not allow a
+    // concurrent Razorpay transfer while the admin is recording manual payouts.
+    if (String(process.env.AARVO_MANUAL_SELLER_SETTLEMENT_ENABLED || '').toLowerCase() === 'true') {
+      return reply.code(409).send({ error: 'MANUAL_SETTLEMENT_MODE_ACTIVE' });
+    }
     if (!razorpay) return reply.code(503).send({ error: 'PAYMENTS_NOT_CONFIGURED' });
 
     const sellerId = request.user.sub;
