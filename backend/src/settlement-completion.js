@@ -3,8 +3,8 @@ export async function registerSettlementCompletion({ app, pool, requireRole, aud
     if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
     const sellerId = request.user.sub;
     const result = await pool.query(`
-      SELECT COALESCE(SUM(CASE WHEN type='SALE' THEN amount_paise WHEN type IN ('REFUND','REVERSAL') THEN -amount_paise WHEN type='PAYOUT' THEN -amount_paise ELSE 0 END),0)::bigint AS "availablePaise",
-             COALESCE(SUM(CASE WHEN type='PAYOUT' THEN amount_paise ELSE 0 END),0)::bigint AS "paidOutPaise"
+      SELECT COALESCE(SUM(CASE WHEN type='SALE' THEN amount_paise WHEN type IN ('REFUND','REVERSAL') THEN -amount_paise WHEN type IN ('PAYOUT','MANUAL_PAYOUT') THEN -amount_paise ELSE 0 END),0)::bigint AS "availablePaise",
+             COALESCE(SUM(CASE WHEN type IN ('PAYOUT','MANUAL_PAYOUT') THEN amount_paise ELSE 0 END),0)::bigint AS "paidOutPaise"
       FROM seller_ledger WHERE seller_id=$1
     `, [sellerId]);
     const row = result.rows[0];
