@@ -23,6 +23,10 @@ $$;
 CREATE INDEX IF NOT EXISTS orders_payment_method_status_idx
   ON orders (payment_method, payment_status, status, created_at DESC);
 
+-- Manual payouts are seller-level ledger entries, not tied to one order.
+-- Existing installations may still have order_id NOT NULL from an earlier schema.
+ALTER TABLE seller_ledger ALTER COLUMN order_id DROP NOT NULL;
+
 -- Preserve all existing ledger types and add a distinct manual-payout record.
 ALTER TABLE seller_ledger
   ADD COLUMN IF NOT EXISTS settlement_reference TEXT,
