@@ -212,6 +212,23 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
 }
 
 export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
+  // Safe diagnostic: authenticates with Shiprocket and reads pickup locations only.
+  // It never creates an order, shipment, AWB, or pickup booking.
+  app.post('/v1/admin/delivery/shiprocket/validate',{preHandler:requireRole('ADMIN')},async(request,reply)=>{
+    if(provider()!=='shiprocket')return reply.code(400).send({ok:false,error:'UNSUPPORTED_DELIVERY_PROVIDER'});
+    if(!apiEmail()||!apiPassword()||!baseUrl())return reply.code(503).send({ok:false,error:'SHIPROCKET_CREDENTIALS_NOT_CONFIGURED'});
+    try{
+      const token=await loginShiprocket(true);
+      const response=await fetch(baseUrl()+shiprocketPath.listPickups,{method:'GET',headers:{authorization:'Bearer '+token,'content-type':'application/json'}});
+      const data=await readResponse(response);
+      if(!response.ok)return reply.code(502).send({ok:false,authenticated:true,error:'SHIPROCKET_PICKUP_LIST_FAILED',providerStatus:response.status,message:clean(data?.message||data?.errors||'Pickup address listing failed',240)});
+      const pickups=pickupRows(data);
+      return {ok:true,authenticated:true,pickupListAccessible:true,pickupCount:pickups.length,pickupNames:pickups.map(x=>clean(x?.pickup_location||x?.pickupLocation||x?.name||'',80)).filter(Boolean).slice(0,30),shipmentCreated:false,awbAssigned:false,pickupBooked:false};
+    }catch(error){
+      request.log.warn({code:error.code||'SHIPROCKET_VALIDATION_FAILED',status:error.status||0},'Shiprocket safe validation failed');
+      return reply.code(error.status&&error.status<500?error.status:502).send({ok:false,authenticated:false,error:error.code||'SHIPROCKET_VALIDATION_FAILED',message:clean(error.data?.message||error.message||'Shiprocket validation failed',240),shipmentCreated:false,awbAssigned:false,pickupBooked:false});
+    }
+  });
   app.get('/v1/delivery/provider-status',{preHandler:requireRole('ADMIN')},async()=>({
     enabled:enabled(),provider:provider(),configured:Boolean((staticToken()||(apiEmail()&&apiPassword()))&&baseUrl()),
     mode:'THIRD_PARTY_ONLY',pickupLocation:pickupLocation()||'seller-specific'
