@@ -15,7 +15,7 @@ const marketplaceModels = fs.readFileSync(path.join(ROOT, 'app/src/main/java/com
 const workflow = fs.readFileSync(path.join(ROOT, '.github/workflows/android.yml'), 'utf8');
 
 test('final Android checkout regression contracts remain server-authoritative', () => {
-  assert.match(androidMain, /createOrder\(items, address\)/);
+  assert.match(androidMain, /createOrder\(items, address, paymentMethod\)/);
   assert.match(androidMain, /amountPaise/);
   assert.match(androidMain, /gatewayOrderId/);
   assert.match(androidMain, /verifyPayment\(/);
