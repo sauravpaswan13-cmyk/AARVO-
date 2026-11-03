@@ -2056,7 +2056,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   Logout / Switch Account
                 </button>
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center mt-2">
-                  AARVO v2.2 &bull; Shop Smart, Live Better
+                  AARVO v2.0 &bull; Shop Smart, Live Better
                 </p>
               </div>
             </div>

@@ -10,6 +10,8 @@ keystore.properties
 *.jks
 *.keystore
 *.p12
+*.apk
+public/downloads/
 
 # IDE
 .idea/

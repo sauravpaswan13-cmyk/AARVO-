@@ -414,7 +414,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         Text("Logout / Switch Account", fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.height(6.dp))
-                    Text("AARVO v1.9 • Shop Smart, Live Better", fontSize = 10.sp, color = Color(0xFF94A3B8), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                    Text("AARVO v2.0 • Shop Smart, Live Better", fontSize = 10.sp, color = Color(0xFF94A3B8), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 }
             }
         }
