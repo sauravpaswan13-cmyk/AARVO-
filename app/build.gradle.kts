@@ -9,7 +9,7 @@ android {
     defaultConfig {
         applicationId = "com.aarvo"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 25
         versionName = "2.0"
         fun buildConfigString(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "\\r").replace("\n", "\\n") + "\""
