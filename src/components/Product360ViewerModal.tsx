@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import {
   X,
+  ArrowLeft,
   RotateCcw,
   Play,
   Pause,
@@ -164,7 +165,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
         {
           id: 'finish',
           title: 'Premium Brand Craftsmanship',
-          description: '100% genuine authenticated materials certified with quality checks and Flipkart/AARVO standards.',
+          description: '100% genuine authenticated materials certified with quality checks and AARVO Authentic standards.',
           angle: 0,
           targetPosition: [0, 0, 0.5],
         },
@@ -573,42 +574,44 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] w-screen h-screen bg-slate-950 text-white flex flex-col overflow-hidden animate-in fade-in duration-300"
     >
-      {/* Dark backdrop */}
-      <div
-        onClick={() => {
-          haptics.light();
-          onClose();
-        }}
-        className="fixed inset-0 bg-black/85 backdrop-blur-md"
-      />
-
-      {/* Main 360 Viewer Card (Flipkart Style) */}
-      <div className="relative w-full max-w-[480px] h-[95vh] max-h-[820px] bg-slate-950 text-white rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden border border-slate-800">
+      {/* Full Screen 360 Viewer Canvas Container */}
+      <div className="relative w-full h-full flex flex-col overflow-hidden bg-slate-950">
         
-        {/* Top Header with Flipkart Badge & Angle indicator */}
-        <div className="flex items-center justify-between p-4 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 z-20">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#2418D8] to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
+        {/* Full Screen Top Header with Back button, AARVO 360° Badge & Angle indicator */}
+        <div className="flex items-center justify-between p-3.5 sm:p-4 bg-slate-900/95 backdrop-blur-md border-b border-slate-800/80 z-20 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => {
+                haptics.light();
+                onClose();
+              }}
+              title="Back"
+              className="p-2 -ml-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors cursor-pointer shrink-0 active:scale-90"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#2418D8] to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
               <RotateCcw className="w-4 h-4 animate-spin-slow" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#7B73FF] bg-[#2418D8]/20 px-2 py-0.5 rounded-md border border-[#2418D8]/30">
-                  360° INTERACTIVE
+                  AARVO 360°
                 </span>
                 <span className="text-[11px] font-bold text-slate-400">
                   {rotationAngle}°
                 </span>
               </div>
-              <h3 className="font-display font-black text-sm text-white truncate max-w-[240px] leading-tight mt-0.5">
+              <h3 className="font-display font-black text-sm text-white truncate max-w-[200px] sm:max-w-md leading-tight mt-0.5">
                 {product.name}
               </h3>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={resetView}
@@ -706,7 +709,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
             </div>
           )}
 
-          {/* Flipkart Interactive Gesture Guide Overlay (fades out after first drag) */}
+          {/* AARVO Interactive Gesture Guide Overlay (fades out after first drag) */}
           {!hasInteracted && (
             <div className="absolute inset-x-0 bottom-6 flex justify-center pointer-events-none animate-pulse">
               <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 text-xs font-bold text-white">
@@ -781,7 +784,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
                 <div>
                   <div className="flex items-center gap-1.5 text-[#7B73FF] text-[10px] font-black uppercase tracking-wider">
                     <Sparkles className="w-3 h-3" />
-                    <span>Flipkart Product Highlight &bull; {activeHotspot.angle}° Angle</span>
+                    <span>AARVO Feature Highlight &bull; {activeHotspot.angle}° Angle</span>
                   </div>
                   <h4 className="font-bold text-xs text-white mt-0.5">
                     {activeHotspot.title}

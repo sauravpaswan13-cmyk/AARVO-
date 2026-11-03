@@ -181,32 +181,41 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           )}
 
-          {/* Large High-Res Product Image Showcase */}
-          <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-slate-50 dark:bg-[#1A1638] shadow-inner border border-slate-100 dark:border-slate-800 group">
+          {/* Large High-Res Product Image Showcase (Tap to open 360° Full Screen) */}
+          <div 
+            onClick={() => {
+              haptics.selection();
+              setIs360Open(true);
+            }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                setIs360Open(true);
+              }
+            }}
+            title="Tap to view product in full-screen 360°"
+            className="relative aspect-square w-full rounded-2xl overflow-hidden bg-slate-50 dark:bg-[#1A1638] shadow-inner border border-slate-100 dark:border-slate-800 group cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-[#2418D8]"
+          >
             <img
               src={product.image}
               alt={product.name}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
             {/* Discount Badge */}
-            <span className="absolute top-3 left-3 bg-red-600 text-white text-xs font-black px-2.5 py-1 rounded-lg shadow-md tracking-wide">
+            <span className="absolute top-3 left-3 bg-red-600 text-white text-xs font-black px-2.5 py-1 rounded-lg shadow-md tracking-wide pointer-events-none">
               {product.discount}
             </span>
 
             {/* In-Stock Indicator */}
-            <span className="absolute bottom-3 left-3 bg-emerald-600/90 backdrop-blur-xs text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+            <span className="absolute bottom-3 left-3 bg-emerald-600/90 backdrop-blur-xs text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs pointer-events-none">
               <CheckCircle2 className="w-3 h-3" />
               In Stock &bull; Ready to Ship
             </span>
 
-            {/* Flipkart-Style 360° View Badge on Hero Image */}
-            <button
-              type="button"
-              onClick={() => {
-                haptics.selection();
-                setIs360Open(true);
-              }}
-              className="absolute bottom-3 right-3 z-10 bg-white/95 dark:bg-[#14112B]/95 hover:bg-white text-slate-900 dark:text-white px-3 py-1.5 rounded-full shadow-lg border border-slate-200/90 dark:border-slate-700 flex items-center gap-2 transition-all active:scale-95 hover:scale-105 group/badge cursor-pointer ring-2 ring-indigo-500/20"
+            {/* 360° View Badge on Hero Image */}
+            <div
+              className="absolute bottom-3 right-3 z-10 bg-white/95 dark:bg-[#14112B]/95 group-hover:bg-white text-slate-900 dark:text-white px-3 py-1.5 rounded-full shadow-lg border border-slate-200/90 dark:border-slate-700 flex items-center gap-2 transition-all group-active:scale-95 group-hover:scale-105 ring-2 ring-indigo-500/20 pointer-events-none"
             >
               <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-[#2418D8] to-purple-600 text-white flex items-center justify-center">
                 <RotateCcw className="w-3 h-3 animate-spin-slow" />
@@ -216,13 +225,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   360° VIEW
                 </span>
                 <span className="text-[8px] text-slate-500 dark:text-slate-400 font-semibold">
-                  Tap to rotate
+                  Tap for Full Screen
                 </span>
               </div>
-            </button>
+            </div>
           </div>
 
-          {/* Flipkart-style 360° Interactive Banner */}
+          {/* AARVO 360° Interactive Full-Screen Banner */}
           <button
             type="button"
             onClick={() => {
@@ -239,16 +248,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
                   <span>Explore Product in 360° View</span>
                   <span className="text-[9px] bg-[#2418D8] text-white px-1.5 py-0.2 rounded font-black">
-                    FLIPKART 3D
+                    AARVO 3D
                   </span>
                 </span>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                  Swipe to rotate, zoom angles &amp; inspect hardware details
+                  Swipe to rotate, zoom angles &amp; inspect hardware details in full screen
                 </p>
               </div>
             </div>
             <span className="text-xs font-bold text-[#2418D8] dark:text-[#7B73FF] flex items-center">
-              View &rarr;
+              Full Screen &rarr;
             </span>
           </button>
 
@@ -295,7 +304,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </p>
           </div>
 
-          {/* Assurance Badges (Flipkart/Amazon style) */}
+          {/* Assurance Badges (AARVO Authentic Trust Badges) */}
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="p-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/30 flex flex-col items-center">
               <Truck className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF] mb-1" />
@@ -399,7 +408,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         </div>
       </div>
 
-      {/* 360° Flipkart-Style Product Viewer Modal */}
+      {/* 360° AARVO Full-Screen Product Viewer Modal */}
       <Product360ViewerModal
         product={product}
         isOpen={is360Open}

@@ -1149,20 +1149,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         />
                       </button>
 
-                      {/* Flipkart 360° Quick Trigger Badge */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          haptics.selection();
-                          setProduct360Modal(product);
-                        }}
-                        className="absolute bottom-1.5 right-1.5 bg-slate-900/85 hover:bg-[#2418D8] text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md backdrop-blur-xs transition-colors z-10 cursor-pointer"
-                        title="Explore in 360° View"
-                      >
-                        <RotateCcw className="w-2.5 h-2.5 animate-spin-slow" />
-                        <span>360°</span>
-                      </button>
                     </div>
 
                     <div>
@@ -1295,20 +1281,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       />
                     </button>
 
-                    {/* Flipkart 360° Quick Trigger Badge */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        haptics.selection();
-                        setProduct360Modal(product);
-                      }}
-                      className="absolute bottom-1.5 right-1.5 bg-slate-900/85 hover:bg-[#2418D8] text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md backdrop-blur-xs transition-colors z-10 cursor-pointer"
-                      title="Explore in 360° View"
-                    >
-                      <RotateCcw className="w-2.5 h-2.5 animate-spin-slow" />
-                      <span>360°</span>
-                    </button>
                   </div>
 
                   <div>
@@ -1457,20 +1429,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         />
                       </button>
 
-                      {/* Flipkart 360° Quick Trigger Badge */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          haptics.selection();
-                          setProduct360Modal(product);
-                        }}
-                        className="absolute bottom-1.5 right-1.5 bg-slate-900/85 hover:bg-[#2418D8] text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md backdrop-blur-xs transition-colors z-10 cursor-pointer"
-                        title="Explore in 360° View"
-                      >
-                        <RotateCcw className="w-2.5 h-2.5 animate-spin-slow" />
-                        <span>360°</span>
-                      </button>
                     </div>
 
                     <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
@@ -2555,7 +2513,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         />
 
         {/* ================================================================= */}
-        {/* 14. FLIPKART-STYLE 360° PRODUCT VIEWER MODAL                      */}
+        {/* 14. AARVO FULL-SCREEN 360° PRODUCT VIEWER MODAL                   */}
         {/* ================================================================= */}
         <Product360ViewerModal
           product={product360Modal}
