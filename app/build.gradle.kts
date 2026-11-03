@@ -9,9 +9,9 @@ android {
     defaultConfig {
         applicationId = "com.aarvo"
         minSdk = 24
-        targetSdk = 37
-        versionCode = 10
-        versionName = "1.9"
+        targetSdk = 35
+        versionCode = 25
+        versionName = "2.0"
         fun buildConfigString(value: String): String = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "\\r").replace("\n", "\\n") + "\""
         val apiBaseUrl = project.findProperty("aarvoApiBaseUrl")?.toString() ?: "https://aarvo-api.onrender.com"
         val widgetId = project.findProperty("msg91WidgetId")?.toString() ?: "366968715030323230313530"

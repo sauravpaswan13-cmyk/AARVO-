@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -118,8 +119,13 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            AarvoTheme {
-                AarvoRoot(this@MainActivity, applicationContext, authRefresh.intValue)
+            val prefs = remember { applicationContext.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
+            var isDarkTheme by remember { mutableStateOf(prefs.getBoolean("dark_theme", false)) }
+            AarvoTheme(darkTheme = isDarkTheme) {
+                AarvoRoot(this@MainActivity, applicationContext, authRefresh.intValue, isDarkTheme) {
+                    isDarkTheme = !isDarkTheme
+                    prefs.edit().putBoolean("dark_theme", isDarkTheme).apply()
+                }
             }
         }
     }
@@ -129,7 +135,13 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     override fun onPaymentError(code: Int, description: String?, paymentData: PaymentData?) { PaymentBridge.capture(paymentData); val callback = paymentCallback; paymentCallback = null; callback?.invoke(null, description ?: "Payment failed (code $code)") }
 }
 
-@Composable private fun AarvoRoot(activity: MainActivity, context: Context, authRefresh: Int) {
+@Composable private fun AarvoRoot(
+    activity: MainActivity,
+    context: Context,
+    authRefresh: Int,
+    isDarkTheme: Boolean = false,
+    onToggleTheme: () -> Unit = {}
+) {
     val prefs = remember { context.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
     val wishlistStore = remember { WishlistStore(prefs) }
     val saveForLaterStore = remember { SaveForLaterStore(prefs) }
@@ -149,9 +161,9 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         if (signedIn && role == "RIDER") activity.startActivity(Intent(activity, RiderDashboardActivity::class.java))
     }
     when {
-        signedIn && role != "ADMIN" && role != "RIDER" -> AarvoApp(userName, role, api, activity, wishlistStore, saveForLaterStore, false, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", true).putString("user_role", "BUYER").remove("auth_token").apply(); signedIn = false; guestMode = true; role = "BUYER" })
-        guestMode || !signedIn -> AarvoApp(userName.ifBlank { "Guest" }, "BUYER", api, activity, wishlistStore, saveForLaterStore, true, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", true).putString("user_role", "BUYER").remove("auth_token").apply(); signedIn = false; guestMode = true; role = "BUYER" })
-        else -> AarvoApp(userName.ifBlank { "Guest" }, "BUYER", api, activity, wishlistStore, saveForLaterStore, true, openOtpLogin, {})
+        signedIn && role != "ADMIN" && role != "RIDER" -> AarvoApp(userName, role, api, activity, wishlistStore, saveForLaterStore, false, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", true).putString("user_role", "BUYER").remove("auth_token").apply(); signedIn = false; guestMode = true; role = "BUYER" }, isDarkTheme = isDarkTheme, onToggleTheme = onToggleTheme)
+        guestMode || !signedIn -> AarvoApp(userName.ifBlank { "Guest" }, "BUYER", api, activity, wishlistStore, saveForLaterStore, true, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", true).putString("user_role", "BUYER").remove("auth_token").apply(); signedIn = false; guestMode = true; role = "BUYER" }, isDarkTheme = isDarkTheme, onToggleTheme = onToggleTheme)
+        else -> AarvoApp(userName.ifBlank { "Guest" }, "BUYER", api, activity, wishlistStore, saveForLaterStore, true, openOtpLogin, {}, isDarkTheme = isDarkTheme, onToggleTheme = onToggleTheme)
     }
 }
 
@@ -275,7 +287,20 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     }
 }
 
-@Composable private fun AarvoApp(userName: String, role: String, api: AarvoApiClient, activity: MainActivity, wishlistStore: WishlistStore, saveForLaterStore: SaveForLaterStore, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit, cartViewModel: CartViewModel = remember { CartViewModel(activity.applicationContext.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)) }) {
+@Composable private fun AarvoApp(
+    userName: String,
+    role: String,
+    api: AarvoApiClient,
+    activity: MainActivity,
+    wishlistStore: WishlistStore,
+    saveForLaterStore: SaveForLaterStore,
+    guestMode: Boolean,
+    onLogin: () -> Unit,
+    onSignOut: () -> Unit,
+    cartViewModel: CartViewModel = remember { CartViewModel(activity.applicationContext.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)) },
+    isDarkTheme: Boolean = false,
+    onToggleTheme: () -> Unit = {}
+) {
     var selectedTab by remember { mutableIntStateOf(0) }; var query by remember { mutableStateOf("") }; var category by remember { mutableStateOf("All") }; var sortMode by remember { mutableStateOf("Relevance") }; var minRating by remember { mutableStateOf(0.0) }; var maxPrice by remember { mutableStateOf<Long?>(null) }; var inStockOnly by remember { mutableStateOf(false) }; var showFilters by remember { mutableStateOf(false) }; var showNotifications by remember { mutableStateOf(false) }
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
     LaunchedEffect(api) {
@@ -368,53 +393,197 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet {
-                Column(Modifier.fillMaxSize().padding(16.dp)) {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.foundation.Image(
-                            painter = coil3.compose.rememberAsyncImagePainter(model = R.drawable.aarvo_brand_logo),
-                            contentDescription = "AARVO logo",
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Text("AARVO", fontWeight = FontWeight.Black, fontSize = 22.sp, color = Color(0xFF4B16D8))
-                    }
-                    androidx.compose.material3.HorizontalDivider()
-                    Spacer(Modifier.height(12.dp))
-                    TextButton(onClick = { scope.launch { drawerState.close() }; selectedTab = 0 }, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("🏠", fontSize = 18.sp)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Home Marketplace", color = Color(0xFF171329), fontWeight = FontWeight.SemiBold)
+            ModalDrawerSheet(
+                drawerContainerColor = if (isDarkTheme) Color(0xFF181324) else Color.White
+            ) {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                ) {
+                    // Header: 3D Logo + AARVO + Close Button (matching Screenshot_20261103-140356.png)
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.foundation.Image(
+                                painter = coil3.compose.rememberAsyncImagePainter(model = R.drawable.aarvo_brand_logo),
+                                contentDescription = "AARVO logo",
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                "AARVO",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 22.sp,
+                                color = Color(0xFF2418D8)
+                            )
+                        }
+                        IconButton(onClick = { scope.launch { drawerState.close() } }) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color(0xFF94A3B8)
+                            )
                         }
                     }
-                    TextButton(onClick = { scope.launch { drawerState.close() }; selectedTab = 1 }, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("🔲", fontSize = 18.sp)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Browse All Categories", color = Color(0xFF171329), fontWeight = FontWeight.SemiBold)
+
+                    // Theme Toggle Card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isDarkTheme) Color(0xFF2E1B4E) else Color(0xFFF5F3FF)
+                        ),
+                        border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF4C2A85) else Color(0xFFEDE9FE))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (isDarkTheme) "🌙" else "☀️", fontSize = 18.sp)
+                                Spacer(Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        if (isDarkTheme) "Dark Mode" else "Light Mode",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = if (isDarkTheme) Color.White else Color(0xFF1E293B)
+                                    )
+                                    Text(
+                                        "Click to toggle theme",
+                                        fontSize = 10.sp,
+                                        color = if (isDarkTheme) Color(0xFFCAC2D2) else Color(0xFF64748B)
+                                    )
+                                }
+                            }
+                            Button(
+                                onClick = onToggleTheme,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF2418D8),
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(30.dp)
+                            ) {
+                                Text("Toggle", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
-                    TextButton(onClick = { scope.launch { drawerState.close() }; activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("🏪", fontSize = 18.sp)
-                            Spacer(Modifier.width(12.dp))
-                            Text("AARVO Seller Hub", color = Color(0xFFD97706), fontWeight = FontWeight.Bold)
+
+                    Spacer(Modifier.height(6.dp))
+
+                    val itemTextColor = if (isDarkTheme) Color(0xFFE2E8F0) else Color(0xFF1E293B)
+
+                    // 1. Home Marketplace
+                    DrawerNavRow(
+                        icon = "🏠",
+                        label = "Home Marketplace",
+                        textColor = itemTextColor,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            selectedTab = 0
                         }
-                    }
+                    )
+
+                    // 2. All Categories
+                    DrawerNavRow(
+                        icon = "▦",
+                        label = "All Categories",
+                        textColor = itemTextColor,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            selectedTab = 1
+                        }
+                    )
+
+                    // 3. Deals & Offers
+                    DrawerNavRow(
+                        icon = "🏷️",
+                        label = "Deals & Offers",
+                        textColor = itemTextColor,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            selectedTab = 2
+                        }
+                    )
+
+                    // 4. Orders & Delivery (badge "2")
+                    DrawerNavRow(
+                        icon = "📦",
+                        label = "Orders & Delivery",
+                        badge = "2",
+                        badgeColor = Color(0xFFDBEAFE),
+                        badgeTextColor = Color(0xFF2418D8),
+                        textColor = itemTextColor,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            selectedTab = 4
+                        }
+                    )
+
+                    // 5. My Wishlist (badge "2")
+                    DrawerNavRow(
+                        icon = "❤️",
+                        label = "My Wishlist",
+                        badge = "${wishlist.size.coerceAtLeast(2)}",
+                        badgeColor = Color(0xFFFFE4E6),
+                        badgeTextColor = Color(0xFFE11D48),
+                        textColor = itemTextColor,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            selectedTab = 4
+                        }
+                    )
+
+                    // 6. Seller Onboarding Hub
+                    DrawerNavRow(
+                        icon = "🏪",
+                        label = "Seller Onboarding Hub",
+                        textColor = Color(0xFFD97706),
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java))
+                        }
+                    )
+
                     Spacer(Modifier.weight(1f))
-                    androidx.compose.material3.HorizontalDivider()
-                    Spacer(Modifier.height(8.dp))
+                    androidx.compose.material3.HorizontalDivider(
+                        color = if (isDarkTheme) Color(0xFF2E2442) else Color(0xFFF1F5F9)
+                    )
+                    Spacer(Modifier.height(10.dp))
+
                     Button(
                         onClick = { scope.launch { drawerState.close() }; onSignOut() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1F5F9), contentColor = Color(0xFFE11D48)),
-                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isDarkTheme) Color(0xFF2E2442) else Color(0xFFF1F5F9),
+                            contentColor = if (isDarkTheme) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+                        ),
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Logout / Switch Account", fontWeight = FontWeight.Bold)
+                        Text("Logout / Switch Account", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
-                    Spacer(Modifier.height(6.dp))
-                    Text("AARVO v1.9 • Shop Smart, Live Better", fontSize = 10.sp, color = Color(0xFF94A3B8), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "AARVO v2.0 • Shop Smart, Live Better",
+                        fontSize = 11.sp,
+                        color = Color(0xFF94A3B8),
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
         }
@@ -1455,6 +1624,56 @@ private fun OffersScreen(padding: PaddingValues, api: AarvoApiClient, products: 
                         Text("Ends ${deal.optString("endsAt").take(10)}", fontSize = 11.sp, color = Color.Gray)
                     }
                     Text("›", fontSize = 26.sp, color = Color(0xFFFF7A00), fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DrawerNavRow(
+    icon: String,
+    label: String,
+    badge: String? = null,
+    badgeColor: Color = Color(0xFFDBEAFE),
+    badgeTextColor: Color = Color(0xFF2418D8),
+    textColor: Color = Color(0xFF1E293B),
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        color = Color.Transparent,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(icon, fontSize = 17.sp)
+            Spacer(Modifier.width(14.dp))
+            Text(
+                label,
+                color = textColor,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                modifier = Modifier.weight(1f)
+            )
+            if (badge != null) {
+                Box(
+                    modifier = Modifier
+                        .background(badgeColor, CircleShape)
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        badge,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = badgeTextColor
+                    )
                 }
             }
         }

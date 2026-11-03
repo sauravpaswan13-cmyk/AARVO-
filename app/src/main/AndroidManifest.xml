@@ -8,8 +8,8 @@
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
         android:label="AARVO"
-        android:icon="@drawable/aarvo_top_logo"
-        android:roundIcon="@drawable/aarvo_top_logo"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AARVO">
 
