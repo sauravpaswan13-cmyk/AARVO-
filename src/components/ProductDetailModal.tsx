@@ -10,9 +10,11 @@ import {
   CheckCircle2,
   Share2,
   Zap,
+  ZoomIn,
 } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { Product360ViewerModal } from './Product360ViewerModal';
+import { ProductImageZoomModal } from './ProductImageZoomModal';
 
 export interface Product {
   id: string;
@@ -39,6 +41,7 @@ interface ProductDetailModalProps {
   isWishlisted: boolean;
   onToggleWishlist: (productId: string, productName?: string) => void;
   onBuyNow?: (product: Product) => void;
+  onOpenImageZoom?: (product: Product) => void;
 }
 
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
@@ -49,10 +52,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   isWishlisted,
   onToggleWishlist,
   onBuyNow,
+  onOpenImageZoom,
 }) => {
   const [selectedQty, setSelectedQty] = useState(1);
   const [copiedShare, setCopiedShare] = useState(false);
   const [is360Open, setIs360Open] = useState(false);
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
 
   useEffect(() => {
     // Reset quantity whenever new product opens
@@ -181,21 +186,29 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           )}
 
-          {/* Large High-Res Product Image Showcase (Tap to open 360° Full Screen) */}
+          {/* Large High-Res Product Image Showcase (Tap to open Full-Screen Zoom Lightbox) */}
           <div 
             onClick={() => {
               haptics.selection();
-              setIs360Open(true);
+              if (onOpenImageZoom) {
+                onOpenImageZoom(product);
+              } else {
+                setIsZoomOpen(true);
+              }
             }}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
-                setIs360Open(true);
+                if (onOpenImageZoom) {
+                  onOpenImageZoom(product);
+                } else {
+                  setIsZoomOpen(true);
+                }
               }
             }}
-            title="Tap to view product in full-screen 360°"
-            className="relative aspect-square w-full rounded-2xl overflow-hidden bg-slate-50 dark:bg-[#1A1638] shadow-inner border border-slate-100 dark:border-slate-800 group cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-[#2418D8]"
+            title="Tap to zoom and view full-screen image"
+            className="relative aspect-square w-full rounded-2xl overflow-hidden bg-slate-50 dark:bg-[#1A1638] shadow-inner border border-slate-100 dark:border-slate-800 group cursor-zoom-in focus:outline-hidden focus:ring-2 focus:ring-[#2418D8]"
           >
             <img
               src={product.image}
@@ -213,9 +226,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               In Stock &bull; Ready to Ship
             </span>
 
-            {/* 360° View Badge on Hero Image */}
+            {/* Flipkart-Style Zoom Badge */}
             <div
-              className="absolute bottom-3 right-3 z-10 bg-white/95 dark:bg-[#14112B]/95 group-hover:bg-white text-slate-900 dark:text-white px-3 py-1.5 rounded-full shadow-lg border border-slate-200/90 dark:border-slate-700 flex items-center gap-2 transition-all group-active:scale-95 group-hover:scale-105 ring-2 ring-indigo-500/20 pointer-events-none"
+              className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-full shadow-lg border border-white/20 flex items-center gap-1.5 text-[11px] font-bold group-hover:bg-[#2418D8] transition-colors pointer-events-none"
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+              <span>Tap to Zoom</span>
+            </div>
+
+            {/* 360° Quick Launch Pill */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                haptics.selection();
+                setIs360Open(true);
+              }}
+              className="absolute bottom-3 right-3 z-10 bg-white/95 dark:bg-[#14112B]/95 hover:bg-white text-slate-900 dark:text-white px-3 py-1.5 rounded-full shadow-lg border border-slate-200/90 dark:border-slate-700 flex items-center gap-2 transition-all active:scale-95 hover:scale-105 ring-2 ring-indigo-500/20 cursor-pointer"
+              title="View product in 360° view"
             >
               <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-[#2418D8] to-purple-600 text-white flex items-center justify-center">
                 <RotateCcw className="w-3 h-3 animate-spin-slow" />
@@ -225,10 +253,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   360° VIEW
                 </span>
                 <span className="text-[8px] text-slate-500 dark:text-slate-400 font-semibold">
-                  Tap for Full Screen
+                  Tap to rotate
                 </span>
               </div>
-            </div>
+            </button>
           </div>
 
           {/* AARVO 360° Interactive Full-Screen Banner */}
@@ -415,6 +443,19 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         onClose={() => setIs360Open(false)}
         onAddToCart={onAddToCart}
         onBuyNow={onBuyNow}
+      />
+
+      {/* Full-Screen Image Zoom Lightbox Modal */}
+      <ProductImageZoomModal
+        product={product}
+        isOpen={isZoomOpen}
+        onClose={() => setIsZoomOpen(false)}
+        onAddToCart={onAddToCart}
+        onBuyNow={onBuyNow}
+        onOpen360={() => {
+          setIsZoomOpen(false);
+          setIs360Open(true);
+        }}
       />
     </div>
   );

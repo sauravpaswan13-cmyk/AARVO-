@@ -47,6 +47,7 @@ import { ScrollToTop } from './ScrollToTop';
 import { MainScreenSkeleton } from './MainScreenSkeleton';
 import { ProductDetailModal, Product } from './ProductDetailModal';
 import { Product360ViewerModal } from './Product360ViewerModal';
+import { ProductImageZoomModal } from './ProductImageZoomModal';
 import { OrdersSection, Order, OrderItem } from './OrdersSection';
 import { haptics } from '../utils/haptics';
 
@@ -100,6 +101,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [product360Modal, setProduct360Modal] = useState<Product | null>(null);
+  const [zoomImageProduct, setZoomImageProduct] = useState<Product | null>(null);
 
   // Orders purchase history state with realistic data
   const [orders, setOrders] = useState<Order[]>(() => {
@@ -2505,6 +2507,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           onAddToCart={(prod) => addToCart(prod)}
           isWishlisted={selectedProduct ? wishlist.includes(selectedProduct.id) : false}
           onToggleWishlist={toggleWishlist}
+          onOpenImageZoom={(prod) => setZoomImageProduct(prod)}
           onBuyNow={(prod) => {
             addToCart(prod);
             setSelectedProduct(null);
@@ -2524,6 +2527,25 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             addToCart(prod);
             setProduct360Modal(null);
             switchTab('cart');
+          }}
+        />
+
+        {/* ================================================================= */}
+        {/* 15. FLIPKART-STYLE FULL-SCREEN IMAGE ZOOM LIGHTBOX MODAL          */}
+        {/* ================================================================= */}
+        <ProductImageZoomModal
+          product={zoomImageProduct}
+          isOpen={!!zoomImageProduct}
+          onClose={() => setZoomImageProduct(null)}
+          onAddToCart={(prod) => addToCart(prod)}
+          onBuyNow={(prod) => {
+            addToCart(prod);
+            setZoomImageProduct(null);
+            switchTab('cart');
+          }}
+          onOpen360={(prod) => {
+            setZoomImageProduct(null);
+            setProduct360Modal(prod);
           }}
         />
 
