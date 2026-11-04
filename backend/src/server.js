@@ -219,7 +219,13 @@ app.put('/v1/seller/profile/pickup', { preHandler: requireRole('SELLER') }, asyn
   await audit(pool, request.user, 'SELLER_PROFILE', request.user.sub, 'PICKUP_DETAILS_UPDATED');
   return result.rows[0];
 });
-app.get('/v1/seller/orders', { preHandler: requireRole('SELLER') }, async (request, reply) => { if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' }); return (await pool.query(`SELECT o.id,o.buyer_id,o.total_paise,o.payment_method,o.cod_collected_at,o.cod_collection_reference,o.payment_status,o.status,o.tracking_json,o.created_at,o.updated_at,COALESCE(json_agg(json_build_object('productId',ol.product_id,'quantity',ol.quantity,'unitPricePaise',ol.unit_price_paise,'sellerAmountPaise',ol.seller_amount_paise)) FILTER (WHERE ol.order_id IS NOT NULL),'[]') AS items FROM orders o JOIN order_lines ol ON ol.order_id=o.id WHERE ol.seller_id=$1 GROUP BY o.id ORDER BY o.created_at DESC LIMIT 200`, [request.user.sub])).rows; });
+app.get('/v1/seller/orders', { preHandler: requireRole('SELLER') }, async (request, reply) => {
+  if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
+  return (await pool.query(`SELECT o.id,o.buyer_id,o.total_paise,o.payment_method,o.cod_collected_at,o.cod_collection_reference,o.payment_status,o.status,o.tracking_json,o.created_at,o.updated_at,
+    EXISTS (SELECT 1 FROM delivery_events de WHERE de.order_id=o.id AND de.actor_id=$1 AND de.status='PACKED') AS seller_packed,
+    COALESCE(json_agg(json_build_object('productId',ol.product_id,'quantity',ol.quantity,'unitPricePaise',ol.unit_price_paise,'sellerAmountPaise',ol.seller_amount_paise)) FILTER (WHERE ol.order_id IS NOT NULL),'[]') AS items
+    FROM orders o JOIN order_lines ol ON ol.order_id=o.id WHERE ol.seller_id=$1 GROUP BY o.id ORDER BY o.created_at DESC LIMIT 200`, [request.user.sub])).rows;
+});
 
 app.put('/v1/seller/products/:id', { preHandler: requireRole('SELLER') }, async (request, reply) => {
   if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
@@ -288,13 +294,24 @@ app.get('/v1/admin/sellers', { preHandler: requireRole('ADMIN') }, async (reques
 app.post('/v1/admin/sellers/:id/verify', { preHandler: requireRole('ADMIN') }, async (request, reply) => { if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' }); const verified = Boolean(request.body?.verified); const result = await pool.query('UPDATE seller_profiles SET verified=$1,verified_at=CASE WHEN $1 THEN now() ELSE NULL END,verified_by=CASE WHEN $1 THEN $3 ELSE NULL END WHERE seller_id=$2 RETURNING seller_id,verified,verified_at,verified_by,payout_account_ready', [verified, request.params.id, request.user.sub]); if (!result.rowCount) return reply.code(404).send({ error: 'SELLER_NOT_FOUND' }); await audit(pool, request.user, 'SELLER', request.params.id, verified ? 'VERIFIED' : 'UNVERIFIED'); return result.rows[0]; });
 app.get('/v1/checkout/options', { preHandler: requireRole('BUYER') }, async (request, reply) => {
   const codEnabled = String(process.env.AARVO_COD_ENABLED || '').toLowerCase() === 'true';
-  return { paymentMethods: ['RAZORPAY', ...(codEnabled ? ['COD'] : [])], codEnabled, razorpayEnabled: Boolean(razorpay) };
+  const testCheckout = String(process.env.AARVO_TEST_CHECKOUT || '').toLowerCase() === 'true';
+  return {
+    paymentMethods: ['RAZORPAY', ...(codEnabled ? ['COD'] : [])],
+    codEnabled,
+    razorpayEnabled: Boolean(razorpay),
+    paymentMode: testCheckout ? 'TEST' : 'LIVE',
+    livePaymentReady: Boolean(razorpay && !testCheckout)
+  };
 });
 app.post('/v1/orders', { preHandler: requireRole('BUYER') }, async (request, reply) => {
   if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
   const testCheckout = String(process.env.AARVO_TEST_CHECKOUT || '').toLowerCase() === 'true';
   const codEnabled = String(process.env.AARVO_COD_ENABLED || '').toLowerCase() === 'true';
   const paymentMethod = String(request.body?.paymentMethod || 'RAZORPAY').trim().toUpperCase();
+  // Public website checkout must never create a fake paid order in test mode.
+  if (String(request.body?.clientPlatform || '').toUpperCase() === 'WEB' && testCheckout) {
+    return reply.code(503).send({ error: 'LIVE_PAYMENTS_NOT_CONFIGURED' });
+  }
   if (!['RAZORPAY', 'COD'].includes(paymentMethod)) return reply.code(400).send({ error: 'INVALID_PAYMENT_METHOD' });
   if (paymentMethod === 'COD' && !codEnabled) return reply.code(403).send({ error: 'COD_DISABLED' });
   if (paymentMethod === 'RAZORPAY' && !razorpay && !testCheckout) return reply.code(503).send({ error: 'PAYMENTS_NOT_CONFIGURED' });
