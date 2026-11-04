@@ -145,7 +145,6 @@ $('sortProducts').addEventListener('change',renderProducts);
 $('clearFilters').addEventListener('click',()=>{$('productSearch').value='';activeCategory='All';$('sortProducts').value='newest';renderCategories();renderProducts();});
 ['cartOverlay','productOverlay'].forEach(id=>$(id).addEventListener('click',e=>{if(e.target.id===id)e.target.classList.remove('open');}));
 
-const API_BASE='https://aarvo-api.onrender.com';
 let buyerToken=sessionStorage.getItem('aarvo_web_token')||'';
 let buyerUser=null;
 function checkoutMessage(kind,msg){const el=$(kind==='error'?'checkoutError':'checkoutSuccess');const other=$(kind==='error'?'checkoutSuccess':'checkoutError');other.style.display='none';el.textContent=msg;el.style.display='block';}
