@@ -310,9 +310,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [wishlist, setWishlist] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('aarvo_wishlist');
-      return saved ? JSON.parse(saved) : ['p2'];
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return ['p2'];
+      return [];
     }
   });
 
@@ -2102,9 +2102,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       <Package className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF]" />
                       <span>Orders &amp; Delivery</span>
                     </div>
-                    <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-950 text-[#2418D8] dark:text-[#7B73FF] px-2 py-0.5 rounded-full">
-                      {orders.length}
-                    </span>
+                    {orders.length > 0 && (
+                      <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-950 text-[#2418D8] dark:text-[#7B73FF] px-2 py-0.5 rounded-full">
+                        {orders.length}
+                      </span>
+                    )}
                   </button>
 
                   <button
@@ -2118,9 +2120,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
                       <span>My Wishlist</span>
                     </div>
-                    <span className="text-[10px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-300 px-2 py-0.5 rounded-full">
-                      {wishlist.length}
-                    </span>
+                    {wishlist.length > 0 && (
+                      <span className="text-[10px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-300 px-2 py-0.5 rounded-full">
+                        {wishlist.length}
+                      </span>
+                    )}
                   </button>
 
                   <button

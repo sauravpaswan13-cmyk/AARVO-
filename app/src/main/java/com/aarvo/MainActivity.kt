@@ -330,6 +330,19 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
             unreadNotificationCount = 0
         }
     }
+    var userOrderCount by remember { mutableIntStateOf(0) }
+    LaunchedEffect(api, guestMode, role) {
+        if (!guestMode && role == "BUYER") {
+            try {
+                val ord = api.orders()
+                userOrderCount = ord.length()
+            } catch (_: Throwable) {
+                userOrderCount = 0
+            }
+        } else {
+            userOrderCount = 0
+        }
+    }
     val cartItems by cartViewModel.items.collectAsState()
     val cartBadgeCount = cartItems.sumOf { cartViewModel.quantity(it.id) }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }; var wishlist by remember { mutableStateOf(wishlistStore.load()) }; var recentlyViewed by remember { mutableStateOf<List<Product>>(emptyList()) }
@@ -534,11 +547,11 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         }
                     )
 
-                    // 4. Orders & Delivery (badge "2")
+                    // 4. Orders & Delivery
                     DrawerNavRow(
                         icon = "📦",
                         label = "Orders & Delivery",
-                        badge = "2",
+                        badge = if (userOrderCount > 0) "$userOrderCount" else null,
                         badgeColor = Color(0xFFDBEAFE),
                         badgeTextColor = Color(0xFF2418D8),
                         textColor = itemTextColor,
@@ -548,11 +561,11 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         }
                     )
 
-                    // 5. My Wishlist (badge "2")
+                    // 5. My Wishlist
                     DrawerNavRow(
                         icon = "❤️",
                         label = "My Wishlist",
-                        badge = "${wishlist.size.coerceAtLeast(2)}",
+                        badge = if (wishlist.isNotEmpty()) "${wishlist.size}" else null,
                         badgeColor = Color(0xFFFFE4E6),
                         badgeTextColor = Color(0xFFE11D48),
                         textColor = itemTextColor,
