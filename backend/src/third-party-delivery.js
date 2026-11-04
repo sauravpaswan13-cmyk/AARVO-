@@ -284,6 +284,10 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
     mode:'THIRD_PARTY_ONLY',pickupLocation:pickupLocation()||'seller-specific'
   }));
   app.post('/v1/admin/orders/:id/third-party-delivery',{preHandler:requireRole('ADMIN')},async(request,reply)=>{
+    // The seller PACKED action already queues automatic Shiprocket creation.
+    // Never race a manual admin click against a queued/processing shipment job.
+    const activeJob=await pool.query("SELECT status FROM third_party_delivery_jobs WHERE order_id=$1 AND status IN ('PENDING','PROCESSING','RETRY') LIMIT 1",[request.params.id]);
+    if(activeJob.rowCount)return reply.code(409).send({error:'DELIVERY_JOB_ALREADY_QUEUED',jobStatus:activeJob.rows[0].status});
     try { return reply.code(201).send(await createThirdPartyShipmentForOrder({pool,audit,orderId:request.params.id,actor:request.user})); }
     catch(error) {
       if(error.code==='DELIVERY_ALREADY_CREATED') return reply.code(409).send({error:error.code,shipment:error.shipment});
