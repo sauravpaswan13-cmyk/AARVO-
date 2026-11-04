@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://aarvo-official-website.onrender.com/sitemap.xml
