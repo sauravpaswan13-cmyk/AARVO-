@@ -173,7 +173,7 @@ export default function App() {
     >
       {currentScreen === 'splash' && (
         <SplashScreen
-          duration={1300}
+          duration={2000}
           onFinish={() => setCurrentScreen('login')}
         />
       )}

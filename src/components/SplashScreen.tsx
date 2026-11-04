@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 
 interface SplashScreenProps {
   onFinish: () => void;
-  duration?: number; // 1300ms = 1.3 seconds
+  duration?: number; // 2000ms = 2.0 seconds
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({
   onFinish,
-  duration = 1300,
+  duration = 2000,
 }) => {
   const [progress, setProgress] = useState(0);
 

@@ -107,7 +107,7 @@ class SplashActivity : ComponentActivity() {
         if (report.exists()) {
             showCrashReport(report)
         } else {
-            handler.postDelayed({ openPhoneLogin() }, 1300L)
+            handler.postDelayed({ openPhoneLogin() }, 2000L)
         }
     }
 
