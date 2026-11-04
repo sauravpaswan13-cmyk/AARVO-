@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Menu,
   Bell,
@@ -91,6 +91,97 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState('');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  const startVoiceSearch = useCallback(() => {
+    setVoiceError(null);
+    setVoiceTranscript('');
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setVoiceError('Voice recognition is not supported in this browser. Please type to search.');
+      return;
+    }
+
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-IN';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsVoiceListening(true);
+        setVoiceError(null);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join('');
+        setVoiceTranscript(transcript);
+
+        if (event.results[0] && event.results[0].isFinal) {
+          const finalClean = transcript.trim();
+          if (finalClean) {
+            setSearchQuery(finalClean);
+            haptics.success();
+            setTimeout(() => {
+              setIsVoiceModalOpen(false);
+              setIsVoiceListening(false);
+            }, 750);
+          }
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        if (event.error === 'not-allowed') {
+          setVoiceError('Microphone permission denied. Please allow microphone access in your browser settings.');
+        } else if (event.error !== 'no-speech') {
+          setVoiceError(`Voice recognition: ${event.error || 'Could not understand audio'}`);
+        }
+        setIsVoiceListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsVoiceListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (_err) {
+      setVoiceError('Microphone access could not be initialized.');
+      setIsVoiceListening(false);
+    }
+  }, []);
+
+  const stopVoiceSearch = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setIsVoiceListening(false);
+  }, []);
+
+  useEffect(() => {
+    if (isVoiceModalOpen) {
+      startVoiceSearch();
+    } else {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+      setIsVoiceListening(false);
+      setVoiceTranscript('');
+      setVoiceError(null);
+    }
+  }, [isVoiceModalOpen, startVoiceSearch]);
   const [isSellerModalOpen, setIsSellerModalOpen] = useState(false);
   const [sellerModalTab, setSellerModalTab] = useState<'overview' | 'register'>('overview');
   const [sellerRegistered, setSellerRegistered] = useState(false);
@@ -2072,7 +2163,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               onClick={() => setIsVoiceModalOpen(false)}
               className="fixed inset-0 bg-black/60 backdrop-blur-xs"
             />
-            <div className="relative w-full max-w-xs bg-white dark:bg-[#181436] text-slate-900 dark:text-slate-100 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-2xl z-10 text-center flex flex-col items-center">
+            <div className="relative w-full max-w-sm bg-white dark:bg-[#181436] text-slate-900 dark:text-slate-100 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-2xl z-10 text-center flex flex-col items-center">
               <button
                 onClick={() => setIsVoiceModalOpen(false)}
                 className="absolute top-4 right-4 p-1 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg"
@@ -2080,39 +2171,65 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#2418D8] dark:text-[#7B73FF] flex items-center justify-center mb-4 relative">
-                <div className="absolute inset-0 rounded-full border-2 border-[#2418D8] animate-ping opacity-30" />
-                <Mic className="w-8 h-8 text-[#2418D8] dark:text-[#7B73FF]" />
-              </div>
+              <button
+                onClick={() => {
+                  if (isVoiceListening) {
+                    stopVoiceSearch();
+                  } else {
+                    startVoiceSearch();
+                  }
+                }}
+                className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 relative transition-all active:scale-95 ${
+                  isVoiceListening
+                    ? 'bg-gradient-to-tr from-[#2418D8] to-indigo-500 text-white shadow-lg shadow-indigo-500/30'
+                    : 'bg-blue-50 dark:bg-blue-950/40 text-[#2418D8] dark:text-[#7B73FF]'
+                }`}
+                title={isVoiceListening ? "Tap to stop listening" : "Tap to speak"}
+              >
+                {isVoiceListening && (
+                  <div className="absolute inset-0 rounded-full border-4 border-[#2418D8] animate-ping opacity-35" />
+                )}
+                <Mic className="w-9 h-9" />
+              </button>
 
-              <h3 className="font-display font-black text-base text-slate-900 dark:text-white mb-1">
-                Listening...
+              <h3 className="font-display font-black text-lg text-slate-900 dark:text-white mb-1">
+                {isVoiceListening ? 'Listening...' : voiceTranscript ? 'Recognized!' : 'Tap to Speak'}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-                Say product name, brand or category
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 px-2">
+                {voiceTranscript ? (
+                  <span className="font-medium text-slate-800 dark:text-slate-200 text-sm italic">
+                    &ldquo;{voiceTranscript}&rdquo;
+                  </span>
+                ) : (
+                  'Speak product name, category, or brand hands-free'
+                )}
               </p>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setSearchQuery('Smartphones');
-                    setIsVoiceModalOpen(false);
-                    setActiveTab('categories');
-                  }}
-                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300"
-                >
-                  &ldquo;Smartphones&rdquo;
-                </button>
-                <button
-                  onClick={() => {
-                    setSearchQuery('Kurti');
-                    setIsVoiceModalOpen(false);
-                    setActiveTab('categories');
-                  }}
-                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300"
-                >
-                  &ldquo;Fashion&rdquo;
-                </button>
+              {voiceError && (
+                <div className="mb-3 px-3 py-2 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 rounded-xl text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1.5 text-left">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{voiceError}</span>
+                </div>
+              )}
+
+              <div className="w-full pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
+                  Or Quick Voice Prompts
+                </p>
+                <div className="flex flex-wrap justify-center gap-1.5">
+                  {['Smartphones', 'Kurtis & Sarees', 'Running Shoes', 'Smart Watches'].map((sample) => (
+                    <button
+                      key={sample}
+                      onClick={() => {
+                        setSearchQuery(sample);
+                        setIsVoiceModalOpen(false);
+                      }}
+                      className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors"
+                    >
+                      {sample}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

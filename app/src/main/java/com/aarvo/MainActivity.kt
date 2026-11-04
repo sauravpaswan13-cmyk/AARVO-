@@ -2,9 +2,12 @@ package com.aarvo
 
 // CI verification marker: account settings UI update requires Android build validation.
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.speech.RecognizerIntent
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -303,6 +306,18 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }; var query by remember { mutableStateOf("") }; var category by remember { mutableStateOf("All") }; var sortMode by remember { mutableStateOf("Relevance") }; var minRating by remember { mutableStateOf(0.0) }; var maxPrice by remember { mutableStateOf<Long?>(null) }; var inStockOnly by remember { mutableStateOf(false) }; var showFilters by remember { mutableStateOf(false) }; var showNotifications by remember { mutableStateOf(false) }
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
+    val voiceSpeechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            if (!spoken.isNullOrBlank()) {
+                query = spoken
+                if (selectedTab != 0 && selectedTab != 1) selectedTab = 0
+                Toast.makeText(activity, "Searching for: $spoken", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     LaunchedEffect(api) {
         try {
             val a = api.notifications()
@@ -704,10 +719,25 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                                     Text("✕", fontSize = 12.sp, color = Color(0xFF94A3B8))
                                 }
                             }
-                            Text(
-                                "🎙️",
-                                fontSize = 16.sp
-                            )
+                            IconButton(
+                                onClick = {
+                                    try {
+                                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to search products on AARVO...")
+                                        }
+                                        voiceSpeechLauncher.launch(intent)
+                                    } catch (_: Exception) {
+                                        Toast.makeText(activity, "Voice search is not supported on this device", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Text(
+                                    "🎙️",
+                                    fontSize = 16.sp
+                                )
+                            }
                         }
                     }
                 }
