@@ -19,9 +19,15 @@ test('Shiprocket diagnostic is Admin-only and read-only', () => {
   assert.match(diagnostic, /pickupBooked:false/);
 });
 
-test('Shiprocket package measurements must be explicitly configured', () => {
+test('Shiprocket package measurements come from seller-entered product parcel data', () => {
   assert.match(source, /SHIPROCKET_PACKAGE_DIMENSIONS_REQUIRED/);
-  assert.match(source, /Number\(process\.env\.SHIPROCKET_PACKAGE_WEIGHT_KG\|\|0\)/);
+  assert.match(source, /package_length_cm/);
+  assert.match(source, /package_breadth_cm/);
+  assert.match(source, /package_height_cm/);
+  assert.match(source, /package_weight_kg/);
+  assert.match(source, /box\.weight\+=weight\*qty/);
+  assert.match(source, /length:parcel\.length,breadth:parcel\.breadth,height:parcel\.height,weight:parcel\.weight/);
+  assert.doesNotMatch(source, /SHIPROCKET_PACKAGE_WEIGHT_KG/);
 });
 
 test('Shiprocket live booking remains feature-flagged off by default', () => {
