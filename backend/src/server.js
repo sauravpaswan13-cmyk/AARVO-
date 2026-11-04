@@ -223,6 +223,7 @@ app.get('/v1/seller/orders', { preHandler: requireRole('SELLER') }, async (reque
   if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
   return (await pool.query(`SELECT o.id,o.buyer_id,o.total_paise,o.payment_method,o.cod_collected_at,o.cod_collection_reference,o.payment_status,o.status,o.tracking_json,o.created_at,o.updated_at,
     EXISTS (SELECT 1 FROM delivery_events de WHERE de.order_id=o.id AND de.actor_id=$1 AND de.status='PACKED') AS seller_packed,
+    (SELECT COUNT(*)::int FROM order_lines ol2 JOIN products p2 ON p2.id=ol2.product_id WHERE ol2.order_id=o.id AND ol2.seller_id=$1 AND (p2.package_length_cm IS NULL OR p2.package_breadth_cm IS NULL OR p2.package_height_cm IS NULL OR p2.package_weight_kg IS NULL OR p2.package_length_cm<=0 OR p2.package_breadth_cm<=0 OR p2.package_height_cm<=0 OR p2.package_weight_kg<=0)) AS missing_package_items,
     COALESCE(json_agg(json_build_object('productId',ol.product_id,'quantity',ol.quantity,'unitPricePaise',ol.unit_price_paise,'sellerAmountPaise',ol.seller_amount_paise)) FILTER (WHERE ol.order_id IS NOT NULL),'[]') AS items
     FROM orders o JOIN order_lines ol ON ol.order_id=o.id WHERE ol.seller_id=$1 GROUP BY o.id ORDER BY o.created_at DESC LIMIT 200`, [request.user.sub])).rows;
 });
