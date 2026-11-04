@@ -1026,11 +1026,106 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
         if (loading) item { CircularProgressIndicator() }
         if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }
         if (!loading && error.isBlank() && products.isEmpty()) item { Text("No products match your current search or filters.") }
-        items(products, key = { it.id }) { product -> ProductCard(product, product.id in wishlist, onAdd, { scope.launch { runCatching { api.markProductViewed(product.id) }; onOpen(product) } }, onToggleWishlist) }
+        items(products.chunked(2)) { rowProducts ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+                rowProducts.forEach { product ->
+                    ProductCard(
+                        product = product,
+                        isSaved = product.id in wishlist,
+                        onAdd = onAdd,
+                        onOpen = { scope.launch { runCatching { api.markProductViewed(product.id) }; onOpen(product) } },
+                        onToggleWishlist = onToggleWishlist,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (rowProducts.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
     }
 }
 
-@Composable private fun ProductCard(product: Product, isSaved: Boolean, onAdd: (Product) -> Unit, onOpen: (Product) -> Unit, onToggleWishlist: (Int) -> Unit) { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { if (!product.imageUrl.isNullOrBlank()) AsyncImage(model = product.imageUrl, contentDescription = product.name, modifier = Modifier.fillMaxWidth().height(190.dp), contentScale = ContentScale.Crop) else Text(product.emoji, style = MaterialTheme.typography.headlineLarge); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)); IconButton(onClick = { onToggleWishlist(product.id) }) { Icon(if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Wishlist") } }; Text(product.category, style = MaterialTheme.typography.bodySmall); Text(product.displayPrice, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = { onOpen(product) }) { Text("View details") }; TextButton(onClick = { onAdd(product) }) { Text("Add to cart") } } } } }
+@Composable
+private fun ProductCard(
+    product: Product,
+    isSaved: Boolean,
+    onAdd: (Product) -> Unit,
+    onOpen: (Product) -> Unit,
+    onToggleWishlist: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+        Column(
+            Modifier.fillMaxWidth().padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Box(
+                Modifier.fillMaxWidth().height(116.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFFF8F8F8))
+                    .clickable { onOpen(product) },
+                contentAlignment = Alignment.Center
+            ) {
+                if (!product.imageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = product.imageUrl,
+                        contentDescription = product.name,
+                        modifier = Modifier.fillMaxWidth().height(116.dp).padding(4.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                } else {
+                    Text(product.emoji, style = MaterialTheme.typography.headlineLarge)
+                }
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    product.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    modifier = Modifier.weight(1f),
+                    minLines = 2
+                )
+                IconButton(
+                    onClick = { onToggleWishlist(product.id) },
+                    modifier = Modifier.size(30.dp)
+                ) {
+                    Icon(
+                        if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Wishlist",
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            Text(product.category, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            Text(
+                product.displayPrice,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF2418D8),
+                maxLines = 1
+            )
+            Text("★ ${product.rating}", style = MaterialTheme.typography.labelSmall)
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                TextButton(
+                    onClick = { onOpen(product) },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
+                ) { Text("View", fontSize = 11.sp, maxLines = 1) }
+                TextButton(
+                    onClick = { onAdd(product) },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
+                ) { Text("Add", fontSize = 11.sp, maxLines = 1) }
+            }
+        }
+    }
+}
 
 @Composable private fun ProductDetailsScreen(product: Product, isSaved: Boolean, onBack: () -> Unit, onToggleWishlist: () -> Unit, onAdd: (Product) -> Unit) { Scaffold(topBar = { TopAppBar(title = { Text("Product details") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { padding -> Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { if (!product.imageUrl.isNullOrBlank()) AsyncImage(model = product.imageUrl, contentDescription = product.name, modifier = Modifier.fillMaxWidth().height(260.dp), contentScale = ContentScale.Fit) else Text(product.emoji, style = MaterialTheme.typography.headlineLarge); Text(product.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(product.category); Text(product.displayPrice, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description); Text("Stock available: ${product.stockQuantity}"); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { onAdd(product) }) { Text("Add to cart") }; TextButton(onClick = onToggleWishlist) { Text(if (isSaved) "Remove from wishlist" else "Save to wishlist") } } } } }
 
