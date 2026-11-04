@@ -26,15 +26,29 @@ footer{background:#17191c;color:#fff;padding:34px 0}.foot{display:flex;justify-c
 @media(max-width:760px){.catalog-grid{grid-template-columns:1fr 1fr}.product-card img{height:145px}.catalog-tools{flex-direction:column}}
 
 @media(max-width:760px){nav{display:none}.hero{padding:58px 0}.hero-grid{grid-template-columns:1fr;gap:30px}.visual{min-height:260px}.cards{grid-template-columns:1fr}.policy-grid{grid-template-columns:1fr}.band{display:block;padding:28px}.section-title{font-size:29px}}
+
+.announcement{background:#202124;color:#fff;text-align:center;padding:9px 15px;font-size:12px;letter-spacing:.04em}
+.brand-mark{width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:var(--orange);color:#fff;font-size:20px;font-weight:900;letter-spacing:-1px}
+.cart-trigger{padding:10px 15px;cursor:pointer}.cart-count{display:inline-grid;place-items:center;background:var(--orange);color:#fff;border-radius:20px;min-width:22px;height:22px;font-size:12px;margin-left:6px;padding:0 5px}
+.trust-row{display:flex;gap:18px;flex-wrap:wrap;margin-top:28px;color:#657080;font-size:12px;font-weight:700}.trust-row span:before{content:"✓";color:var(--orange);font-weight:900;margin-right:7px}
+.hero-art{width:260px;height:245px;position:relative;z-index:1}.art-bag{position:absolute;width:135px;height:145px;left:60px;top:75px;background:linear-gradient(145deg,#f36b21,#ff9b5f);border-radius:20px 20px 30px 30px;transform:rotate(-7deg);box-shadow:0 25px 35px #b64c2430}.art-bag:before{content:"";position:absolute;width:60px;height:45px;border:8px solid #d85a1b;border-bottom:0;border-radius:40px 40px 0 0;left:30px;top:-36px}.art-box{position:absolute;width:95px;height:95px;right:4px;bottom:18px;background:linear-gradient(145deg,#ffe0c9,#ffc49e);border-radius:17px;transform:rotate(9deg);box-shadow:0 15px 28px #a95d3430}.art-orb{position:absolute;width:45px;height:45px;left:22px;top:30px;background:#fff;border-radius:50%;box-shadow:0 10px 30px #d96d3c30}
+.catalog-tools{max-width:100%;align-items:center}.catalog-tools select{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fff;font:inherit;color:var(--ink)}
+.category-filters{display:flex;gap:9px;flex-wrap:wrap;margin:0 0 20px}.category-chip{border:1px solid var(--line);border-radius:30px;padding:9px 15px;background:#fff;color:#5c6470;font:inherit;font-size:13px;cursor:pointer}.category-chip.active,.category-chip:hover{background:#fff0e7;border-color:#ffc6a5;color:#c65318}
+.catalog-summary{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px;margin-bottom:12px}.text-button{border:0;background:none;color:var(--orange);font-weight:700;cursor:pointer}
+.catalog-grid{grid-template-columns:repeat(4,1fr)}.product-card{transition:transform .2s,box-shadow .2s}.product-card:hover{transform:translateY(-4px);box-shadow:0 16px 35px #2a1b1010}.product-card .image-wrap{height:205px;background:linear-gradient(145deg,#fff6ef,#fff);display:grid;place-items:center;overflow:hidden}.product-card img{width:100%;height:100%;object-fit:contain}.product-card .no-image{font-size:12px;color:#a0a4aa;letter-spacing:.12em;text-transform:uppercase}.product-info{padding:16px}.product-info h3{min-height:42px}.product-actions{display:flex;gap:8px;margin-top:14px}.product-actions button{flex:1;border-radius:10px;padding:10px 8px;font-weight:750;font-size:12px;cursor:pointer}.add-button{border:1px solid var(--orange);background:var(--orange);color:#fff}.view-button{border:1px solid var(--line);background:#fff;color:#4f5661}
+.overlay{position:fixed;inset:0;background:#17191c80;z-index:20;display:none;align-items:center;justify-content:center;padding:18px}.overlay.open{display:flex}.panel{background:#fff;border-radius:22px;width:min(560px,100%);max-height:88vh;overflow:auto;padding:24px;box-shadow:0 25px 70px #0003}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.panel-head h2{margin:0;font-size:24px}.close-button{border:0;background:#f6f6f6;border-radius:50%;width:38px;height:38px;font-size:20px;cursor:pointer}.cart-line{display:grid;grid-template-columns:1fr auto;gap:12px;padding:16px 0;border-bottom:1px solid var(--line)}.cart-line h4{margin:0 0 6px}.cart-line small{color:var(--muted)}.qty-controls{display:flex;align-items:center;gap:8px;margin-top:9px}.qty-controls button{border:1px solid var(--line);background:#fff;border-radius:8px;width:28px;height:28px;cursor:pointer}.cart-total{display:flex;justify-content:space-between;font-size:19px;font-weight:850;padding:20px 0}.cart-empty{text-align:center;color:var(--muted);padding:34px 8px}.detail-image{width:100%;height:250px;object-fit:contain;background:#fff7f1;border-radius:14px;margin:16px 0}.panel .btn{border:0;cursor:pointer}
+@media(max-width:900px){.catalog-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:650px){.catalog-grid{grid-template-columns:repeat(2,1fr)}.product-card .image-wrap{height:150px}.catalog-tools{flex-wrap:wrap}.catalog-tools input{width:100%}.catalog-tools select{flex:1}.trust-row{gap:10px}.hero-art{transform:scale(.86)}}
+
 </style>
 </head>
 <body>
-<header><div class="wrap nav"><a class="brand" href="#home"><span class="cart">🛒</span>AARVO</a><nav><a href="#about">About</a><a href="#categories">Shopping</a><a href="#policies">Policies</a><a href="#contact">Contact</a></nav><a class="btn" href="#contact">Get in touch</a></div></header>
+<header><div class="wrap nav"><a class="brand" href="#home"><span class="brand-mark">A</span>AARVO</a><nav><a href="#live-products">Shop</a><a href="#about">About</a><a href="#categories">Categories</a><a href="#policies">Policies</a><a href="#contact">Support</a></nav><button class="btn secondary cart-trigger" id="openCart" type="button">My Cart <span id="cartCount" class="cart-count">0</span></button></div></header>
 <main id="home">
-<section class="hero"><div class="wrap hero-grid"><div><span class="eyebrow">Your everyday shopping destination</span><h1>Good finds.<br><span>Simple shopping.</span></h1><p class="lead">Discover everyday essentials, useful local products and seasonal favourites with AARVO. A convenient shopping experience designed around customers and local sellers.</p><div class="actions"><a class="btn" href="#categories">Explore AARVO</a><a class="btn secondary" href="#about">Know our story</a></div></div><div class="visual"><span class="float f1">Everyday essentials</span><div class="basket">🛍️</div><span class="float f2">Local favourites</span></div></div></section>
+<div class="announcement">AARVO Marketplace · Discover products from participating local sellers</div><section class="hero"><div class="wrap hero-grid"><div><span class="eyebrow">Your everyday shopping destination</span><h1>Good finds.<br><span>Simple shopping.</span></h1><p class="lead">Discover everyday essentials, useful local products and seasonal favourites from AARVO sellers. Browse live listings, compare prices and save items to your cart.</p><div class="actions"><a class="btn" href="#live-products">Explore products</a><a class="btn secondary" href="#about">Know our story</a></div><div class="trust-row"><span>Live seller listings</span><span>Transparent prices</span><span>Local favourites</span></div></div><div class="visual"><span class="float f1">Everyday essentials</span><div class="hero-art"><div class="art-bag"></div><div class="art-box"></div><div class="art-orb"></div></div><span class="float f2">Discover AARVO</span></div></div></section>
 <section id="about"><div class="wrap"><h2 class="section-title">Shopping that feels simple</h2><p class="section-sub">AARVO is being built to bring customers and sellers together through a clear, convenient online marketplace experience.</p><div class="cards"><article class="card"><div class="icon">🛒</div><h3>Easy discovery</h3><p>Browse useful products and seasonal essentials in one convenient place.</p></article><article class="card"><div class="icon">🏪</div><h3>Local sellers</h3><p>Discover products offered by sellers and small businesses on the AARVO marketplace.</p></article><article class="card"><div class="icon">📦</div><h3>Order updates</h3><p>Our platform is designed to support order management and delivery updates.</p></article></div></div></section>
 <section id="categories" style="padding-top:10px"><div class="wrap"><h2 class="section-title">What you can discover</h2><p class="section-sub">Product availability may vary by seller, service area and launch status.</p><div class="cards"><article class="card"><div class="icon">🏠</div><h3>Daily essentials</h3><p>Useful items for everyday home and personal needs.</p></article><article class="card"><div class="icon">🌼</div><h3>Festival & puja needs</h3><p>Seasonal and cultural essentials, subject to listing availability.</p></article><article class="card"><div class="icon">🥭</div><h3>Local favourites</h3><p>Selected local products from participating sellers.</p></article></div></div></section>
-<section id="live-products" style="padding-top:12px"><div class="wrap"><h2 class="section-title">Products from AARVO sellers</h2><p class="section-sub">Live published listings from the AARVO marketplace. Stock and prices are refreshed from the marketplace API.</p><div class="catalog-tools"><input id="productSearch" type="search" placeholder="Search products..." aria-label="Search products"><button class="btn" id="productSearchBtn" type="button">Search</button></div><div id="catalogState" class="catalog-state">Loading live products…</div><div id="catalogGrid" class="catalog-grid"></div><p class="catalog-note">This website currently supports product discovery only. Sign in and place orders through the AARVO app; website checkout and payment are not enabled.</p></div></section><section><div class="wrap"><div class="band"><div><h2 style="margin:0;font-size:28px">AARVO — made for convenient shopping</h2><p>We are preparing our marketplace experience and customer services. Product listings, payments and delivery options will be available as the platform launches in supported locations.</p></div><a class="btn" href="#contact">Contact AARVO</a></div></div></section>
+<section id="live-products" style="padding-top:12px"><div class="wrap"><h2 class="section-title">Products from AARVO sellers</h2><p class="section-sub">Live published listings from the AARVO marketplace. Stock and prices are refreshed from the marketplace API.</p><div class="catalog-tools"><input id="productSearch" type="search" placeholder="Search products, sellers or categories..." aria-label="Search products"><button class="btn" id="productSearchBtn" type="button">Search</button><select id="sortProducts" aria-label="Sort products"><option value="newest">Newest first</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="name">Name: A to Z</option></select></div><div id="categoryFilters" class="category-filters" aria-label="Filter by category"></div><div class="catalog-summary"><span id="resultCount">Loading marketplace…</span><button class="text-button" id="clearFilters" type="button">Clear filters</button></div><div id="catalogState" class="catalog-state">Loading live products…</div><div id="catalogGrid" class="catalog-grid"></div><p class="catalog-note">Your cart is saved on this device. Website checkout and online payment are not enabled yet; place final orders through the AARVO Android app.</p></div></section><section><div class="wrap"><div class="band"><div><h2 style="margin:0;font-size:28px">AARVO — made for convenient shopping</h2><p>We are preparing our marketplace experience and customer services. Product listings, payments and delivery options will be available as the platform launches in supported locations.</p></div><a class="btn" href="#contact">Contact AARVO</a></div></div></section>
 <section id="policies" class="policy"><div class="wrap"><h2 class="section-title">Customer information & policies</h2><p class="section-sub">Please review these policies before placing an order. The policies apply to orders placed through AARVO when the relevant service is live.</p><div class="policy-grid">
 <article id="privacy"><h3>Privacy Policy</h3><p>AARVO may collect information needed to provide marketplace services, such as contact details, delivery information, order details and support requests. We use this information to operate the service, process orders, coordinate delivery, prevent misuse and provide customer support.</p><p>We share only relevant information with service providers such as payment and delivery partners when needed to complete a transaction. We do not display sensitive account or payment credentials publicly. Payment details are handled by the relevant payment provider; AARVO does not ask customers to share OTPs or passwords with support staff.</p><p>For privacy questions or data requests, contact AARVO using the support channel shown in the app or the official contact details published on this website.</p></article>
 <article id="terms"><h3>Terms of Use</h3><p>By using AARVO, customers agree to provide accurate account, contact and delivery information and to use the platform lawfully. Product descriptions, prices, stock and delivery estimates are provided by participating sellers and may change before an order is confirmed.</p><p>An order is subject to seller acceptance, stock availability, successful payment where applicable and serviceability of the delivery address. AARVO may cancel or decline an order where necessary to prevent fraud, comply with law or resolve an operational issue.</p></article>
@@ -43,32 +57,87 @@ footer{background:#17191c;color:#fff;padding:34px 0}.foot{display:flex;justify-c
 </div></div></section>
 <section id="contact"><div class="wrap"><div class="contactbox"><h2 class="section-title">Need help?</h2><p class="section-sub" style="margin-bottom:18px">For order, seller, privacy or payment questions, please use the support option inside the AARVO app. Official business contact details will be published here once confirmed.</p><p style="color:#667085;font-size:13px">AARVO Marketplace · India</p></div></div></section>
 </main>
+<div class="overlay" id="cartOverlay" role="dialog" aria-modal="true" aria-label="Shopping cart"><div class="panel"><div class="panel-head"><h2>Your cart</h2><button class="close-button" data-close="cart" aria-label="Close cart">×</button></div><div id="cartContents"></div></div></div>
+<div class="overlay" id="productOverlay" role="dialog" aria-modal="true" aria-label="Product details"><div class="panel"><div class="panel-head"><h2>Product details</h2><button class="close-button" data-close="product" aria-label="Close details">×</button></div><div id="productDetails"></div></div></div>
 <footer><div class="wrap foot"><div><a class="brand" href="#home">🛒 AARVO</a><p>Shopping made simple.</p></div><div class="footlinks"><a href="#privacy">Privacy</a><a href="#terms">Terms</a><a href="#refund">Refunds</a><a href="#shipping">Shipping</a></div></div><div class="wrap"><p>© <span id="year"></span> AARVO. All rights reserved.</p></div></footer>
 <script>
 document.getElementById('year').textContent=new Date().getFullYear();
 const API_BASE='https://aarvo-api.onrender.com';
-const state=document.getElementById('catalogState'),grid=document.getElementById('catalogGrid');
+const $=id=>document.getElementById(id);
+const state=$('catalogState'),grid=$('catalogGrid');
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const money=p=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR'}).format(Number(p||0)/100);
-async function loadCatalog(){
- const q=document.getElementById('productSearch').value.trim();
- state.hidden=false;state.textContent='Loading live products…';grid.innerHTML='';
- try{
-  const url=new URL(API_BASE+'/v1/products');if(q)url.searchParams.set('q',q);
-  const response=await fetch(url,{headers:{Accept:'application/json'}});
-  if(!response.ok)throw new Error('HTTP '+response.status);
-  const products=await response.json();
-  if(!products.length){state.textContent='No published products are available right now.';return;}
-  state.hidden=true;
-  grid.innerHTML=products.map(p=>{
-   const image=String(p.image_url||'').trim();
-   const img=image?'<img loading="lazy" src="'+esc(image)+'" alt="'+esc(p.name)+'" onerror="this.style.display=\'none\'">':'';
-   return '<article class="product-card">'+img+'<div class="product-info"><h3>'+esc(p.name)+'</h3><div class="product-meta">'+esc(p.category||'AARVO product')+' · '+Math.max(0,Number(p.stock_quantity||0))+' in stock</div><div class="product-price">'+money(p.price_paise)+'</div></div></article>';
-  }).join('');
- }catch(err){state.hidden=false;state.textContent='Live products could not be loaded right now. Please try again later.';console.error('AARVO catalog',err);}
+const money=p=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(Number(p||0)/100);
+let products=[],activeCategory='All';
+let cart={};try{cart=JSON.parse(localStorage.getItem('aarvo_web_cart')||'{}')||{};}catch{cart={};}
+const saveCart=()=>{localStorage.setItem('aarvo_web_cart',JSON.stringify(cart));updateCartCount();};
+const updateCartCount=()=>{$('cartCount').textContent=Object.values(cart).reduce((n,x)=>n+Number(x.quantity||0),0);};
+function renderCategories(){
+ const cats=['All',...new Set(products.map(p=>String(p.category||'Other').trim()).filter(Boolean))];
+ $('categoryFilters').innerHTML=cats.map(c=>'<button class="category-chip '+(activeCategory===c?'active':'')+'" data-category="'+esc(c)+'">'+esc(c)+'</button>').join('');
 }
-document.getElementById('productSearchBtn').addEventListener('click',loadCatalog);
-document.getElementById('productSearch').addEventListener('keydown',e=>{if(e.key==='Enter')loadCatalog()});
-loadCatalog();
+function visibleProducts(){
+ let list=products.filter(p=>(activeCategory==='All'||String(p.category||'Other')===activeCategory));
+ const q=$('productSearch').value.trim().toLowerCase();
+ if(q)list=list.filter(p=>[p.name,p.category,p.description,p.seller_name].some(v=>String(v||'').toLowerCase().includes(q)));
+ const sort=$('sortProducts').value;
+ if(sort==='price-low')list.sort((a,b)=>Number(a.price_paise)-Number(b.price_paise));
+ if(sort==='price-high')list.sort((a,b)=>Number(b.price_paise)-Number(a.price_paise));
+ if(sort==='name')list.sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+ return list;
+}
+function renderProducts(){
+ const list=visibleProducts();$('resultCount').textContent=list.length+' product'+(list.length===1?'':'s')+' found';
+ if(!list.length){state.hidden=false;state.textContent=products.length?'No products match these filters. Try clearing your search.':'No published products are available yet.';grid.innerHTML='';return;}
+ state.hidden=true;
+ grid.innerHTML=list.map(p=>{
+  const id=String(p.id),img=String(p.image_url||'').trim();
+  const image=img?'<img loading="lazy" src="'+esc(img)+'" alt="'+esc(p.name)+'" onerror="this.parentElement.innerHTML=\'<span class=&quot;no-image&quot;>AARVO product</span>\'">':'<span class="no-image">AARVO product</span>';
+  return '<article class="product-card"><div class="image-wrap">'+image+'</div><div class="product-info"><h3>'+esc(p.name)+'</h3><div class="product-meta">'+esc(p.category||'AARVO product')+' · '+(Number(p.stock_quantity)||0)+' available</div><div class="product-price">'+money(p.price_paise)+'</div><div class="product-actions"><button class="add-button" data-add="'+esc(id)+'">Add to cart</button><button class="view-button" data-view="'+esc(id)+'">Details</button></div></div></article>';
+ }).join('');
+}
+async function loadCatalog(){
+ state.hidden=false;state.textContent='Connecting to AARVO marketplace…';grid.innerHTML='';
+ try{
+  const response=await fetch(API_BASE+'/v1/products',{headers:{Accept:'application/json'}});
+  if(!response.ok)throw new Error('Marketplace API HTTP '+response.status);
+  const data=await response.json();if(!Array.isArray(data))throw new Error('Invalid product response');
+  products=data;renderCategories();renderProducts();
+ }catch(err){state.hidden=false;state.textContent='AARVO marketplace is temporarily unavailable. Please refresh and try again.';console.error('AARVO catalog',err);}
+}
+function addToCart(id){
+ const p=products.find(x=>String(x.id)===String(id));if(!p)return;
+ const current=Number(cart[id]?.quantity||0),stock=Number(p.stock_quantity||0);
+ if(current>=stock){alert('Available stock limit reached.');return;}
+ cart[id]={id:String(p.id),name:p.name,price_paise:Number(p.price_paise||0),image_url:p.image_url||'',quantity:current+1};
+ saveCart();
+}
+function showDetails(id){
+ const p=products.find(x=>String(x.id)===String(id));if(!p)return;
+ const img=p.image_url?'<img class="detail-image" src="'+esc(p.image_url)+'" alt="'+esc(p.name)+'">':'';
+ $('productDetails').innerHTML=img+'<h3>'+esc(p.name)+'</h3><p class="product-meta">'+esc(p.category||'AARVO product')+' · '+Number(p.stock_quantity||0)+' available</p><div class="product-price">'+money(p.price_paise)+'</div><p>'+esc(p.description||'Product details will be provided by the seller.')+'</p><p class="product-meta">Seller: '+esc(p.seller_name||'AARVO marketplace seller')+'</p><button class="btn" data-add="'+esc(p.id)+'">Add to cart</button>';
+ $('productOverlay').classList.add('open');
+}
+function renderCart(){
+ const items=Object.values(cart);
+ if(!items.length){$('cartContents').innerHTML='<div class="cart-empty">Your cart is empty.<br>Explore the live AARVO product listings to add items.</div>';return;}
+ const total=items.reduce((s,x)=>s+Number(x.price_paise)*Number(x.quantity),0);
+ $('cartContents').innerHTML=items.map(x=>'<div class="cart-line"><div><h4>'+esc(x.name)+'</h4><small>'+money(x.price_paise)+' each</small><div class="qty-controls"><button data-qty="-1" data-id="'+esc(x.id)+'">−</button><b>'+Number(x.quantity)+'</b><button data-qty="1" data-id="'+esc(x.id)+'">+</button><button data-remove="'+esc(x.id)+'" class="text-button">Remove</button></div></div><strong>'+money(Number(x.price_paise)*Number(x.quantity))+'</strong></div>').join('')+'<div class="cart-total"><span>Subtotal</span><span>'+money(total)+'</span></div><p class="catalog-note">This is a saved browsing cart. Checkout and online payment are not active on this website yet. Please place your final order in the AARVO Android app.</p>';
+}
+function openCart(){renderCart();$('cartOverlay').classList.add('open');}
+document.addEventListener('click',e=>{
+ const add=e.target.closest('[data-add]');if(add){addToCart(add.dataset.add);if($('productOverlay').classList.contains('open'))$('productOverlay').classList.remove('open');return;}
+ const view=e.target.closest('[data-view]');if(view){showDetails(view.dataset.view);return;}
+ const cat=e.target.closest('[data-category]');if(cat){activeCategory=cat.dataset.category;renderCategories();renderProducts();return;}
+ const qty=e.target.closest('[data-qty]');if(qty){const id=qty.dataset.id;if(cart[id]){cart[id].quantity+=Number(qty.dataset.qty);if(cart[id].quantity<=0)delete cart[id];else{const p=products.find(x=>String(x.id)===id);if(p&&cart[id].quantity>Number(p.stock_quantity||0))cart[id].quantity=Number(p.stock_quantity||0);}saveCart();renderCart();}return;}
+ const rem=e.target.closest('[data-remove]');if(rem){delete cart[rem.dataset.remove];saveCart();renderCart();return;}
+ const close=e.target.closest('[data-close]');if(close){$(close.dataset.close==='cart'?'cartOverlay':'productOverlay').classList.remove('open');return;}
+});
+$('openCart').addEventListener('click',openCart);
+$('productSearchBtn').addEventListener('click',renderProducts);
+$('productSearch').addEventListener('input',renderProducts);
+$('sortProducts').addEventListener('change',renderProducts);
+$('clearFilters').addEventListener('click',()=>{$('productSearch').value='';activeCategory='All';$('sortProducts').value='newest';renderCategories();renderProducts();});
+['cartOverlay','productOverlay'].forEach(id=>$(id).addEventListener('click',e=>{if(e.target.id===id)e.target.classList.remove('open');}));
+updateCartCount();loadCatalog();
 </script>
 </body></html>
