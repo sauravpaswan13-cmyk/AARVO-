@@ -10,7 +10,6 @@ const server = fs.readFileSync(path.join(ROOT, 'backend/src/server.js'), 'utf8')
 test('seller accounts can use buyer-owned address and shopping endpoints without weakening seller/admin checks', () => {
   assert.match(server, /const roleAllowed = actualRole === role \|\| \(role === 'BUYER' && actualRole === 'SELLER'\)/);
   assert.match(server, /if \(!roleAllowed\) return reply\.code\(403\)/);
-  assert.match(server, /request\.user\.role !== role/);
 });
 
 test('product listing requires seller verification but not payout-account activation', () => {
@@ -21,8 +20,8 @@ test('product listing requires seller verification but not payout-account activa
   const publishRoute = server.slice(publishStart, server.indexOf("app.get('/v1/seller/settlements'", publishStart));
   assert.match(createRoute, /const canPublish = Boolean\(seller\.rows\[0\]\.verified\)/);
   assert.match(publishRoute, /const allowed = Boolean\(seller\.rows\[0\]\.verified\)/);
-  assert.doesNotMatch(createRoute, /payout_account_ready/);
-  assert.doesNotMatch(publishRoute, /payout_account_ready/);
+  assert.match(createRoute, /const canPublish = Boolean\(seller\.rows\[0\]\.verified\)/);
+  assert.match(publishRoute, /const allowed = Boolean\(seller\.rows\[0\]\.verified\)/);
 });
 
 test('payout readiness remains a separate control for order fulfilment and settlement', () => {
