@@ -119,13 +119,6 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
   if(!enabled()) throw Object.assign(new Error('THIRD_PARTY_DELIVERY_DISABLED'),{code:'THIRD_PARTY_DELIVERY_DISABLED',status:503});
   if(provider()!=='shiprocket') throw Object.assign(new Error('UNSUPPORTED_DELIVERY_PROVIDER'),{code:'UNSUPPORTED_DELIVERY_PROVIDER',status:400});
   if((!staticToken()&&(!apiEmail()||!apiPassword()))||!baseUrl()) throw Object.assign(new Error('SHIPROCKET_NOT_CONFIGURED'),{code:'SHIPROCKET_NOT_CONFIGURED',status:503});
-  const packageLength=Number(process.env.SHIPROCKET_PACKAGE_LENGTH_CM||0);
-  const packageBreadth=Number(process.env.SHIPROCKET_PACKAGE_BREADTH_CM||0);
-  const packageHeight=Number(process.env.SHIPROCKET_PACKAGE_HEIGHT_CM||0);
-  const packageWeight=Number(process.env.SHIPROCKET_PACKAGE_WEIGHT_KG||0);
-  if(![packageLength,packageBreadth,packageHeight,packageWeight].every(v=>Number.isFinite(v)&&v>0))
-    throw Object.assign(new Error('SHIPROCKET_PACKAGE_DIMENSIONS_REQUIRED'),{code:'SHIPROCKET_PACKAGE_DIMENSIONS_REQUIRED',status:409,data:{required:['SHIPROCKET_PACKAGE_LENGTH_CM','SHIPROCKET_PACKAGE_BREADTH_CM','SHIPROCKET_PACKAGE_HEIGHT_CM','SHIPROCKET_PACKAGE_WEIGHT_KG']}});
-
   const q=await pool.query(`SELECT o.id,o.status,o.address_json,o.total_paise,o.subtotal_paise,o.delivery_fee_paise,o.payment_status,o.payment_method,
       u.email AS buyer_email,
       COALESCE((SELECT json_agg(json_build_object('productId',ol.product_id,'quantity',ol.quantity,'unitPricePaise',ol.unit_price_paise,'lineTotalPaise',(ol.unit_price_paise * ol.quantity))) FROM order_lines ol WHERE ol.order_id=o.id),'[]'::json) AS lines
@@ -137,7 +130,7 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
   if(!a.fullName||!a.phone||!a.line1||!a.city||!a.state||!a.postalCode)throw Object.assign(new Error('ORDER_ADDRESS_INCOMPLETE'),{code:'ORDER_ADDRESS_INCOMPLETE',status:409});
   const lines=Array.isArray(o.lines)?o.lines:[];
   const productIds=lines.map(x=>Number(x.productId)).filter(Number.isFinite);
-  const products=productIds.length?await pool.query('SELECT id,seller_id,name,price_paise FROM products WHERE id=ANY($1::bigint[])',[productIds]):{rows:[]};
+  const products=productIds.length?await pool.query('SELECT id,seller_id,name,price_paise,package_length_cm,package_breadth_cm,package_height_cm,package_weight_kg FROM products WHERE id=ANY($1::bigint[])',[productIds]):{rows:[]};
   const byId=new Map(products.rows.map(p=>[Number(p.id),p]));
   const groups=new Map();
   for(const line of lines){
@@ -172,6 +165,22 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
       name:clean(product.name||('AARVO Product '+line.productId),120),sku:clean(String(line.productId),80),
       units:Number(line.quantity)||1,selling_price:(Number(line.unitPricePaise||0)/100).toFixed(2),discount:0,tax:0,hsn:''
     }));
+    // Product parcel measurements are entered by the seller for one packed sellable unit.
+    // For multi-item seller parcels, use a conservative stacked-box estimate; never guess missing values.
+    const parcel=sellerLines.reduce((box,{line,product})=>{
+      const length=Number(product.package_length_cm),breadth=Number(product.package_breadth_cm);
+      const height=Number(product.package_height_cm),weight=Number(product.package_weight_kg);
+      const qty=Number(line.quantity)||1;
+      if(![length,breadth,height,weight].every(v=>Number.isFinite(v)&&v>0))
+        throw Object.assign(new Error('SHIPROCKET_PACKAGE_DIMENSIONS_REQUIRED'),{code:'SHIPROCKET_PACKAGE_DIMENSIONS_REQUIRED',status:409,data:{productId:product.id,productName:product.name,required:['packageLengthCm','packageBreadthCm','packageHeightCm','packageWeightKg']}});
+      box.length=Math.max(box.length,length);
+      box.breadth=Math.max(box.breadth,breadth);
+      box.height+=height*qty;
+      box.weight+=weight*qty;
+      return box;
+    },{length:0,breadth:0,height:0,weight:0});
+    if(parcel.length>300||parcel.breadth>300||parcel.height>300||parcel.weight>100)
+      throw Object.assign(new Error('SHIPROCKET_PACKAGE_DIMENSIONS_OUT_OF_RANGE'),{code:'SHIPROCKET_PACKAGE_DIMENSIONS_OUT_OF_RANGE',status:409,data:{sellerId,parcel}});
     const subtotalPaise=sellerLines.reduce((sum,{line})=>sum+Number(line.lineTotalPaise||0),0);
     const sellerOrderId=('AARVO'+String(o.id).replace(/-/g,'')+'S'+String(sellerId).replace(/-/g,'')).slice(0,50);
     const payload={
@@ -184,7 +193,7 @@ export async function createThirdPartyShipmentForOrder({pool,audit,orderId,actor
       payment_method:String(o.payment_method||'').toUpperCase()==='COD'?'COD':'Prepaid',
       shipping_charges:currentSellerIndex===0?shipping:0,giftwrap_charges:0,transaction_charges:0,total_discount:0,
       sub_total:subtotalPaise/100,
-      length:packageLength,breadth:packageBreadth,height:packageHeight,weight:packageWeight
+      length:parcel.length,breadth:parcel.breadth,height:parcel.height,weight:parcel.weight
     };
     const created=await providerRequest(shiprocketPath.create,payload);
     const srOrderId=created.order_id||created.orderId||created.id;
