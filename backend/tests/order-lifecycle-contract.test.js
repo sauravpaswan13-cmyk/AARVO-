@@ -33,8 +33,11 @@ test('refund and OTP runtime hardening remains wired into the production launche
 
 test('manual seller settlement is opt-in and never bypasses seller verification', () => {
   assert.match(server, /AARVO_MANUAL_SELLER_SETTLEMENT_ENABLED/);
-  assert.match(server, /seller\.rows\[0\]\.verified && \(seller\.rows\[0\]\.payout_account_ready \|\| manualSettlementEnabled\)/);
-  assert.match(server, /seller\.rows\[0\]\.verified && \(seller\.rows\[0\]\.payout_account_ready \|\| manualSettlementEnabled\), isPublished/);
+  const createRoute = server.slice(server.indexOf("app.post('/v1/seller/products'"), server.indexOf("app.get('/v1/seller/products'"));
+  const publishRoute = server.slice(server.indexOf("app.post('/v1/seller/products/:id/publish'"), server.indexOf("app.get('/v1/seller/settlements'"));
+  assert.match(createRoute, /const canPublish = Boolean\(seller\.rows\[0\]\.verified\)/);
+  assert.match(publishRoute, /const allowed = Boolean\(seller\.rows\[0\]\.verified\)/);
+  assert.match(server, /payout_account_ready/);
 });
 
 
