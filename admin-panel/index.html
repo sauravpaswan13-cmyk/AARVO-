@@ -155,9 +155,9 @@ async function loadOrders(){
    const addr=orderAddress(o)||('Buyer ID: '+(o.buyer_id||o.buyerId||'—'));
    const tracking=o.tracking_json||o.trackingJson||{};
    const shipments=Array.isArray(tracking.shipments)?tracking.shipments:[];
-   const sellerCount=Number(o.seller_count||o.sellerCount||0),packedCount=Number(o.packed_seller_count||o.packedSellerCount||0);
+   const sellerCount=Number(o.seller_count||o.sellerCount||0),packedCount=Number(o.packed_seller_count||o.packedSellerCount||0),activeJobs=Number(o.active_shipment_jobs||o.activeShipmentJobs||0);
    const readyToShip=sellerCount>0&&packedCount>=sellerCount;
-   const canShip=['CONFIRMED','PACKED','PROCESSING','PAID'].includes(status)&&readyToShip&&shipments.length<sellerCount;
+   const canShip=['CONFIRMED','PACKED','PROCESSING','PAID'].includes(status)&&readyToShip&&activeJobs===0&&shipments.length<sellerCount;
    const canRefund=payment==='CAPTURED'&&!!(o.gateway_payment_id||o.gatewayPaymentId);
    const isCod=String(o.payment_method||o.paymentMethod||'').toUpperCase()==='COD';
    const collected=!!(o.cod_collected_at||o.codCollectedAt)||payment==='COD_COLLECTED';
@@ -169,6 +169,7 @@ async function loadOrders(){
    }).join('<br>');
    let actions='<div class="actions">';
    if(canShip)actions+='<button onclick="createShipment('+inlineArg(id)+')">Create shipment</button>';
+   else if(activeJobs>0)actions+='<span class="muted">Shiprocket queued / processing ('+activeJobs+')</span>';
    else if(['CONFIRMED','PACKED','PROCESSING','PAID'].includes(status)&&shipments.length<sellerCount)actions+='<span class="muted">Waiting for seller packing ('+packedCount+'/'+sellerCount+')</span>';
    else if(shipments.length)actions+='<span class="ok">Shipment created ('+shipments.length+'/'+sellerCount+')</span>';
    if(isCod&&status==='DELIVERED'&&!collected)actions+='<button class="approve" onclick="collectCod('+inlineArg(id)+')">Record cash collected</button>';
