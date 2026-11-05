@@ -16,7 +16,9 @@ data class Product(
     /** Exact server-authoritative amount in paise. */
     val pricePaise: Long = price.toLong() * 100L,
     val imageUrl: String? = null,
-    val originalPricePaise: Long = pricePaise
+    val originalPricePaise: Long = pricePaise,
+    /** Number of customer ratings/reviews returned by the product API. */
+    val reviewsCount: Int = 0
 ) {
     init {
         require(id > 0) { "Product ID must be positive" }
