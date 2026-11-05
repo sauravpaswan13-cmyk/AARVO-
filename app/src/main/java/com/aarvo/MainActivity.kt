@@ -1224,7 +1224,7 @@ private fun ProductCard(
 
             // Price Row
             Row(
-                verticalAlignment = Alignment.Baseline,
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
