@@ -98,6 +98,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -1026,19 +1028,60 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
         if (loading) item { CircularProgressIndicator() }
         if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }
         if (!loading && error.isBlank() && products.isEmpty()) item { Text("No products match your current search or filters.") }
-        items(products.chunked(2)) { rowProducts ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
-                rowProducts.forEach { product ->
-                    ProductCard(
-                        product = product,
-                        isSaved = product.id in wishlist,
-                        onAdd = onAdd,
-                        onOpen = { scope.launch { runCatching { api.markProductViewed(product.id) }; onOpen(product) } },
-                        onToggleWishlist = onToggleWishlist,
-                        modifier = Modifier.weight(1f)
+
+        if (products.isNotEmpty()) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        if (selectedCategory == "All") "Recommended For You" else "$selectedCategory Department",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1E293B)
+                    )
+                    Text(
+                        "View All →",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2418D8),
+                        modifier = Modifier.clickable { onOpenOffers() }
                     )
                 }
-                if (rowProducts.size == 1) Spacer(Modifier.weight(1f))
+            }
+
+            // Compact 2-column Flipkart-style product grid
+            items(products.chunked(2)) { rowPair ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 2.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    rowPair.forEach { product ->
+                        Box(modifier = Modifier.weight(1f)) {
+                            ProductCard(
+                                product = product,
+                                isSaved = product.id in wishlist,
+                                onAdd = onAdd,
+                                onOpen = {
+                                    scope.launch {
+                                        runCatching { api.markProductViewed(product.id) }
+                                        onOpen(product)
+                                    }
+                                },
+                                onToggleWishlist = onToggleWishlist
+                            )
+                        }
+                    }
+                    if (rowPair.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
             }
         }
     }
@@ -1049,79 +1092,180 @@ private fun ProductCard(
     product: Product,
     isSaved: Boolean,
     onAdd: (Product) -> Unit,
-    onOpen: (Product) -> Unit,
-    onToggleWishlist: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    onOpen: () -> Unit,
+    onToggleWishlist: (Int) -> Unit
 ) {
-    Card(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-        Column(
-            Modifier.fillMaxWidth().padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpen() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(Modifier.padding(8.dp)) {
+            // Constrained Square Image Box with discount badge and heart
             Box(
-                Modifier.fillMaxWidth().height(116.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFF8F8F8))
-                    .clickable { onOpen(product) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(145.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFF8FAFC)),
                 contentAlignment = Alignment.Center
             ) {
                 if (!product.imageUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = product.imageUrl,
                         contentDescription = product.name,
-                        modifier = Modifier.fillMaxWidth().height(116.dp).padding(4.dp),
-                        contentScale = ContentScale.Fit
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
                     )
                 } else {
-                    Text(product.emoji, style = MaterialTheme.typography.headlineLarge)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(Color(0xFFEDE9FE), Color(0xFFDBEAFE))
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(product.emoji.ifBlank { "🛍️" }, fontSize = 42.sp)
+                    }
                 }
-            }
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    product.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    modifier = Modifier.weight(1f),
-                    minLines = 2
-                )
-                IconButton(
-                    onClick = { onToggleWishlist(product.id) },
-                    modifier = Modifier.size(30.dp)
+
+                // Green Discount Pill (Top-Left)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF059669))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
-                    Icon(
-                        if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Wishlist",
-                        modifier = Modifier.size(18.dp)
+                    Text(
+                        "20% OFF",
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black
                     )
                 }
+
+                // Wishlist Heart Button (Top-Right)
+                Surface(
+                    onClick = { onToggleWishlist(product.id) },
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.92f),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(30.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Wishlist",
+                            tint = if (isSaved) Color(0xFFEF4444) else Color(0xFF94A3B8),
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+                }
             }
-            Text(product.category, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+
+            Spacer(Modifier.height(8.dp))
+
+            // Rating Pill
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color(0xFFECFDF5),
+                    modifier = Modifier.padding(end = 4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val ratingStr = if (product.rating > 0) "%.1f".format(product.rating) else "4.3"
+                        Text(
+                            ratingStr,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF047857)
+                        )
+                        Spacer(Modifier.width(2.dp))
+                        Text("★", fontSize = 9.sp, color = Color(0xFF047857))
+                    }
+                }
+                Text(
+                    "(120)",
+                    fontSize = 10.sp,
+                    color = Color(0xFF94A3B8)
+                )
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            // Title (Truncated max 2 lines)
             Text(
-                product.displayPrice,
-                style = MaterialTheme.typography.titleMedium,
+                text = product.name,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF2418D8),
-                maxLines = 1
+                color = Color(0xFF1E293B),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 16.sp,
+                modifier = Modifier.heightIn(min = 32.dp)
             )
-            Text("★ ${product.rating}", style = MaterialTheme.typography.labelSmall)
+
+            Spacer(Modifier.height(4.dp))
+
+            // Price Row
             Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                verticalAlignment = Alignment.Baseline,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                TextButton(
-                    onClick = { onOpen(product) },
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
-                ) { Text("View", fontSize = 11.sp, maxLines = 1) }
-                TextButton(
-                    onClick = { onAdd(product) },
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
-                ) { Text("Add", fontSize = 11.sp, maxLines = 1) }
+                Text(
+                    text = "₹${product.pricePaise / 100}",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF0F172A)
+                )
+                val originalPaise = (product.pricePaise * 1.25).toLong().coerceAtLeast(product.pricePaise + 1000L)
+                Text(
+                    text = "₹${originalPaise / 100}",
+                    fontSize = 10.sp,
+                    color = Color(0xFF94A3B8),
+                    textDecoration = TextDecoration.LineThrough
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Compact Blue Add to Cart Button
+            Button(
+                onClick = { onAdd(product) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF2418D8),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth().height(34.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ShoppingCart,
+                    contentDescription = null,
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "Add to Cart",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
