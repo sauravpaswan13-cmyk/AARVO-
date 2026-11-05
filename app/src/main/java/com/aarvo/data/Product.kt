@@ -15,7 +15,8 @@ data class Product(
     val isPublished: Boolean = true,
     /** Exact server-authoritative amount in paise. */
     val pricePaise: Long = price.toLong() * 100L,
-    val imageUrl: String? = null
+    val imageUrl: String? = null,
+    val originalPricePaise: Long = pricePaise
 ) {
     init {
         require(id > 0) { "Product ID must be positive" }
@@ -28,4 +29,12 @@ data class Product(
     /** Exact rupee display without floating-point arithmetic. */
     val displayPrice: String
         get() = "₹${pricePaise / 100}.${(pricePaise % 100).toString().padStart(2, '0')}"
+
+    val hasDiscount: Boolean
+        get() = originalPricePaise > pricePaise
+
+    val discountPercent: Int
+        get() = if (hasDiscount && originalPricePaise > 0) {
+            (((originalPricePaise - pricePaise).toDouble() / originalPricePaise.toDouble()) * 100).toInt()
+        } else 0
 }

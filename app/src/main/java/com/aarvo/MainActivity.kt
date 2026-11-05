@@ -14,6 +14,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,6 +57,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -402,7 +405,32 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     }
     val availableCategories = remember(allProducts) { listOf("All") + allProducts.map { it.category.trim() }.filter { it.isNotBlank() }.distinct().sorted() }
     if (showFilters) ProductFilterDialog(sortMode, minRating, maxPrice, inStockOnly, { sortMode = it; showFilters = false }, { minRating = it }, { maxPrice = it }, { inStockOnly = it }, { showFilters = false })
-    if (selectedProduct != null) { val product = selectedProduct!!; ProductDetailsScreen(product, product.id in wishlist, { selectedProduct = null }, { wishlist = wishlistStore.toggle(product.id) }, cartViewModel::add); return }
+    if (selectedProduct != null) {
+        val product = selectedProduct!!
+        ProductDetailsScreen(
+            product = product,
+            isSaved = product.id in wishlist,
+            onBack = { selectedProduct = null },
+            onToggleWishlist = { wishlist = wishlistStore.toggle(product.id) },
+            onAdd = { p ->
+                cartViewModel.add(p)
+                syncAuthenticatedCart()
+                Toast.makeText(activity, "${p.name} added to Cart", Toast.LENGTH_SHORT).show()
+            },
+            onBuyNow = { p ->
+                cartViewModel.add(p)
+                syncAuthenticatedCart()
+                selectedProduct = null
+                if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" }
+            },
+            cartBadgeCount = cartBadgeCount,
+            onOpenCart = {
+                selectedProduct = null
+                selectedTab = 3
+            }
+        )
+        return
+    }
     if (showLoginRequired) LoginRequiredDialog({ showLoginRequired = false; onLogin() }, { showLoginRequired = false })
     if (showNotifications) { NotificationsScreen(PaddingValues(0.dp), api) { showNotifications = false }; return }
     if (showCheckout) CheckoutDialog(api, cartItems.sumOf { it.pricePaise }, checkoutLoading, checkoutMessage, { if (!checkoutLoading) showCheckout = false }) { fullName, phone, line1, city, state, postalCode, paymentMethod ->
@@ -833,7 +861,34 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 
 @Composable private fun ProductFilterDialog(sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean, onSort: (String) -> Unit, onRating: (Double) -> Unit, onMaxPrice: (Long?) -> Unit, onStock: (Boolean) -> Unit, onClose: () -> Unit) { var priceText by remember(maxPrice) { mutableStateOf(if (maxPrice == null) "" else (maxPrice!! / 100).toString()) }; AlertDialog(onDismissRequest = onClose, title = { Text("Filters & Sorting") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Sort", fontWeight = FontWeight.Bold); listOf("Relevance", "Price: Low to High", "Price: High to Low", "Rating: High to Low").forEach { option -> TextButton(onClick = { onSort(option) }) { Text(if (sortMode == option) "✓ $option" else option) } }; Text("Minimum rating: ${if (minRating == 0.0) "Any" else "${minRating}★"}", fontWeight = FontWeight.Bold); Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { listOf(0.0, 3.0, 4.0, 4.5).forEach { r -> TextButton(onClick = { onRating(r) }) { Text(if (minRating == r) "✓ ${if (r == 0.0) "Any" else r.toString()}★" else if (r == 0.0) "Any" else "${r}★") } } }; OutlinedTextField(priceText, { priceText = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Maximum price ₹ (optional)") }); TextButton(onClick = { onMaxPrice(priceText.trim().toLongOrNull()?.times(100)); onClose() }) { Text("Apply price") }; TextButton(onClick = { onStock(!inStockOnly) }) { Text(if (inStockOnly) "✓ In stock only" else "In stock only") } } }, confirmButton = { Button(onClick = onClose) { Text("Done") } }) }
 
-private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds = mutableSetOf<Int>(); for (i in 0 until length()) { val o = getJSONObject(i); val id = o.getLong("id").toInt(); if (!seenIds.add(id)) continue; val pricePaise = o.getLong("price_paise"); add(Product(id, o.getString("seller_id"), o.getString("seller_name"), o.getString("name"), o.getString("category"), (pricePaise / 100L).toInt(), o.optDouble("rating", 0.0), "🛍️", o.getString("description"), o.getInt("stock_quantity"), o.optBoolean("is_published", true), pricePaise, o.optString("image_url").takeIf { it.startsWith("https://") || it.startsWith("http://") })) } }
+private fun JSONArray.toProductList(): List<Product> = buildList {
+    val seenIds = mutableSetOf<Int>()
+    for (i in 0 until length()) {
+        val o = getJSONObject(i)
+        val id = o.getLong("id").toInt()
+        if (!seenIds.add(id)) continue
+        val pricePaise = o.getLong("price_paise")
+        val originalPricePaise = o.optLong("original_price_paise", pricePaise)
+        add(
+            Product(
+                id = id,
+                sellerId = o.getString("seller_id"),
+                sellerName = o.getString("seller_name"),
+                name = o.getString("name"),
+                category = o.getString("category"),
+                price = (pricePaise / 100L).toInt(),
+                rating = o.optDouble("rating", 0.0),
+                emoji = "🛍️",
+                description = o.getString("description"),
+                stockQuantity = o.getInt("stock_quantity"),
+                isPublished = o.optBoolean("is_published", true),
+                pricePaise = pricePaise,
+                imageUrl = o.optString("image_url").takeIf { it.startsWith("https://") || it.startsWith("http://") },
+                originalPricePaise = originalPricePaise
+            )
+        )
+    }
+}
 
 @Composable private fun WishlistScreen(padding: PaddingValues, products: List<Product>, wishlist: Set<Int>, onToggle: (Int) -> Unit, onOpen: (Product) -> Unit, onAdd: (Product) -> Unit) {
     val context = LocalContext.current
@@ -999,15 +1054,6 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                 }
             }
         }
-        item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onFilter) { Text("Filters & Sort") }
-                if (sortMode != "Relevance") Text("• \$sortMode", style = MaterialTheme.typography.bodySmall)
-                if (minRating > 0) Text("• \${minRating}★+", style = MaterialTheme.typography.bodySmall)
-                if (maxPrice != null) Text("• ≤ ₹\${maxPrice / 100}", style = MaterialTheme.typography.bodySmall)
-                if (inStockOnly) Text("• In stock", style = MaterialTheme.typography.bodySmall)
-            }
-        }
         if (recentlyViewed.isNotEmpty()) {
             item {
                 Text("Recently Viewed", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
@@ -1044,13 +1090,24 @@ private fun JSONArray.toProductList(): List<Product> = buildList { val seenIds =
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF1E293B)
                     )
-                    Text(
-                        "View All →",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2418D8),
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.clickable { onOpenOffers() }
-                    )
+                    ) {
+                        Text(
+                            "View All",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2418D8)
+                        )
+                        Spacer(Modifier.width(2.dp))
+                        Text(
+                            ">",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2418D8)
+                        )
+                    }
                 }
             }
 
@@ -1136,21 +1193,23 @@ private fun ProductCard(
                     }
                 }
 
-                // Green Discount Pill (Top-Left)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(6.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF059669))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        "20% OFF",
-                        color = Color.White,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Black
-                    )
+                // Discount Pill (Top-Left) - ONLY if seller actually provided a discount!
+                if (product.hasDiscount && product.discountPercent > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF059669))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            "${product.discountPercent}% OFF",
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
                 }
 
                 // Wishlist Heart Button (Top-Right)
@@ -1177,33 +1236,36 @@ private fun ProductCard(
 
             Spacer(Modifier.height(8.dp))
 
-            // Rating Pill
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color(0xFFECFDF5),
-                    modifier = Modifier.padding(end = 4.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            // Rating Pill - Only genuine rating, never fake
+            if (product.rating > 0.0) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0xFFECFDF5),
+                        modifier = Modifier.padding(end = 4.dp)
                     ) {
-                        val ratingStr = if (product.rating > 0) "%.1f".format(product.rating) else "4.3"
+                        Row(
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "%.1f".format(product.rating),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF047857)
+                            )
+                            Spacer(Modifier.width(2.dp))
+                            Text("★", fontSize = 9.sp, color = Color(0xFF047857))
+                        }
+                    }
+                    if (product.reviewsCount > 0) {
                         Text(
-                            ratingStr,
+                            "(${product.reviewsCount})",
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF047857)
+                            color = Color(0xFF94A3B8)
                         )
-                        Spacer(Modifier.width(2.dp))
-                        Text("★", fontSize = 9.sp, color = Color(0xFF047857))
                     }
                 }
-                Text(
-                    "(120)",
-                    fontSize = 10.sp,
-                    color = Color(0xFF94A3B8)
-                )
             }
 
             Spacer(Modifier.height(4.dp))
@@ -1222,7 +1284,7 @@ private fun ProductCard(
 
             Spacer(Modifier.height(4.dp))
 
-            // Price Row
+            // Price Row - Real price, with strike-through ONLY if genuine discount exists
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -1233,13 +1295,20 @@ private fun ProductCard(
                     fontWeight = FontWeight.Black,
                     color = Color(0xFF0F172A)
                 )
-                val originalPaise = (product.pricePaise * 1.25).toLong().coerceAtLeast(product.pricePaise + 1000L)
-                Text(
-                    text = "₹${originalPaise / 100}",
-                    fontSize = 10.sp,
-                    color = Color(0xFF94A3B8),
-                    textDecoration = TextDecoration.LineThrough
-                )
+                if (product.hasDiscount) {
+                    Text(
+                        text = "₹${product.originalPricePaise / 100}",
+                        fontSize = 10.sp,
+                        color = Color(0xFF94A3B8),
+                        textDecoration = TextDecoration.LineThrough
+                    )
+                    Text(
+                        text = "${product.discountPercent}% off",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF059669)
+                    )
+                }
             }
 
             Spacer(Modifier.height(8.dp))
@@ -1271,7 +1340,523 @@ private fun ProductCard(
     }
 }
 
-@Composable private fun ProductDetailsScreen(product: Product, isSaved: Boolean, onBack: () -> Unit, onToggleWishlist: () -> Unit, onAdd: (Product) -> Unit) { Scaffold(topBar = { TopAppBar(title = { Text("Product details") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { padding -> Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { if (!product.imageUrl.isNullOrBlank()) AsyncImage(model = product.imageUrl, contentDescription = product.name, modifier = Modifier.fillMaxWidth().height(260.dp), contentScale = ContentScale.Fit) else Text(product.emoji, style = MaterialTheme.typography.headlineLarge); Text(product.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text(product.category); Text(product.displayPrice, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("★ ${product.rating}"); Text(product.description); Text("Stock available: ${product.stockQuantity}"); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { onAdd(product) }) { Text("Add to cart") }; TextButton(onClick = onToggleWishlist) { Text(if (isSaved) "Remove from wishlist" else "Save to wishlist") } } } } }
+@Composable
+private fun ProductDetailsScreen(
+    product: Product,
+    isSaved: Boolean,
+    onBack: () -> Unit,
+    onToggleWishlist: () -> Unit,
+    onAdd: (Product) -> Unit,
+    onBuyNow: (Product) -> Unit,
+    cartBadgeCount: Int,
+    onOpenCart: () -> Unit
+) {
+    var activeSlideIndex by remember { mutableIntStateOf(0) }
+    val totalSlides = if (!product.imageUrl.isNullOrBlank()) 3 else 1
+
+    Scaffold(
+        topBar = {
+            Surface(
+                color = Color.White,
+                shadowElevation = 1.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF1E293B)
+                        )
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Wishlist Toggle Button
+                        IconButton(onClick = onToggleWishlist) {
+                            Icon(
+                                imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                contentDescription = "Wishlist",
+                                tint = if (isSaved) Color(0xFFEF4444) else Color(0xFF64748B)
+                            )
+                        }
+
+                        // Cart Button with live Badge Counter
+                        IconButton(onClick = onOpenCart) {
+                            BadgedBox(
+                                badge = {
+                                    if (cartBadgeCount > 0) {
+                                        Badge(
+                                            containerColor = Color(0xFF2418D8),
+                                            contentColor = Color.White
+                                        ) {
+                                            Text(
+                                                text = if (cartBadgeCount > 99) "99+" else cartBadgeCount.toString(),
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ShoppingCart,
+                                    contentDescription = "Cart",
+                                    tint = Color(0xFF1E293B)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        bottomBar = {
+            Surface(
+                color = Color.White,
+                shadowElevation = 8.dp,
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Add to Cart Button (AARVO outline style)
+                    OutlinedButton(
+                        onClick = { onAdd(product) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.5.dp, Color(0xFF2418D8)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color.White,
+                            contentColor = Color(0xFF2418D8)
+                        ),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ShoppingCart,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color(0xFF2418D8)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "Add to Cart",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2418D8)
+                        )
+                    }
+
+                    // Buy Now Button (AARVO Signature Royal Blue)
+                    Button(
+                        onClick = { onBuyNow(product) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF2418D8),
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    ) {
+                        Text(
+                            "⚡ Buy Now",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .background(Color(0xFFF8FAFC))
+        ) {
+            // Interactive Slidable Image Showcase
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(320.dp)
+                    .background(Color.White)
+                    .pointerInput(totalSlides) {
+                        detectHorizontalDragGestures { _, dragAmount ->
+                            if (dragAmount < -25) {
+                                activeSlideIndex = (activeSlideIndex + 1).coerceAtMost(totalSlides - 1)
+                            } else if (dragAmount > 25) {
+                                activeSlideIndex = (activeSlideIndex - 1).coerceAtLeast(0)
+                            }
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                if (!product.imageUrl.isNullOrBlank()) {
+                    val scale = when (activeSlideIndex) {
+                        1 -> ContentScale.Crop
+                        2 -> ContentScale.Inside
+                        else -> ContentScale.Fit
+                    }
+                    AsyncImage(
+                        model = product.imageUrl,
+                        contentDescription = product.name,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(if (activeSlideIndex == 1) 4.dp else 16.dp),
+                        contentScale = scale
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(Color(0xFFEDE9FE), Color(0xFFDBEAFE))
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(product.emoji.ifBlank { "🛍️" }, fontSize = 72.sp)
+                    }
+                }
+
+                // Discount Pill (ONLY if seller gave a discount!)
+                if (product.hasDiscount && product.discountPercent > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(12.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF059669))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            "${product.discountPercent}% OFF",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
+
+                // Slide count indicator pill
+                if (totalSlides > 1) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF0F172A).copy(alpha = 0.65f),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            "${activeSlideIndex + 1}/$totalSlides",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+
+                // Slide Indicator Dots at bottom
+                if (totalSlides > 1) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 10.dp)
+                    ) {
+                        repeat(totalSlides) { idx ->
+                            val isSelected = activeSlideIndex == idx
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 3.dp)
+                                    .size(if (isSelected) 8.dp else 6.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) Color(0xFF2418D8) else Color(0xFFCBD5E1))
+                                    .clickable { activeSlideIndex = idx }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Main Product Details Card
+            Surface(
+                color = Color.White,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    // Product Title
+                    Text(
+                        text = product.name,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A),
+                        lineHeight = 23.sp
+                    )
+
+                    Spacer(Modifier.height(6.dp))
+
+                    Text(
+                        text = "Category: ${product.category} • Sold by ${product.sellerName.ifBlank { "Verified AARVO Seller" }}",
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B)
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // Ratings & AARVO Assured Badge Row
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (product.rating > 0.0) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF047857)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "%.1f".format(product.rating),
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(Modifier.width(2.dp))
+                                    Text("★", color = Color.White, fontSize = 10.sp)
+                                }
+                            }
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "(${if (product.reviewsCount > 0) product.reviewsCount else 1} verified ratings)",
+                                fontSize = 11.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        } else {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFFF1F5F9)
+                            ) {
+                                Text(
+                                    text = "New Product",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF475569),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        // AARVO Assured Badge
+                        Surface(
+                            color = Color(0xFFEEF2FF),
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.dp, Color(0xFFC7D2FE))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("✓", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color(0xFF2418D8))
+                                Spacer(Modifier.width(3.dp))
+                                Text("AARVO Assured", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2418D8))
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+
+                    // Price Block
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "₹${product.pricePaise / 100}",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFF0F172A)
+                        )
+
+                        if (product.hasDiscount) {
+                            Text(
+                                text = "₹${product.originalPricePaise / 100}",
+                                fontSize = 14.sp,
+                                color = Color(0xFF94A3B8),
+                                textDecoration = TextDecoration.LineThrough
+                            )
+                            Text(
+                                text = "${product.discountPercent}% off",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF059669)
+                            )
+                        }
+                    }
+
+                    if (product.hasDiscount) {
+                        val savedRupees = (product.originalPricePaise - product.pricePaise) / 100
+                        Text(
+                            text = "Special Price • You save ₹$savedRupees on this product",
+                            fontSize = 12.sp,
+                            color = Color(0xFF059669),
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+
+                    Text(
+                        text = "Inclusive of all taxes • Pay securely with UPI, Card, NetBanking & COD",
+                        fontSize = 11.sp,
+                        color = Color(0xFF64748B),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // AARVO Special Offers Card
+            Surface(
+                color = Color.White,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🏷️", fontSize = 14.sp)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "AARVO Special Offers",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = Color(0xFF1E293B)
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        color = Color(0xFFF0FDF4),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(10.dp)) {
+                            Text(
+                                "• Extra ₹100 Off on orders above ₹499 (Use Coupon AARVO100)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF166534)
+                            )
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                "• 5% Instant Cashback on online UPI payment",
+                                fontSize = 11.sp,
+                                color = Color(0xFF166534)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Delivery & Assurances Card
+            Surface(
+                color = Color.White,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🚚", fontSize = 16.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text("Fast Delivery in 2-3 Business Days", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E293B))
+                            Text("FREE Express Delivery on all orders above ₹199", fontSize = 10.sp, color = Color(0xFF64748B))
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🔄", fontSize = 16.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text("7 Days Easy Return & Replacement", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E293B))
+                            Text("Hassle-free doorstep pickup if damaged or defective", fontSize = 10.sp, color = Color(0xFF64748B))
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🛡️", fontSize = 16.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text("100% Authentic Quality Guaranteed", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E293B))
+                            Text("Verified seller & authentic quality guaranteed by AARVO", fontSize = 10.sp, color = Color(0xFF64748B))
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Product Description Card
+            Surface(
+                color = Color.White,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Product Description",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = product.description.ifBlank { "Authentic quality product sourced directly from verified sellers on AARVO marketplace." },
+                        fontSize = 12.sp,
+                        color = Color(0xFF334155),
+                        lineHeight = 18.sp
+                    )
+
+                    Spacer(Modifier.height(4.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Availability:", fontSize = 11.sp, color = Color(0xFF64748B))
+                        Text(
+                            text = if (product.stockQuantity > 0) "In Stock (${product.stockQuantity} units)" else "Out of Stock",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (product.stockQuantity > 0) Color(0xFF059669) else Color(0xFFEF4444)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
 
 @Composable private fun CartScreen(
     padding: PaddingValues,

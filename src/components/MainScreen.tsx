@@ -1214,9 +1214,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         alt={product.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
-                      <span className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
-                        {product.discount}
-                      </span>
+                      {product.originalPrice > product.price && (
+                        <span className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                          {product.discount}
+                        </span>
+                      )}
 
                       {/* Heart-shaped Wishlist Toggle Button */}
                       <button
@@ -1263,9 +1265,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         <span className="text-sm font-black text-slate-900 dark:text-white">
                           ₹{product.price.toLocaleString('en-IN')}
                         </span>
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500 line-through">
-                          ₹{product.originalPrice.toLocaleString('en-IN')}
-                        </span>
+                        {product.originalPrice > product.price && (
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 line-through">
+                            ₹{product.originalPrice.toLocaleString('en-IN')}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -1346,9 +1350,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       alt={product.name}
                       className="w-full h-full object-cover"
                     />
-                    <span className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
-                      {product.discount}
-                    </span>
+                    {product.originalPrice > product.price && (
+                      <span className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                        {product.discount}
+                      </span>
+                    )}
 
                     {/* Heart-shaped Wishlist Toggle Button */}
                     <button
@@ -1398,9 +1404,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       <span className="text-sm font-black text-slate-900 dark:text-white">
                         ₹{product.price.toLocaleString('en-IN')}
                       </span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 line-through">
-                        ₹{product.originalPrice.toLocaleString('en-IN')}
-                      </span>
+                      {product.originalPrice > product.price && (
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 line-through">
+                          ₹{product.originalPrice.toLocaleString('en-IN')}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -1494,9 +1502,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   >
                     <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 mb-2">
                       <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                      <span className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
-                        {product.discount}
-                      </span>
+                      {product.originalPrice > product.price && (
+                        <span className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                          {product.discount}
+                        </span>
+                      )}
 
                       {/* Heart-shaped Wishlist Toggle Button */}
                       <button
@@ -1532,9 +1542,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       <span className="text-sm font-black text-slate-900 dark:text-white">
                         ₹{product.price.toLocaleString('en-IN')}
                       </span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 line-through">
-                        ₹{product.originalPrice.toLocaleString('en-IN')}
-                      </span>
+                      {product.originalPrice > product.price && (
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 line-through">
+                          ₹{product.originalPrice.toLocaleString('en-IN')}
+                        </span>
+                      )}
                     </div>
 
                     <button

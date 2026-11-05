@@ -216,9 +216,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
             {/* Discount Badge */}
-            <span className="absolute top-3 left-3 bg-red-600 text-white text-xs font-black px-2.5 py-1 rounded-lg shadow-md tracking-wide pointer-events-none">
-              {product.discount}
-            </span>
+            {product.originalPrice > product.price && (
+              <span className="absolute top-3 left-3 bg-red-600 text-white text-xs font-black px-2.5 py-1 rounded-lg shadow-md tracking-wide pointer-events-none">
+                {product.discount}
+              </span>
+            )}
 
             {/* In-Stock Indicator */}
             <span className="absolute bottom-3 left-3 bg-emerald-600/90 backdrop-blur-xs text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs pointer-events-none">
@@ -319,12 +321,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <span className="text-2xl font-black text-slate-900 dark:text-white font-display">
                 ₹{product.price.toLocaleString('en-IN')}
               </span>
-              <span className="text-sm text-slate-400 dark:text-slate-500 line-through font-semibold">
-                ₹{product.originalPrice.toLocaleString('en-IN')}
-              </span>
-              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
-                Save ₹{savings.toLocaleString('en-IN')}
-              </span>
+              {product.originalPrice > product.price && (
+                <>
+                  <span className="text-sm text-slate-400 dark:text-slate-500 line-through font-semibold">
+                    ₹{product.originalPrice.toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
+                    Save ₹{savings.toLocaleString('en-IN')}
+                  </span>
+                </>
+              )}
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               Inclusive of all taxes &bull; No cost EMI available from ₹
