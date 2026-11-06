@@ -688,10 +688,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     { name: 'More', icon: LayoutGrid, color: 'bg-[#F3E8FF] text-[#9333EA] dark:bg-purple-950/40 dark:text-purple-400' },
   ];
 
-  // Real-time filtered products for search or category selection
-  const filteredProducts = useMemo(() => {
+  // Products that match the active text search query (before category refinement)
+  const queryMatchedProducts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const queryTokens = query ? query.split(/\s+/).filter(Boolean) : [];
+
+    if (queryTokens.length === 0) return allProducts;
 
     return allProducts.filter((p) => {
       const name = (p.name || '').toLowerCase();
@@ -699,25 +701,63 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       const seller = (p.seller || '').toLowerCase();
       const description = (p.description || '').toLowerCase();
 
-      // Real-time multi-token matching across name, category, seller, and description
-      const matchesSearch =
-        queryTokens.length === 0 ||
-        queryTokens.every(
-          (token) =>
-            name.includes(token) ||
-            category.includes(token) ||
-            seller.includes(token) ||
-            description.includes(token)
-        );
-
-      const matchesCategory =
-        selectedCategory === 'All' ||
-        category.startsWith(selectedCategory.toLowerCase().slice(0, 4)) ||
-        category.includes(selectedCategory.toLowerCase());
-
-      return matchesSearch && matchesCategory;
+      return queryTokens.every(
+        (token) =>
+          name.includes(token) ||
+          category.includes(token) ||
+          seller.includes(token) ||
+          description.includes(token)
+      );
     });
-  }, [allProducts, searchQuery, selectedCategory]);
+  }, [allProducts, searchQuery]);
+
+  // Dynamic category chips for refining search results with real-time matching product counts
+  const searchCategoryChips = useMemo(() => {
+    const baseCategories = [
+      { id: 'All', label: 'All' },
+      { id: 'Electronics', label: 'Electronics' },
+      { id: 'Fashion', label: 'Fashion' },
+      { id: 'Mobiles', label: 'Mobiles' },
+      { id: 'Home', label: 'Home & Living' },
+      { id: 'Grocery', label: 'Grocery' },
+      { id: 'Beauty', label: 'Beauty & Care' },
+      { id: 'Appliances', label: 'Appliances' },
+      { id: 'Sports', label: 'Sports' },
+      { id: 'Toys', label: 'Toys & Kids' },
+      { id: 'Footwear', label: 'Footwear' },
+    ];
+
+    return baseCategories.map((cat) => {
+      if (cat.id === 'All') {
+        return {
+          ...cat,
+          count: queryMatchedProducts.length,
+        };
+      }
+      const target = cat.id.toLowerCase();
+      const count = queryMatchedProducts.filter((p) => {
+        const pCat = (p.category || '').toLowerCase();
+        return pCat.startsWith(target.slice(0, 4)) || pCat.includes(target);
+      }).length;
+
+      return {
+        ...cat,
+        count,
+      };
+    });
+  }, [queryMatchedProducts]);
+
+  // Real-time filtered products matching both search and selected category chip
+  const filteredProducts = useMemo(() => {
+    if (selectedCategory === 'All') {
+      return queryMatchedProducts;
+    }
+    const target = selectedCategory.toLowerCase();
+    return queryMatchedProducts.filter((p) => {
+      const pCat = (p.category || '').toLowerCase();
+      return pCat.startsWith(target.slice(0, 4)) || pCat.includes(target);
+    });
+  }, [queryMatchedProducts, selectedCategory]);
 
   if (isLoading) {
     return (
@@ -1064,6 +1104,76 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   </button>
                 </div>
 
+                {/* Horizontal row of clickable category chips to further refine search results */}
+                <div className="mb-3.5">
+                  <div className="flex items-center justify-between mb-2 px-0.5">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>Refine by Category</span>
+                      {selectedCategory !== 'All' && (
+                        <span className="text-[#2418D8] dark:text-[#7B73FF] font-black normal-case">
+                          &bull; {selectedCategory}
+                        </span>
+                      )}
+                    </span>
+                    {selectedCategory !== 'All' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          haptics.light();
+                          setSelectedCategory('All');
+                        }}
+                        className="text-[11px] font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline flex items-center gap-0.5 active:scale-95 transition-transform cursor-pointer"
+                      >
+                        <span>Show All</span>
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div
+                    className="-mx-3 px-3 overflow-x-auto no-scrollbar scroll-smooth flex items-center gap-2 py-1"
+                    role="tablist"
+                    aria-label="Filter search results by category"
+                  >
+                    {searchCategoryChips.map((chip) => {
+                      const isSelected = selectedCategory === chip.id;
+                      const hasMatches = chip.count > 0;
+                      return (
+                        <button
+                          key={chip.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={isSelected}
+                          onClick={() => {
+                            haptics.selection();
+                            setSelectedCategory(chip.id);
+                          }}
+                          className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-95 cursor-pointer select-none ${
+                            isSelected
+                              ? 'bg-[#2418D8] text-white shadow-sm ring-2 ring-[#2418D8]/20 font-extrabold'
+                              : hasMatches
+                              ? 'bg-white dark:bg-[#1A1633] text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/80 hover:border-[#2418D8]/50 shadow-2xs'
+                              : 'bg-slate-50 dark:bg-slate-900/40 text-slate-400 dark:text-slate-500 border border-slate-100 dark:border-slate-800/60 opacity-60'
+                          }`}
+                        >
+                          <span className="whitespace-nowrap">{chip.label}</span>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
+                              isSelected
+                                ? 'bg-white/25 text-white'
+                                : hasMatches
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                : 'bg-transparent text-slate-400'
+                            }`}
+                          >
+                            {chip.count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {filteredProducts.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3">
                     {filteredProducts.map((product) => (
@@ -1158,36 +1268,76 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       <Search className="w-6 h-6 stroke-[1.5]" />
                     </div>
                     <h4 className="font-bold text-sm text-slate-800 dark:text-white mb-1">
-                      No matching products found
+                      {selectedCategory !== 'All'
+                        ? `No ${selectedCategory} products found`
+                        : 'No matching products found'}
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[260px] mx-auto mb-4">
-                      We couldn&apos;t find anything matching &ldquo;{searchQuery}&rdquo;. Try another keyword or popular categories below.
+                      {selectedCategory !== 'All' ? (
+                        <>
+                          We found no {selectedCategory} items matching &ldquo;{searchQuery}&rdquo;. Try clearing the category filter or switching categories.
+                        </>
+                      ) : (
+                        <>
+                          We couldn&apos;t find anything matching &ldquo;{searchQuery}&rdquo;. Try another keyword or popular categories below.
+                        </>
+                      )}
                     </p>
-                    <div className="flex flex-wrap justify-center gap-1.5 mb-4">
-                      {['Shoes', 'Phone', 'Kurta', 'Neem', 'Earbuds', 'Dung'].map((tag) => (
+                    {selectedCategory !== 'All' && queryMatchedProducts.length > 0 ? (
+                      <div className="flex flex-col items-center gap-2 mb-2">
                         <button
-                          key={tag}
                           type="button"
                           onClick={() => {
                             haptics.light();
-                            setSearchQuery(tag);
+                            setSelectedCategory('All');
                           }}
-                          className="px-2.5 py-1 text-xs font-medium rounded-full bg-white dark:bg-slate-800 text-[#2418D8] dark:text-[#7B73FF] border border-slate-200 dark:border-slate-700 shadow-2xs hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95"
+                          className="px-4 py-2 bg-[#2418D8] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#1A10B3] active:scale-95 transition-all cursor-pointer"
                         >
-                          {tag}
+                          Show All Categories ({queryMatchedProducts.length} items)
                         </button>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        haptics.light();
-                        setSearchQuery('');
-                      }}
-                      className="px-4 py-2 bg-[#2418D8] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#1A10B3] active:scale-95 transition-all"
-                    >
-                      Clear Search
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            haptics.light();
+                            setSearchQuery('');
+                            setSelectedCategory('All');
+                          }}
+                          className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:underline cursor-pointer"
+                        >
+                          Clear Search
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap justify-center gap-1.5 mb-4">
+                          {['Shoes', 'Phone', 'Kurta', 'Neem', 'Earbuds', 'Dung'].map((tag) => (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => {
+                                haptics.light();
+                                setSearchQuery(tag);
+                                setSelectedCategory('All');
+                              }}
+                              className="px-2.5 py-1 text-xs font-medium rounded-full bg-white dark:bg-slate-800 text-[#2418D8] dark:text-[#7B73FF] border border-slate-200 dark:border-slate-700 shadow-2xs hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95"
+                            >
+                              {tag}
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            haptics.light();
+                            setSearchQuery('');
+                            setSelectedCategory('All');
+                          }}
+                          className="px-4 py-2 bg-[#2418D8] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#1A10B3] active:scale-95 transition-all"
+                        >
+                          Clear Search
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </section>
