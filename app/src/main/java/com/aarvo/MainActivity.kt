@@ -1813,6 +1813,14 @@ private fun ProductDetailsScreen(
                             Text("Verified seller & authentic quality guaranteed by AARVO", fontSize = 10.sp, color = Color(0xFF64748B))
                         }
                     }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("💵", fontSize = 16.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text("Cash On Delivery Available", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E293B))
+                            Text("Pay cash at doorstep when delivery arrives. 100% genuine purchase protection.", fontSize = 10.sp, color = Color(0xFF047857), fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                 }
             }
 

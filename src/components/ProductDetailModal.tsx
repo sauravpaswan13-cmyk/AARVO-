@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
+  ArrowLeft,
+  Search,
   Star,
   ShoppingCart,
   Heart,
@@ -11,16 +13,27 @@ import {
   Share2,
   Zap,
   ZoomIn,
+  ChevronLeft,
+  ChevronRight,
+  Tag,
+  Banknote,
+  Check,
+  Plus,
+  Minus,
+  MapPin,
+  Sparkles,
 } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { Product360ViewerModal } from './Product360ViewerModal';
 import { ProductImageZoomModal } from './ProductImageZoomModal';
+import { Order } from './OrdersSection';
 
 export interface Product {
   id: string;
   name: string;
   category: string;
   image: string;
+  images?: string[];
   price: number;
   originalPrice: number;
   rating: number;
@@ -31,16 +44,22 @@ export interface Product {
   seller: string;
   description?: string;
   highlights?: string[];
+  specifications?: Record<string, string>;
+  codAvailable?: boolean;
 }
 
 interface ProductDetailModalProps {
   product: Product | null;
   isOpen: boolean;
   onClose: () => void;
-  onAddToCart: (product: Product) => void;
+  onAddToCart: (product: Product, quantity?: number) => void;
   isWishlisted: boolean;
   onToggleWishlist: (productId: string, productName?: string) => void;
-  onBuyNow?: (product: Product) => void;
+  onBuyNow?: (product: Product, quantity?: number) => void;
+  onPlaceOrder?: (order: Order) => void;
+  cartBadgeCount?: number;
+  onOpenCart?: () => void;
+  onOpenOrders?: () => void;
   onOpenImageZoom?: (product: Product) => void;
 }
 
@@ -52,21 +71,70 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   isWishlisted,
   onToggleWishlist,
   onBuyNow,
+  onPlaceOrder,
+  cartBadgeCount = 0,
+  onOpenCart,
+  onOpenOrders,
   onOpenImageZoom,
 }) => {
+  // Image slider state
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedQty, setSelectedQty] = useState(1);
   const [copiedShare, setCopiedShare] = useState(false);
   const [is360Open, setIs360Open] = useState(false);
   const [isZoomOpen, setIsZoomOpen] = useState(false);
 
+  // Fast Checkout (Cash on Delivery) Drawer states
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'UPI' | 'CARD'>('COD');
+  const [deliveryAddress, setDeliveryAddress] = useState('Home • 24B, Model Town, Phase 2, Patna - 800001');
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [pincode, setPincode] = useState('800001');
+  const [isPincodeValid, setIsPincodeValid] = useState(true);
+  const [orderConfirmed, setOrderConfirmed] = useState<Order | null>(null);
+
+  // Swipe / Drag gesture tracking for image carousel
+  const touchStartX = useRef<number>(0);
+  const touchDeltaX = useRef<number>(0);
+  const isMouseDown = useRef<boolean>(false);
+  const mouseStartX = useRef<number>(0);
+
+  // Compute product images list (if 5 uploaded -> 5, if 3 uploaded -> 3)
+  const productImages: string[] = React.useMemo(() => {
+    if (!product) return [];
+    if (product.images && product.images.length > 0) {
+      return product.images;
+    }
+    return [product.image];
+  }, [product]);
+
   useEffect(() => {
-    // Reset quantity whenever new product opens
+    // Reset state whenever modal opens or product changes
+    setCurrentImageIndex(0);
     setSelectedQty(1);
     setCopiedShare(false);
     setIs360Open(false);
+    setIsZoomOpen(false);
+    setIsCheckoutOpen(false);
+    setOrderConfirmed(null);
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (orderConfirmed) {
+          setOrderConfirmed(null);
+          onClose();
+        } else if (isCheckoutOpen) {
+          setIsCheckoutOpen(false);
+        } else {
+          onClose();
+        }
+      }
+      if (e.key === 'ArrowLeft') {
+        handlePrevImage();
+      }
+      if (e.key === 'ArrowRight') {
+        handleNextImage();
+      }
     };
 
     if (isOpen) {
@@ -78,11 +146,64 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       document.body.style.overflow = '';
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, product, onClose]);
+  }, [isOpen, product, onClose, isCheckoutOpen, orderConfirmed]);
 
   if (!isOpen || !product) return null;
 
+  const totalImages = productImages.length;
+
+  const handleNextImage = () => {
+    haptics.selection();
+    setCurrentImageIndex((prev) => (prev + 1) % totalImages);
+  };
+
+  const handlePrevImage = () => {
+    haptics.selection();
+    setCurrentImageIndex((prev) => (prev - 1 + totalImages) % totalImages);
+  };
+
+  // Touch Swipe Handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchDeltaX.current = 0;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchDeltaX.current < -35 && totalImages > 1) {
+      handleNextImage();
+    } else if (touchDeltaX.current > 35 && totalImages > 1) {
+      handlePrevImage();
+    }
+    touchDeltaX.current = 0;
+  };
+
+  // Mouse Drag Handlers for Desktop
+  const handleMouseDown = (e: React.MouseEvent) => {
+    isMouseDown.current = true;
+    mouseStartX.current = e.clientX;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isMouseDown.current) return;
+    const delta = e.clientX - mouseStartX.current;
+    if (Math.abs(delta) > 50 && totalImages > 1) {
+      if (delta < 0) handleNextImage();
+      else handlePrevImage();
+      isMouseDown.current = false;
+    }
+  };
+
+  const handleMouseUp = () => {
+    isMouseDown.current = false;
+  };
+
   const savings = Math.max(0, product.originalPrice - product.price);
+  const totalPrice = product.price * selectedQty;
+  const totalMRP = product.originalPrice * selectedQty;
 
   const defaultDescription =
     product.description ||
@@ -90,9 +211,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   const defaultHighlights = product.highlights || [
     '100% Original and Brand-Certified Product',
-    'Free Express Doorstep Delivery within 48 Hours',
+    'Free Express Doorstep Delivery within 24-48 Hours',
+    'Cash On Delivery (COD) Eligible with Zero Extra Fee',
     '7 Days Easy Replacement & Refund Guarantee',
-    'GST Invoice and Manufacturer Warranty Included',
+    'GST Invoice and 1 Year Manufacturer Warranty Included',
   ];
 
   const handleShare = () => {
@@ -109,6 +231,68 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     }
   };
 
+  // Real Cash on Delivery Order Placement
+  const handleConfirmOrder = () => {
+    haptics.success();
+    const orderId = `AARVO-COD-${Math.floor(10000 + Math.random() * 90000)}`;
+    const trackingNo = `AARVO-EXP-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    const newOrder: Order = {
+      id: orderId,
+      date: 'Today, ' + new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      total: totalPrice,
+      status: 'Processing',
+      statusStep: 1,
+      estimatedDelivery: 'Tomorrow by 9:00 PM',
+      trackingNumber: trackingNo,
+      carrier: 'AARVO Express Surface • AWB ' + trackingNo.slice(-6),
+      paymentMethod: paymentMethod === 'COD' ? 'Cash on Delivery (Pay at doorstep)' : paymentMethod === 'UPI' ? 'UPI' : 'Card',
+      deliveryAddress: deliveryAddress,
+      items: [
+        {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: selectedQty,
+          image: product.image,
+          category: product.category,
+        },
+      ],
+      timeline: [
+        {
+          status: 'Order Placed (Cash on Delivery)',
+          time: 'Just now',
+          description: `Order confirmed for ₹${totalPrice.toLocaleString('en-IN')}. Please keep exact cash ready upon delivery.`,
+          completed: true,
+        },
+        {
+          status: 'Seller Packaging',
+          time: 'Preparing',
+          description: `${product.seller} is packing your item with verified seal.`,
+          completed: false,
+        },
+        {
+          status: 'Out for Delivery',
+          time: 'Tomorrow, by 9:00 AM',
+          description: 'AARVO delivery agent will arrive at your address with the package.',
+          completed: false,
+        },
+        {
+          status: 'Delivered & Cash Collected',
+          time: 'Tomorrow, by 9:00 PM',
+          description: 'Cash payment will be verified and collected at your doorstep.',
+          completed: false,
+        },
+      ],
+    };
+
+    if (onPlaceOrder) {
+      onPlaceOrder(newOrder);
+    }
+    setOrderConfirmed(newOrder);
+    setIsCheckoutOpen(false);
+  };
+
   return (
     <div
       role="dialog"
@@ -120,41 +304,65 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       <div
         onClick={() => {
           haptics.light();
-          onClose();
+          if (orderConfirmed) {
+            setOrderConfirmed(null);
+            onClose();
+          } else if (isCheckoutOpen) {
+            setIsCheckoutOpen(false);
+          } else {
+            onClose();
+          }
         }}
-        className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+        className="fixed inset-0 bg-black/75 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
       />
 
       {/* Modal / Bottom Sheet Container */}
-      <div className="relative w-full max-w-[440px] max-h-[92vh] bg-white dark:bg-[#14112B] text-slate-900 dark:text-slate-100 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden animate-in slide-in-from-bottom-8 duration-300 border border-slate-100 dark:border-slate-800">
+      <div className="relative w-full max-w-[440px] max-h-[94vh] bg-white dark:bg-[#14112B] text-slate-900 dark:text-slate-100 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden animate-in slide-in-from-bottom-8 duration-300 border border-slate-100 dark:border-slate-800">
         
-        {/* Top Floating Action Header */}
-        <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-white/90 dark:bg-[#14112B]/90 backdrop-blur-md border-b border-slate-100 dark:border-slate-800">
+        {/* ================================================================= */}
+        {/* 1. FLIPKART-STYLE TOP APP BAR                                     */}
+        {/* ================================================================= */}
+        <header className="sticky top-0 z-30 flex items-center justify-between px-3.5 py-2.5 bg-white/95 dark:bg-[#14112B]/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/80">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-wider bg-[#2418D8]/10 text-[#2418D8] dark:text-[#7B73FF] dark:bg-purple-950/60 px-2.5 py-1 rounded-full">
-              {product.category}
+            <button
+              type="button"
+              onClick={() => {
+                haptics.light();
+                onClose();
+              }}
+              aria-label="Back"
+              className="p-1.5 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+            </button>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[170px]">
+              {product.name}
             </span>
-            <span className="text-xs text-slate-400 font-medium">&bull; AARVO Verified</span>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {/* Share button */}
             <button
+              type="button"
               onClick={handleShare}
               aria-label="Share product"
-              className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <Share2 className="w-4 h-4" />
             </button>
 
             {/* Wishlist toggle button */}
             <button
-              onClick={() => onToggleWishlist(product.id, product.name)}
+              type="button"
+              onClick={() => {
+                haptics.light();
+                onToggleWishlist(product.id, product.name);
+              }}
               aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-              className={`p-2 rounded-full transition-all active:scale-75 ${
+              className={`p-2 rounded-full transition-all active:scale-75 cursor-pointer ${
                 isWishlisted
                   ? 'bg-rose-50 dark:bg-rose-950/80 text-rose-500'
-                  : 'text-slate-500 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
               <Heart
@@ -164,21 +372,47 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               />
             </button>
 
-            {/* Close button */}
+            {/* Cart Button with live Badge Counter */}
             <button
+              type="button"
+              onClick={() => {
+                haptics.selection();
+                if (onOpenCart) {
+                  onClose();
+                  onOpenCart();
+                } else {
+                  onAddToCart(product);
+                }
+              }}
+              aria-label="Open Cart"
+              className="relative p-2 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              {cartBadgeCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-black flex items-center justify-center shadow-xs">
+                  {cartBadgeCount > 99 ? '99+' : cartBadgeCount}
+                </span>
+              )}
+            </button>
+
+            {/* Close modal X button */}
+            <button
+              type="button"
               onClick={() => {
                 haptics.light();
                 onClose();
               }}
-              aria-label="Close product details"
-              className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ml-1"
+              aria-label="Close"
+              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer ml-0.5"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Scrollable Product Details Content */}
+        {/* ================================================================= */}
+        {/* 2. SCROLLABLE MAIN PRODUCT CONTENT                                */}
+        {/* ================================================================= */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
           {copiedShare && (
             <div className="p-2 text-center text-xs bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-xl font-semibold border border-emerald-200 dark:border-emerald-800 animate-in fade-in">
@@ -186,136 +420,203 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           )}
 
-          {/* Large High-Res Product Image Showcase (Tap to open Full-Screen Zoom Lightbox) */}
-          <div 
-            onClick={() => {
-              haptics.selection();
-              if (onOpenImageZoom) {
-                onOpenImageZoom(product);
-              } else {
-                setIsZoomOpen(true);
-              }
-            }}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                if (onOpenImageZoom) {
-                  onOpenImageZoom(product);
-                } else {
-                  setIsZoomOpen(true);
-                }
-              }
-            }}
-            title="Tap to zoom and view full-screen image"
-            className="relative aspect-square w-full rounded-2xl overflow-hidden bg-slate-50 dark:bg-[#1A1638] shadow-inner border border-slate-100 dark:border-slate-800 group cursor-zoom-in focus:outline-hidden focus:ring-2 focus:ring-[#2418D8]"
-          >
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-            {/* Discount Badge */}
-            {product.originalPrice > product.price && (
-              <span className="absolute top-3 left-3 bg-red-600 text-white text-xs font-black px-2.5 py-1 rounded-lg shadow-md tracking-wide pointer-events-none">
-                {product.discount}
-              </span>
+          {/* =============================================================== */}
+          {/* MULTI-IMAGE SLIDER WITH TOUCH SWIPE & PAGINATION DOTS           */}
+          {/* Shows exactly 5 dots if 5 images, or 3 dots if 3 images!         */}
+          {/* =============================================================== */}
+          <div className="space-y-2.5">
+            <div
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              className="relative aspect-square w-full rounded-2xl overflow-hidden bg-white dark:bg-[#1A1638] shadow-sm border border-slate-100 dark:border-slate-800/80 group select-none cursor-grab active:cursor-grabbing"
+            >
+              {/* Image Slides Track */}
+              <div
+                className="flex w-full h-full transition-transform duration-300 ease-out"
+                style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
+              >
+                {productImages.map((imgUrl, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      haptics.light();
+                      if (onOpenImageZoom) {
+                        onOpenImageZoom({ ...product, image: imgUrl });
+                      } else {
+                        setIsZoomOpen(true);
+                      }
+                    }}
+                    className="w-full h-full shrink-0 flex items-center justify-center p-3 relative cursor-zoom-in"
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={`${product.name} view ${idx + 1}`}
+                      className="w-full h-full object-contain pointer-events-none"
+                      draggable={false}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Discount Badge */}
+              {product.originalPrice > product.price && (
+                <span className="absolute top-3 left-3 bg-red-600 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-md tracking-wide pointer-events-none z-10">
+                  {product.discount}
+                </span>
+              )}
+
+              {/* Image Counter Badge (e.g. 1/5 or 3/3) */}
+              <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-md border border-white/20 pointer-events-none z-10 flex items-center gap-1">
+                <span>{currentImageIndex + 1}</span>
+                <span className="text-white/60">/</span>
+                <span>{totalImages}</span>
+              </div>
+
+              {/* Tap to Zoom Indicator */}
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  haptics.light();
+                  if (onOpenImageZoom) {
+                    onOpenImageZoom({ ...product, image: productImages[currentImageIndex] });
+                  } else {
+                    setIsZoomOpen(true);
+                  }
+                }}
+                className="absolute bottom-3 left-3 bg-black/60 hover:bg-[#2418D8] backdrop-blur-md text-white px-2.5 py-1 rounded-full shadow-md border border-white/20 flex items-center gap-1.5 text-[10px] font-bold transition-colors cursor-pointer z-10"
+              >
+                <ZoomIn className="w-3 h-3" />
+                <span>Tap to Zoom</span>
+              </div>
+
+              {/* Left / Right Carousel Navigation Arrows */}
+              {totalImages > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrevImage();
+                    }}
+                    aria-label="Previous image"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-slate-100 shadow-md border border-slate-200/60 dark:border-slate-700 flex items-center justify-center transition-all opacity-85 hover:opacity-100 active:scale-90 z-10 cursor-pointer"
+                  >
+                    <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextImage();
+                    }}
+                    aria-label="Next image"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-slate-100 shadow-md border border-slate-200/60 dark:border-slate-700 flex items-center justify-center transition-all opacity-85 hover:opacity-100 active:scale-90 z-10 cursor-pointer"
+                  >
+                    <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Pagination Dots (Exactly 5 dots for 5 images, or 3 dots for 3 images!) */}
+            {totalImages > 1 && (
+              <div className="flex items-center justify-center gap-1.5 py-1">
+                {productImages.map((_, idx) => {
+                  const isActive = idx === currentImageIndex;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      aria-label={`Go to slide ${idx + 1}`}
+                      onClick={() => {
+                        haptics.selection();
+                        setCurrentImageIndex(idx);
+                      }}
+                      className={`transition-all duration-300 rounded-full cursor-pointer ${
+                        isActive
+                          ? 'w-6 h-2 bg-[#2418D8] shadow-xs'
+                          : 'w-2 h-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
+                      }`}
+                    />
+                  );
+                })}
+              </div>
             )}
 
-            {/* In-Stock Indicator */}
-            <span className="absolute bottom-3 left-3 bg-emerald-600/90 backdrop-blur-xs text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs pointer-events-none">
-              <CheckCircle2 className="w-3 h-3" />
-              In Stock &bull; Ready to Ship
-            </span>
-
-            {/* Flipkart-Style Zoom Badge */}
-            <div
-              className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-full shadow-lg border border-white/20 flex items-center gap-1.5 text-[11px] font-bold group-hover:bg-[#2418D8] transition-colors pointer-events-none"
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
-              <span>Tap to Zoom</span>
-            </div>
-
-            {/* 360° Quick Launch Pill */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                haptics.selection();
-                setIs360Open(true);
-              }}
-              className="absolute bottom-3 right-3 z-10 bg-white/95 dark:bg-[#14112B]/95 hover:bg-white text-slate-900 dark:text-white px-3 py-1.5 rounded-full shadow-lg border border-slate-200/90 dark:border-slate-700 flex items-center gap-2 transition-all active:scale-95 hover:scale-105 ring-2 ring-indigo-500/20 cursor-pointer"
-              title="View product in 360° view"
-            >
-              <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-[#2418D8] to-purple-600 text-white flex items-center justify-center">
-                <RotateCcw className="w-3 h-3 animate-spin-slow" />
+            {/* Thumbnail Strip (Click to jump to image) */}
+            {totalImages > 1 && (
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+                {productImages.map((thumbUrl, idx) => {
+                  const isSelected = idx === currentImageIndex;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        haptics.selection();
+                        setCurrentImageIndex(idx);
+                      }}
+                      className={`relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-[#2418D8] shadow-sm ring-2 ring-[#2418D8]/25 scale-105'
+                          : 'border-slate-200 dark:border-slate-700 opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <img
+                        src={thumbUrl}
+                        alt={`Thumbnail ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  );
+                })}
               </div>
-              <div className="text-left leading-none">
-                <span className="text-[10px] font-black uppercase tracking-wider block text-[#2418D8] dark:text-[#7B73FF]">
-                  360° VIEW
-                </span>
-                <span className="text-[8px] text-slate-500 dark:text-slate-400 font-semibold">
-                  Tap to rotate
-                </span>
-              </div>
-            </button>
+            )}
           </div>
 
-          {/* AARVO 360° Interactive Full-Screen Banner */}
-          <button
-            type="button"
-            onClick={() => {
-              haptics.selection();
-              setIs360Open(true);
-            }}
-            className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-purple-950/40 border border-blue-200/80 dark:border-blue-900/60 flex items-center justify-between text-left transition-all hover:border-[#2418D8] active:scale-[0.98] cursor-pointer shadow-xs"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#2418D8] text-white flex items-center justify-center shadow-xs">
-                <RotateCcw className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <span>Explore Product in 360° View</span>
-                  <span className="text-[9px] bg-[#2418D8] text-white px-1.5 py-0.2 rounded font-black">
-                    AARVO 3D
-                  </span>
-                </span>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                  Swipe to rotate, zoom angles &amp; inspect hardware details in full screen
-                </p>
-              </div>
-            </div>
-            <span className="text-xs font-bold text-[#2418D8] dark:text-[#7B73FF] flex items-center">
-              Full Screen &rarr;
-            </span>
-          </button>
-
-          {/* Title & Ratings */}
+          {/* =============================================================== */}
+          {/* TITLE, RATING & AARVO ASSURED BADGE (MATCHING FLIPKART STYLE)   */}
+          {/* =============================================================== */}
           <div>
-            <h2
+            <h1
               id="product-detail-title"
               className="font-display font-black text-base sm:text-lg text-slate-900 dark:text-white leading-snug"
             >
               {product.name}
-            </h2>
+            </h1>
 
-            <div className="flex items-center gap-2 mt-2">
-              <span className="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-xs font-extrabold px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/60">
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {/* Green Rating Pill */}
+              <div className="flex items-center gap-1 bg-emerald-600 text-white text-xs font-black px-2 py-0.5 rounded-md shadow-2xs">
                 <span>{product.rating}</span>
-                <Star className="w-3 h-3 fill-current text-emerald-600 dark:text-emerald-400" />
-              </span>
+                <Star className="w-3 h-3 fill-white" />
+              </div>
+
+              {/* Reviews count */}
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                {product.reviewsCount.toLocaleString('en-IN')} Verified Ratings
+                ({product.reviewsCount.toLocaleString('en-IN')} ratings)
               </span>
-              <span className="text-slate-300 dark:text-slate-700">&bull;</span>
-              <span className="text-xs text-[#2418D8] dark:text-[#7B73FF] font-semibold">
-                Assured
-              </span>
+
+              {/* Flipkart Assured style AARVO Assured Badge */}
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/80">
+                <span className="w-3.5 h-3.5 rounded-full bg-[#2418D8] text-white flex items-center justify-center text-[9px] font-black">
+                  ⚡
+                </span>
+                <span className="text-[11px] font-black text-[#2418D8] dark:text-[#7B73FF] italic">
+                  Assured
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Pricing Zone */}
+          {/* =============================================================== */}
+          {/* PRICING ZONE & NO-COST EMI                                      */}
+          {/* =============================================================== */}
           <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-100 dark:border-slate-800/80">
             <div className="flex items-baseline gap-2.5">
               <span className="text-2xl font-black text-slate-900 dark:text-white font-display">
@@ -326,37 +627,113 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <span className="text-sm text-slate-400 dark:text-slate-500 line-through font-semibold">
                     ₹{product.originalPrice.toLocaleString('en-IN')}
                   </span>
-                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
-                    Save ₹{savings.toLocaleString('en-IN')}
+                  <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
+                    {product.discount}
                   </span>
                 </>
               )}
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-              Inclusive of all taxes &bull; No cost EMI available from ₹
-              {Math.round(product.price / 3).toLocaleString('en-IN')}/month
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+              <span>₹{Math.round(product.price / 3).toLocaleString('en-IN')}/month</span>
+              <span className="font-semibold text-[#2418D8] dark:text-[#7B73FF]">No Cost EMI &gt;</span>
             </p>
           </div>
 
-          {/* Assurance Badges (AARVO Authentic Trust Badges) */}
+          {/* =============================================================== */}
+          {/* BANK OFFERS / COUPON CALLOUT                                     */}
+          {/* =============================================================== */}
+          <div className="p-3 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-2.5">
+            <Tag className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
+            <div className="flex-1 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-extrabold text-emerald-900 dark:text-emerald-300">
+                  Extra ₹100 Off On Selected Bank Cards &amp; UPI
+                </span>
+                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 underline cursor-pointer">
+                  T&amp;C
+                </span>
+              </div>
+              <p className="text-[11px] text-emerald-800/80 dark:text-emerald-400/80 mt-0.5">
+                Special Price: Get extra 10% instant discount on order checkout.
+              </p>
+            </div>
+          </div>
+
+          {/* =============================================================== */}
+          {/* CASH ON DELIVERY & FREE DELIVERY ASSURANCE                       */}
+          {/* =============================================================== */}
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1638] border border-slate-200/90 dark:border-slate-800 space-y-2.5">
+            {/* Delivery time */}
+            <div className="flex items-center gap-2.5">
+              <Truck className="w-4 h-4 text-slate-700 dark:text-slate-300 shrink-0" />
+              <div className="text-xs">
+                <span className="font-bold text-slate-900 dark:text-white">
+                  Delivery by Tomorrow, 9 PM
+                </span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-extrabold ml-1.5">
+                  FREE
+                </span>
+              </div>
+            </div>
+
+            {/* Pincode check */}
+            <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
+              <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                <MapPin className="w-3.5 h-3.5 text-[#2418D8]" />
+                <span>Deliver to: <strong className="text-slate-800 dark:text-slate-200">{pincode}</strong></span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.light();
+                  const newPin = prompt('Enter delivery pincode:', pincode);
+                  if (newPin && newPin.trim().length === 6) {
+                    setPincode(newPin.trim());
+                    setIsPincodeValid(true);
+                  }
+                }}
+                className="text-xs font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline cursor-pointer"
+              >
+                Change
+              </button>
+            </div>
+
+            {/* Cash on Delivery Banner */}
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60">
+              <Banknote className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
+              <div className="flex-1 text-[11px] leading-tight">
+                <span className="font-extrabold text-amber-900 dark:text-amber-300 block">
+                  Cash On Delivery Available
+                </span>
+                <span className="text-amber-800/80 dark:text-amber-400/80 text-[10px]">
+                  Pay cash at your doorstep with 100% purchase protection.
+                </span>
+              </div>
+              <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            </div>
+          </div>
+
+          {/* =============================================================== */}
+          {/* THREE CORE TRUST ASSURANCES                                     */}
+          {/* =============================================================== */}
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="p-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/30 flex flex-col items-center">
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/60 flex flex-col items-center">
               <Truck className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF] mb-1" />
               <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">
                 Free Delivery
               </span>
-              <span className="text-[9px] text-slate-500">In 2 Days</span>
+              <span className="text-[9px] text-slate-500">Fast doorstep</span>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/30 flex flex-col items-center">
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/60 flex flex-col items-center">
               <RotateCcw className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF] mb-1" />
               <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">
                 7 Days Return
               </span>
-              <span className="text-[9px] text-slate-500">Doorstep pickup</span>
+              <span className="text-[9px] text-slate-500">Easy replacement</span>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/30 flex flex-col items-center">
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/60 flex flex-col items-center">
               <ShieldCheck className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF] mb-1" />
               <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">
                 AARVO Assured
@@ -365,20 +742,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Full Description */}
+          {/* =============================================================== */}
+          {/* HIGHLIGHTS & PRODUCT DETAILS                                    */}
+          {/* =============================================================== */}
           <div className="space-y-2">
             <h3 className="font-display font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Product Overview &amp; Details
-            </h3>
-            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-              {defaultDescription}
-            </p>
-          </div>
-
-          {/* Key Highlights */}
-          <div className="space-y-2">
-            <h3 className="font-display font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Key Highlights
+              Product Details &amp; Highlights
             </h3>
             <ul className="space-y-1.5">
               {defaultHighlights.map((hl, idx) => (
@@ -393,53 +762,367 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </ul>
           </div>
 
-          {/* Verified Seller Information */}
+          {/* Full Description */}
+          <div className="space-y-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+            <h4 className="font-display font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Description
+            </h4>
+            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+              {defaultDescription}
+            </p>
+          </div>
+
+          {/* Seller Information */}
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#1A1638] border border-slate-100 dark:border-slate-800 text-xs flex items-center justify-between">
             <div>
               <span className="text-[10px] text-slate-400 uppercase font-bold block">
-                Sold By
+                Seller
               </span>
-              <span className="font-bold text-slate-900 dark:text-white">
-                {product.seller}
+              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                <span>{product.seller}</span>
+                <span className="text-[10px] font-extrabold text-white bg-emerald-600 px-1 rounded">
+                  4.8 ★
+                </span>
               </span>
             </div>
             <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
-              GST Verified
+              100% Genuine
             </span>
           </div>
         </div>
 
-        {/* Sticky Bottom Actions Bar */}
-        <div className="sticky bottom-0 z-20 p-3.5 bg-white/95 dark:bg-[#14112B]/95 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 flex items-center gap-2.5">
+        {/* ================================================================= */}
+        {/* 3. FLIPKART-STYLE STICKY BOTTOM ACTIONS BAR                       */}
+        {/* ================================================================= */}
+        <div className="sticky bottom-0 z-30 p-3 bg-white/98 dark:bg-[#14112B]/98 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800 flex items-center gap-2.5 shadow-xl">
+          {/* Add to Cart Button */}
           <button
             type="button"
             onClick={() => {
               haptics.success();
-              onAddToCart(product);
+              onAddToCart(product, selectedQty);
             }}
-            className="flex-1 py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#201B42] dark:hover:bg-[#282255] text-slate-900 dark:text-white font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xs"
+            className="flex-1 py-3.5 px-3 rounded-xl bg-white dark:bg-[#1A1638] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold text-xs flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-700 active:scale-95 transition-all shadow-xs cursor-pointer"
           >
             <ShoppingCart className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF]" />
             <span>Add to Cart</span>
           </button>
 
+          {/* Buy Now (Triggers Fast Checkout Drawer with Cash On Delivery) */}
           <button
             type="button"
             onClick={() => {
               haptics.impact();
-              if (onBuyNow) {
-                onBuyNow(product);
-              } else {
-                onAddToCart(product);
-                onClose();
-              }
+              setIsCheckoutOpen(true);
             }}
-            className="flex-1 py-3 px-4 rounded-xl bg-[#2418D8] hover:bg-[#1A10B3] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-md"
+            className="flex-1 py-3.5 px-3 rounded-xl bg-[#FFC200] hover:bg-[#FFB300] text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-md cursor-pointer"
           >
-            <Zap className="w-4 h-4 fill-current text-yellow-300" />
+            <Zap className="w-4 h-4 fill-slate-950 text-slate-950" />
             <span>Buy Now</span>
           </button>
         </div>
+
+        {/* ================================================================= */}
+        {/* 4. REAL CASH ON DELIVERY (COD) FAST CHECKOUT DRAWER               */}
+        {/* ================================================================= */}
+        {isCheckoutOpen && (
+          <div className="absolute inset-0 z-40 bg-white dark:bg-[#14112B] flex flex-col animate-in slide-in-from-bottom duration-200 overflow-hidden">
+            {/* Checkout Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-[#2418D8] text-white shadow-sm">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCheckoutOpen(false)}
+                  className="p-1 hover:bg-white/20 rounded-full cursor-pointer"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <h3 className="font-bold text-sm">Order Checkout</h3>
+              </div>
+              <span className="text-xs bg-white/20 px-2 py-0.5 rounded font-bold">
+                100% Safe
+              </span>
+            </div>
+
+            {/* Checkout Body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3.5 no-scrollbar">
+              {/* Delivery Address */}
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-200/80 dark:border-slate-800">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-[#2418D8]" />
+                    <span>Deliver to</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingAddress(!isEditingAddress)}
+                    className="text-xs font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline cursor-pointer"
+                  >
+                    {isEditingAddress ? 'Done' : 'Change'}
+                  </button>
+                </div>
+                {isEditingAddress ? (
+                  <textarea
+                    rows={2}
+                    value={deliveryAddress}
+                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    className="w-full text-xs p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none"
+                  />
+                ) : (
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    {deliveryAddress}
+                  </p>
+                )}
+              </div>
+
+              {/* Product preview & quantity selector */}
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-200/80 dark:border-slate-800 flex items-center gap-3">
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="w-14 h-14 rounded-xl object-cover bg-white"
+                />
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {product.name}
+                  </h4>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-sm font-black text-slate-900 dark:text-white">
+                      ₹{totalPrice.toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-[10px] text-emerald-600 font-bold">
+                      {product.discount}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Qty controller */}
+                <div className="flex items-center gap-2 bg-white dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptics.light();
+                      setSelectedQty((prev) => Math.max(1, prev - 1));
+                    }}
+                    className="w-6 h-6 rounded flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+                  >
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white min-w-[14px] text-center">
+                    {selectedQty}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptics.light();
+                      setSelectedQty((prev) => prev + 1);
+                    }}
+                    className="w-6 h-6 rounded flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              {/* PAYMENT METHOD SELECTION (CASH ON DELIVERY HIGHLIGHTED) */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Select Payment Option
+                </span>
+
+                {/* Option 1: Cash On Delivery (Selected by Default) */}
+                <div
+                  onClick={() => {
+                    haptics.selection();
+                    setPaymentMethod('COD');
+                  }}
+                  className={`p-3 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                    paymentMethod === 'COD'
+                      ? 'border-[#2418D8] bg-blue-50/70 dark:bg-blue-950/40 shadow-xs'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1A1638]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black text-sm">
+                      ₹
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black text-slate-900 dark:text-white">
+                          Cash on Delivery (COD)
+                        </span>
+                        <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded font-black">
+                          Popular
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Pay cash directly to delivery executive at your doorstep
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      paymentMethod === 'COD'
+                        ? 'border-[#2418D8] bg-[#2418D8]'
+                        : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                  >
+                    {paymentMethod === 'COD' && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                </div>
+
+                {/* Option 2: UPI */}
+                <div
+                  onClick={() => {
+                    haptics.selection();
+                    setPaymentMethod('UPI');
+                  }}
+                  className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                    paymentMethod === 'UPI'
+                      ? 'border-[#2418D8] bg-blue-50/70 dark:bg-blue-950/40 shadow-xs'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1A1638]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-black text-xs">
+                      UPI
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                        UPI (GPay / PhonePe / Paytm)
+                      </span>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        Instant scan &amp; pay
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      paymentMethod === 'UPI'
+                        ? 'border-[#2418D8] bg-[#2418D8]'
+                        : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                  >
+                    {paymentMethod === 'UPI' && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                </div>
+              </div>
+
+              {/* Price Details */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs">
+                <span className="font-bold text-slate-900 dark:text-white block pb-1 border-b border-slate-200 dark:border-slate-700">
+                  Price Details ({selectedQty} {selectedQty === 1 ? 'item' : 'items'})
+                </span>
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>Total MRP</span>
+                  <span>₹{totalMRP.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between text-emerald-600 font-semibold">
+                  <span>Product Discount</span>
+                  <span>-₹{(totalMRP - totalPrice).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>Delivery Charges</span>
+                  <span className="text-emerald-600 font-bold">FREE</span>
+                </div>
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>COD Handling Fee</span>
+                  <span className="text-emerald-600 font-bold">FREE</span>
+                </div>
+                <div className="flex justify-between font-black text-sm text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <span>Total Payable</span>
+                  <span className="text-[#2418D8] dark:text-[#7B73FF]">
+                    ₹{totalPrice.toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Confirm COD Order Button */}
+            <div className="p-3.5 bg-white dark:bg-[#14112B] border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={handleConfirmOrder}
+                className="w-full py-3.5 rounded-xl bg-[#2418D8] hover:bg-[#1A10B3] text-white font-extrabold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>
+                  {paymentMethod === 'COD'
+                    ? `Confirm Order with Cash on Delivery (₹${totalPrice.toLocaleString('en-IN')})`
+                    : `Pay ₹${totalPrice.toLocaleString('en-IN')} & Place Order`}
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ================================================================= */}
+        {/* 5. ORDER PLACED SUCCESS CELEBRATION MODAL                         */}
+        {/* ================================================================= */}
+        {orderConfirmed && (
+          <div className="absolute inset-0 z-50 bg-white dark:bg-[#14112B] flex flex-col items-center justify-center p-6 text-center animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center mb-3 animate-bounce">
+              <CheckCircle2 className="w-10 h-10 stroke-[2.5]" />
+            </div>
+
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/80 px-2.5 py-0.5 rounded-full mb-1">
+              {orderConfirmed.paymentMethod.includes('Cash') ? 'Cash On Delivery Confirmed' : 'Payment Confirmed'}
+            </span>
+
+            <h3 className="font-display font-black text-lg text-slate-900 dark:text-white mb-1">
+              Order Placed Successfully!
+            </h3>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 max-w-[280px]">
+              {orderConfirmed.paymentMethod.includes('Cash')
+                ? `Please pay ₹${orderConfirmed.total.toLocaleString('en-IN')} in cash upon delivery tomorrow by 9:00 PM.`
+                : 'Thank you for shopping on AARVO. Your item has been sent for dispatch.'}
+            </p>
+
+            <div className="w-full max-w-[320px] p-3 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-200/80 dark:border-slate-800 mb-5 text-left text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Order ID:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{orderConfirmed.id}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Amount Due:</span>
+                <span className="font-black text-emerald-600">₹{orderConfirmed.total.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Estimated Delivery:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{orderConfirmed.estimatedDelivery}</span>
+              </div>
+            </div>
+
+            <div className="w-full max-w-[320px] space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.selection();
+                  setOrderConfirmed(null);
+                  onClose();
+                  if (onOpenOrders) {
+                    onOpenOrders();
+                  }
+                }}
+                className="w-full py-3 bg-[#2418D8] hover:bg-[#1A10B3] text-white font-bold text-xs rounded-xl shadow-md active:scale-95 transition-all cursor-pointer"
+              >
+                View in Orders &amp; Delivery
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.light();
+                  setOrderConfirmed(null);
+                  onClose();
+                }}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl active:scale-95 transition-all cursor-pointer"
+              >
+                Continue Shopping
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 360° AARVO Full-Screen Product Viewer Modal */}

@@ -427,13 +427,20 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     }
   };
 
-  // Sample real catalog products with stock inventory data
+  // Sample real catalog products with stock inventory data & multi-image sets
   const [allProducts, setAllProducts] = useState<Product[]>([
     {
       id: 'p1',
       name: 'OnePlus Nord CE4 5G (8GB RAM, 128GB Storage)',
       category: 'Mobiles',
-      image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80',
+      image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&auto=format&fit=crop&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1580910051074-3eb694886505?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1565849904461-04a58ad377e0?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=800&auto=format&fit=crop&q=80',
+      ],
       price: 19999,
       originalPrice: 24999,
       rating: 4.5,
@@ -442,12 +449,42 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       inStock: true,
       stockQuantity: 14,
       seller: 'TechPro Retail India',
+      description: 'Snapdragon 7 Gen 3 performance with 100W SuperVOOC fast charging, 120Hz Fluid AMOLED display, and 50MP Sony LYT-600 OIS camera.',
+    },
+    {
+      id: 'p_boat',
+      name: 'boAt Airdopes 141 ANC True Wireless Earbuds with Active Noise Cancellation (42H Playback)',
+      category: 'Electronics',
+      image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1606220588913-b3aacb4d2f46?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1572536147248-ac59a8abfa4b?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop&q=80',
+      ],
+      price: 1499,
+      originalPrice: 3990,
+      rating: 4.1,
+      reviewsCount: 250673,
+      discount: '62% off',
+      inStock: true,
+      stockQuantity: 28,
+      seller: 'boAt Lifestyle Flagship',
+      description: 'Experience pure acoustic immersion with 32dB Active Noise Cancellation, quad microphones with ENx technology, ASAP Charge, and 42 hours combined battery backup.',
     },
     {
       id: 'p2',
-      name: 'Pure Cotton Embroidered Anarkali Kurta Set',
+      name: 'Pure Cotton Embroidered Anarkali Kurta Set with Dupatta',
       category: 'Fashion',
-      image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=500&auto=format&fit=crop&q=80',
+      image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1583391733981-81b0a8806a6b?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800&auto=format&fit=crop&q=80',
+      ],
       price: 1299,
       originalPrice: 3499,
       rating: 4.6,
@@ -456,26 +493,59 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       inStock: true,
       stockQuantity: 3,
       seller: 'Aarvo Trends Fashion',
+      description: 'Handcrafted pure cambric cotton with detailed zari threadwork, tailored flare silhouette, and matching organza printed dupatta.',
     },
     {
-      id: 'p3',
-      name: 'Sony WH-CH520 Wireless Bluetooth Headphones',
-      category: 'Electronics',
-      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&auto=format&fit=crop&q=80',
-      price: 3990,
-      originalPrice: 4990,
-      rating: 4.4,
-      reviewsCount: 3120,
-      discount: '20% OFF',
+      id: 'p_neem',
+      name: 'Neem Datoon Organic Fresh Herbal Teeth Cleaning Sticks (Pack of 30)',
+      category: 'Mouth Fresher',
+      image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&auto=format&fit=crop&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=800&auto=format&fit=crop&q=80',
+      ],
+      price: 19,
+      originalPrice: 29,
+      rating: 4.3,
+      reviewsCount: 120,
+      discount: '34% OFF',
       inStock: true,
-      stockQuantity: 18,
-      seller: 'Sony Authorized Store',
+      stockQuantity: 50,
+      seller: 'Vedic Naturals Direct',
+      description: 'Naturally harvested organic neem twigs for traditional dental hygiene, gum strengthening, and natural antibacterial breath freshening.',
+    },
+    {
+      id: 'p_dung',
+      name: "Cow's dung cakes 100% Pure Organic for Hawan & Puja (Pack of 20)",
+      category: 'Home/Kitchen',
+      image: 'https://images.unsplash.com/photo-1607613009820-a29f7bb81c04?w=800&auto=format&fit=crop&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1607613009820-a29f7bb81c04?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=800&auto=format&fit=crop&q=80',
+      ],
+      price: 99,
+      originalPrice: 129,
+      rating: 4.3,
+      reviewsCount: 120,
+      discount: '23% OFF',
+      inStock: true,
+      stockQuantity: 40,
+      seller: 'Gaushala Pure Organics',
+      description: 'Authentic sun-dried desi cow dung cakes for sacred hawan, agnihotra, puja ceremonies, and organic home purifying.',
     },
     {
       id: 'p4',
-      name: 'Ergonomic High Back Mesh Office & Study Chair',
+      name: 'Ergonomic High Back Mesh Office & Study Chair with Lumbar Support',
       category: 'Home & Living',
-      image: 'https://images.unsplash.com/photo-1580481077195-c22ae2804b7f?w=500&auto=format&fit=crop&q=80',
+      image: 'https://images.unsplash.com/photo-1580481077195-c22ae2804b7f?w=800&auto=format&fit=crop&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1580481077195-c22ae2804b7f?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1505797149-43b0069ec26b?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1519947486511-46149fa0a254?w=800&auto=format&fit=crop&q=80',
+      ],
       price: 4499,
       originalPrice: 8999,
       rating: 4.3,
@@ -484,12 +554,19 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       inStock: true,
       stockQuantity: 2,
       seller: 'Urban Home Comfort',
+      description: 'Medical-grade ergonomic lumbar curve, breathable Korean mesh, pneumatic Class 4 gas lift, and smooth silent nylon castors.',
     },
     {
       id: 'p5',
-      name: 'Philips Digital Air Fryer with Rapid Air Tech',
+      name: 'Philips Digital Air Fryer with Rapid Air Tech (4.1 Litre)',
       category: 'Appliances',
-      image: 'https://images.unsplash.com/photo-1585659722983-3a675dabf23d?w=500&auto=format&fit=crop&q=80',
+      image: 'https://images.unsplash.com/photo-1585659722983-3a675dabf23d?w=800&auto=format&fit=crop&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1585659722983-3a675dabf23d?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1544025162-d76694265947?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&auto=format&fit=crop&q=80',
+      ],
       price: 6499,
       originalPrice: 11995,
       rating: 4.7,
@@ -498,26 +575,20 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       inStock: true,
       stockQuantity: 9,
       seller: 'KitchenWorld Express',
-    },
-    {
-      id: 'p6',
-      name: 'Organic Vitamin C Face Serum with Hyaluronic Acid',
-      category: 'Beauty & Health',
-      image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=500&auto=format&fit=crop&q=80',
-      price: 499,
-      originalPrice: 999,
-      rating: 4.5,
-      reviewsCount: 1820,
-      discount: '50% OFF',
-      inStock: true,
-      stockQuantity: 4,
-      seller: 'GlowSkin Organics',
+      description: 'Patented Rapid Air starfish technology cooks meals with up to 90% less fat. Touch screen with 7 presets and Keep Warm mode.',
     },
     {
       id: 'p7',
-      name: 'Men Ultra-Light Breathable Running Shoes',
+      name: 'Men Ultra-Light Breathable Running Shoes (Cushioned Grip)',
       category: 'Sports',
-      image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop&q=80',
+      image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1600185365926-3a2ce3cdb9eb?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=800&auto=format&fit=crop&q=80',
+      ],
       price: 1599,
       originalPrice: 3999,
       rating: 4.4,
@@ -526,26 +597,18 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       inStock: true,
       stockQuantity: 15,
       seller: 'Apex Sports Hub',
-    },
-    {
-      id: 'p8',
-      name: '120-Piece Mega Magnetic Building Blocks Set',
-      category: 'Toys & Kids',
-      image: 'https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=500&auto=format&fit=crop&q=80',
-      price: 999,
-      originalPrice: 1999,
-      rating: 4.8,
-      reviewsCount: 670,
-      discount: '50% OFF',
-      inStock: true,
-      stockQuantity: 1,
-      seller: 'KidsJoy Funland',
+      description: 'Engineered mesh upper for maximum aeration, responsive EVA midsole rebound cushioning, and multi-directional anti-slip rubber traction.',
     },
     {
       id: 'p9',
-      name: 'California Jumbo Almonds & Cashews Combo (1kg)',
+      name: 'California Jumbo Almonds & Cashews Combo (1kg Fresh Harvest)',
       category: 'Grocery',
-      image: 'https://images.unsplash.com/photo-1508061252224-237ff54ed5a3?w=500&auto=format&fit=crop&q=80',
+      image: 'https://images.unsplash.com/photo-1508061252224-237ff54ed5a3?w=800&auto=format&fit=crop&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1508061252224-237ff54ed5a3?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1536816579748-4ecb3f03d72a?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?w=800&auto=format&fit=crop&q=80',
+      ],
       price: 899,
       originalPrice: 1450,
       rating: 4.6,
@@ -554,6 +617,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       inStock: true,
       stockQuantity: 24,
       seller: 'NutriHarvest Daily',
+      description: 'Premium whole jumbo California almonds and W240 cashew nuts packed in airtight nitrogen-flushed zipper pouches for ultimate crunch.',
     },
   ]);
 
@@ -2991,12 +3055,57 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           product={selectedProduct}
           isOpen={!!selectedProduct}
           onClose={() => setSelectedProduct(null)}
-          onAddToCart={(prod) => addToCart(prod)}
+          onAddToCart={(prod, qty) => {
+            const count = qty || 1;
+            for (let i = 0; i < count; i++) {
+              addToCart(prod);
+            }
+          }}
           isWishlisted={selectedProduct ? wishlist.includes(selectedProduct.id) : false}
           onToggleWishlist={toggleWishlist}
           onOpenImageZoom={(prod) => setZoomImageProduct(prod)}
-          onBuyNow={(prod) => {
-            addToCart(prod);
+          cartBadgeCount={cartItems.reduce((acc, i) => acc + i.quantity, 0)}
+          onOpenCart={() => {
+            setSelectedProduct(null);
+            switchTab('cart');
+          }}
+          onOpenOrders={() => {
+            setSelectedProduct(null);
+            switchTab('account');
+            setIsOrdersViewOpen(true);
+          }}
+          onPlaceOrder={(newOrder) => {
+            setOrders((prev) => {
+              const updated = [newOrder, ...prev];
+              try {
+                localStorage.setItem('aarvo_orders', JSON.stringify(updated));
+              } catch (e) {
+                // ignore
+              }
+              return updated;
+            });
+            if (selectedProduct) {
+              setAllProducts((prev) =>
+                prev.map((item) =>
+                  item.id === selectedProduct.id
+                    ? {
+                        ...item,
+                        stockQuantity: Math.max(
+                          0,
+                          (item.stockQuantity ?? 10) - (newOrder.items[0]?.quantity || 1)
+                        ),
+                      }
+                    : item
+                )
+              );
+            }
+            showToast('Order confirmed via Cash on Delivery!');
+          }}
+          onBuyNow={(prod, qty) => {
+            const count = qty || 1;
+            for (let i = 0; i < count; i++) {
+              addToCart(prod);
+            }
             setSelectedProduct(null);
             switchTab('cart');
           }}
