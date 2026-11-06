@@ -17,7 +17,6 @@ data class Product(
     val pricePaise: Long = price.toLong() * 100L,
     val imageUrl: String? = null,
     val originalPricePaise: Long = pricePaise,
-    /** Number of customer ratings/reviews returned by the product API. */
     val reviewsCount: Int = 0
 ) {
     init {
@@ -26,6 +25,7 @@ data class Product(
         require(pricePaise >= 0) { "Product price in paise cannot be negative" }
         require(stockQuantity >= 0) { "Product stock cannot be negative" }
         require(rating in 0.0..5.0) { "Product rating must be between 0 and 5" }
+        require(reviewsCount >= 0) { "Reviews count cannot be negative" }
     }
 
     /** Exact rupee display without floating-point arithmetic. */

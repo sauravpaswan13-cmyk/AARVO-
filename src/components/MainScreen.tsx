@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Menu,
   Bell,
@@ -688,16 +688,36 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     { name: 'More', icon: LayoutGrid, color: 'bg-[#F3E8FF] text-[#9333EA] dark:bg-purple-950/40 dark:text-purple-400' },
   ];
 
-  // Filtered products for search or category selection
-  const filteredProducts = allProducts.filter((p) => {
-    const matchesSearch =
-      searchQuery === '' ||
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      selectedCategory === 'All' || p.category.toLowerCase().startsWith(selectedCategory.toLowerCase().slice(0, 4));
-    return matchesSearch && matchesCategory;
-  });
+  // Real-time filtered products for search or category selection
+  const filteredProducts = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const queryTokens = query ? query.split(/\s+/).filter(Boolean) : [];
+
+    return allProducts.filter((p) => {
+      const name = (p.name || '').toLowerCase();
+      const category = (p.category || '').toLowerCase();
+      const seller = (p.seller || '').toLowerCase();
+      const description = (p.description || '').toLowerCase();
+
+      // Real-time multi-token matching across name, category, seller, and description
+      const matchesSearch =
+        queryTokens.length === 0 ||
+        queryTokens.every(
+          (token) =>
+            name.includes(token) ||
+            category.includes(token) ||
+            seller.includes(token) ||
+            description.includes(token)
+        );
+
+      const matchesCategory =
+        selectedCategory === 'All' ||
+        category.startsWith(selectedCategory.toLowerCase().slice(0, 4)) ||
+        category.includes(selectedCategory.toLowerCase());
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [allProducts, searchQuery, selectedCategory]);
 
   if (isLoading) {
     return (
@@ -1016,7 +1036,164 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         {/* ================================================================= */}
         {activeTab === 'home' && (
           <div className="flex-1 flex flex-col pb-6">
-            {/* 2. HERO LIVE SLIDER CAROUSEL */}
+            {searchQuery.trim() !== '' ? (
+              /* REAL-TIME LIVE SEARCH RESULTS VIEW */
+              <section className="p-3 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between mb-3 bg-slate-50 dark:bg-[#1A1633] p-3 rounded-2xl border border-slate-200/70 dark:border-slate-800 shadow-2xs">
+                  <div className="min-w-0 pr-2">
+                    <div className="flex items-center gap-1.5">
+                      <Search className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF] shrink-0" />
+                      <h3 className="font-display font-black text-sm text-slate-900 dark:text-white truncate">
+                        Search Results
+                      </h3>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                      {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} found for &ldquo;<span className="font-bold text-slate-800 dark:text-slate-200">{searchQuery}</span>&rdquo;
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptics.light();
+                      setSearchQuery('');
+                    }}
+                    className="shrink-0 text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Clear</span>
+                  </button>
+                </div>
+
+                {filteredProducts.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {filteredProducts.map((product) => (
+                      <div
+                        key={product.id}
+                        onClick={() => {
+                          haptics.light();
+                          setSelectedProduct(product);
+                        }}
+                        className="bg-white dark:bg-[#1A1633] rounded-2xl p-2.5 border border-slate-100 dark:border-slate-800/80 shadow-xs flex flex-col justify-between hover:shadow-md transition-all group cursor-pointer"
+                      >
+                        <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 mb-2">
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          {product.originalPrice > product.price && (
+                            <span className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                              {product.discount}
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleWishlist(product.id, product.name);
+                            }}
+                            aria-label={wishlist.includes(product.id) ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                            title={wishlist.includes(product.id) ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                            className={`absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 active:scale-75 shadow-xs z-10 cursor-pointer ${
+                              wishlist.includes(product.id)
+                                ? 'bg-rose-50 dark:bg-rose-950/90 text-rose-500 scale-105'
+                                : 'bg-white/85 dark:bg-slate-900/85 backdrop-blur-xs text-slate-400 dark:text-slate-300 hover:text-rose-500 hover:bg-white dark:hover:bg-slate-800'
+                            }`}
+                          >
+                            <Heart
+                              className={`w-3.5 h-3.5 transition-colors ${
+                                wishlist.includes(product.id)
+                                  ? 'fill-rose-500 stroke-rose-500'
+                                  : 'stroke-current fill-none'
+                              }`}
+                            />
+                          </button>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center gap-1 mb-1">
+                            <span className="flex items-center gap-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                              <span>{product.rating}</span>
+                              <Star className="w-2.5 h-2.5 fill-current text-emerald-600 dark:text-emerald-400" />
+                            </span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                              ({product.reviewsCount})
+                            </span>
+                          </div>
+
+                          <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
+                            {product.name}
+                          </h4>
+
+                          <div className="flex items-baseline gap-1.5 mt-1.5">
+                            <span className="text-sm font-black text-slate-900 dark:text-white">
+                              ₹{product.price.toLocaleString('en-IN')}
+                            </span>
+                            {product.originalPrice > product.price && (
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 line-through">
+                                ₹{product.originalPrice.toLocaleString('en-IN')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToCart(product);
+                          }}
+                          className="mt-2.5 w-full py-1.5 bg-[#2418D8] hover:bg-[#1A10B3] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-xs"
+                        >
+                          <ShoppingCart className="w-3.5 h-3.5" />
+                          <span>Add to Cart</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-12 px-4 text-center bg-slate-50 dark:bg-[#1A1633] rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                    <div className="w-12 h-12 mx-auto rounded-full bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center text-slate-400 mb-3">
+                      <Search className="w-6 h-6 stroke-[1.5]" />
+                    </div>
+                    <h4 className="font-bold text-sm text-slate-800 dark:text-white mb-1">
+                      No matching products found
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[260px] mx-auto mb-4">
+                      We couldn&apos;t find anything matching &ldquo;{searchQuery}&rdquo;. Try another keyword or popular categories below.
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-1.5 mb-4">
+                      {['Shoes', 'Phone', 'Kurta', 'Neem', 'Earbuds', 'Dung'].map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => {
+                            haptics.light();
+                            setSearchQuery(tag);
+                          }}
+                          className="px-2.5 py-1 text-xs font-medium rounded-full bg-white dark:bg-slate-800 text-[#2418D8] dark:text-[#7B73FF] border border-slate-200 dark:border-slate-700 shadow-2xs hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.light();
+                        setSearchQuery('');
+                      }}
+                      className="px-4 py-2 bg-[#2418D8] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#1A10B3] active:scale-95 transition-all"
+                    >
+                      Clear Search
+                    </button>
+                  </div>
+                )}
+              </section>
+            ) : (
+              <>
+                {/* 2. HERO LIVE SLIDER CAROUSEL */}
             <section className="p-3">
               <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden shadow-lg bg-[#2418D8] group">
                 {slides[currentSlide].isGraphicBanner ? (
@@ -1287,8 +1464,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 ))}
               </div>
             </section>
-          </div>
+          </>
         )}
+      </div>
+    )}
 
         {/* ================================================================= */}
         {/* TAB 2: CATEGORIES VIEW                                            */}
@@ -1334,8 +1513,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             </div>
 
             {/* Products Listing in Selected Category */}
-            <div className="grid grid-cols-2 gap-3">
-              {filteredProducts.map((product) => (
+            {filteredProducts.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {filteredProducts.map((product) => (
                 <div
                   key={product.id}
                   onClick={() => {
@@ -1425,8 +1605,32 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="py-12 px-4 text-center bg-slate-50 dark:bg-[#1A1633] rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+              <div className="w-12 h-12 mx-auto rounded-full bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center text-slate-400 mb-3">
+                <Search className="w-6 h-6 stroke-[1.5]" />
+              </div>
+              <h4 className="font-bold text-sm text-slate-800 dark:text-white mb-1">
+                No products found
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[260px] mx-auto mb-4">
+                No items match your filter. Try exploring all products or choose another category.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.light();
+                  setSelectedCategory('All');
+                  setSearchQuery('');
+                }}
+                className="px-4 py-2 bg-[#2418D8] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#1A10B3] active:scale-95 transition-all"
+              >
+                View All Products
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
         {/* ================================================================= */}
         {/* TAB 3: OFFERS VIEW                                                */}

@@ -869,6 +869,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList {
         if (!seenIds.add(id)) continue
         val pricePaise = o.getLong("price_paise")
         val originalPricePaise = o.optLong("original_price_paise", pricePaise)
+        val reviewsCount = o.optInt("reviews_count", o.optInt("reviewsCount", 0))
         add(
             Product(
                 id = id,
@@ -884,7 +885,8 @@ private fun JSONArray.toProductList(): List<Product> = buildList {
                 isPublished = o.optBoolean("is_published", true),
                 pricePaise = pricePaise,
                 imageUrl = o.optString("image_url").takeIf { it.startsWith("https://") || it.startsWith("http://") },
-                originalPricePaise = originalPricePaise
+                originalPricePaise = originalPricePaise,
+                reviewsCount = reviewsCount
             )
         )
     }
