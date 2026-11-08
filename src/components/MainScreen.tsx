@@ -371,6 +371,15 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     setTimeout(() => setToastMessage(null), 2500);
   };
 
+  // Payment Method Selection & Management in Cart
+  const [paymentMethodSelection, setPaymentMethodSelection] = useState<'COD' | 'UPI'>('COD');
+  const [selectedUpiApp, setSelectedUpiApp] = useState<'Google Pay' | 'PhonePe' | 'Paytm' | 'Custom UPI'>('Google Pay');
+  const [customUpiId, setCustomUpiId] = useState<string>('');
+  const [showAddPaymentModal, setShowAddPaymentModal] = useState<boolean>(false);
+  const [newCardNumber, setNewCardNumber] = useState<string>('');
+  const [newCardHolder, setNewCardHolder] = useState<string>('');
+  const [newCardExpiry, setNewCardExpiry] = useState<string>('');
+
   // Floating Network Status state using navigator.onLine and event listeners
   const [isOnline, setIsOnline] = useState<boolean>(() => {
     return typeof navigator !== 'undefined' ? navigator.onLine : true;
@@ -2235,11 +2244,127 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   </p>
                 </div>
 
+                {/* Interactive Payment Method Toggle & Selector */}
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                      Payment Method
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPaymentModal(true)}
+                      className="text-[11px] font-bold text-[#2418D8] dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>+ Add Method</span>
+                    </button>
+                  </div>
+
+                  {/* Segmented Payment Toggle */}
+                  <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.selection();
+                        setPaymentMethodSelection('COD');
+                      }}
+                      className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        paymentMethodSelection === 'COD'
+                          ? 'bg-amber-500 text-white shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>💵</span>
+                      <span>Cash On Delivery</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.selection();
+                        setPaymentMethodSelection('UPI');
+                      }}
+                      className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        paymentMethodSelection === 'UPI'
+                          ? 'bg-[#2418D8] text-white shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>⚡</span>
+                      <span>Online UPI</span>
+                    </button>
+                  </div>
+
+                  {/* Cash On Delivery Details */}
+                  {paymentMethodSelection === 'COD' && (
+                    <div className="p-3 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-800/40 rounded-xl flex items-start gap-2.5">
+                      <div className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                        ✓
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-xs font-bold text-amber-900 dark:text-amber-300">
+                          Cash On Delivery (COD) Selected
+                        </p>
+                        <p className="text-[10px] text-amber-800/80 dark:text-amber-400/80 leading-relaxed">
+                          Pay directly at your doorstep when the delivery rider arrives. Zero pre-payment required.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Online UPI Details & App selector */}
+                  {paymentMethodSelection === 'UPI' && (
+                    <div className="space-y-2.5 p-3 bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200/70 dark:border-indigo-800/40 rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-indigo-950 dark:text-indigo-300">
+                          Select Instant UPI App:
+                        </span>
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full">
+                          Extra ₹50 Off
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {(['Google Pay', 'PhonePe', 'Paytm', 'Custom UPI'] as const).map((app) => (
+                          <button
+                            key={app}
+                            type="button"
+                            onClick={() => {
+                              haptics.light();
+                              setSelectedUpiApp(app);
+                            }}
+                            className={`py-1.5 px-1 rounded-lg text-[10px] font-bold border transition-all text-center cursor-pointer ${
+                              selectedUpiApp === app
+                                ? 'bg-[#2418D8] text-white border-[#2418D8] shadow-xs'
+                                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-indigo-400'
+                            }`}
+                          >
+                            {app === 'Google Pay' ? 'GPay' : app === 'PhonePe' ? 'PhonePe' : app === 'Paytm' ? 'Paytm' : 'UPI ID'}
+                          </button>
+                        ))}
+                      </div>
+
+                      {selectedUpiApp === 'Custom UPI' && (
+                        <div className="pt-1">
+                          <input
+                            type="text"
+                            value={customUpiId}
+                            onChange={(e) => setCustomUpiId(e.target.value)}
+                            placeholder="e.g. yourname@okhdfcbank"
+                            className="w-full text-xs px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:border-[#2418D8]"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Place Order CTA Button */}
                 <button
                   onClick={() => {
                     haptics.impact();
                     const orderId = `ARV-${Math.floor(100000 + Math.random() * 900000)}`;
+                    const chosenPayment = paymentMethodSelection === 'COD'
+                      ? 'Cash On Delivery (COD)'
+                      : `Online UPI (${selectedUpiApp}${selectedUpiApp === 'Custom UPI' && customUpiId ? `: ${customUpiId}` : ''})`;
                     const newOrder: Order = {
                       id: orderId,
                       date: 'Today, Just now',
@@ -2249,7 +2374,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       estimatedDelivery: 'Arriving in 2-3 Business Days',
                       trackingNumber: `AARVO-EXP-${Math.floor(1000000 + Math.random() * 9000000)}`,
                       carrier: 'AARVO Express FastTrack',
-                      paymentMethod: 'UPI / Card Payment',
+                      paymentMethod: chosenPayment,
                       deliveryAddress: 'Flat 402, Green Glen Heights, Outer Ring Road, Bangalore - 560103',
                       items: cartItems.map((ci) => ({
                         id: ci.product.id,
@@ -2260,7 +2385,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         category: ci.product.category,
                       })),
                       timeline: [
-                        { status: 'Order Verified', time: 'Just now', description: 'Order received and verified by AARVO system', completed: true },
+                        { status: 'Order Verified', time: 'Just now', description: `Order verified via ${chosenPayment}`, completed: true },
                         { status: 'Processing at Warehouse', time: 'In progress', description: 'Seller preparing package for courier handover', completed: false },
                         { status: 'Shipped', time: 'Pending', description: 'Will dispatch to local distribution center', completed: false },
                         { status: 'Delivered', time: 'Expected in 2-3 days', description: 'Doorstep delivery with OTP verification', completed: false },
@@ -3505,6 +3630,116 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             setProduct360Modal(prod);
           }}
         />
+
+        {/* ================================================================= */}
+        {/* 16. ADD PAYMENT METHOD MODAL (Cards & Wallets)                   */}
+        {/* ================================================================= */}
+        {showAddPaymentModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-[#2418D8] flex items-center justify-center font-bold">
+                    💳
+                  </div>
+                  <h3 className="font-black text-slate-900 dark:text-white text-base">
+                    Add Payment Method
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddPaymentModal(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                    Card Number
+                  </label>
+                  <input
+                    type="text"
+                    value={newCardNumber}
+                    onChange={(e) => setNewCardNumber(e.target.value)}
+                    placeholder="4532 •••• •••• 9821"
+                    maxLength={19}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#2418D8]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                      Expiry Date
+                    </label>
+                    <input
+                      type="text"
+                      value={newCardExpiry}
+                      onChange={(e) => setNewCardExpiry(e.target.value)}
+                      placeholder="MM/YY"
+                      maxLength={5}
+                      className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#2418D8]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                      CVV
+                    </label>
+                    <input
+                      type="password"
+                      maxLength={3}
+                      placeholder="•••"
+                      className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#2418D8]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                    Name on Card
+                  </label>
+                  <input
+                    type="text"
+                    value={newCardHolder}
+                    onChange={(e) => setNewCardHolder(e.target.value)}
+                    placeholder="e.g. Saurav Paswan"
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#2418D8]"
+                  />
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>256-bit encrypted bank grade transaction security</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddPaymentModal(false)}
+                  className="flex-1 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.success();
+                    showToast('Card saved securely to payment options!');
+                    setPaymentMethodSelection('UPI');
+                    setShowAddPaymentModal(false);
+                  }}
+                  className="flex-1 py-2.5 text-xs font-bold text-white bg-[#2418D8] rounded-xl hover:opacity-90 shadow-md transition cursor-pointer"
+                >
+                  Save & Use
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
