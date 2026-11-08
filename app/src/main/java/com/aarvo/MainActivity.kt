@@ -2248,13 +2248,14 @@ private fun ProductDetailsScreen(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF1E293B)
                     )
-                    listOf(
-                        Pair("Brand", product.brand.ifBlank { "AARVO Verified" }),
+                    val specList: List<Pair<String, String>> = listOf(
+                        Pair("Brand", product.sellerName.ifBlank { "AARVO Verified" }),
                         Pair("Category", product.category.ifBlank { "Electronics & Lifestyle" }),
                         Pair("Warranty", "1 Year Manufacturer Replacement Guarantee"),
                         Pair("Country of Origin", "India 🇮🇳"),
                         Pair("In The Box", "1x Product Unit, User Manual, Warranty Card, Invoice")
-                    ).forEach { spec ->
+                    )
+                    specList.forEach { spec ->
                         val label = spec.first
                         val value = spec.second
                         Row(
