@@ -583,6 +583,24 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isDashboardExpanded, setIsDashboardExpanded] = useState(true);
 
+  // State for tracking expandable list for each order
+  const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    if (orders.length > 0) {
+      initial[orders[0].id] = true;
+    }
+    return initial;
+  });
+
+  const toggleOrderExpanded = (orderId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    haptics.selection();
+    setExpandedOrders((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId],
+    }));
+  };
+
   // Status statistics for summary dashboard
   const statusCounts = {
     Processing: orders.filter((o) => o.status === 'Processing').length,
@@ -642,6 +660,22 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
 
     return matchesFilter && matchesSearch;
   });
+
+  const areAllExpanded =
+    filteredOrders.length > 0 && filteredOrders.every((o) => expandedOrders[o.id]);
+
+  const toggleExpandAll = () => {
+    haptics.selection();
+    if (areAllExpanded) {
+      setExpandedOrders({});
+    } else {
+      const allMap: Record<string, boolean> = {};
+      filteredOrders.forEach((o) => {
+        allMap[o.id] = true;
+      });
+      setExpandedOrders(allMap);
+    }
+  };
 
   const handleOpenDetailModal = (order: Order) => {
     haptics.selection();
@@ -1125,21 +1159,32 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
         </div>
       </div>
 
-      {/* Sub-toolbar: Order count & Download CSV export link */}
+      {/* Sub-toolbar: Order count & Download CSV export link & Expand All toggle */}
       <div className="px-3.5 pt-1.5 pb-1 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
         <span className="font-medium text-[11px]">
           Showing <strong className="text-slate-800 dark:text-slate-200">{filteredOrders.length}</strong> of {orders.length} order{orders.length > 1 ? 's' : ''}
           {filter !== 'All' && <span className="text-[#2418D8] dark:text-[#7B73FF] ml-1 font-bold">({filter})</span>}
         </span>
-
-        <button
-          type="button"
-          onClick={handleDownloadCSV}
-          className="text-[#2418D8] dark:text-[#7B73FF] hover:underline font-bold text-[11px] flex items-center gap-1 cursor-pointer"
-        >
-          <Download className="w-3 h-3" />
-          <span>Export CSV</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {filteredOrders.length > 0 && (
+            <button
+              type="button"
+              onClick={toggleExpandAll}
+              className="text-[#2418D8] dark:text-[#7B73FF] hover:underline font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+            >
+              {areAllExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              <span>{areAllExpanded ? 'Collapse All' : 'Expand All'}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleDownloadCSV}
+            className="text-[#2418D8] dark:text-[#7B73FF] hover:underline font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+          >
+            <Download className="w-3 h-3" />
+            <span>Export CSV</span>
+          </button>
+        </div>
       </div>
 
       {/* Orders List Container */}
@@ -1159,18 +1204,21 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
         ) : (
           filteredOrders.map((order) => {
             const itemCount = order.items.reduce((acc, i) => acc + i.quantity, 0);
+            const isExpanded = !!expandedOrders[order.id];
 
             return (
               <div
                 key={order.id}
-                onClick={() => handleOpenDetailModal(order)}
-                className="bg-white dark:bg-[#14112B] rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-xs hover:shadow-md p-3.5 transition-all duration-200 cursor-pointer active:scale-[0.99] group"
+                className="bg-white dark:bg-[#14112B] rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden"
               >
-                {/* Header row: ID, Date, Total */}
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-xs text-[#2418D8] dark:text-[#7B73FF] group-hover:underline">
+                {/* Header row: ID, Date, Total, and Expand Button (Clickable) */}
+                <div
+                  onClick={(e) => toggleOrderExpanded(order.id, e)}
+                  className="p-3.5 flex items-start justify-between gap-2 cursor-pointer hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-bold text-xs text-[#2418D8] dark:text-[#7B73FF]">
                         {order.id}
                       </span>
                       <span className="text-[10px] text-slate-400 dark:text-slate-500">
@@ -1179,71 +1227,204 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                     </div>
 
                     {/* Status Badge */}
-                    <div className="flex items-center gap-1.5 mt-1.5">
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                       {order.status === 'Processing' && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                           Processing
                         </span>
                       )}
-
                       {order.status === 'Shipped' && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60">
                           <Truck className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                           Shipped &bull; In Transit
                         </span>
                       )}
-
                       {order.status === 'Delivered' && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
                           <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                           Delivered
                         </span>
                       )}
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                        ({itemCount} item{itemCount > 1 ? 's' : ''})
+                      </span>
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <span className="font-display font-black text-sm text-slate-900 dark:text-white block">
-                      ₹{order.total.toLocaleString('en-IN')}
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      {itemCount} item{itemCount > 1 ? 's' : ''}
-                    </span>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      <span className="font-display font-black text-sm text-slate-900 dark:text-white block">
+                        ₹{order.total.toLocaleString('en-IN')}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {order.paymentMethod.includes('Cash') ? 'Cash on Delivery' : 'Paid Online'}
+                      </span>
+                    </div>
+
+                    {/* Expand/Collapse Chevron Indicator */}
+                    <button
+                      type="button"
+                      onClick={(e) => toggleOrderExpanded(order.id, e)}
+                      aria-label={isExpanded ? 'Collapse order' : 'Expand order'}
+                      className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                        isExpanded
+                          ? 'bg-[#2418D8] text-white rotate-180'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-[#2418D8]/10 hover:text-[#2418D8]'
+                      }`}
+                    >
+                      <ChevronDown className="w-4 h-4 transition-transform" />
+                    </button>
                   </div>
                 </div>
 
-                {/* Items Preview Strip */}
-                <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800">
-                  <div className="flex -space-x-2 overflow-hidden py-0.5 shrink-0">
-                    {order.items.slice(0, 4).map((item, idx) => (
-                      <img
-                        key={idx}
-                        src={item.image}
-                        alt={item.name}
-                        className="inline-block w-9 h-9 rounded-xl object-cover ring-2 ring-white dark:ring-slate-900 shadow-xs bg-slate-50 dark:bg-slate-800"
-                      />
-                    ))}
-                    {order.items.length > 4 && (
-                      <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 ring-2 ring-white dark:ring-slate-900 flex items-center justify-center text-[10px] font-bold text-slate-500">
-                        +{order.items.length - 4}
+                {/* Collapsed Preview Strip (when not expanded) */}
+                {!isExpanded && (
+                  <div
+                    onClick={(e) => toggleOrderExpanded(order.id, e)}
+                    className="px-3.5 pb-3 flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/60 cursor-pointer group"
+                  >
+                    <div className="flex -space-x-2 overflow-hidden py-0.5 shrink-0">
+                      {order.items.slice(0, 3).map((item, idx) => (
+                        <img
+                          key={idx}
+                          src={item.image}
+                          alt={item.name}
+                          className="inline-block w-8 h-8 rounded-lg object-cover ring-2 ring-white dark:ring-slate-900 shadow-xs bg-slate-50 dark:bg-slate-800"
+                        />
+                      ))}
+                      {order.items.length > 3 && (
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 ring-2 ring-white dark:ring-slate-900 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                          +{order.items.length - 3}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-slate-700 dark:text-slate-300 truncate">
+                        {order.items.map((i) => i.name).join(', ')}
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#2418D8] dark:text-[#7B73FF] flex items-center gap-0.5 group-hover:underline shrink-0">
+                      Show Items ({order.items.length})
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
+                )}
+
+                {/* EXPANDABLE LIST: Reveals product thumbnails, quantities, and prices when clicked */}
+                {isExpanded && (
+                  <div className="px-3.5 pb-3.5 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3 bg-slate-50/50 dark:bg-[#120F26]/60 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        Order Items &bull; {order.items.length} Product{order.items.length > 1 ? 's' : ''} ({itemCount} Unit{itemCount > 1 ? 's' : ''})
+                      </span>
+                      {onReorderAll && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onReorderAll(order.items);
+                          }}
+                          className="text-[10px] font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Reorder All</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Expandable items list with thumbnail, quantity, unit price, total price, reorder */}
+                    <div className="space-y-2">
+                      {order.items.map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-3 bg-white dark:bg-[#1A1638] rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-3"
+                        >
+                          {/* Product Thumbnail */}
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-14 h-14 rounded-xl object-cover bg-slate-100 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shrink-0 shadow-xs"
+                          />
+
+                          {/* Title, Category, Quantity and Price */}
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[9px] font-bold text-[#2418D8] dark:text-[#7B73FF] uppercase tracking-wide block">
+                              {item.category}
+                            </span>
+                            <h4 className="font-bold text-xs text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
+                              {item.name}
+                            </h4>
+
+                            <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
+                              {/* Quantity Badge */}
+                              <span className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/60 text-[#2418D8] dark:text-[#7B73FF] text-[10px] font-extrabold border border-purple-200/80 dark:border-purple-800">
+                                Qty: {item.quantity}
+                              </span>
+
+                              {/* Price */}
+                              <span className="text-xs font-black text-slate-900 dark:text-white">
+                                ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                              </span>
+
+                              {item.quantity > 1 && (
+                                <span className="text-[10px] text-slate-400">
+                                  (₹{item.price.toLocaleString('en-IN')} each)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Individual Item Reorder Action */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              haptics.success();
+                              onReorder(item);
+                              onShowToast(`Added ${item.name.slice(0, 18)}... to cart!`);
+                            }}
+                            className="px-2.5 py-1.5 bg-[#2418D8]/10 hover:bg-[#2418D8] text-[#2418D8] hover:text-white dark:text-[#7B73FF] dark:hover:text-white text-[11px] font-bold rounded-xl transition-all flex items-center gap-1 active:scale-95 shrink-0 cursor-pointer shadow-xs"
+                            title="Reorder this product"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Reorder</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Order Footer with Address & Full Tracking Modal Trigger */}
+                    <div className="pt-2 border-t border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap text-xs">
+                      <div className="min-w-0 flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        <MapPin className="w-3 h-3 text-[#2418D8] dark:text-[#7B73FF] shrink-0" />
+                        <span className="truncate">{order.deliveryAddress}</span>
                       </div>
-                    )}
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDetailModal(order);
+                          }}
+                          className="px-3 py-1.5 bg-[#2418D8] text-white hover:bg-[#1B11AB] text-[11px] font-bold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                        >
+                          <Truck className="w-3.5 h-3.5" />
+                          <span>Track Delivery</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => toggleOrderExpanded(order.id, e)}
+                          className="px-2.5 py-1.5 bg-slate-200/70 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold rounded-xl transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                          <span>Collapse</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-slate-800 dark:text-slate-200 font-medium truncate">
-                      {order.items[0].name}
-                    </p>
-                    <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                      <MapPin className="w-2.5 h-2.5 shrink-0 text-slate-400" />
-                      <span className="truncate">{order.deliveryAddress}</span>
-                    </p>
-                  </div>
-                  <div className="flex items-center text-xs font-bold text-[#2418D8] dark:text-[#7B73FF] gap-0.5 group-hover:translate-x-0.5 transition-transform shrink-0">
-                    <span className="text-[11px]">View</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </div>
-                </div>
+                )}
               </div>
             );
           })
