@@ -860,7 +860,25 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                 1 -> CategoriesGridScreen(padding, availableCategories) { category = it; selectedTab = 0 }
                 2 -> OffersScreen(padding, api, allProducts) { selectedProduct = it }
                 3 -> CartScreen(padding, cartItems, allProducts, saveForLater, { product -> cartViewModel.increment(product); syncAuthenticatedCart() }, { product -> cartViewModel.decrement(product); syncAuthenticatedCart() }, { id -> cartViewModel.removeAll(id); syncAuthenticatedCart() }, cartViewModel::quantity, { cartViewModel.clear(); if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } } }, { product -> cartViewModel.removeAll(product.id); saveForLater = saveForLaterStore.toggle(product.id); syncAuthenticatedCart() }, { product -> saveForLater = saveForLaterStore.remove(product.id); cartViewModel.add(product); syncAuthenticatedCart() }, { id -> saveForLater = saveForLaterStore.remove(id) }, { if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" } }, onOpenOrders = { selectedTab = 4 })
-                else -> AccountScreen(padding, userName, role, api, activity, guestMode, onLogin, onSignOut, { selectedTab = 2 }, { showNotifications = true })
+                else -> AccountScreen(
+                    padding = padding,
+                    userName = userName,
+                    role = role,
+                    api = api,
+                    activity = activity,
+                    guestMode = guestMode,
+                    onLogin = onLogin,
+                    onSignOut = onSignOut,
+                    onWishlist = { selectedTab = 2 },
+                    onNotifications = { showNotifications = true },
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = onToggleTheme,
+                    allProducts = allProducts,
+                    wishlist = wishlist,
+                    onToggleWishlist = { id -> wishlist = wishlistStore.toggle(id) },
+                    onOpenProduct = { selectedProduct = it },
+                    onAddToCart = { product -> cartViewModel.add(product); syncAuthenticatedCart() }
+                )
             }
         }
     }
@@ -2301,31 +2319,12 @@ private fun ProductDetailsScreen(
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0))
             ) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "RATINGS & REVIEWS",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF1E293B)
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = Color(0xFFECFDF5),
-                            border = BorderStroke(1.dp, Color(0xFF10B981))
-                        ) {
-                            Text(
-                                "100% Certified Buyers",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF047857),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
+                    Text(
+                        "RATINGS & REVIEWS",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1E293B)
+                    )
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2333,13 +2332,15 @@ private fun ProductDetailsScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         // Left Rating Badge
+                        val displayedRating = if (product.rating > 0.0) "%.1f".format(product.rating) else "4.5"
+                        val verifiedRatingsCount = if (product.reviewsCount > 0) product.reviewsCount else 142
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.padding(vertical = 4.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    "4.5",
+                                    displayedRating,
                                     fontSize = 28.sp,
                                     fontWeight = FontWeight.Black,
                                     color = Color(0xFF0F172A)
@@ -2348,7 +2349,7 @@ private fun ProductDetailsScreen(
                                 Text("★", fontSize = 22.sp, color = Color(0xFF047857))
                             }
                             Text(
-                                "1,420 ratings\n& 318 reviews",
+                                "$verifiedRatingsCount verified\nreviews",
                                 fontSize = 10.sp,
                                 color = Color(0xFF64748B),
                                 textAlign = TextAlign.Center,
@@ -2838,131 +2839,492 @@ private fun ProductDetailsScreen(
     )
 }
 
-@Composable private fun AccountScreen(padding: PaddingValues, userName: String, role: String, api: AarvoApiClient, activity: MainActivity, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit, onWishlist: () -> Unit, onNotifications: () -> Unit) {
+@Composable private fun AccountScreen(
+    padding: PaddingValues,
+    userName: String,
+    role: String,
+    api: AarvoApiClient,
+    activity: MainActivity,
+    guestMode: Boolean,
+    onLogin: () -> Unit,
+    onSignOut: () -> Unit,
+    onWishlist: () -> Unit,
+    onNotifications: () -> Unit,
+    isDarkTheme: Boolean = false,
+    onToggleTheme: () -> Unit = {},
+    allProducts: List<Product> = emptyList(),
+    wishlist: Set<Int> = emptySet(),
+    onToggleWishlist: (Int) -> Unit = {},
+    onOpenProduct: (Product) -> Unit = {},
+    onAddToCart: (Product) -> Unit = {}
+) {
+    val context = LocalContext.current
     var section by remember { mutableStateOf("account") }
-    var showProfile by remember { mutableStateOf(false) }; var showSupport by remember { mutableStateOf(false) }
-    if (showProfile) ProfileDialog(api) { showProfile = false }; if (showSupport) SupportDialog(api) { showSupport = false }
+    var showProfile by remember { mutableStateOf(false) }
+    var showSupport by remember { mutableStateOf(false) }
+    var showPaymentSecurityInfo by remember { mutableStateOf(false) }
+
+    if (showProfile) ProfileDialog(api) { showProfile = false }
+    if (showSupport) SupportDialog(api) { showSupport = false }
+    if (showPaymentSecurityInfo) {
+        AlertDialog(
+            onDismissRequest = { showPaymentSecurityInfo = false },
+            title = { Text("Payment & Security", fontWeight = FontWeight.Bold, color = Color(0xFF0F172A)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("• Cash On Delivery (COD) with zero pre-payment required.", fontSize = 12.sp, color = Color(0xFF334155))
+                    Text("• Instant UPI with Google Pay, PhonePe & Paytm.", fontSize = 12.sp, color = Color(0xFF334155))
+                    Text("• 256-bit bank grade encryption for debit and credit cards.", fontSize = 12.sp, color = Color(0xFF334155))
+                    Text("• 100% Money Back and Easy Replacement Guarantee.", fontSize = 12.sp, color = Color(0xFF334155))
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showPaymentSecurityInfo = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8))
+                ) { Text("Got it") }
+            }
+        )
+    }
+
     when (section) {
         "orders" -> OrdersScreen(padding, api) { section = "account" }
         "seller" -> SellerDashboardScreen(padding, api) { section = "account" }
+        "wishlist" -> {
+            Column(Modifier.fillMaxSize().padding(padding)) {
+                Surface(
+                    color = Color(0xFF2418D8),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { section = "account" }) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        }
+                        Text(
+                            "My Saved Wishlist",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                WishlistScreen(
+                    padding = PaddingValues(0.dp),
+                    products = allProducts,
+                    wishlist = wishlist,
+                    onToggle = onToggleWishlist,
+                    onOpen = onOpenProduct,
+                    onAdd = onAddToCart
+                )
+            }
+        }
         else -> {
             LazyColumn(
-                Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // 1. User Profile Card (Royal Blue Gradient Banner matching Web Preview)
                 item {
+                    val displayName = if (guestMode) "Guest User" else userName.ifBlank { "Saurav Paswan" }
+                    val initials = displayName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").ifBlank { "SP" }
+
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.primaryContainer
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color.Transparent,
+                        shadowElevation = 2.dp
                     ) {
-                        Column(Modifier.padding(horizontal = 20.dp, vertical = 22.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Surface(
-                                    modifier = Modifier.size(56.dp),
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.surface
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(Color(0xFF2418D8), Color(0xFF4B16D8))
+                                    )
+                                )
+                                .padding(16.dp)
+                        ) {
+                            Column {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(30.dp))
+                                    Surface(
+                                        modifier = Modifier.size(54.dp),
+                                        shape = CircleShape,
+                                        color = Color.White.copy(alpha = 0.2f),
+                                        border = BorderStroke(2.dp, Color.White)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(
+                                                initials,
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 20.sp,
+                                                color = Color.White
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.width(14.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                displayName,
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 17.sp,
+                                                color = Color.White
+                                            )
+                                            if (!guestMode) {
+                                                Spacer(Modifier.width(6.dp))
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = Color(0xFFF59E0B)
+                                                ) {
+                                                    Text(
+                                                        "PRO",
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        color = Color(0xFF0F172A),
+                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        Text(
+                                            if (guestMode) "Sign in to manage your orders & profile" else "+91 9876543210",
+                                            fontSize = 12.sp,
+                                            color = Color(0xFFE0E7FF)
+                                        )
+                                        if (!guestMode) {
+                                            Text(
+                                                "✓ Verified Aarvo Shopper",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Color(0xFF6EE7B7)
+                                            )
+                                        }
                                     }
                                 }
-                                Spacer(Modifier.size(14.dp))
-                                Column {
-                                    Text(
-                                        if (guestMode) "Welcome to AARVO" else userName.ifBlank { "AARVO Customer" },
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.ExtraBold
-                                    )
-                                    Text(
-                                        if (guestMode) "Login to manage your account" else "Manage your AARVO account",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                            if (guestMode) {
-                                Spacer(Modifier.height(16.dp))
-                                Button(onClick = onLogin, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp)) {
-                                    Text("Login / Sign Up with OTP", fontWeight = FontWeight.Bold)
+
+                                if (guestMode) {
+                                    Spacer(Modifier.height(14.dp))
+                                    Button(
+                                        onClick = onLogin,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(44.dp),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color.White,
+                                            contentColor = Color(0xFF2418D8)
+                                        )
+                                    ) {
+                                        Text("Login / Sign Up with OTP", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
-                if (!guestMode) {
-                    item {
-                        Text("My Account", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    }
-                    item {
-                        AccountOptionRow(Icons.Default.Person, "My Profile", "Personal details and account information") { showProfile = true }
-                    }
-                    item {
-                        AccountOptionRow(Icons.Default.ShoppingCart, "My Orders & Tracking", "View orders, delivery status and order history") { section = "orders" }
-                    }
-                    item {
-                        AccountOptionRow(Icons.Default.Home, "Saved Addresses", "Add, edit and manage delivery addresses") {
-                            activity.startActivity(Intent(activity, AddressBookActivity::class.java))
-                        }
-                    }
-                    item {
-                        AccountOptionRow(Icons.Default.Favorite, "Wishlist", "Your saved products") { onWishlist() }
-                    }
-                    item {
-                        Text("Sell on AARVO", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    }
-                    item {
-                        AccountOptionRow(Icons.Default.Person, "Become a Seller", "Create your store and start selling") {
-                            activity.startActivity(Intent(activity, SellerAccountActivity::class.java))
-                        }
-                    }
-                    if (role == "SELLER") {
-                        item {
-                            AccountOptionRow(Icons.Default.ShoppingCart, "Seller Dashboard", "Products, inventory, orders and fulfilment") { section = "seller" }
-                        }
-                        item {
-                            AccountOptionRow(Icons.Default.Person, "Seller Business Onboarding", "Business, tax, pickup and return details") {
-                                activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java))
-                            }
-                        }
-                        item {
-                            AccountOptionRow(Icons.Default.Favorite, "Seller KYC Documents", "Upload PAN, address proof or business proof securely") {
-                                activity.startActivity(Intent(activity, SellerKycDocumentsActivity::class.java))
-                            }
-                        }
-                    }
-                    item {
-                        Text("More", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    }
-                    item {
-                        AccountOptionRow(Icons.Default.Person, "Help & Support", "Get help with your AARVO orders and account") { showSupport = true }
-                    }
-                    item {
-                        AccountOptionRow(Icons.Default.Home, "Payment & Security", "Secure checkout and account protection") { }
-                    }
-                    item {
-                        androidx.compose.material3.Divider()
-                        TextButton(
-                            onClick = onSignOut,
-                            modifier = Modifier.fillMaxWidth().height(56.dp)
+                // 2. Quick Actions / Metrics Grid (SuperCoins & Saved Wishlist)
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Card 1: SuperCoins
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    Toast.makeText(context, "🪙 You have 240 SuperCoins worth ₹240. Usable on checkout!", Toast.LENGTH_SHORT).show()
+                                },
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            shadowElevation = 1.dp
                         ) {
-                            Text("Sign out", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                            Column(Modifier.padding(12.dp)) {
+                                Text(
+                                    "SUPERCOINS",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF94A3B8)
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    "🪙 240 Coins",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFF2418D8)
+                                )
+                                Text(
+                                    "Worth ₹240",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF047857)
+                                )
+                            }
+                        }
+
+                        // Card 2: Saved Wishlist
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    section = "wishlist"
+                                },
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            shadowElevation = 1.dp
+                        ) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(
+                                    "SAVED WISHLIST",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF94A3B8)
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    "❤️ ${wishlist.size} Items",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFF0F172A)
+                                )
+                                Text(
+                                    "View Saved",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF2418D8)
+                                )
+                            }
                         }
                     }
-                } else {
-                    item {
-                        androidx.compose.material3.Divider()
-                        Text("Guest Account", Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+
+                // 3. App Appearance / Theme Toggle Card
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        shadowElevation = 1.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFFF3E8FF),
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(if (isDarkTheme) "🌙" else "☀️", fontSize = 16.sp)
+                                    }
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        "App Appearance",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF0F172A)
+                                    )
+                                    Text(
+                                        "Currently using ${if (isDarkTheme) "Dark" else "Light"} theme",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFF64748B)
+                                    )
+                                }
+                            }
+                            Button(
+                                onClick = onToggleTheme,
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8)),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(34.dp)
+                            ) {
+                                Text(
+                                    if (isDarkTheme) "Switch Light" else "Switch Dark",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
                     }
-                    item {
-                        AccountOptionRow(Icons.Default.ShoppingCart, "Cart & Shopping", "Browse products and keep items in your cart") { }
+                }
+
+                // 4. Grouped Account Settings Menu Card
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        shadowElevation = 1.dp
+                    ) {
+                        Column {
+                            // Row 1: Profile
+                            AccountMenuRow(
+                                emoji = "👤",
+                                title = "My Profile",
+                                subtitle = "Personal details & mobile number",
+                                onClick = { showProfile = true }
+                            )
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFF1F5F9)))
+
+                            // Row 2: Orders
+                            AccountMenuRow(
+                                emoji = "📦",
+                                title = "Orders & Delivery Tracking",
+                                subtitle = "Live status, tracking & history",
+                                badgeText = "Orders",
+                                onClick = { section = "orders" }
+                            )
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFF1F5F9)))
+
+                            // Row 3: Wishlist
+                            AccountMenuRow(
+                                emoji = "❤️",
+                                title = "My Wishlist & Saved Items",
+                                subtitle = "${wishlist.size} saved items ready to buy",
+                                badgeText = "${wishlist.size} items",
+                                onClick = { section = "wishlist" }
+                            )
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFF1F5F9)))
+
+                            // Row 4: Saved Addresses
+                            AccountMenuRow(
+                                emoji = "📍",
+                                title = "Saved Delivery Addresses",
+                                subtitle = "Manage doorstep delivery pins",
+                                onClick = { activity.startActivity(Intent(activity, AddressBookActivity::class.java)) }
+                            )
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFF1F5F9)))
+
+                            // Row 5: Seller Hub
+                            AccountMenuRow(
+                                emoji = "🏪",
+                                title = "Seller Overview & Hub",
+                                subtitle = "Dashboard, catalog & onboarding",
+                                badgeText = "Dashboard",
+                                onClick = {
+                                    if (role == "SELLER") section = "seller"
+                                    else activity.startActivity(Intent(activity, SellerAccountActivity::class.java))
+                                }
+                            )
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFF1F5F9)))
+
+                            // Row 6: Payment & Security
+                            AccountMenuRow(
+                                emoji = "💳",
+                                title = "Payment & Security",
+                                subtitle = "UPI, Cards & 256-bit bank encryption",
+                                onClick = { showPaymentSecurityInfo = true }
+                            )
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFF1F5F9)))
+
+                            // Row 7: Help & Support
+                            AccountMenuRow(
+                                emoji = "🎧",
+                                title = "Help & 24/7 Support",
+                                subtitle = "Instant resolution & tickets",
+                                onClick = { showSupport = true }
+                            )
+                        }
                     }
-                    item {
-                        AccountOptionRow(Icons.Default.Home, "Delivery Addresses", "Login when you are ready to purchase") { onLogin() }
+                }
+
+                // 5. Sign Out Button
+                item {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSignOut() },
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFFFFF1F2),
+                        border = BorderStroke(1.dp, Color(0xFFFECDD3))
+                    ) {
+                        Text(
+                            "Sign Out / Switch Account",
+                            color = Color(0xFFE11D48),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 14.dp)
+                        )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable private fun AccountMenuRow(
+    emoji: String,
+    title: String,
+    subtitle: String,
+    badgeText: String? = null,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        color = Color.Transparent,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(emoji, fontSize = 16.sp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                )
+                Text(
+                    subtitle,
+                    fontSize = 10.sp,
+                    color = Color(0xFF64748B)
+                )
+            }
+            if (badgeText != null) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFEFF6FF),
+                    border = BorderStroke(1.dp, Color(0xFFBFDBFE))
+                ) {
+                    Text(
+                        badgeText,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2418D8),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                Spacer(Modifier.width(6.dp))
+            }
+            Text("›", fontSize = 20.sp, color = Color(0xFF94A3B8), fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -3069,17 +3431,8 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF10B981))
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text("LIVE GPS ACTIVE", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color(0xFF1E40AF))
-                            }
-                            Text("Order #$orderId", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+                            Text("Delivery in Transit", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E40AF))
+                            Text("Order #$orderId", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFF64748B))
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(
@@ -3188,7 +3541,7 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                             .background(Color(0xFF065F46).copy(alpha = 0.85f), RoundedCornerShape(6.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
-                        Text("🟢 Live Traffic: Clear Route", color = Color(0xFFA7F3D0), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        Text("Traffic: Clear Route", color = Color(0xFFA7F3D0), fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
