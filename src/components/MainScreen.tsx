@@ -183,9 +183,20 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     }
   }, [isVoiceModalOpen, startVoiceSearch]);
   const [isSellerModalOpen, setIsSellerModalOpen] = useState(false);
-  const [sellerModalTab, setSellerModalTab] = useState<'overview' | 'register'>('overview');
+  const [sellerModalTab, setSellerModalTab] = useState<'overview' | 'add-product' | 'register'>('overview');
   const [sellerRegistered, setSellerRegistered] = useState(false);
   const [sellerForm, setSellerForm] = useState({ business: '', category: 'Fashion', phone: '' });
+
+  // Luxury Add Product Form States
+  const [newProductName, setNewProductName] = useState('');
+  const [newProductCategory, setNewProductCategory] = useState('Fashion');
+  const [newProductPrice, setNewProductPrice] = useState('');
+  const [newProductMRP, setNewProductMRP] = useState('');
+  const [newProductStock, setNewProductStock] = useState('25');
+  const [newProductDescription, setNewProductDescription] = useState('');
+  const [newProductImage, setNewProductImage] = useState('https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80');
+  const [selectedSizes, setSelectedSizes] = useState<string[]>(['M', 'L', 'XL']);
+  const [customSizeText, setCustomSizeText] = useState('UK 8, UK 9 (Standard Fit)');
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [orderSuccessModal, setOrderSuccessModal] = useState<string | null>(null);
   const [couponApplied, setCouponApplied] = useState(false);
@@ -2879,8 +2890,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   </button>
                 </div>
 
-                {/* Tabs: Seller Overview & Merchant Registration */}
-                <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl mb-3.5">
+                {/* Tabs: Seller Overview, Luxury Add Product & Merchant Registration */}
+                <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl mb-3.5 gap-1">
                   <button
                     type="button"
                     onClick={() => setSellerModalTab('overview')}
@@ -2890,7 +2901,19 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
                     }`}
                   >
-                    Seller Overview
+                    Overview
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSellerModalTab('add-product')}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                      sellerModalTab === 'add-product'
+                        ? 'bg-gradient-to-r from-[#2418D8] to-purple-700 text-white shadow-xs font-black'
+                        : 'text-amber-600 dark:text-amber-400 font-bold hover:text-slate-900'
+                    }`}
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    <span>Add Product</span>
                   </button>
                   <button
                     type="button"
@@ -2901,12 +2924,21 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
                     }`}
                   >
-                    Merchant Onboarding
+                    Onboarding
                   </button>
                 </div>
 
                 {sellerModalTab === 'overview' ? (
                   <div className="space-y-3.5">
+                    {/* Add Product Shortcut Button */}
+                    <button
+                      type="button"
+                      onClick={() => setSellerModalTab('add-product')}
+                      className="w-full py-2.5 px-3 bg-gradient-to-r from-[#2418D8] via-purple-700 to-indigo-800 text-white font-extrabold text-xs rounded-xl shadow-md hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-400/30"
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>+ Add Luxury Product with Custom Sizes</span>
+                    </button>
                     {/* Top Stat Cards in Seller Overview */}
                     <div className="grid grid-cols-3 gap-2">
                       <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 text-center">
@@ -3033,6 +3065,260 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       </a>
                     </div>
                   </div>
+                ) : sellerModalTab === 'add-product' ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      haptics.success();
+                      const parsedPrice = parseInt(newProductPrice) || 1499;
+                      const parsedMRP = parseInt(newProductMRP) || Math.round(parsedPrice * 1.6);
+                      const discountPercent = Math.max(5, Math.round(((parsedMRP - parsedPrice) / parsedMRP) * 100));
+                      const createdProduct: Product = {
+                        id: `prod-lux-${Date.now()}`,
+                        name: newProductName.trim() || 'AARVO Luxury Edition Handcrafted Product',
+                        category: newProductCategory,
+                        price: parsedPrice,
+                        originalPrice: parsedMRP,
+                        discount: `${discountPercent}% OFF`,
+                        rating: 4.9,
+                        reviewsCount: 1,
+                        inStock: true,
+                        image: newProductImage.trim() || 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80',
+                        images: [
+                          newProductImage.trim() || 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80',
+                          'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=500&auto=format&fit=crop&q=80',
+                          'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=500&auto=format&fit=crop&q=80',
+                        ],
+                        seller: sellerForm.business.trim() || 'AARVO Luxury Certified Merchant',
+                        description: `${newProductDescription.trim() || 'Exquisite luxury craftsmanship with certified materials and verified quality.'} Sizing: ${selectedSizes.join(', ')}. Fit: ${customSizeText}`,
+                        stockQuantity: parseInt(newProductStock) || 25,
+                      };
+                      setAllProducts((prev) => [createdProduct, ...prev]);
+                      showToast(`✨ ${createdProduct.name.slice(0, 24)}... added to Catalog!`);
+                      setNewProductName('');
+                      setNewProductPrice('');
+                      setNewProductMRP('');
+                      setNewProductDescription('');
+                      setSellerModalTab('overview');
+                    }}
+                    className="space-y-3.5 animate-in fade-in duration-200"
+                  >
+                    {/* Luxury Header Banner */}
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-[#180E4B] via-[#2418D8] to-purple-800 text-white border border-amber-400/40 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        <h4 className="font-display font-black text-xs sm:text-sm">
+                          AARVO Luxury Merchant Studio
+                        </h4>
+                      </div>
+                      <p className="text-[10px] text-purple-200 mt-0.5">
+                        Publish high-margin catalog products with verified luxury sizing standards.
+                      </p>
+                    </div>
+
+                    {/* Product Name */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        Product Title (Luxury Branding)
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Pure Mulberry Silk Hand-Embroidered Kurta Set"
+                        value={newProductName}
+                        onChange={(e) => setNewProductName(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                      />
+                    </div>
+
+                    {/* Category Selection */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        Product Category
+                      </label>
+                      <select
+                        value={newProductCategory}
+                        onChange={(e) => setNewProductCategory(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                      >
+                        <option value="Fashion">Fashion &amp; Luxury Apparel</option>
+                        <option value="Footwear">Premium Footwear &amp; Shoes</option>
+                        <option value="Mobiles">Smartphones &amp; Mobiles</option>
+                        <option value="Electronics">Electronics &amp; Audio</option>
+                        <option value="Home & Kitchen">Home &amp; Luxury Living</option>
+                        <option value="Beauty">Beauty &amp; Personal Care</option>
+                      </select>
+                    </div>
+
+                    {/* Pricing: Selling Price & MRP */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                          Selling Price (₹)
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          placeholder="e.g. 1999"
+                          value={newProductPrice}
+                          onChange={(e) => setNewProductPrice(e.target.value)}
+                          className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                          Original MRP (₹)
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="e.g. 3999"
+                          value={newProductMRP}
+                          onChange={(e) => setNewProductMRP(e.target.value)}
+                          className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* PREMIUM LUXURY SIZE SPECIFICATION ("Size Text") */}
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 border border-amber-300/80 dark:border-amber-700/60 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-[11px] font-black text-amber-900 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1">
+                            <Tag className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                            <span>Size Specification &amp; Fit Guide</span>
+                          </span>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                            Select standard apparel sizes or define tailored dimensions
+                          </p>
+                        </div>
+                        <span className="text-[9px] bg-amber-400 text-slate-950 px-2 py-0.5 rounded font-black">
+                          LUXURY FIT
+                        </span>
+                      </div>
+
+                      {/* Interactive Size Chips */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', 'Free Size'].map((size) => {
+                          const isSelected = selectedSizes.includes(size);
+                          return (
+                            <button
+                              key={size}
+                              type="button"
+                              onClick={() => {
+                                haptics.selection();
+                                setSelectedSizes((prev) =>
+                                  isSelected ? prev.filter((s) => s !== size) : [...prev, size]
+                                );
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-gradient-to-r from-[#2418D8] to-purple-800 text-white shadow-sm border border-amber-400 ring-2 ring-amber-400/30 font-black'
+                                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#2418D8]'
+                              }`}
+                            >
+                              <span>{size}</span>
+                              {isSelected && <span className="ml-1 text-[10px] text-amber-300">✓</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Custom Size Text Input */}
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                          Custom Size Details / Shoe Size Text (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. UK 8, UK 9, Chest 42 in, Slim Tailored Fit"
+                          value={customSizeText}
+                          onChange={(e) => setCustomSizeText(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#120F26] text-slate-900 dark:text-white border border-amber-200/80 dark:border-amber-800/60 rounded-xl outline-none focus:border-[#2418D8]"
+                        />
+                      </div>
+
+                      <div className="text-[9px] text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>Standard Indian &amp; Global Sizing certified by AARVO Fashion Experts</span>
+                      </div>
+                    </div>
+
+                    {/* Image URL & Thumbnail Preview */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        Product Photo URL (High-Res Showcase)
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://..."
+                        value={newProductImage}
+                        onChange={(e) => setNewProductImage(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                      />
+                      {newProductImage && (
+                        <div className="mt-2 flex items-center gap-2.5 p-2 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                          <img
+                            src={newProductImage}
+                            alt="Preview"
+                            className="w-12 h-12 rounded-lg object-cover bg-white"
+                          />
+                          <div className="text-[11px] text-slate-500">
+                            <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                              Photo Preview
+                            </span>
+                            <span>Supports sliding &amp; zoom view on product details</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Stock & Dispatch */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                          Stock Quantity
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="25"
+                          value={newProductStock}
+                          onChange={(e) => setNewProductStock(e.target.value)}
+                          className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                          Payment Mode
+                        </label>
+                        <div className="px-3 py-2 text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl font-bold">
+                          ✓ UPI + Cash on Delivery
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        Luxury Product Description &amp; Highlights
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Describe fabric, finish, and packaging details..."
+                        value={newProductDescription}
+                        onChange={(e) => setNewProductDescription(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                      />
+                    </div>
+
+                    {/* Submit Button */}
+                    <button
+                      type="submit"
+                      className="w-full py-3 bg-gradient-to-r from-[#2418D8] via-purple-700 to-indigo-900 text-white font-extrabold text-xs rounded-xl shadow-lg hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-400/40"
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>Publish Product to AARVO Catalog</span>
+                    </button>
+                  </form>
                 ) : !sellerRegistered ? (
                   <form
                     onSubmit={(e) => {

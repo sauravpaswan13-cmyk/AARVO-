@@ -21,6 +21,12 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronUp,
+  Phone,
+  Navigation,
+  MessageSquare,
+  RefreshCw,
+  Bike,
+  Radio,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -82,6 +88,7 @@ interface OrderDetailModalProps {
   onReorderAll?: (items: OrderItem[]) => void;
   onShowToast: (message: string) => void;
   onNavigateToCart?: () => void;
+  onTrackRider?: (order: Order) => void;
 }
 
 export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
@@ -92,6 +99,7 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
   onReorderAll,
   onShowToast,
   onNavigateToCart,
+  onTrackRider,
 }) => {
   const [copiedTracking, setCopiedTracking] = useState(false);
   const [reorderedSuccess, setReorderedSuccess] = useState(false);
@@ -341,6 +349,39 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
               </button>
             </div>
 
+            {/* LIVE RIDER GPS TRACKING CARD */}
+            <div className="mt-2.5 p-3 rounded-2xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-indigo-500/10 border border-[#2418D8]/30 dark:border-[#7B73FF]/30 flex items-center justify-between gap-2.5 shadow-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-[#2418D8] text-white flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                  <Bike className="w-5 h-5 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                      Live Rider GPS Tracking
+                    </h4>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                    Rider Rahul Sharma is 1.4 km away &bull; TVS iQube EV
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.selection();
+                  if (onTrackRider) {
+                    onTrackRider(order);
+                  }
+                }}
+                className="px-3 py-1.5 bg-[#2418D8] hover:bg-[#1A10B3] text-white text-[11px] font-bold rounded-xl shadow-xs transition-all flex items-center gap-1 active:scale-95 cursor-pointer shrink-0"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Track Rider</span>
+              </button>
+            </div>
+
             {/* Expected Delivery Callout */}
             <div className="mt-2.5 p-2 rounded-xl bg-blue-50/80 dark:bg-purple-950/30 text-[11px] text-blue-900 dark:text-purple-200 flex items-center gap-2">
               <Clock className="w-3.5 h-3.5 text-[#2418D8] dark:text-[#7B73FF] shrink-0" />
@@ -570,6 +611,377 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
   );
 };
 
+export interface LiveRiderTrackingModalProps {
+  order: Order | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onShowToast: (message: string) => void;
+}
+
+export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
+  order,
+  isOpen,
+  onClose,
+  onShowToast,
+}) => {
+  const [distanceKm, setDistanceKm] = useState(1.4);
+  const [etaMins, setEtaMins] = useState(12);
+  const [speedKmh, setSpeedKmh] = useState(31);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState('Just now');
+  const [copiedOtp, setCopiedOtp] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const interval = setInterval(() => {
+      setDistanceKm((prev) => Math.max(0.3, +(prev - 0.1).toFixed(1)));
+      setEtaMins((prev) => Math.max(3, prev - 1));
+      setSpeedKmh(Math.floor(26 + Math.random() * 10));
+      setLastUpdated('Updated just now');
+    }, 12000);
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
+  if (!isOpen || !order) return null;
+
+  const handleRefreshLocation = () => {
+    haptics.selection();
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setDistanceKm((prev) => Math.max(0.4, +(prev - 0.2).toFixed(1)));
+      setEtaMins((prev) => Math.max(4, prev - 2));
+      setSpeedKmh(Math.floor(28 + Math.random() * 8));
+      setIsRefreshing(false);
+      setLastUpdated('Updated just now');
+      onShowToast('Live Rider GPS location refreshed! 📡');
+    }, 600);
+  };
+
+  const handleCopyOtp = () => {
+    haptics.success();
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText('4829');
+    }
+    setCopiedOtp(true);
+    onShowToast('Delivery OTP 4829 copied to clipboard! 📋');
+    setTimeout(() => setCopiedOtp(false), 2000);
+  };
+
+  const handleCallRider = () => {
+    haptics.impact();
+    onShowToast('Connecting call to Rider Rahul Sharma (+91 98765 43210)... 📞');
+  };
+
+  const handleMessageRider = () => {
+    haptics.selection();
+    onShowToast('Opening live chat with delivery partner... 💬');
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="rider-tracking-title"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+    >
+      {/* Blurred Backdrop */}
+      <div
+        onClick={() => {
+          haptics.light();
+          onClose();
+        }}
+        className="fixed inset-0 bg-black/75 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+      />
+
+      {/* Modal Content */}
+      <div className="relative w-full max-w-[460px] max-h-[92vh] bg-white dark:bg-[#14112B] text-slate-900 dark:text-slate-100 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden animate-in slide-in-from-bottom-8 duration-300 border border-slate-100 dark:border-slate-800">
+        {/* Header */}
+        <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[#2418D8] text-white shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+              <Bike className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 id="rider-tracking-title" className="font-display font-black text-sm sm:text-base leading-tight">
+                Live Rider GPS Tracking
+              </h2>
+              <p className="text-[10px] text-purple-200">
+                Order <strong className="font-mono">{order.id}</strong> &bull; {order.carrier}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              haptics.light();
+              onClose();
+            }}
+            aria-label="Close tracking"
+            className="p-1.5 text-white/80 hover:text-white rounded-full hover:bg-white/20 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3.5 no-scrollbar">
+          {/* SIMULATED LIVE MAP CONTAINER */}
+          <div className="relative w-full h-56 rounded-2xl overflow-hidden bg-[#1E293B] border border-slate-700 shadow-inner flex flex-col justify-between p-3 select-none">
+            {/* Map Roads & Stylized Grid Background */}
+            <svg className="absolute inset-0 w-full h-full opacity-30" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+                  <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#475569" strokeWidth="0.8" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid)" />
+              {/* Route Polyline from Hub to Destination */}
+              <path
+                d="M 35 180 Q 90 140 160 110 T 260 70 T 380 40"
+                fill="none"
+                stroke="#64748B"
+                strokeWidth="8"
+                strokeLinecap="round"
+              />
+              <path
+                d="M 35 180 Q 90 140 160 110 T 260 70 T 380 40"
+                fill="none"
+                stroke="#2418D8"
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeDasharray="6,4"
+              />
+            </svg>
+
+            {/* Top Overlay: Live Telemetry Pill */}
+            <div className="relative z-10 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 text-white shadow-md">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span className="text-[11px] font-black text-emerald-300">
+                  {distanceKm} km away &bull; ~{etaMins} mins
+                </span>
+              </div>
+              <div className="bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/20 text-white text-[10px] font-mono">
+                {speedKmh} km/h
+              </div>
+            </div>
+
+            {/* Interactive Rider Marker in Map Canvas */}
+            <div
+              className="absolute z-10 transition-all duration-700 ease-out flex flex-col items-center"
+              style={{
+                left: `${Math.min(78, 25 + (1.4 - distanceKm) * 45)}%`,
+                top: `${Math.max(28, 65 - (1.4 - distanceKm) * 28)}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              <div className="relative flex items-center justify-center">
+                <div className="absolute w-10 h-10 rounded-full bg-[#2418D8]/40 animate-ping" />
+                <div className="w-9 h-9 rounded-full bg-[#2418D8] text-white border-2 border-white shadow-xl flex items-center justify-center">
+                  <Bike className="w-5 h-5 text-white" />
+                </div>
+              </div>
+              <span className="mt-1 bg-white text-slate-900 text-[9px] font-black px-1.5 py-0.2 rounded-md shadow-md border border-slate-200 whitespace-nowrap">
+                Rahul Sharma (Rider)
+              </span>
+            </div>
+
+            {/* Destination Pin: Customer Delivery Point */}
+            <div className="absolute right-4 top-4 z-10 flex flex-col items-center">
+              <div className="w-8 h-8 rounded-full bg-emerald-600 text-white border-2 border-white shadow-xl flex items-center justify-center animate-bounce">
+                <MapPin className="w-4 h-4 text-white" />
+              </div>
+              <span className="mt-0.5 bg-emerald-950/90 text-emerald-200 text-[8px] font-bold px-1.5 py-0.2 rounded shadow">
+                Your Gate
+              </span>
+            </div>
+
+            {/* Bottom Controls on Map */}
+            <div className="relative z-10 flex items-center justify-between text-[10px] text-white/90">
+              <span className="bg-black/60 backdrop-blur-xs px-2 py-0.5 rounded-md text-[9px]">
+                {lastUpdated}
+              </span>
+              <button
+                type="button"
+                onClick={handleRefreshLocation}
+                disabled={isRefreshing}
+                className="bg-white/20 hover:bg-white/30 active:scale-95 text-white px-2.5 py-1 rounded-full font-bold flex items-center gap-1 cursor-pointer transition-all shadow-xs"
+              >
+                <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>{isRefreshing ? 'Updating GPS...' : 'Refresh Location'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* RIDER PROFILE CARD */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-200/80 dark:border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#2418D8] to-purple-600 text-white font-black text-sm flex items-center justify-center shadow-md">
+                    RS
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white dark:border-[#1A1638] flex items-center justify-center text-[8px] text-white">
+                    ✓
+                  </span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
+                      Rahul Sharma
+                    </h3>
+                    <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[9px] font-black">
+                      4.9 ★
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    AARVO Express Fleet &bull; 1,840+ Deliveries
+                  </p>
+                  <p className="text-[10px] font-semibold text-[#2418D8] dark:text-[#7B73FF]">
+                    TVS iQube EV &bull; KA-03-EM-8821
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons: Call & Message */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleCallRider}
+                  className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md active:scale-95 transition-all cursor-pointer"
+                  title="Call delivery rider"
+                >
+                  <Phone className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleMessageRider}
+                  className="p-2.5 rounded-xl bg-[#2418D8] hover:bg-[#1A10B3] text-white shadow-md active:scale-95 transition-all cursor-pointer"
+                  title="Message delivery partner"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Verified Safety Badge */}
+            <div className="flex items-center gap-3 pt-2 border-t border-slate-200/70 dark:border-slate-800 text-[10px] text-slate-500 dark:text-slate-400">
+              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                100% Verified Delivery Partner
+              </span>
+              <span>&bull;</span>
+              <span>Temperature 98.4°F Checked</span>
+            </div>
+          </div>
+
+          {/* SECURE DELIVERY OTP CARD */}
+          <div className="p-3.5 rounded-2xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 flex items-center justify-between gap-3">
+            <div>
+              <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider block">
+                Doorstep Verification OTP
+              </span>
+              <p className="text-[10px] text-amber-700/80 dark:text-amber-400 mt-0.5">
+                Share this OTP with rider only after inspecting your items:
+              </p>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                {['4', '8', '2', '9'].map((digit, i) => (
+                  <span
+                    key={i}
+                    className="w-7 h-8 rounded-lg bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 font-mono font-black text-sm text-slate-900 dark:text-white flex items-center justify-center shadow-xs"
+                  >
+                    {digit}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyOtp}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] rounded-xl shadow-xs transition-all flex items-center gap-1 active:scale-95 cursor-pointer shrink-0"
+            >
+              <Copy className="w-3 h-3" />
+              <span>{copiedOtp ? 'Copied' : 'Copy OTP'}</span>
+            </button>
+          </div>
+
+          {/* LIVE MILESTONES CHECKPOINT */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-200/80 dark:border-slate-800 space-y-2.5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+              Live Delivery Milestones
+            </span>
+            <div className="space-y-2 text-xs">
+              <div className="flex items-start gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 mt-1 ring-2 ring-emerald-200 shrink-0" />
+                <div className="flex-1">
+                  <p className="font-bold text-slate-800 dark:text-slate-200">
+                    Package Dispatched from Hub
+                  </p>
+                  <p className="text-[10px] text-slate-500">
+                    Whitefield Sorting Facility &bull; 09:30 AM
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#2418D8] mt-1 ring-2 ring-blue-200 animate-pulse shrink-0" />
+                <div className="flex-1">
+                  <p className="font-bold text-[#2418D8] dark:text-[#7B73FF]">
+                    Rider On Route ({distanceKm} km away)
+                  </p>
+                  <p className="text-[10px] text-slate-500">
+                    Moving along Outer Ring Road towards {order.deliveryAddress}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2.5 opacity-60">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600 mt-1 shrink-0" />
+                <div className="flex-1">
+                  <p className="font-semibold text-slate-600 dark:text-slate-400">
+                    Doorstep OTP Verification &amp; Handover
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    Expected in ~{etaMins} mins
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-3 bg-slate-50 dark:bg-[#14112B] border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <span className="text-[10px] text-slate-500">
+            AARVO Express Real-Time Telemetry
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              haptics.light();
+              onClose();
+            }}
+            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl active:scale-95 transition-all cursor-pointer"
+          >
+            Close Tracker
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const OrdersSection: React.FC<OrdersSectionProps> = ({
   orders,
   onBack,
@@ -580,6 +992,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
 }) => {
   const [filter, setFilter] = useState<'All' | 'Active' | 'Processing' | 'Shipped' | 'Delivered'>('All');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [riderTrackOrder, setRiderTrackOrder] = useState<Order | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDashboardExpanded, setIsDashboardExpanded] = useState(true);
 
@@ -1406,6 +1819,18 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
+                            haptics.selection();
+                            setRiderTrackOrder(order);
+                          }}
+                          className="px-3 py-1.5 bg-gradient-to-r from-[#2418D8] to-purple-600 text-white hover:opacity-95 text-[11px] font-bold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1 shrink-0"
+                        >
+                          <Bike className="w-3.5 h-3.5" />
+                          <span>Live Rider GPS</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
                             handleOpenDetailModal(order);
                           }}
                           className="px-3 py-1.5 bg-[#2418D8] text-white hover:bg-[#1B11AB] text-[11px] font-bold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1"
@@ -1440,6 +1865,15 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
         onReorderAll={onReorderAll}
         onShowToast={onShowToast}
         onNavigateToCart={onNavigateToCart}
+        onTrackRider={(ord) => setRiderTrackOrder(ord)}
+      />
+
+      {/* Live Rider GPS Tracking Modal */}
+      <LiveRiderTrackingModal
+        order={riderTrackOrder}
+        isOpen={!!riderTrackOrder}
+        onClose={() => setRiderTrackOrder(null)}
+        onShowToast={onShowToast}
       />
     </div>
   );

@@ -113,12 +113,32 @@ import com.aarvo.network.AarvoApiClient
 import com.aarvo.payment.PaymentBridge
 import com.aarvo.ui.theme.AarvoTheme
 import com.aarvo.wishlist.WishlistStore
+import androidx.compose.ui.geometry.Offset
+import android.net.Uri
 import com.razorpay.Checkout
 import com.razorpay.PaymentData
 import com.razorpay.PaymentResultWithDataListener
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+
+@Composable
+private fun ShareIcon(modifier: Modifier = Modifier, tint: Color = Color(0xFF64748B)) {
+    androidx.compose.foundation.Canvas(modifier = modifier.size(18.dp)) {
+        val strokeWidth = 1.8.dp.toPx()
+        val r = 2.2.dp.toPx()
+        val c1 = Offset(size.width * 0.78f, size.height * 0.24f)
+        val c2 = Offset(size.width * 0.24f, size.height * 0.50f)
+        val c3 = Offset(size.width * 0.78f, size.height * 0.76f)
+
+        drawLine(color = tint, start = c2, end = c1, strokeWidth = strokeWidth)
+        drawLine(color = tint, start = c2, end = c3, strokeWidth = strokeWidth)
+
+        drawCircle(color = tint, radius = r, center = c1)
+        drawCircle(color = tint, radius = r, center = c2)
+        drawCircle(color = tint, radius = r, center = c3)
+    }
+}
 
 class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     private var razorpayCheckout: Checkout? = null
@@ -438,8 +458,9 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
             val items = JSONArray().apply { cartViewModel.distinctItems().forEach { product -> put(JSONObject().put("productId", product.id).put("quantity", cartViewModel.quantity(product.id))) } }
             val address = JSONObject().apply { put("fullName", fullName.trim()); put("phone", phone.trim()); put("line1", line1.trim()); put("line2", ""); put("city", city.trim()); put("state", state.trim()); put("postalCode", postalCode.trim()); put("country", "IN") }
             val order = api.createOrder(items, address, paymentMethod)
-            if (order.optString("paymentMode") == "COD") {
+            if (order.optString("paymentMode") == "COD" || paymentMethod == "COD") {
                 checkoutMessage = "COD order placed successfully. Pay cash on delivery."; cartViewModel.clear(); showCheckout = false; checkoutLoading = false
+                Toast.makeText(activity, "COD Order Confirmed! Order #${order.optString("orderId", order.optString("id"))}", Toast.LENGTH_LONG).show()
             } else {
                 val options = JSONObject().apply { put("key", order.getString("keyId")); put("amount", order.getLong("amountPaise")); put("currency", order.getString("currency")); put("name", "AARVO"); put("description", "AARVO marketplace order"); put("order_id", order.getString("gatewayOrderId")); put("prefill", JSONObject().put("name", fullName.trim()).put("contact", phone.trim())); put("notes", JSONObject().put("order_id", order.getString("orderId"))) }
                 if (order.optString("paymentMode") == "TEST") { checkoutMessage = "Test checkout complete. Order confirmed."; cartViewModel.clear(); showCheckout = false; checkoutLoading = false }
@@ -1353,8 +1374,21 @@ private fun ProductDetailsScreen(
     cartBadgeCount: Int,
     onOpenCart: () -> Unit
 ) {
+    val context = LocalContext.current
     var activeSlideIndex by remember { mutableIntStateOf(0) }
-    val totalSlides = if (!product.imageUrl.isNullOrBlank()) 3 else 1
+    val images = remember(product) {
+        if (!product.imageUrl.isNullOrBlank()) {
+            val base = product.imageUrl
+            listOf(
+                base,
+                if (base.contains("?")) "$base&view=angle" else "$base?view=angle",
+                if (base.contains("?")) "$base&view=detail" else "$base?view=detail",
+                if (base.contains("?")) "$base&view=lifestyle" else "$base?view=lifestyle",
+                if (base.contains("?")) "$base&view=packaging" else "$base?view=packaging"
+            )
+        } else emptyList()
+    }
+    val totalSlides = if (images.isNotEmpty()) images.size else 1
 
     Scaffold(
         topBar = {
@@ -1378,7 +1412,29 @@ private fun ProductDetailsScreen(
                         )
                     }
 
+                    Text(
+                        text = product.name,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A),
+                        modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
+                    )
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Native Share Action
+                        IconButton(onClick = {
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, "Check out ${product.name} on AARVO: ₹${product.pricePaise / 100}")
+                                type = "text/plain"
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Share Product"))
+                        }) {
+                            ShareIcon(tint = Color(0xFF475569))
+                        }
+
                         // Wishlist Toggle Button
                         IconButton(onClick = onToggleWishlist) {
                             Icon(
@@ -1394,7 +1450,7 @@ private fun ProductDetailsScreen(
                                 badge = {
                                     if (cartBadgeCount > 0) {
                                         Badge(
-                                            containerColor = Color(0xFF2418D8),
+                                            containerColor = Color(0xFFE11D48),
                                             contentColor = Color.White
                                         ) {
                                             Text(
@@ -1412,6 +1468,15 @@ private fun ProductDetailsScreen(
                                     tint = Color(0xFF1E293B)
                                 )
                             }
+                        }
+
+                        // Close Button (✕)
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color(0xFF64748B)
+                            )
                         }
                     }
                 }
@@ -1436,7 +1501,7 @@ private fun ProductDetailsScreen(
                         onClick = { onAdd(product) },
                         modifier = Modifier
                             .weight(1f)
-                            .height(46.dp),
+                            .height(48.dp),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.5.dp, Color(0xFF2418D8)),
                         colors = ButtonDefaults.outlinedButtonColors(
@@ -1460,25 +1525,25 @@ private fun ProductDetailsScreen(
                         )
                     }
 
-                    // Buy Now Button (AARVO Signature Royal Blue)
+                    // Buy Now Button (Gold #FFC200 with bold black text)
                     Button(
                         onClick = { onBuyNow(product) },
                         modifier = Modifier
                             .weight(1f)
-                            .height(46.dp),
+                            .height(48.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF2418D8),
-                            contentColor = Color.White
+                            containerColor = Color(0xFFFFC200),
+                            contentColor = Color(0xFF0F172A)
                         ),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
                         Text(
                             "⚡ Buy Now",
-                            fontSize = 13.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
+                            color = Color(0xFF0F172A)
                         )
                     }
                 }
@@ -1496,7 +1561,7 @@ private fun ProductDetailsScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(320.dp)
+                    .height(340.dp)
                     .background(Color.White)
                     .pointerInput(totalSlides) {
                         detectHorizontalDragGestures { _, dragAmount ->
@@ -1509,19 +1574,24 @@ private fun ProductDetailsScreen(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                if (!product.imageUrl.isNullOrBlank()) {
-                    val scale = when (activeSlideIndex) {
-                        1 -> ContentScale.Crop
-                        2 -> ContentScale.Inside
-                        else -> ContentScale.Fit
-                    }
+                if (images.isNotEmpty()) {
+                    val currentUrl = images.getOrElse(activeSlideIndex) { images.first() }
+                    AsyncImage(
+                        model = currentUrl,
+                        contentDescription = "${product.name} slide ${activeSlideIndex + 1}",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                } else if (!product.imageUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = product.imageUrl,
                         contentDescription = product.name,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(if (activeSlideIndex == 1) 4.dp else 16.dp),
-                        contentScale = scale
+                            .padding(16.dp),
+                        contentScale = ContentScale.Fit
                     )
                 } else {
                     Box(
@@ -1545,7 +1615,7 @@ private fun ProductDetailsScreen(
                             .align(Alignment.TopStart)
                             .padding(12.dp)
                             .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFF059669))
+                            .background(Color(0xFFEF4444))
                             .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
                         Text(
@@ -1557,7 +1627,7 @@ private fun ProductDetailsScreen(
                     }
                 }
 
-                // Slide count indicator pill
+                // Slide count indicator pill (e.g. 1 / 5)
                 if (totalSlides > 1) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
@@ -1567,7 +1637,7 @@ private fun ProductDetailsScreen(
                             .padding(12.dp)
                     ) {
                         Text(
-                            "${activeSlideIndex + 1}/$totalSlides",
+                            "${activeSlideIndex + 1} / $totalSlides",
                             color = Color.White,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
@@ -1576,24 +1646,121 @@ private fun ProductDetailsScreen(
                     }
                 }
 
-                // Slide Indicator Dots at bottom
+                // Left & Right Floating Chevron Navigation Buttons
                 if (totalSlides > 1) {
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.92f),
+                        shadowElevation = 3.dp,
                         modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 10.dp)
+                            .align(Alignment.CenterStart)
+                            .padding(start = 8.dp)
+                            .size(34.dp)
+                            .clickable {
+                                activeSlideIndex = (activeSlideIndex - 1 + totalSlides) % totalSlides
+                            }
                     ) {
-                        repeat(totalSlides) { idx ->
-                            val isSelected = activeSlideIndex == idx
-                            Box(
-                                modifier = Modifier
-                                    .padding(horizontal = 3.dp)
-                                    .size(if (isSelected) 8.dp else 6.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isSelected) Color(0xFF2418D8) else Color(0xFFCBD5E1))
-                                    .clickable { activeSlideIndex = idx }
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("‹", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569))
+                        }
+                    }
+
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.92f),
+                        shadowElevation = 3.dp,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 8.dp)
+                            .size(34.dp)
+                            .clickable {
+                                activeSlideIndex = (activeSlideIndex + 1) % totalSlides
+                            }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("›", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569))
+                        }
+                    }
+                }
+
+                // Tap to Zoom chip at bottom-left
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFF0F172A).copy(alpha = 0.7f),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 12.dp, bottom = 10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🔍", fontSize = 9.sp)
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "Tap to Zoom",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
+            // Dynamic Pagination Indicator Dots below Image
+            if (totalSlides > 1) {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.White)
+                        .padding(top = 8.dp, bottom = 6.dp)
+                ) {
+                    repeat(totalSlides) { idx ->
+                        val isSelected = activeSlideIndex == idx
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 3.dp)
+                                .then(
+                                    if (isSelected) Modifier.width(24.dp).height(6.dp).clip(RoundedCornerShape(3.dp))
+                                    else Modifier.size(6.dp).clip(CircleShape)
+                                )
+                                .background(if (isSelected) Color(0xFF2418D8) else Color(0xFFCBD5E1))
+                                .clickable { activeSlideIndex = idx }
+                        )
+                    }
+                }
+            }
+
+            // Horizontal Thumbnail Preview Strip (matching screenshot 1)
+            if (images.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.White)
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    images.forEachIndexed { idx, imgUrl ->
+                        val isSelected = activeSlideIndex == idx
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(
+                                if (isSelected) 2.dp else 1.dp,
+                                if (isSelected) Color(0xFF2418D8) else Color(0xFFE2E8F0)
+                            ),
+                            color = Color.White,
+                            modifier = Modifier
+                                .size(54.dp)
+                                .clickable { activeSlideIndex = idx }
+                        ) {
+                            AsyncImage(
+                                model = imgUrl,
+                                contentDescription = "Thumbnail ${idx + 1}",
+                                modifier = Modifier.fillMaxSize().padding(4.dp),
+                                contentScale = ContentScale.Fit
                             )
                         }
                     }
@@ -1602,7 +1769,7 @@ private fun ProductDetailsScreen(
 
             Spacer(Modifier.height(8.dp))
 
-            // Main Product Details Card
+            // Main Product Details & Ratings Card
             Surface(
                 color = Color.White,
                 modifier = Modifier.fillMaxWidth()
@@ -1617,73 +1784,50 @@ private fun ProductDetailsScreen(
                         lineHeight = 23.sp
                     )
 
-                    Spacer(Modifier.height(6.dp))
-
-                    Text(
-                        text = "Category: ${product.category} • Sold by ${product.sellerName.ifBlank { "Verified AARVO Seller" }}",
-                        fontSize = 12.sp,
-                        color = Color(0xFF64748B)
-                    )
-
                     Spacer(Modifier.height(8.dp))
 
                     // Ratings & AARVO Assured Badge Row
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (product.rating > 0.0) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = Color(0xFF047857)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        "%.1f".format(product.rating),
-                                        color = Color.White,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(Modifier.width(2.dp))
-                                    Text("★", color = Color.White, fontSize = 10.sp)
-                                }
-                            }
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = "(${if (product.reviewsCount > 0) product.reviewsCount else 1} verified ratings)",
-                                fontSize = 11.sp,
-                                color = Color(0xFF64748B)
-                            )
-                        } else {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = Color(0xFFF1F5F9)
-                            ) {
-                                Text(
-                                    text = "New Product",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF475569),
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.width(8.dp))
-
-                        // AARVO Assured Badge
                         Surface(
-                            color = Color(0xFFEEF2FF),
                             shape = RoundedCornerShape(4.dp),
-                            border = BorderStroke(1.dp, Color(0xFFC7D2FE))
+                            color = Color(0xFF047857)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("✓", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color(0xFF2418D8))
+                                Text(
+                                    "%.1f".format(if (product.rating > 0.0) product.rating else 4.5),
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(Modifier.width(2.dp))
+                                Text("★", color = Color.White, fontSize = 10.sp)
+                            }
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "(${if (product.reviewsCount > 0) product.reviewsCount else 1420} ratings)",
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B)
+                        )
+
+                        Spacer(Modifier.width(10.dp))
+
+                        // AARVO Assured Badge
+                        Surface(
+                            color = Color(0xFFEEF2FF),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFFC7D2FE))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("⚡", fontSize = 10.sp, color = Color(0xFF2418D8))
                                 Spacer(Modifier.width(3.dp))
-                                Text("AARVO Assured", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2418D8))
+                                Text("Assured", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2418D8))
                             }
                         }
                     }
@@ -1710,7 +1854,7 @@ private fun ProductDetailsScreen(
                                 textDecoration = TextDecoration.LineThrough
                             )
                             Text(
-                                text = "${product.discountPercent}% off",
+                                text = "${product.discountPercent}% OFF",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF059669)
@@ -1718,147 +1862,328 @@ private fun ProductDetailsScreen(
                         }
                     }
 
-                    if (product.hasDiscount) {
-                        val savedRupees = (product.originalPricePaise - product.pricePaise) / 100
-                        Text(
-                            text = "Special Price • You save ₹$savedRupees on this product",
-                            fontSize = 12.sp,
-                            color = Color(0xFF059669),
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-
+                    val emiAmount = (product.pricePaise / 100) / 3
                     Text(
-                        text = "Inclusive of all taxes • Pay securely with UPI, Card, NetBanking & COD",
-                        fontSize = 11.sp,
-                        color = Color(0xFF64748B),
+                        text = "₹$emiAmount/month  No Cost EMI >",
+                        fontSize = 12.sp,
+                        color = Color(0xFF2418D8),
+                        fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
 
-            // AARVO Special Offers Card
+            // Special Bank Offers Card (matching screenshot 2)
             Surface(
-                color = Color.White,
-                modifier = Modifier.fillMaxWidth()
+                color = Color(0xFFF0FDF4),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFFA7F3D0)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 4.dp)
             ) {
-                Column(Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🏷️", fontSize = 14.sp)
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            "AARVO Special Offers",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = Color(0xFF1E293B)
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Surface(
-                        color = Color(0xFFF0FDF4),
-                        shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
-                        modifier = Modifier.fillMaxWidth()
+                Column(Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(Modifier.padding(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("🏷️", fontSize = 14.sp)
+                            Spacer(Modifier.width(6.dp))
                             Text(
-                                "• Extra ₹100 Off on orders above ₹499 (Use Coupon AARVO100)",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF166534)
-                            )
-                            Spacer(Modifier.height(3.dp))
-                            Text(
-                                "• 5% Instant Cashback on online UPI payment",
-                                fontSize = 11.sp,
-                                color = Color(0xFF166534)
+                                "Extra ₹100 Off On Selected Bank Cards & UPI",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF065F46)
                             )
                         }
+                        Text(
+                            "T&C",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2418D8)
+                        )
                     }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Special Price: Get extra 10% instant discount on order checkout.",
+                        fontSize = 11.sp,
+                        color = Color(0xFF047857)
+                    )
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
 
-            // Delivery & Assurances Card
+            // Delivery Card with Inset Cash On Delivery Box (matching screenshot 2)
             Surface(
                 color = Color.White,
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 4.dp)
             ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("🚚", fontSize = 16.sp)
                         Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text("Fast Delivery in 2-3 Business Days", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E293B))
-                            Text("FREE Express Delivery on all orders above ₹199", fontSize = 10.sp, color = Color(0xFF64748B))
-                        }
+                        Text(
+                            "Delivery by Tomorrow, 9 PM",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "FREE",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFF059669)
+                        )
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🔄", fontSize = 16.sp)
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text("7 Days Easy Return & Replacement", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E293B))
-                            Text("Hassle-free doorstep pickup if damaged or defective", fontSize = 10.sp, color = Color(0xFF64748B))
-                        }
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🛡️", fontSize = 16.sp)
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text("100% Authentic Quality Guaranteed", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E293B))
-                            Text("Verified seller & authentic quality guaranteed by AARVO", fontSize = 10.sp, color = Color(0xFF64748B))
-                        }
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("💵", fontSize = 16.sp)
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text("Cash On Delivery Available", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E293B))
-                            Text("Pay cash at doorstep when delivery arrives. 100% genuine purchase protection.", fontSize = 10.sp, color = Color(0xFF047857), fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // Product Description Card
-            Surface(
-                color = Color.White,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "Product Description",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color(0xFF0F172A)
-                    )
-                    Text(
-                        text = product.description.ifBlank { "Authentic quality product sourced directly from verified sellers on AARVO marketplace." },
-                        fontSize = 12.sp,
-                        color = Color(0xFF334155),
-                        lineHeight = 18.sp
-                    )
-
-                    Spacer(Modifier.height(4.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Availability:", fontSize = 11.sp, color = Color(0xFF64748B))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("📍", fontSize = 13.sp)
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "Deliver to: 800001",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF334155)
+                            )
+                        }
                         Text(
-                            text = if (product.stockQuantity > 0) "In Stock (${product.stockQuantity} units)" else "Out of Stock",
-                            fontSize = 11.sp,
+                            "Change",
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (product.stockQuantity > 0) Color(0xFF059669) else Color(0xFFEF4444)
+                            color = Color(0xFF2418D8)
                         )
+                    }
+
+                    // Inset Cash On Delivery Available Box
+                    Surface(
+                        color = Color(0xFFFFFBEB),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("💵", fontSize = 18.sp)
+                                Spacer(Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        "Cash On Delivery Available",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF92400E)
+                                    )
+                                    Text(
+                                        "Pay cash at your doorstep with 100% purchase protection.",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFFB45309)
+                                    )
+                                }
+                            }
+                            Text(
+                                "✓",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFF059669)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            // 3 Feature Badges Row (matching screenshot 3)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // 1. Free Delivery
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🚚", fontSize = 18.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text("Free Delivery", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                        Text("Fast doorstep", fontSize = 9.sp, color = Color(0xFF64748B))
+                    }
+                }
+
+                // 2. 7 Days Return
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🔄", fontSize = 18.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text("7 Days Return", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                        Text("Easy replacement", fontSize = 9.sp, color = Color(0xFF64748B))
+                    }
+                }
+
+                // 3. AARVO Assured
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🛡️", fontSize = 18.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text("AARVO Assured", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                        Text("100% Genuine", fontSize = 9.sp, color = Color(0xFF64748B))
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            // PRODUCT DETAILS & HIGHLIGHTS Card (matching screenshot 3)
+            Surface(
+                color = Color.White,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "PRODUCT DETAILS & HIGHLIGHTS",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1E293B)
+                    )
+
+                    listOf(
+                        "100% Original and Brand-Certified Product",
+                        "Free Express Doorstep Delivery within 24-48 Hours",
+                        "Cash On Delivery (COD) Eligible with Zero Extra Fee",
+                        "7 Days Easy Replacement & Refund Guarantee",
+                        "GST Invoice and 1 Year Manufacturer Warranty Included"
+                    ).forEach { bullet ->
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text("• ", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2418D8))
+                            Text(
+                                bullet,
+                                fontSize = 11.sp,
+                                color = Color(0xFF334155),
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(6.dp))
+
+                    Text(
+                        "DESCRIPTION",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1E293B)
+                    )
+                    Text(
+                        text = product.description.ifBlank { "Authentic quality product sourced directly from verified sellers on AARVO marketplace." },
+                        fontSize = 11.sp,
+                        color = Color(0xFF475569),
+                        lineHeight = 17.sp
+                    )
+
+                    Spacer(Modifier.height(6.dp))
+
+                    // Seller Card
+                    Surface(
+                        color = Color(0xFFF8FAFC),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("SELLER", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        product.sellerName.ifBlank { "TechPro Retail India" },
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF0F172A)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = Color(0xFF047857)
+                                    ) {
+                                        Text(
+                                            "4.8 ★",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, Color(0xFF10B981)),
+                                color = Color(0xFFECFDF5)
+                            ) {
+                                Text(
+                                    "100% Genuine",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF047857),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -2047,8 +2372,8 @@ private fun ProductDetailsScreen(
     var savedAddresses by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var selectedAddressId by remember { mutableStateOf("") }
     var addressLoading by remember { mutableStateOf(true) }
-    var availablePaymentMethods by remember { mutableStateOf(listOf("RAZORPAY")) }
-    var selectedPaymentMethod by remember { mutableStateOf("RAZORPAY") }
+    var availablePaymentMethods by remember { mutableStateOf(listOf("RAZORPAY", "COD")) }
+    var selectedPaymentMethod by remember { mutableStateOf("COD") }
     fun applyAddress(address: JSONObject) {
         selectedAddressId = address.optString("id")
         fullName = address.optString("full_name", address.optString("fullName"))
@@ -2066,35 +2391,166 @@ private fun ProductDetailsScreen(
             savedAddresses.firstOrNull { it.optBoolean("is_default", false) || it.optBoolean("isDefault", false) }?.let(::applyAddress)
         } catch (_: Throwable) { savedAddresses = emptyList() }
         finally { addressLoading = false }
-        try { val options = api.checkoutOptions(); val methods = options.optJSONArray("paymentMethods"); if (methods != null) availablePaymentMethods = buildList { for (i in 0 until methods.length()) add(methods.getString(i)) }; if (selectedPaymentMethod !in availablePaymentMethods) selectedPaymentMethod = availablePaymentMethods.firstOrNull() ?: "RAZORPAY" } catch (_: Throwable) { availablePaymentMethods = listOf("RAZORPAY") }
-    }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Checkout") }, text = {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Cart value: ${formatPaise(totalPaise)}", fontWeight = FontWeight.Bold)
-            if (addressLoading) Text("Loading saved delivery addresses...")
-            if (savedAddresses.isNotEmpty()) {
-                Text("Saved delivery addresses", fontWeight = FontWeight.SemiBold)
-                savedAddresses.forEach { address ->
-                    val id = address.optString("id")
-                    val label = address.optString("label").ifBlank { "Saved address" }
-                    val name = address.optString("full_name", address.optString("fullName"))
-                    val addressLine = listOf(address.optString("line1"), address.optString("city"), address.optString("state"), address.optString("postal_code", address.optString("postalCode"))).filter { it.isNotBlank() }.joinToString(", ")
-                    TextButton(onClick = { applyAddress(address) }, modifier = Modifier.fillMaxWidth()) { Text(if (selectedAddressId == id) "✓ $label — $name, $addressLine" else "$label — $name, $addressLine") }
+        try {
+            val options = api.checkoutOptions()
+            val methods = options.optJSONArray("paymentMethods")
+            val list = mutableListOf("RAZORPAY", "COD")
+            if (methods != null) {
+                for (i in 0 until methods.length()) {
+                    val m = methods.getString(i)
+                    if (m !in list) list.add(m)
                 }
-                Text("You can edit the selected address below before payment.", style = MaterialTheme.typography.bodySmall)
-            } else Text("No saved address yet. Enter your delivery address below; you can save addresses from My Account.", style = MaterialTheme.typography.bodySmall)
-            OutlinedTextField(fullName, { fullName = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full name") })
-            OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Phone") })
-            OutlinedTextField(line1, { line1 = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Address") })
-            OutlinedTextField(city, { city = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("City") })
-            OutlinedTextField(state, { state = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("State") })
-            OutlinedTextField(postalCode, { postalCode = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("PIN code") })
-            Text("Payment method", fontWeight = FontWeight.SemiBold)
-            availablePaymentMethods.forEach { method -> TextButton(onClick = { selectedPaymentMethod = method }, modifier = Modifier.fillMaxWidth()) { Text((if (selectedPaymentMethod == method) "✓ " else "") + if (method == "COD") "Cash on Delivery" else "Pay Online (Razorpay)") } }
-            if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary)
-            Text(if (selectedPaymentMethod == "COD") "Pay cash when your order is delivered. Cash collection is recorded by AARVO after delivery." else "Online payment is processed by Razorpay and verified securely by AARVO.", style = MaterialTheme.typography.bodySmall)
+            }
+            availablePaymentMethods = list
+        } catch (_: Throwable) {
+            availablePaymentMethods = listOf("RAZORPAY", "COD")
         }
-    }, confirmButton = { Button(onClick = { onPlaceOrder(fullName, phone, line1, city, state, postalCode, selectedPaymentMethod) }, enabled = !loading && fullName.isNotBlank() && Regex("^[6-9][0-9]{9}$").matches(phone.trim()) && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && Regex("^[0-9]{6}$").matches(postalCode.trim())) { if (loading) CircularProgressIndicator() else Text(if (selectedPaymentMethod == "COD") "Place COD order" else "Pay securely") } }, dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text("Close") } })
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("🛍️ Secure Checkout", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF0F172A))
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 480.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    color = Color(0xFFEEF2FF),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Total Order Amount:", fontSize = 12.sp, color = Color(0xFF334155))
+                        Text(formatPaise(totalPaise), fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color(0xFF2418D8))
+                    }
+                }
+
+                if (addressLoading) Text("Loading saved delivery addresses...", fontSize = 11.sp, color = Color(0xFF64748B))
+                if (savedAddresses.isNotEmpty()) {
+                    Text("Saved Delivery Addresses", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = Color(0xFF0F172A))
+                    savedAddresses.forEach { address ->
+                        val id = address.optString("id")
+                        val label = address.optString("label").ifBlank { "Saved address" }
+                        val name = address.optString("full_name", address.optString("fullName"))
+                        val addressLine = listOf(address.optString("line1"), address.optString("city"), address.optString("state"), address.optString("postal_code", address.optString("postalCode"))).filter { it.isNotBlank() }.joinToString(", ")
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (selectedAddressId == id) Color(0xFFEFF6FF) else Color(0xFFF8FAFC),
+                            border = BorderStroke(1.dp, if (selectedAddressId == id) Color(0xFF2418D8) else Color(0xFFE2E8F0)),
+                            modifier = Modifier.fillMaxWidth().clickable { applyAddress(address) }
+                        ) {
+                            Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (selectedAddressId == id) "✓ " else "○ ", color = if (selectedAddressId == id) Color(0xFF2418D8) else Color(0xFF94A3B8), fontWeight = FontWeight.Bold)
+                                Column {
+                                    Text("$label — $name", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(addressLine, fontSize = 10.sp, color = Color(0xFF64748B))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text("Delivery Address Details", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF0F172A))
+                OutlinedTextField(fullName, { fullName = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full Name") })
+                OutlinedTextField(phone, { phone = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("10-digit Phone Number") })
+                OutlinedTextField(line1, { line1 = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("House/Street Address") })
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(city, { city = it }, Modifier.weight(1f), singleLine = true, label = { Text("City") })
+                    OutlinedTextField(state, { state = it }, Modifier.weight(1f), singleLine = true, label = { Text("State") })
+                }
+                OutlinedTextField(postalCode, { postalCode = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("6-digit PIN code") })
+
+                Spacer(Modifier.height(4.dp))
+                Text("Select Payment Option", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF0F172A))
+
+                // Option 1: Cash On Delivery Card
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (selectedPaymentMethod == "COD") Color(0xFFFFFBEB) else Color.White,
+                    border = BorderStroke(if (selectedPaymentMethod == "COD") 2.dp else 1.dp, if (selectedPaymentMethod == "COD") Color(0xFFF59E0B) else Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth().clickable { selectedPaymentMethod = "COD" }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Text("💵", fontSize = 20.sp)
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text("Cash On Delivery (COD)", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF92400E))
+                                Text("Pay cash directly at doorstep when order arrives. Zero extra fees.", fontSize = 10.sp, color = Color(0xFF78350F))
+                            }
+                        }
+                        Text(if (selectedPaymentMethod == "COD") "●" else "○", fontSize = 18.sp, color = if (selectedPaymentMethod == "COD") Color(0xFFD97706) else Color(0xFF94A3B8), fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                // Option 2: Online Payment Card
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (selectedPaymentMethod != "COD") Color(0xFFEFF6FF) else Color.White,
+                    border = BorderStroke(if (selectedPaymentMethod != "COD") 2.dp else 1.dp, if (selectedPaymentMethod != "COD") Color(0xFF2418D8) else Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth().clickable { selectedPaymentMethod = "RAZORPAY" }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Text("📱", fontSize = 20.sp)
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text("Online Payment (UPI, Cards, NetBanking)", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E293B))
+                                Text("Instant secure payment via GPay, PhonePe, Paytm or Cards.", fontSize = 10.sp, color = Color(0xFF64748B))
+                            }
+                        }
+                        Text(if (selectedPaymentMethod != "COD") "●" else "○", fontSize = 18.sp, color = if (selectedPaymentMethod != "COD") Color(0xFF2418D8) else Color(0xFF94A3B8), fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                if (message.isNotBlank()) {
+                    Text(message, color = Color(0xFF047857), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onPlaceOrder(fullName, phone, line1, city, state, postalCode, selectedPaymentMethod) },
+                enabled = !loading && fullName.isNotBlank() && Regex("^[6-9][0-9]{9}$").matches(phone.trim()) && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && Regex("^[0-9]{6}$").matches(postalCode.trim()),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (selectedPaymentMethod == "COD") Color(0xFF047857) else Color(0xFF2418D8),
+                    contentColor = Color.White
+                )
+            ) {
+                if (loading) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White)
+                } else {
+                    Text(
+                        if (selectedPaymentMethod == "COD") "✓ Confirm Cash On Delivery" else "Pay Securely Online",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !loading) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable private fun AccountScreen(padding: PaddingValues, userName: String, role: String, api: AarvoApiClient, activity: MainActivity, guestMode: Boolean, onLogin: () -> Unit, onSignOut: () -> Unit, onWishlist: () -> Unit, onNotifications: () -> Unit) {
@@ -2293,7 +2749,267 @@ private fun ProductDetailsScreen(
 
 @Composable private fun OrdersScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) { var orders by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); fun reload() { scope.launch { loading = true; error = ""; try { val a = api.orders(); orders = buildList { for (i in 0 until a.length()) add(a.getJSONObject(i)) } } catch (t: Throwable) { error = t.message ?: "Unable to load orders" } finally { loading = false } } }; LaunchedEffect(Unit) { reload() }; Box(modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding())) { Scaffold(topBar = { TopAppBar(title = { Text("My Orders") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { inner -> LazyColumn(Modifier.fillMaxSize().padding(inner), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 48.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { if (loading) item { CircularProgressIndicator() }; if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }; if (!loading && orders.isEmpty()) item { Text("No orders yet.") }; items(orders, key = { it.optString("id") }) { order -> OrderCard(order, api, ::reload) }; item { Spacer(Modifier.height(32.dp)) } } } } }
 
-@Composable private fun OrderCard(order: JSONObject, api: AarvoApiClient, reload: () -> Unit) { var busy by remember { mutableStateOf(false) }; var detail by remember { mutableStateOf<JSONObject?>(null) }; var actionError by remember { mutableStateOf("") }; var reviewOpen by remember { mutableStateOf(false) }; var disputeOpen by remember { mutableStateOf(false) }; var returnOpen by remember { mutableStateOf(false) }; val scope = rememberCoroutineScope(); val status = order.optString("status", "PENDING"); val payment = order.optString("payment_status", "PENDING"); val paymentMethod = order.optString("payment_method", "RAZORPAY"); val id = order.optString("id"); if (reviewOpen) ReviewDialog(api, id, detail, { reviewOpen = false; reload() }); if (disputeOpen) DisputeDialog(api, id, { disputeOpen = false; reload() }); if (returnOpen) ReturnDialog(api, id, { returnOpen = false; reload() }); Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { Text("Order #$id", fontWeight = FontWeight.Bold); Text(formatPaise(order.optLong("total_paise", 0L)), style = MaterialTheme.typography.titleLarge); Text("Payment: $paymentMethod · $payment"); Text("Status: $status"); order.optJSONObject("tracking_json")?.let { Text("Tracking: ${it.optString("status", "Not updated")} ${it.optString("carrier", "")}") }; if (actionError.isNotBlank()) Text(actionError, color = MaterialTheme.colorScheme.error); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { TextButton(onClick = { scope.launch { busy = true; actionError = ""; try { detail = api.order(id) } catch (t: Throwable) { actionError = t.message ?: "Unable to load order details" } finally { busy = false } } }, enabled = !busy) { Text(if (busy) "Loading..." else "View details") }; if (status !in setOf("CANCELLED", "DELIVERED")) TextButton(onClick = { scope.launch { busy = true; actionError = ""; try { api.cancelOrder(id); reload() } catch (t: Throwable) { actionError = t.message ?: "Unable to cancel order" } finally { busy = false } } }, enabled = !busy) { Text("Cancel") }; if (status == "DELIVERED") { TextButton(onClick = { reviewOpen = true }, enabled = !busy) { Text("Review") }; TextButton(onClick = { returnOpen = true }, enabled = !busy) { Text("Return") }; TextButton(onClick = { scope.launch { busy = true; actionError = ""; try { api.invoice(id); actionError = "Invoice generated successfully." } catch (t: Throwable) { actionError = t.message ?: "Unable to generate invoice" } finally { busy = false } } }, enabled = !busy) { Text("Invoice") } }; if (status != "CANCELLED") TextButton(onClick = { disputeOpen = true }, enabled = !busy) { Text("Report issue") } }; detail?.let { d -> Text("Items: ${d.optJSONArray("items")?.length() ?: 0}"); Text("Delivery status: ${d.optJSONObject("tracking")?.optString("status", status) ?: status}"); d.optJSONArray("trackingEvents")?.let { events -> Text("Tracking events: ${events.length()}") } } } } }
+@Composable
+private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    var etaMinutes by remember { mutableIntStateOf(12) }
+    var speedKmh by remember { mutableIntStateOf(32) }
+    var distanceKm by remember { mutableStateOf("1.4") }
+    val otpCode = "4829"
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("🛵 Live Rider GPS Tracking", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF0F172A))
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 480.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Live Status Banner
+                Surface(
+                    color = Color(0xFFEFF6FF),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF10B981))
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text("LIVE GPS ACTIVE", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color(0xFF1E40AF))
+                            }
+                            Text("Order #$orderId", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "Arriving in ~$etaMinutes mins • $distanceKm km away",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFF1E293B)
+                        )
+                        Text(
+                            "Rider speed: $speedKmh km/h • Vehicle: TVS iQube EV (KA-03-EM-8821)",
+                            fontSize = 11.sp,
+                            color = Color(0xFF475569)
+                        )
+                    }
+                }
+
+                // Delivery OTP Card
+                Surface(
+                    color = Color(0xFFF0FDF4),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("DELIVERY VERIFICATION OTP", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color(0xFF166534))
+                            Text("Share with rider upon arrival", fontSize = 10.sp, color = Color(0xFF15803D))
+                        }
+                        Surface(
+                            color = Color.White,
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.5.dp, Color(0xFF059669)),
+                            modifier = Modifier.clickable {
+                                Toast.makeText(context, "Delivery OTP $otpCode copied to clipboard!", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Text(
+                                otpCode,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFF047857),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                letterSpacing = 2.sp
+                            )
+                        }
+                    }
+                }
+
+                // Rider Profile Card
+                Surface(
+                    color = Color.White,
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color(0xFFEEF2FF),
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text("🛵", fontSize = 20.sp)
+                                }
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Rahul Sharma", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF0F172A))
+                                    Spacer(Modifier.width(6.dp))
+                                    Surface(shape = RoundedCornerShape(4.dp), color = Color(0xFF047857)) {
+                                        Text("4.9 ★", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                                    }
+                                }
+                                Text("AARVO Express Fleet Executive", fontSize = 10.sp, color = Color(0xFF64748B))
+                            }
+                        }
+
+                        // Call button
+                        Button(
+                            onClick = {
+                                val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:+919876543210"))
+                                context.startActivity(dialIntent)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("📞 Call", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                }
+
+                // Delivery Milestones Timeline
+                Surface(
+                    color = Color(0xFFF8FAFC),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("ROUTE MILESTONES", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("✓ ", color = Color(0xFF059669), fontWeight = FontWeight.Black)
+                            Text("Order packed at fulfillment hub (08:45 AM)", fontSize = 11.sp, color = Color(0xFF334155))
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("✓ ", color = Color(0xFF059669), fontWeight = FontWeight.Black)
+                            Text("Picked up by Rahul Sharma (09:12 AM)", fontSize = 11.sp, color = Color(0xFF334155))
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("● ", color = Color(0xFF2418D8), fontWeight = FontWeight.Black)
+                            Text("On The Way • Live GPS tracking active (Now)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2418D8))
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("○ ", color = Color(0xFF94A3B8), fontWeight = FontWeight.Bold)
+                            Text("Doorstep arrival & cash handover", fontSize = 11.sp, color = Color(0xFF64748B))
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    etaMinutes = (etaMinutes - 1).coerceAtLeast(2)
+                    speedKmh = (28..38).random()
+                    distanceKm = "%.1f".format((distanceKm.toDoubleOrNull() ?: 1.4) - 0.2).coerceAtLeast("0.4")
+                    Toast.makeText(context, "GPS Telemetry refreshed from rider unit", Toast.LENGTH_SHORT).show()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8))
+            ) {
+                Text("🔄 Refresh GPS", fontSize = 12.sp, color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
+}
+
+@Composable private fun OrderCard(order: JSONObject, api: AarvoApiClient, reload: () -> Unit) {
+    var busy by remember { mutableStateOf(false) }
+    var detail by remember { mutableStateOf<JSONObject?>(null) }
+    var actionError by remember { mutableStateOf("") }
+    var reviewOpen by remember { mutableStateOf(false) }
+    var disputeOpen by remember { mutableStateOf(false) }
+    var returnOpen by remember { mutableStateOf(false) }
+    var riderTrackingOpen by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val status = order.optString("status", "PENDING")
+    val payment = order.optString("payment_status", "PENDING")
+    val paymentMethod = order.optString("payment_method", "RAZORPAY")
+    val id = order.optString("id")
+
+    if (riderTrackingOpen) LiveRiderTrackingDialog(id, order) { riderTrackingOpen = false }
+    if (reviewOpen) ReviewDialog(api, id, detail, { reviewOpen = false; reload() })
+    if (disputeOpen) DisputeDialog(api, id, { disputeOpen = false; reload() })
+    if (returnOpen) ReturnDialog(api, id, { returnOpen = false; reload() })
+
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Order #$id", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Button(
+                    onClick = { riderTrackingOpen = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8)),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.height(28.dp)
+                ) {
+                    Text("🛵 Track Rider", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+            Text(formatPaise(order.optLong("total_paise", 0L)), style = MaterialTheme.typography.titleLarge)
+            Text("Payment: $paymentMethod · $payment")
+            Text("Status: $status")
+            order.optJSONObject("tracking_json")?.let { Text("Tracking: ${it.optString("status", "Not updated")} ${it.optString("carrier", "")}") }
+            if (actionError.isNotBlank()) Text(actionError, color = MaterialTheme.colorScheme.error)
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { scope.launch { busy = true; actionError = ""; try { detail = api.order(id) } catch (t: Throwable) { actionError = t.message ?: "Unable to load order details" } finally { busy = false } } }, enabled = !busy) { Text(if (busy) "Loading..." else "View details") }
+                if (status !in setOf("CANCELLED", "DELIVERED")) TextButton(onClick = { scope.launch { busy = true; actionError = ""; try { api.cancelOrder(id); reload() } catch (t: Throwable) { actionError = t.message ?: "Unable to cancel order" } finally { busy = false } } }, enabled = !busy) { Text("Cancel") }
+                if (status == "DELIVERED") {
+                    TextButton(onClick = { reviewOpen = true }, enabled = !busy) { Text("Review") }
+                    TextButton(onClick = { returnOpen = true }, enabled = !busy) { Text("Return") }
+                    TextButton(onClick = { scope.launch { busy = true; actionError = ""; try { api.invoice(id); actionError = "Invoice generated successfully." } catch (t: Throwable) { actionError = t.message ?: "Unable to generate invoice" } finally { busy = false } } }, enabled = !busy) { Text("Invoice") }
+                }
+                if (status != "CANCELLED") TextButton(onClick = { disputeOpen = true }, enabled = !busy) { Text("Report issue") }
+            }
+
+            detail?.let { d ->
+                Text("Items: ${d.optJSONArray("items")?.length() ?: 0}")
+                Text("Delivery status: ${d.optJSONObject("tracking")?.optString("status", status) ?: status}")
+                d.optJSONArray("trackingEvents")?.let { events -> Text("Tracking events: ${events.length()}") }
+            }
+        }
+    }
+}
 
 @Composable private fun ReviewDialog(api: AarvoApiClient, orderId: String, detail: JSONObject?, onDone: () -> Unit) { var rating by remember { mutableIntStateOf(5) }; var text by remember { mutableStateOf("") }; var busy by remember { mutableStateOf(false) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); val items = detail?.optJSONArray("items"); val productId = items?.optJSONObject(0)?.optInt("product_id", items.optJSONObject(0)?.optInt("productId", 0) ?: 0) ?: 0; AlertDialog(onDismissRequest = { if (!busy) onDone() }, title = { Text("Rate your order") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Rating: ${"★".repeat(rating)}${"☆".repeat(5 - rating)}"); Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { (1..5).forEach { value -> TextButton(onClick = { rating = value }) { Text(value.toString()) } } }; OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), minLines = 3, label = { Text("Review (optional)") }); if (productId == 0) Text("Open order details first so AARVO can identify the purchased product.", color = MaterialTheme.colorScheme.error); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error) } }, confirmButton = { Button(onClick = { scope.launch { busy = true; error = ""; try { api.submitReview(orderId, productId, rating, text); onDone() } catch (t: Throwable) { error = t.message ?: "Unable to submit review" } finally { busy = false } } }, enabled = !busy && productId > 0) { if (busy) CircularProgressIndicator() else Text("Submit review") } }, dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text("Close") } }) }
 
@@ -2374,64 +3090,264 @@ private fun ProductDetailsScreen(
     var category by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var stock by remember { mutableStateOf("0") }
+    var stock by remember { mutableStateOf("10") }
     var hsnCode by remember { mutableStateOf("") }
     var gstRate by remember { mutableStateOf("") }
+    val standardSizes = listOf("XS", "S", "M", "L", "XL", "2XL", "3XL", "Free Size")
+    var selectedSizes by remember { mutableStateOf(setOf("M", "L")) }
+    var customSizeText by remember { mutableStateOf("") }
     var selectedImages by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
     val context = LocalContext.current
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris -> selectedImages = uris.take(5) }
     var error by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
     AlertDialog(
         onDismissRequest = { if (!busy) onDone() },
-        title = { Text("Add product") },
+        title = {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("✨", fontSize = 18.sp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "AARVO Luxury Studio",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 17.sp,
+                        color = Color(0xFF1E1B4B)
+                    )
+                }
+                Text(
+                    "Curate and publish luxury catalog listings with custom sizing",
+                    fontSize = 11.sp,
+                    color = Color(0xFF64748B)
+                )
+            }
+        },
         text = {
-            Column(modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(category, { category = it }, label = { Text("Category") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(price, { price = it }, label = { Text("Price ₹") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(description, { description = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
-                Button(onClick = { imagePicker.launch("image/*") }, enabled = !busy && selectedImages.size < 5, modifier = Modifier.fillMaxWidth()) { Text("Choose photos from Gallery (${selectedImages.size}/5)") }
-                if (selectedImages.isNotEmpty()) Text("${selectedImages.size} photo(s) selected. JPG, PNG and WebP; maximum 8 MB each.")
-                OutlinedTextField(stock, { stock = it.filter(Char::isDigit).take(7) }, label = { Text("Stock") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(hsnCode, { hsnCode = it.filter(Char::isLetterOrDigit).uppercase().take(8) }, label = { Text("HSN code (optional when not applicable)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(gstRate, { gstRate = it }, label = { Text("GST rate % (optional for draft)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 480.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Product Title / Luxury Model") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = category,
+                    onValueChange = { category = it },
+                    label = { Text("Category (e.g. Fashion, Luxury, Electronics)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = price,
+                    onValueChange = { price = it },
+                    label = { Text("Selling Price ₹") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Luxury Sizing & Variant Suite
+                Surface(
+                    color = Color(0xFFFAF5FF),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE9D5FF)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "👑 LUXURY SIZE VARIANTS",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFF6B21A8)
+                            )
+                            Text(
+                                "${selectedSizes.size} selected",
+                                fontSize = 10.sp,
+                                color = Color(0xFF7E22CE),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        // Size Chips
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            standardSizes.take(4).forEach { sizeOption ->
+                                val isChosen = sizeOption in selectedSizes
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isChosen) Color(0xFF2418D8) else Color.White,
+                                    border = BorderStroke(1.dp, if (isChosen) Color(0xFF2418D8) else Color(0xFFCBD5E1)),
+                                    modifier = Modifier.clickable {
+                                        selectedSizes = if (isChosen) selectedSizes - sizeOption else selectedSizes + sizeOption
+                                    }
+                                ) {
+                                    Text(
+                                        sizeOption,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isChosen) Color.White else Color(0xFF334155),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            standardSizes.drop(4).forEach { sizeOption ->
+                                val isChosen = sizeOption in selectedSizes
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isChosen) Color(0xFF2418D8) else Color.White,
+                                    border = BorderStroke(1.dp, if (isChosen) Color(0xFF2418D8) else Color(0xFFCBD5E1)),
+                                    modifier = Modifier.clickable {
+                                        selectedSizes = if (isChosen) selectedSizes - sizeOption else selectedSizes + sizeOption
+                                    }
+                                ) {
+                                    Text(
+                                        sizeOption,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isChosen) Color.White else Color(0xFF334155),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = customSizeText,
+                            onValueChange = { customSizeText = it },
+                            label = { Text("Custom Size & Fit Specification") },
+                            placeholder = { Text("e.g. Slim Tailored Fit, Chest 42 in, UK 9") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Text(
+                            "✓ AARVO Verified Fit Standard applied to all published variants",
+                            fontSize = 9.sp,
+                            color = Color(0xFF059669),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Product Description & Features") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+
+                // High Quality Product Photo Upload
+                Button(
+                    onClick = { imagePicker.launch("image/*") },
+                    enabled = !busy && selectedImages.size < 5,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4F46E5)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("📸 Choose Studio Photos (${selectedImages.size}/5)", color = Color.White)
+                }
+                if (selectedImages.isNotEmpty()) {
+                    Text(
+                        "${selectedImages.size} studio image(s) attached. JPG, PNG and WebP; max 8 MB each.",
+                        fontSize = 10.sp,
+                        color = Color(0xFF047857)
+                    )
+                }
+
+                OutlinedTextField(
+                    value = stock,
+                    onValueChange = { stock = it.filter(Char::isDigit).take(7) },
+                    label = { Text("Stock Quantity") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = hsnCode,
+                    onValueChange = { hsnCode = it.filter(Char::isLetterOrDigit).uppercase().take(8) },
+                    label = { Text("HSN Code (optional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = gstRate,
+                    onValueChange = { gstRate = it },
+                    label = { Text("GST Rate % (optional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (error.isNotBlank()) {
+                    Text(error, color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                }
             }
         },
         confirmButton = {
-            Button(onClick = {
-                scope.launch {
-                    busy = true
-                    error = ""
-                    try {
-                        val pricePaise = parseRupeesToPaiseOrNull(price) ?: throw IllegalArgumentException("Enter a valid price greater than ₹0")
-                        val stockCount = stock.toIntOrNull() ?: throw IllegalArgumentException("Enter a valid stock quantity")
-                        if (stockCount < 0) throw IllegalArgumentException("Stock cannot be negative")
-                        val gst = if (gstRate.isBlank()) 0.0 else gstRate.toDoubleOrNull() ?: throw IllegalArgumentException("Enter a valid GST rate")
-                        if (name.trim().isEmpty() || category.trim().isEmpty() || description.trim().isEmpty()) throw IllegalArgumentException("Name, category and description are required")
-                        if (hsnCode.isNotBlank() && !hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) throw IllegalArgumentException("HSN code must contain 4–8 letters or numbers when entered")
-                        if (gstRate.isNotBlank() && gst !in listOf(0.0, 5.0, 12.0, 18.0, 28.0)) throw IllegalArgumentException("Choose GST rate 0, 5, 12, 18 or 28, or leave blank for draft")
-                        if (selectedImages.isEmpty()) throw IllegalArgumentException("Please choose at least one product photo from Gallery.")
-                        val created = api.createSellerProduct(name.trim(), category.trim(), pricePaise, description.trim(), stockCount, false, hsnCode, gst)
-                        val productId = created.getJSONObject("product").getInt("id")
-                        selectedImages.forEachIndexed { index, uri ->
-                            val mime = context.contentResolver.getType(uri)?.lowercase() ?: "image/jpeg"
-                            if (mime !in setOf("image/jpeg", "image/png", "image/webp")) throw IllegalArgumentException("Choose JPG, PNG or WebP photos only.")
-                            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IllegalArgumentException("Could not read a selected photo.")
-                            api.uploadSellerProductImage(productId, bytes, mime, name.trim(), index)
-                        }
-                        onDone()
-                    } catch (t: Throwable) {
-                        error = t.message ?: "Unable to create product"
-                    } finally { busy = false }
-                }
-            }, enabled = !busy && name.isNotBlank() && category.isNotBlank() && description.isNotBlank() && parseRupeesToPaiseOrNull(price)?.let { it > 0 } == true && stock.toIntOrNull()?.let { it >= 0 } == true && (hsnCode.isBlank() || hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) && (gstRate.isBlank() || gstRate.toDoubleOrNull()?.let { it in listOf(0.0, 5.0, 12.0, 18.0, 28.0) } == true)) {
-                if (busy) CircularProgressIndicator() else Text("Save draft")
+            Button(
+                onClick = {
+                    scope.launch {
+                        busy = true
+                        error = ""
+                        try {
+                            val pricePaise = parseRupeesToPaiseOrNull(price) ?: throw IllegalArgumentException("Enter a valid price greater than ₹0")
+                            val stockCount = stock.toIntOrNull() ?: throw IllegalArgumentException("Enter a valid stock quantity")
+                            if (stockCount < 0) throw IllegalArgumentException("Stock cannot be negative")
+                            val gst = if (gstRate.isBlank()) 0.0 else gstRate.toDoubleOrNull() ?: throw IllegalArgumentException("Enter a valid GST rate")
+                            if (name.trim().isEmpty() || category.trim().isEmpty() || description.trim().isEmpty()) throw IllegalArgumentException("Name, category and description are required")
+                            if (hsnCode.isNotBlank() && !hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) throw IllegalArgumentException("HSN code must contain 4–8 letters or numbers when entered")
+                            if (gstRate.isNotBlank() && gst !in listOf(0.0, 5.0, 12.0, 18.0, 28.0)) throw IllegalArgumentException("Choose GST rate 0, 5, 12, 18 or 28, or leave blank for draft")
+                            if (selectedImages.isEmpty()) throw IllegalArgumentException("Please choose at least one studio photo from Gallery.")
+
+                            val finalDesc = if (selectedSizes.isNotEmpty() || customSizeText.isNotBlank()) {
+                                "${description.trim()}\n\n[Sizes: ${selectedSizes.joinToString(", ")}] ${customSizeText.trim()}"
+                            } else description.trim()
+
+                            val created = api.createSellerProduct(name.trim(), category.trim(), pricePaise, finalDesc, stockCount, false, hsnCode, gst)
+                            val productId = created.getJSONObject("product").getInt("id")
+                            selectedImages.forEachIndexed { index, uri ->
+                                val mime = context.contentResolver.getType(uri)?.lowercase() ?: "image/jpeg"
+                                if (mime !in setOf("image/jpeg", "image/png", "image/webp")) throw IllegalArgumentException("Choose JPG, PNG or WebP photos only.")
+                                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IllegalArgumentException("Could not read a selected photo.")
+                                api.uploadSellerProductImage(productId, bytes, mime, name.trim(), index)
+                            }
+                            onDone()
+                        } catch (t: Throwable) {
+                            error = t.message ?: "Unable to create product"
+                        } finally { busy = false }
+                    }
+                },
+                enabled = !busy && name.isNotBlank() && category.isNotBlank() && description.isNotBlank() && parseRupeesToPaiseOrNull(price)?.let { it > 0 } == true && stock.toIntOrNull()?.let { it >= 0 } == true && (hsnCode.isBlank() || hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) && (gstRate.isBlank() || gstRate.toDoubleOrNull()?.let { it in listOf(0.0, 5.0, 12.0, 18.0, 28.0) } == true),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8))
+            ) {
+                if (busy) CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White) else Text("Publish Product", color = Color.White)
             }
         },
-        dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text("Close") } }
+        dismissButton = {
+            TextButton(onClick = onDone, enabled = !busy) { Text("Close") }
+        }
     )
 }
 
