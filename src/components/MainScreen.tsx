@@ -700,6 +700,23 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const platformFee = cartItems.length > 0 ? 3 : 0;
   const finalPayable = Math.max(0, totalSellingPrice - couponDiscount + platformFee);
 
+  // Fetch and display user order history from persistent storage
+  const handleViewMyOrders = useCallback(() => {
+    haptics.selection();
+    try {
+      const saved = localStorage.getItem('aarvo_orders');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setOrders(parsed);
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching order history:', e);
+    }
+    setIsOrdersViewOpen(true);
+  }, []);
+
   // Hero Banner Slides
   const slides = [
     {
@@ -1989,7 +2006,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         {/* ================================================================= */}
         {activeTab === 'cart' && (
           <div className="flex-1 flex flex-col p-3 pb-6">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 gap-2">
               <div>
                 <h2 className="font-display font-black text-lg text-slate-900 dark:text-white">
                   Shopping Cart ({cartItems.length})
@@ -1998,6 +2015,21 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   All items are directly verified for quality and doorstep delivery
                 </p>
               </div>
+              {/* View My Orders Button in Cart Header */}
+              <button
+                type="button"
+                onClick={handleViewMyOrders}
+                className="shrink-0 px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/90 dark:border-purple-800 text-[#2418D8] dark:text-[#7B73FF] font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
+                title="View your previous orders and live delivery tracking"
+              >
+                <Package className="w-3.5 h-3.5" />
+                <span>View My Orders</span>
+                {orders.length > 0 && (
+                  <span className="ml-0.5 px-1.5 py-0.2 bg-[#2418D8] text-white text-[9px] font-black rounded-full">
+                    {orders.length}
+                  </span>
+                )}
+              </button>
             </div>
 
             {cartItems.length === 0 ? (
@@ -2011,12 +2043,23 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mt-1 mb-5">
                   Explore millions of quality products across categories and save with exclusive drops.
                 </p>
-                <button
-                  onClick={() => setActiveTab('home')}
-                  className="px-6 py-2.5 bg-[#2418D8] text-white font-bold text-xs rounded-xl shadow-md hover:bg-[#1B11AB] active:scale-95 transition-all"
-                >
-                  Explore Products
-                </button>
+                <div className="flex items-center gap-2.5 flex-wrap justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('home')}
+                    className="px-5 py-2.5 bg-[#2418D8] text-white font-bold text-xs rounded-xl shadow-md hover:bg-[#1B11AB] active:scale-95 transition-all cursor-pointer"
+                  >
+                    Explore Products
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleViewMyOrders}
+                    className="px-5 py-2.5 bg-white dark:bg-[#1A1633] border border-[#2418D8]/30 dark:border-purple-700/60 text-[#2418D8] dark:text-[#7B73FF] font-bold text-xs rounded-xl shadow-xs hover:bg-purple-50/50 dark:hover:bg-purple-950/40 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Package className="w-4 h-4" />
+                    <span>View My Orders ({orders.length})</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-3.5">
@@ -2104,6 +2147,38 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       </div>
                     </div>
                   ))}
+                </div>
+
+                {/* Quick Link Card to View My Orders */}
+                <div className="p-3 bg-white dark:bg-[#1A1633] border border-slate-100 dark:border-slate-800/80 rounded-2xl flex items-center justify-between shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-[#2418D8] dark:text-[#7B73FF] flex items-center justify-center">
+                      <Package className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                          My Orders &amp; Tracking
+                        </span>
+                        <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          {orders.filter((o) => o.status === 'Processing' || o.status === 'Shipped').length > 0
+                            ? `${orders.filter((o) => o.status === 'Processing' || o.status === 'Shipped').length} Active`
+                            : `${orders.length} Placed`}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        Check past order status, invoices, and reorder items
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleViewMyOrders}
+                    className="px-3 py-1.5 bg-[#2418D8] hover:bg-[#1B11AB] text-white text-xs font-bold rounded-xl shadow-xs active:scale-95 transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                  >
+                    <span>View My Orders</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
                 {/* Price Details Breakdown */}

@@ -837,7 +837,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                 0 -> HomeScreen(padding, api, query, { query = it }, availableCategories, category, { category = it }, visibleProducts, recentlyViewed, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { showFilters = true }, sortMode, minRating, maxPrice, inStockOnly, { activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java)) }, { selectedTab = 2 })
                 1 -> CategoriesGridScreen(padding, availableCategories) { category = it; selectedTab = 0 }
                 2 -> OffersScreen(padding, api, allProducts) { selectedProduct = it }
-                3 -> CartScreen(padding, cartItems, allProducts, saveForLater, { product -> cartViewModel.increment(product); syncAuthenticatedCart() }, { product -> cartViewModel.decrement(product); syncAuthenticatedCart() }, { id -> cartViewModel.removeAll(id); syncAuthenticatedCart() }, cartViewModel::quantity, { cartViewModel.clear(); if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } } }, { product -> cartViewModel.removeAll(product.id); saveForLater = saveForLaterStore.toggle(product.id); syncAuthenticatedCart() }, { product -> saveForLater = saveForLaterStore.remove(product.id); cartViewModel.add(product); syncAuthenticatedCart() }, { id -> saveForLater = saveForLaterStore.remove(id) }) { if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" } }
+                3 -> CartScreen(padding, cartItems, allProducts, saveForLater, { product -> cartViewModel.increment(product); syncAuthenticatedCart() }, { product -> cartViewModel.decrement(product); syncAuthenticatedCart() }, { id -> cartViewModel.removeAll(id); syncAuthenticatedCart() }, cartViewModel::quantity, { cartViewModel.clear(); if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } } }, { product -> cartViewModel.removeAll(product.id); saveForLater = saveForLaterStore.toggle(product.id); syncAuthenticatedCart() }, { product -> saveForLater = saveForLaterStore.remove(product.id); cartViewModel.add(product); syncAuthenticatedCart() }, { id -> saveForLater = saveForLaterStore.remove(id) }, { if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" } }, onOpenOrders = { selectedTab = 4 })
                 else -> AccountScreen(padding, userName, role, api, activity, guestMode, onLogin, onSignOut, { selectedTab = 2 }, { showNotifications = true })
             }
         }
@@ -1881,7 +1881,8 @@ private fun ProductDetailsScreen(
     onSaveForLater: (Product) -> Unit,
     onMoveToCart: (Product) -> Unit,
     onRemoveSaved: (Int) -> Unit,
-    onCheckout: () -> Unit
+    onCheckout: () -> Unit,
+    onOpenOrders: (() -> Unit)? = null
 ) {
     val totalPaise = items.sumOf { product -> product.pricePaise * quantityOf(product.id) }
     val groupedItems = items.distinctBy { it.id }
@@ -1894,21 +1895,48 @@ private fun ProductDetailsScreen(
         item {
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     "Your Cart",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
-                if (items.isNotEmpty()) {
-                    TextButton(onClick = onClear) { Text("Clear") }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onOpenOrders != null) {
+                        OutlinedButton(
+                            onClick = onOpenOrders,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text("📦 View My Orders", fontSize = 11.sp, color = Color(0xFF2418D8), fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    if (items.isNotEmpty()) {
+                        TextButton(onClick = onClear) { Text("Clear") }
+                    }
                 }
             }
         }
-
         if (groupedItems.isEmpty()) {
-            item { Text("Your cart is empty. Add something you like from Home.") }
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("Your cart is empty. Add something you like from Home.")
+                    if (onOpenOrders != null) {
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = onOpenOrders,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8))
+                        ) {
+                            Text("📦 View My Orders", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
         } else {
             items(groupedItems, key = { it.id }) { product ->
                 val quantity = quantityOf(product.id)
