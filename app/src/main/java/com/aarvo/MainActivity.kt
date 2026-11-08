@@ -2249,12 +2249,14 @@ private fun ProductDetailsScreen(
                         color = Color(0xFF1E293B)
                     )
                     listOf(
-                        "Brand" to product.brand.ifBlank { "AARVO Verified" },
-                        "Category" to product.category.ifBlank { "Electronics & Lifestyle" },
-                        "Warranty" to "1 Year Manufacturer Replacement Guarantee",
-                        "Country of Origin" to "India 🇮🇳",
-                        "In The Box" to "1x Product Unit, User Manual, Warranty Card, Invoice"
-                    ).forEach { (label, value) ->
+                        Pair("Brand", product.brand.ifBlank { "AARVO Verified" }),
+                        Pair("Category", product.category.ifBlank { "Electronics & Lifestyle" }),
+                        Pair("Warranty", "1 Year Manufacturer Replacement Guarantee"),
+                        Pair("Country of Origin", "India 🇮🇳"),
+                        Pair("In The Box", "1x Product Unit, User Manual, Warranty Card, Invoice")
+                    ).forEach { spec ->
+                        val label = spec.first
+                        val value = spec.second
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -2386,7 +2388,7 @@ private fun ProductDetailsScreen(
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .fillMaxHeight()
+                                                .height(6.dp)
                                                 .fillMaxWidth(pct)
                                                 .clip(CircleShape)
                                                 .background(color)
@@ -2581,6 +2583,7 @@ private fun ProductDetailsScreen(
 }
 
 @Composable private fun CheckoutDialog(api: AarvoApiClient, totalPaise: Long, loading: Boolean, message: String, onDismiss: () -> Unit, onPlaceOrder: (String, String, String, String, String, String, String) -> Unit) {
+    val context = LocalContext.current
     var fullName by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var line1 by remember { mutableStateOf("") }
