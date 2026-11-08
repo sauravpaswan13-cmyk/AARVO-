@@ -37,11 +37,22 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Install Gradle 9.7.1 without project wrapper
+      - name: Install Gradle 9.7.1 (retry transient download failures)
         shell: bash
         run: |
-          curl -fsSL https://services.gradle.org/distributions/gradle-9.7.1-bin.zip -o /tmp/gradle.zip
-          sudo unzip -q /tmp/gradle.zip -d /opt
+          set -euo pipefail
+          DIST_URL="https://services.gradle.org/distributions/gradle-9.7.1-bin.zip"
+          DIST_ZIP="$RUNNER_TEMP/gradle-9.7.1-bin.zip"
+
+          # The distribution host can occasionally return 502/503/504.
+          # Retry transient HTTP and network failures before failing the job.
+          curl --fail --location --show-error \
+            --connect-timeout 30 --max-time 300 \
+            --retry 5 --retry-all-errors --retry-delay 10 \
+            "$DIST_URL" --output "$DIST_ZIP"
+
+          unzip -tq "$DIST_ZIP"
+          sudo unzip -q "$DIST_ZIP" -d /opt
           sudo ln -sf /opt/gradle-9.7.1/bin/gradle /usr/local/bin/gradle
           gradle --version
 
