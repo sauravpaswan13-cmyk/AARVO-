@@ -42,6 +42,7 @@ import {
   RotateCcw,
   Wifi,
   WifiOff,
+  Banknote,
 } from 'lucide-react';
 import { ScrollToTop } from './ScrollToTop';
 import { MainScreenSkeleton } from './MainScreenSkeleton';
@@ -190,13 +191,19 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   // Luxury Add Product Form States
   const [newProductName, setNewProductName] = useState('');
   const [newProductCategory, setNewProductCategory] = useState('Fashion');
+  const [customCategory, setCustomCategory] = useState('');
   const [newProductPrice, setNewProductPrice] = useState('');
   const [newProductMRP, setNewProductMRP] = useState('');
   const [newProductStock, setNewProductStock] = useState('25');
   const [newProductDescription, setNewProductDescription] = useState('');
   const [newProductImage, setNewProductImage] = useState('https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80');
   const [selectedSizes, setSelectedSizes] = useState<string[]>(['M', 'L', 'XL']);
-  const [customSizeText, setCustomSizeText] = useState('UK 8, UK 9 (Standard Fit)');
+  const [customSizeText, setCustomSizeText] = useState('');
+  const [selectedColors, setSelectedColors] = useState<string[]>(['Black', 'Royal Blue']);
+  const [customColorText, setCustomColorText] = useState('');
+  const [selectedFabric, setSelectedFabric] = useState('Pure Cotton');
+  const [codAllowed, setCodAllowed] = useState(true);
+  const [selectedReturnPolicy, setSelectedReturnPolicy] = useState('7 Days Return');
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [orderSuccessModal, setOrderSuccessModal] = useState<string | null>(null);
   const [couponApplied, setCouponApplied] = useState(false);
@@ -3198,25 +3205,58 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       const parsedPrice = parseInt(newProductPrice) || 1499;
                       const parsedMRP = parseInt(newProductMRP) || Math.round(parsedPrice * 1.6);
                       const discountPercent = Math.max(5, Math.round(((parsedMRP - parsedPrice) / parsedMRP) * 100));
+                      const finalCategory =
+                        newProductCategory === 'Other' && customCategory.trim()
+                          ? customCategory.trim()
+                          : newProductCategory;
+
+                      const allSizes = [...selectedSizes];
+                      if (customSizeText.trim() && !allSizes.includes(customSizeText.trim())) {
+                        allSizes.push(customSizeText.trim());
+                      }
+
+                      const allColors = [...selectedColors];
+                      if (customColorText.trim() && !allColors.includes(customColorText.trim())) {
+                        allColors.push(customColorText.trim());
+                      }
+
                       const createdProduct: Product = {
-                        id: `prod-lux-${Date.now()}`,
+                        id: `prod-aarvo-${Date.now()}`,
                         name: newProductName.trim() || 'AARVO Luxury Edition Handcrafted Product',
-                        category: newProductCategory,
+                        category: finalCategory,
                         price: parsedPrice,
                         originalPrice: parsedMRP,
                         discount: `${discountPercent}% OFF`,
-                        rating: 4.9,
-                        reviewsCount: 1,
+                        rating: 0.0,
+                        reviewsCount: 0,
+                        reviewsList: [],
                         inStock: true,
-                        image: newProductImage.trim() || 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80',
+                        stockQuantity: parseInt(newProductStock) || 25,
+                        image:
+                          newProductImage.trim() ||
+                          'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80',
                         images: [
-                          newProductImage.trim() || 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80',
+                          newProductImage.trim() ||
+                            'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80',
                           'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=500&auto=format&fit=crop&q=80',
                           'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=500&auto=format&fit=crop&q=80',
                         ],
                         seller: sellerForm.business.trim() || 'AARVO Luxury Certified Merchant',
-                        description: `${newProductDescription.trim() || 'Exquisite luxury craftsmanship with certified materials and verified quality.'} Sizing: ${selectedSizes.join(', ')}. Fit: ${customSizeText}`,
-                        stockQuantity: parseInt(newProductStock) || 25,
+                        description:
+                          newProductDescription.trim() ||
+                          'Exquisite craftsmanship with genuine certified materials and verified quality.',
+                        availableSizes: allSizes.length > 0 ? allSizes : undefined,
+                        availableColors: allColors.length > 0 ? allColors : undefined,
+                        fabric: selectedFabric || undefined,
+                        codAvailable: codAllowed,
+                        highlights: [
+                          `Category: ${finalCategory}`,
+                          allSizes.length > 0 ? `Sizes: ${allSizes.join(', ')}` : '',
+                          allColors.length > 0 ? `Colours: ${allColors.join(', ')}` : '',
+                          selectedFabric ? `Fabric: ${selectedFabric}` : '',
+                          codAllowed ? 'Cash on Delivery (COD) Eligible' : 'Prepaid Only',
+                          `${selectedReturnPolicy} Guaranteed`,
+                        ].filter(Boolean),
                       };
                       setAllProducts((prev) => [createdProduct, ...prev]);
                       showToast(`✨ ${createdProduct.name.slice(0, 24)}... added to Catalog!`);
@@ -3224,6 +3264,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       setNewProductPrice('');
                       setNewProductMRP('');
                       setNewProductDescription('');
+                      setCustomCategory('');
+                      setCustomSizeText('');
+                      setCustomColorText('');
                       setSellerModalTab('overview');
                     }}
                     className="space-y-3.5 animate-in fade-in duration-200"
@@ -3233,11 +3276,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       <div className="flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-amber-300" />
                         <h4 className="font-display font-black text-xs sm:text-sm">
-                          AARVO Luxury Merchant Studio
+                          AARVO Merchant Product Studio
                         </h4>
                       </div>
                       <p className="text-[10px] text-purple-200 mt-0.5">
-                        Publish high-margin catalog products with verified luxury sizing standards.
+                        Publish catalog products with Flipkart &amp; Meesho standard sizing, colors, and live customer reviews.
                       </p>
                     </div>
 
@@ -3256,23 +3299,60 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       />
                     </div>
 
-                    {/* Category Selection */}
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                        Product Category
+                    {/* Auto Category Options with Other Input */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">
+                        Product Category (Auto Options)
                       </label>
-                      <select
-                        value={newProductCategory}
-                        onChange={(e) => setNewProductCategory(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
-                      >
-                        <option value="Fashion">Fashion &amp; Luxury Apparel</option>
-                        <option value="Footwear">Premium Footwear &amp; Shoes</option>
-                        <option value="Mobiles">Smartphones &amp; Mobiles</option>
-                        <option value="Electronics">Electronics &amp; Audio</option>
-                        <option value="Home & Kitchen">Home &amp; Luxury Living</option>
-                        <option value="Beauty">Beauty &amp; Personal Care</option>
-                      </select>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          'Fashion',
+                          'Footwear',
+                          'Mobiles',
+                          'Electronics',
+                          'Home & Kitchen',
+                          'Beauty',
+                          'Sports',
+                          'Other',
+                        ].map((cat) => {
+                          const isSelected = newProductCategory === cat;
+                          return (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => {
+                                haptics.selection();
+                                setNewProductCategory(cat);
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-[#2418D8] text-white shadow-xs font-black'
+                                  : 'bg-[#F7F5FF] dark:bg-[#120F26] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#2418D8]'
+                              }`}
+                            >
+                              {cat}
+                              {isSelected && <span className="ml-1 text-[10px] text-amber-300">✓</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Custom Category Input if "Other" is selected */}
+                      {newProductCategory === 'Other' && (
+                        <div className="pt-1 animate-in fade-in">
+                          <label className="text-[10px] font-bold text-[#2418D8] dark:text-[#7B73FF] block mb-1">
+                            Specify Custom Category Name
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Traditional Handcrafts, Books, Jewelry, Luggage..."
+                            value={customCategory}
+                            onChange={(e) => setCustomCategory(e.target.value)}
+                            className="w-full px-3 py-2 text-xs bg-white dark:bg-[#120F26] text-slate-900 dark:text-white border-2 border-[#2418D8] rounded-xl outline-none"
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Pricing: Selling Price & MRP */}
@@ -3304,26 +3384,41 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       </div>
                     </div>
 
-                    {/* PREMIUM LUXURY SIZE SPECIFICATION ("Size Text") */}
-                    <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 border border-amber-300/80 dark:border-amber-700/60 space-y-2.5">
+                    {/* SIZES SPECIFICATION (Meesho & Flipkart Style Variants: Zero Size, XS, M, L, XL, XXL, Free Size, Footwear) */}
+                    <div className="p-3 rounded-2xl bg-[#F7F5FF] dark:bg-[#120F26] border border-purple-100 dark:border-slate-700 space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="text-[11px] font-black text-amber-900 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1">
-                            <Tag className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                            <span>Size Specification &amp; Fit Guide</span>
+                          <span className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1">
+                            <Tag className="w-3.5 h-3.5 text-[#2418D8]" />
+                            <span>Available Size Variants</span>
                           </span>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                            Select standard apparel sizes or define tailored dimensions
+                            Select standard apparel sizes or footwear dimensions
                           </p>
                         </div>
-                        <span className="text-[9px] bg-amber-400 text-slate-950 px-2 py-0.5 rounded font-black">
-                          LUXURY FIT
+                        <span className="text-[9px] bg-purple-100 dark:bg-purple-900/60 text-[#2418D8] dark:text-purple-300 px-2 py-0.5 rounded font-black">
+                          {selectedSizes.length} SELECTED
                         </span>
                       </div>
 
                       {/* Interactive Size Chips */}
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', 'Free Size'].map((size) => {
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+                        {[
+                          'Zero Size',
+                          'XS',
+                          'S',
+                          'M',
+                          'L',
+                          'XL',
+                          'XXL',
+                          '3XL',
+                          'Free Size',
+                          'UK 6',
+                          'UK 7',
+                          'UK 8',
+                          'UK 9',
+                          'UK 10',
+                        ].map((size) => {
                           const isSelected = selectedSizes.includes(size);
                           return (
                             <button
@@ -3335,9 +3430,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                                   isSelected ? prev.filter((s) => s !== size) : [...prev, size]
                                 );
                               }}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                                 isSelected
-                                  ? 'bg-gradient-to-r from-[#2418D8] to-purple-800 text-white shadow-sm border border-amber-400 ring-2 ring-amber-400/30 font-black'
+                                  ? 'bg-[#2418D8] text-white shadow-xs font-black'
                                   : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#2418D8]'
                               }`}
                             >
@@ -3351,20 +3446,165 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       {/* Custom Size Text Input */}
                       <div>
                         <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
-                          Custom Size Details / Shoe Size Text (Optional)
+                          Custom Size Details / Tailored Dimension (Optional)
                         </label>
                         <input
                           type="text"
-                          placeholder="e.g. UK 8, UK 9, Chest 42 in, Slim Tailored Fit"
+                          placeholder="e.g. Chest 42 in, Slim Tailored Fit, 32 Waist"
                           value={customSizeText}
                           onChange={(e) => setCustomSizeText(e.target.value)}
-                          className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#120F26] text-slate-900 dark:text-white border border-amber-200/80 dark:border-amber-800/60 rounded-xl outline-none focus:border-[#2418D8]"
+                          className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#1A1638] text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
                         />
                       </div>
+                    </div>
 
-                      <div className="text-[9px] text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        <span>Standard Indian &amp; Global Sizing certified by AARVO Fashion Experts</span>
+                    {/* COLOUR VARIANTS (Meesho & Flipkart Style Color Swatches) */}
+                    <div className="p-3 rounded-2xl bg-[#F7F5FF] dark:bg-[#120F26] border border-purple-100 dark:border-slate-700 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1">
+                            <Sparkles className="w-3.5 h-3.5 text-[#2418D8]" />
+                            <span>Available Colour Variants</span>
+                          </span>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                            Select color options available for customer selection
+                          </p>
+                        </div>
+                        <span className="text-[9px] bg-purple-100 dark:bg-purple-900/60 text-[#2418D8] dark:text-purple-300 px-2 py-0.5 rounded font-black">
+                          {selectedColors.length} SELECTED
+                        </span>
+                      </div>
+
+                      {/* Color Swatch Buttons */}
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+                        {[
+                          { name: 'Black', hex: '#0F172A' },
+                          { name: 'White', hex: '#FFFFFF', border: true },
+                          { name: 'Royal Blue', hex: '#2418D8' },
+                          { name: 'Navy Blue', hex: '#1E293B' },
+                          { name: 'Red', hex: '#DC2626' },
+                          { name: 'Maroon', hex: '#881337' },
+                          { name: 'Emerald Green', hex: '#047857' },
+                          { name: 'Olive Green', hex: '#4D7C0F' },
+                          { name: 'Yellow', hex: '#EAB308' },
+                          { name: 'Beige', hex: '#D4B996' },
+                          { name: 'Pink', hex: '#EC4899' },
+                          { name: 'Grey', hex: '#64748B' },
+                          { name: 'Orange', hex: '#EA580C' },
+                          { name: 'Purple', hex: '#7E22CE' },
+                        ].map((col) => {
+                          const isSelected = selectedColors.includes(col.name);
+                          return (
+                            <button
+                              key={col.name}
+                              type="button"
+                              onClick={() => {
+                                haptics.selection();
+                                setSelectedColors((prev) =>
+                                  isSelected ? prev.filter((c) => c !== col.name) : [...prev, col.name]
+                                );
+                              }}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-[#2418D8] text-white shadow-xs font-black'
+                                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#2418D8]'
+                              }`}
+                            >
+                              <span
+                                className={`w-3.5 h-3.5 rounded-full shrink-0 ${
+                                  col.border ? 'border border-slate-300' : ''
+                                }`}
+                                style={{ backgroundColor: col.hex }}
+                              />
+                              <span>{col.name}</span>
+                              {isSelected && <span className="text-[10px] text-amber-300">✓</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Custom Color Input */}
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                          Custom Shade / Multicolour (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Dual Tone Pastel Blue, Gold Embroidered"
+                          value={customColorText}
+                          onChange={(e) => setCustomColorText(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#1A1638] text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Fabric / Material & Cash on Delivery Options */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                          Fabric / Material
+                        </label>
+                        <select
+                          value={selectedFabric}
+                          onChange={(e) => setSelectedFabric(e.target.value)}
+                          className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                        >
+                          <option value="Pure Cotton">Pure Cotton</option>
+                          <option value="Mulberry Silk">Mulberry Silk</option>
+                          <option value="Denim">Premium Denim</option>
+                          <option value="Linen">Breathable Linen</option>
+                          <option value="Rayon">Soft Rayon</option>
+                          <option value="Polyester">Durable Polyester</option>
+                          <option value="Genuine Leather">Genuine Leather</option>
+                          <option value="Metal / Electronic">Hardware / Electronics</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                          Return Policy
+                        </label>
+                        <select
+                          value={selectedReturnPolicy}
+                          onChange={(e) => setSelectedReturnPolicy(e.target.value)}
+                          className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                        >
+                          <option value="7 Days Return">7 Days Return</option>
+                          <option value="10 Days Replacement">10 Days Replacement</option>
+                          <option value="No Returns">No Returns</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Cash on Delivery Toggle */}
+                    <div
+                      onClick={() => {
+                        haptics.selection();
+                        setCodAllowed(!codAllowed);
+                      }}
+                      className="p-3 bg-white dark:bg-[#1A1638] rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Banknote className="w-4 h-4 text-emerald-600" />
+                        <div>
+                          <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                            Allow Cash on Delivery (COD)
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            Customers can pay cash at doorstep upon delivery
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        className={`w-10 h-5 rounded-full p-0.5 transition-colors ${
+                          codAllowed ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-600'
+                        }`}
+                      >
+                        <div
+                          className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                            codAllowed ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
                       </div>
                     </div>
 
@@ -3397,34 +3637,24 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       )}
                     </div>
 
-                    {/* Stock & Dispatch */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                          Stock Quantity
-                        </label>
-                        <input
-                          type="number"
-                          placeholder="25"
-                          value={newProductStock}
-                          onChange={(e) => setNewProductStock(e.target.value)}
-                          className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                          Payment Mode
-                        </label>
-                        <div className="px-3 py-2 text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl font-bold">
-                          ✓ UPI + Cash on Delivery
-                        </div>
-                      </div>
+                    {/* Stock Quantity */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        Stock Quantity
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="25"
+                        value={newProductStock}
+                        onChange={(e) => setNewProductStock(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                      />
                     </div>
 
                     {/* Description */}
                     <div>
                       <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                        Luxury Product Description &amp; Highlights
+                        Product Description &amp; Specifications
                       </label>
                       <textarea
                         rows={2}
@@ -3435,10 +3665,18 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       />
                     </div>
 
+                    {/* Genuine Rating Note (No Fake Badges) */}
+                    <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-100 dark:border-blue-900/60 text-[10px] text-blue-800 dark:text-blue-300 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2418D8] shrink-0" />
+                      <span>
+                        <strong>AARVO Verified Policy:</strong> Real rating starts at 0.0 with no fake reviews. Customer ratings and reviews will automatically display when real buyers review your product.
+                      </span>
+                    </div>
+
                     {/* Submit Button */}
                     <button
                       type="submit"
-                      className="w-full py-3 bg-gradient-to-r from-[#2418D8] via-purple-700 to-indigo-900 text-white font-extrabold text-xs rounded-xl shadow-lg hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-400/40"
+                      className="w-full py-3 bg-[#2418D8] hover:bg-[#1D12B8] text-white font-extrabold text-xs rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <Sparkles className="w-4 h-4 text-amber-300" />
                       <span>Publish Product to AARVO Catalog</span>
@@ -3594,6 +3832,37 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             }
             setSelectedProduct(null);
             switchTab('cart');
+          }}
+          onAddReview={(productId, review) => {
+            setAllProducts((prev) =>
+              prev.map((item) => {
+                if (item.id !== productId) return item;
+                const existing = item.reviewsList || [];
+                const updatedReviews = [review, ...existing];
+                const newCount = (item.reviewsCount || 0) + 1;
+                const totalRating = (item.rating || 0) * (item.reviewsCount || 0) + review.rating;
+                const newAvg = Number((totalRating / newCount).toFixed(1));
+                return {
+                  ...item,
+                  rating: newAvg,
+                  reviewsCount: newCount,
+                  reviewsList: updatedReviews,
+                };
+              })
+            );
+            if (selectedProduct && selectedProduct.id === productId) {
+              const existing = selectedProduct.reviewsList || [];
+              const updatedReviews = [review, ...existing];
+              const newCount = (selectedProduct.reviewsCount || 0) + 1;
+              const totalRating = (selectedProduct.rating || 0) * (selectedProduct.reviewsCount || 0) + review.rating;
+              const newAvg = Number((totalRating / newCount).toFixed(1));
+              setSelectedProduct({
+                ...selectedProduct,
+                rating: newAvg,
+                reviewsCount: newCount,
+                reviewsList: updatedReviews,
+              });
+            }
           }}
         />
 

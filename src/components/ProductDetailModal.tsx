@@ -28,6 +28,17 @@ import { Product360ViewerModal } from './Product360ViewerModal';
 import { ProductImageZoomModal } from './ProductImageZoomModal';
 import { Order } from './OrdersSection';
 
+export interface ReviewItem {
+  id: string;
+  userName: string;
+  rating: number;
+  date: string;
+  comment: string;
+  size?: string;
+  color?: string;
+  verifiedBuyer?: boolean;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -46,6 +57,10 @@ export interface Product {
   highlights?: string[];
   specifications?: Record<string, string>;
   codAvailable?: boolean;
+  availableSizes?: string[];
+  availableColors?: string[];
+  fabric?: string;
+  reviewsList?: ReviewItem[];
 }
 
 interface ProductDetailModalProps {
@@ -57,6 +72,7 @@ interface ProductDetailModalProps {
   onToggleWishlist: (productId: string, productName?: string) => void;
   onBuyNow?: (product: Product, quantity?: number) => void;
   onPlaceOrder?: (order: Order) => void;
+  onAddReview?: (productId: string, review: ReviewItem) => void;
   cartBadgeCount?: number;
   onOpenCart?: () => void;
   onOpenOrders?: () => void;
@@ -72,6 +88,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onToggleWishlist,
   onBuyNow,
   onPlaceOrder,
+  onAddReview,
   cartBadgeCount = 0,
   onOpenCart,
   onOpenOrders,
@@ -83,6 +100,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [copiedShare, setCopiedShare] = useState(false);
   const [is360Open, setIs360Open] = useState(false);
   const [isZoomOpen, setIsZoomOpen] = useState(false);
+
+  // Variant states: Size & Color
+  const [selectedSize, setSelectedSize] = useState<string>('M');
+  const [selectedColor, setSelectedColor] = useState<string>('Royal Blue');
+
+  // Customer Ratings & Reviews state
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewerName, setReviewerName] = useState('Saurav Paswan');
+  const [reviewComment, setReviewComment] = useState('');
+  const [localReviews, setLocalReviews] = useState<ReviewItem[]>([]);
+  const [reviewSuccess, setReviewSuccess] = useState(false);
 
   // Fast Checkout (Cash on Delivery) Drawer states
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -117,6 +146,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setIsZoomOpen(false);
     setIsCheckoutOpen(false);
     setOrderConfirmed(null);
+    setShowReviewForm(false);
+    setReviewComment('');
+    setReviewSuccess(false);
+
+    if (product) {
+      if (product.availableSizes && product.availableSizes.length > 0) {
+        setSelectedSize(product.availableSizes[0]);
+      } else {
+        setSelectedSize('M');
+      }
+      if (product.availableColors && product.availableColors.length > 0) {
+        setSelectedColor(product.availableColors[0]);
+      } else {
+        setSelectedColor('Royal Blue');
+      }
+      setLocalReviews(product.reviewsList || []);
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -291,6 +337,32 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     }
     setOrderConfirmed(newOrder);
     setIsCheckoutOpen(false);
+  };
+
+  // Real Customer Review submission
+  const handleSubmitReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!product || !reviewComment.trim()) return;
+    haptics.success();
+    const newRev: ReviewItem = {
+      id: `rev-${Date.now()}`,
+      userName: reviewerName.trim() || 'Verified Buyer',
+      rating: reviewRating,
+      date: 'Just now',
+      comment: reviewComment.trim(),
+      size: selectedSize,
+      color: selectedColor,
+      verifiedBuyer: true,
+    };
+    const updated = [newRev, ...localReviews];
+    setLocalReviews(updated);
+    setReviewComment('');
+    setShowReviewForm(false);
+    setReviewSuccess(true);
+    setTimeout(() => setReviewSuccess(false), 4500);
+    if (onAddReview) {
+      onAddReview(product.id, newRev);
+    }
   };
 
   return (
@@ -591,26 +663,36 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </h1>
 
             <div className="flex items-center gap-2 mt-2 flex-wrap">
-              {/* Green Rating Pill */}
-              <div className="flex items-center gap-1 bg-emerald-600 text-white text-xs font-black px-2 py-0.5 rounded-md shadow-2xs">
-                <span>{product.rating}</span>
-                <Star className="w-3 h-3 fill-white" />
-              </div>
+              {/* Green Rating Pill or Newly Listed */}
+              {product.reviewsCount > 0 ? (
+                <div className="flex items-center gap-1 bg-emerald-600 text-white text-xs font-black px-2 py-0.5 rounded-md shadow-2xs">
+                  <span>{product.rating.toFixed(1)}</span>
+                  <Star className="w-3 h-3 fill-white" />
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold px-2 py-0.5 rounded-md">
+                  <span>★ Newly Listed</span>
+                </div>
+              )}
 
               {/* Reviews count */}
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                ({product.reviewsCount.toLocaleString('en-IN')} ratings)
+                {product.reviewsCount > 0
+                  ? `(${product.reviewsCount.toLocaleString('en-IN')} ratings)`
+                  : 'No customer reviews yet'}
               </span>
 
-              {/* Flipkart Assured style AARVO Assured Badge */}
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/80">
-                <span className="w-3.5 h-3.5 rounded-full bg-[#2418D8] text-white flex items-center justify-center text-[9px] font-black">
-                  ⚡
-                </span>
-                <span className="text-[11px] font-black text-[#2418D8] dark:text-[#7B73FF] italic">
-                  Assured
-                </span>
-              </div>
+              {/* Flipkart Assured style AARVO Assured Badge (only shown when verified ratings exist) */}
+              {product.reviewsCount > 0 && (
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/80">
+                  <span className="w-3.5 h-3.5 rounded-full bg-[#2418D8] text-white flex items-center justify-center text-[9px] font-black">
+                    ⚡
+                  </span>
+                  <span className="text-[11px] font-black text-[#2418D8] dark:text-[#7B73FF] italic">
+                    Assured
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -656,6 +738,115 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <p className="text-[11px] text-emerald-800/80 dark:text-emerald-400/80 mt-0.5">
                 Special Price: Get extra 10% instant discount on order checkout.
               </p>
+            </div>
+          </div>
+
+          {/* =============================================================== */}
+          {/* FLIPKART & MEESHO STYLE COLOUR & SIZE VARIANT SELECTOR           */}
+          {/* =============================================================== */}
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1638] border border-slate-200/90 dark:border-slate-800 space-y-3">
+            {/* Color Selection */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <span>Colour:</span>
+                  <strong className="text-[#2418D8] dark:text-[#7B73FF] font-black">{selectedColor}</strong>
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  {(product.availableColors && product.availableColors.length > 0 ? product.availableColors : ['Black', 'Royal Blue', 'Maroon']).length} options
+                </span>
+              </div>
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+                {(product.availableColors && product.availableColors.length > 0
+                  ? product.availableColors
+                  : ['Black', 'Royal Blue', 'White', 'Maroon', 'Emerald Green']
+                ).map((col) => {
+                  const isColSelected = selectedColor.toLowerCase() === col.toLowerCase();
+                  const colorMap: Record<string, string> = {
+                    black: '#0F172A',
+                    white: '#F8FAFC',
+                    'royal blue': '#2418D8',
+                    red: '#DC2626',
+                    maroon: '#831843',
+                    'emerald green': '#059669',
+                    green: '#059669',
+                    navy: '#1E3A8A',
+                    'navy blue': '#1E3A8A',
+                    yellow: '#FBBF24',
+                    pink: '#F472B6',
+                    grey: '#64748B',
+                    beige: '#D97706',
+                    orange: '#EA580C',
+                  };
+                  const hex = colorMap[col.toLowerCase()] || '#2418D8';
+                  return (
+                    <button
+                      key={col}
+                      type="button"
+                      onClick={() => {
+                        haptics.selection();
+                        setSelectedColor(col);
+                      }}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                        isColSelected
+                          ? 'border-[#2418D8] bg-blue-50/70 dark:bg-blue-950/40 text-[#2418D8] dark:text-[#7B73FF] ring-2 ring-[#2418D8]/20'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <span
+                        className="w-3.5 h-3.5 rounded-full border border-black/20 shrink-0 shadow-2xs"
+                        style={{ backgroundColor: hex }}
+                      />
+                      <span>{col}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Size Selection (M, L, XL, XXL, Free Size, Zero Size etc) */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <span>Size:</span>
+                  <strong className="text-[#2418D8] dark:text-[#7B73FF] font-black">{selectedSize}</strong>
+                </span>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  <span>In Stock</span>
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {(product.availableSizes && product.availableSizes.length > 0
+                  ? product.availableSizes
+                  : ['Zero Size', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free Size']
+                ).map((size) => {
+                  const isSizeSelected = selectedSize.toLowerCase() === size.toLowerCase();
+                  return (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => {
+                        haptics.selection();
+                        setSelectedSize(size);
+                      }}
+                      className={`min-w-[40px] px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                        isSizeSelected
+                          ? 'bg-[#2418D8] text-white shadow-sm ring-2 ring-[#2418D8]/30 scale-105'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#2418D8]'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  );
+                })}
+              </div>
+              {product.fabric && (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  <span>Fabric: <strong className="text-slate-700 dark:text-slate-300">{product.fabric}</strong></span>
+                </p>
+              )}
             </div>
           </div>
 
@@ -788,6 +979,180 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
               100% Genuine
             </span>
+          </div>
+
+          {/* =============================================================== */}
+          {/* REAL CUSTOMER RATINGS & REVIEWS SECTION                          */}
+          {/* =============================================================== */}
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1638] border border-slate-200/90 dark:border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-display font-black text-xs uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <span>Ratings &amp; Customer Reviews</span>
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  {localReviews.length > 0
+                    ? `${localReviews.length} verified review${localReviews.length > 1 ? 's' : ''}`
+                    : 'Be the first customer to rate this product!'}
+                </p>
+              </div>
+
+              {/* Rate & Review Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.selection();
+                  setShowReviewForm(!showReviewForm);
+                }}
+                className="px-3 py-1.5 bg-[#2418D8] text-white text-xs font-bold rounded-xl hover:bg-[#1D12B8] active:scale-95 transition-all shadow-xs cursor-pointer flex items-center gap-1"
+              >
+                <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
+                <span>{showReviewForm ? 'Cancel' : 'Rate Product'}</span>
+              </button>
+            </div>
+
+            {/* Review Success Confirmation Banner */}
+            {reviewSuccess && (
+              <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2 animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Thank you! Your verified customer review has been added.</span>
+              </div>
+            )}
+
+            {/* Interactive Rating & Review Submission Form */}
+            {showReviewForm && (
+              <form
+                onSubmit={handleSubmitReview}
+                className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2.5 animate-in fade-in"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">
+                    Your Rating:
+                  </span>
+                  {/* Rating Label */}
+                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                    {reviewRating === 5
+                      ? '5 ★ Outstanding'
+                      : reviewRating === 4
+                      ? '4 ★ Very Good'
+                      : reviewRating === 3
+                      ? '3 ★ Good'
+                      : reviewRating === 2
+                      ? '2 ★ Fair'
+                      : '1 ★ Poor'}
+                  </span>
+                </div>
+
+                {/* 5 Interactive Clickable Stars */}
+                <div className="flex items-center gap-2 py-0.5">
+                  {[1, 2, 3, 4, 5].map((starVal) => (
+                    <button
+                      key={starVal}
+                      type="button"
+                      onClick={() => {
+                        haptics.impact();
+                        setReviewRating(starVal);
+                      }}
+                      className="p-1 hover:scale-125 transition-all cursor-pointer"
+                    >
+                      <Star
+                        className={`w-6 h-6 transition-colors ${
+                          starVal <= reviewRating
+                            ? 'text-amber-400 fill-amber-400 drop-shadow-xs'
+                            : 'text-slate-300 dark:text-slate-600'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+
+                {/* Reviewer Name */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                    Your Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter your name"
+                    value={reviewerName}
+                    onChange={(e) => setReviewerName(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#1A1638] text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-[#2418D8]"
+                  />
+                </div>
+
+                {/* Review Comment */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                    Your Review &amp; Experience
+                  </label>
+                  <textarea
+                    rows={2}
+                    required
+                    placeholder="Describe product quality, fitting, fabric or packaging..."
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#1A1638] text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-[#2418D8]"
+                  />
+                </div>
+
+                {/* Submit Review Button */}
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-gradient-to-r from-[#2418D8] to-purple-700 text-white font-extrabold text-xs rounded-lg shadow-sm hover:opacity-95 active:scale-95 transition-all cursor-pointer"
+                >
+                  Submit Customer Review
+                </button>
+              </form>
+            )}
+
+            {/* Real Review Cards List */}
+            <div className="space-y-2 pt-1">
+              {localReviews.length > 0 ? (
+                localReviews.map((rev) => (
+                  <div
+                    key={rev.id}
+                    className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 text-xs space-y-1"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          {rev.userName}
+                        </span>
+                        {rev.verifiedBuyer && (
+                          <span className="text-[9px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold px-1.5 py-0.2 rounded-full flex items-center gap-0.5">
+                            ✓ Verified Buyer
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-400">{rev.date}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex items-center bg-emerald-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded">
+                        <span>{rev.rating}</span>
+                        <span className="ml-0.5">★</span>
+                      </div>
+                      {(rev.size || rev.color) && (
+                        <span className="text-[10px] text-slate-400">
+                          {rev.size ? `Size: ${rev.size}` : ''}
+                          {rev.size && rev.color ? ' • ' : ''}
+                          {rev.color ? `Colour: ${rev.color}` : ''}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-slate-700 dark:text-slate-300 text-[11px] leading-relaxed pt-0.5">
+                      {rev.comment}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="p-3 text-center bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+                  <span>No customer reviews written yet. Tap "Rate Product" above to be the first!</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
