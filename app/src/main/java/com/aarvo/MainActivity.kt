@@ -627,10 +627,10 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         }
                     )
 
-                    // 6. Seller Onboarding Hub
+                    // 6. Seller Business Onboarding
                     DrawerNavRow(
                         icon = "🏪",
-                        label = "Seller Onboarding Hub",
+                        label = "Seller Business Onboarding",
                         textColor = Color(0xFFD97706),
                         onClick = {
                             scope.launch { drawerState.close() }
@@ -1828,49 +1828,55 @@ private fun ProductDetailsScreen(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
 
-            // Main Product Details & Ratings Card
+            // 1. Main Product Details & Title Card
             Surface(
                 color = Color.White,
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 5.dp)
             ) {
                 Column(Modifier.padding(16.dp)) {
                     // Product Title
                     Text(
                         text = product.name,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF0F172A),
-                        lineHeight = 23.sp
+                        lineHeight = 25.sp,
+                        letterSpacing = (-0.2).sp
                     )
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(10.dp))
 
                     // Ratings & AARVO Assured Badge Row
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(
-                            shape = RoundedCornerShape(4.dp),
+                            shape = RoundedCornerShape(6.dp),
                             color = Color(0xFF047857)
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     "%.1f".format(if (product.rating > 0.0) product.rating else 4.5),
                                     color = Color.White,
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Spacer(Modifier.width(2.dp))
-                                Text("★", color = Color.White, fontSize = 10.sp)
+                                Spacer(Modifier.width(3.dp))
+                                Text("★", color = Color.White, fontSize = 11.sp)
                             }
                         }
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(
                             text = "(${if (product.reviewsCount > 0) product.reviewsCount else 1420} ratings)",
                             fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
                             color = Color(0xFF64748B)
                         )
 
@@ -1883,11 +1889,11 @@ private fun ProductDetailsScreen(
                             border = BorderStroke(1.dp, Color(0xFFC7D2FE))
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text("⚡", fontSize = 10.sp, color = Color(0xFF2418D8))
-                                Spacer(Modifier.width(3.dp))
+                                Spacer(Modifier.width(4.dp))
                                 Text("Assured", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2418D8))
                             }
                         }
@@ -1895,65 +1901,81 @@ private fun ProductDetailsScreen(
 
                     Spacer(Modifier.height(14.dp))
 
-                    // Price Block
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    // Price & EMI Block within Title Card
+                    Surface(
+                        color = Color(0xFFF8FAFC),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = "₹${product.pricePaise / 100}",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFF0F172A)
-                        )
+                        Column(Modifier.padding(12.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "₹${product.pricePaise / 100}",
+                                    fontSize = 26.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFF0F172A)
+                                )
 
-                        if (product.hasDiscount) {
+                                if (product.hasDiscount) {
+                                    Text(
+                                        text = "₹${product.originalPricePaise / 100}",
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF94A3B8),
+                                        textDecoration = TextDecoration.LineThrough
+                                    )
+                                    Surface(
+                                        color = Color(0xFFECFDF5),
+                                        shape = RoundedCornerShape(6.dp),
+                                        border = BorderStroke(1.dp, Color(0xFFA7F3D0))
+                                    ) {
+                                        Text(
+                                            text = "${product.discountPercent}% OFF",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color(0xFF059669),
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            val emiAmount = (product.pricePaise / 100) / 3
                             Text(
-                                text = "₹${product.originalPricePaise / 100}",
-                                fontSize = 14.sp,
-                                color = Color(0xFF94A3B8),
-                                textDecoration = TextDecoration.LineThrough
-                            )
-                            Text(
-                                text = "${product.discountPercent}% OFF",
-                                fontSize = 14.sp,
+                                text = "₹$emiAmount/month  No Cost EMI ›",
+                                fontSize = 12.sp,
+                                color = Color(0xFF2418D8),
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF059669)
+                                modifier = Modifier.padding(top = 4.dp)
                             )
                         }
                     }
-
-                    val emiAmount = (product.pricePaise / 100) / 3
-                    Text(
-                        text = "₹$emiAmount/month  No Cost EMI >",
-                        fontSize = 12.sp,
-                        color = Color(0xFF2418D8),
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
                 }
             }
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(10.dp))
 
-            // Special Bank Offers Card (matching screenshot 2)
+            // 2. Special Bank Offers Card
             Surface(
                 color = Color(0xFFF0FDF4),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(1.dp, Color(0xFFA7F3D0)),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 4.dp)
+                    .padding(horizontal = 14.dp, vertical = 5.dp)
             ) {
-                Column(Modifier.padding(12.dp)) {
+                Column(Modifier.padding(14.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🏷️", fontSize = 14.sp)
-                            Spacer(Modifier.width(6.dp))
+                            Text("🏷️", fontSize = 15.sp)
+                            Spacer(Modifier.width(8.dp))
                             Text(
                                 "Extra ₹100 Off On Selected Bank Cards & UPI",
                                 fontSize = 12.sp,
@@ -1968,29 +1990,30 @@ private fun ProductDetailsScreen(
                             color = Color(0xFF2418D8)
                         )
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         "Special Price: Get extra 10% instant discount on order checkout.",
                         fontSize = 11.sp,
-                        color = Color(0xFF047857)
+                        color = Color(0xFF047857),
+                        lineHeight = 16.sp
                     )
                 }
             }
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(10.dp))
 
-            // Delivery Card with Inset Cash On Delivery Box (matching screenshot 2)
+            // 3. Delivery Card with Inset Cash On Delivery Box
             Surface(
                 color = Color.White,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 4.dp)
+                    .padding(horizontal = 14.dp, vertical = 5.dp)
             ) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🚚", fontSize = 16.sp)
+                        Text("🚚", fontSize = 18.sp)
                         Spacer(Modifier.width(8.dp))
                         Text(
                             "Delivery by Tomorrow, 9 PM",
@@ -2013,12 +2036,12 @@ private fun ProductDetailsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("📍", fontSize = 13.sp)
+                            Text("📍", fontSize = 14.sp)
                             Spacer(Modifier.width(6.dp))
                             Text(
                                 "Deliver to: $deliveryPincode",
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF334155)
                             )
                         }
@@ -2034,14 +2057,14 @@ private fun ProductDetailsScreen(
                     // Inset Cash On Delivery Available Box
                     Surface(
                         color = Color(0xFFFFFBEB),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, Color(0xFFFDE68A)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -2049,7 +2072,7 @@ private fun ProductDetailsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("💵", fontSize = 18.sp)
+                                Text("💵", fontSize = 20.sp)
                                 Spacer(Modifier.width(10.dp))
                                 Column {
                                     Text(
@@ -2061,13 +2084,14 @@ private fun ProductDetailsScreen(
                                     Text(
                                         "Pay cash at your doorstep with 100% purchase protection.",
                                         fontSize = 10.sp,
-                                        color = Color(0xFFB45309)
+                                        color = Color(0xFFB45309),
+                                        lineHeight = 14.sp
                                     )
                                 }
                             }
                             Text(
                                 "✓",
-                                fontSize = 16.sp,
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Black,
                                 color = Color(0xFF059669)
                             )
@@ -2076,28 +2100,28 @@ private fun ProductDetailsScreen(
                 }
             }
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(10.dp))
 
-            // 3 Feature Badges Row (matching screenshot 3)
+            // 4. 3 Feature Trust Badges Row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 4.dp),
+                    .padding(horizontal = 14.dp, vertical = 5.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // 1. Free Delivery
                 Surface(
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = Color.White,
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
                     Column(
-                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
+                        modifier = Modifier.padding(vertical = 14.dp, horizontal = 6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("🚚", fontSize = 18.sp)
-                        Spacer(Modifier.height(4.dp))
+                        Text("🚚", fontSize = 20.sp)
+                        Spacer(Modifier.height(6.dp))
                         Text("Free Delivery", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
                         Text("Fast doorstep", fontSize = 9.sp, color = Color(0xFF64748B))
                     }
@@ -2106,16 +2130,16 @@ private fun ProductDetailsScreen(
                 // 2. 7 Days Return
                 Surface(
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = Color.White,
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
                     Column(
-                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
+                        modifier = Modifier.padding(vertical = 14.dp, horizontal = 6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("🔄", fontSize = 18.sp)
-                        Spacer(Modifier.height(4.dp))
+                        Text("🔄", fontSize = 20.sp)
+                        Spacer(Modifier.height(6.dp))
                         Text("7 Days Return", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
                         Text("Easy replacement", fontSize = 9.sp, color = Color(0xFF64748B))
                     }
@@ -2124,39 +2148,40 @@ private fun ProductDetailsScreen(
                 // 3. AARVO Assured
                 Surface(
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = Color.White,
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
                     Column(
-                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 6.dp),
+                        modifier = Modifier.padding(vertical = 14.dp, horizontal = 6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("🛡️", fontSize = 18.sp)
-                        Spacer(Modifier.height(4.dp))
+                        Text("🛡️", fontSize = 20.sp)
+                        Spacer(Modifier.height(6.dp))
                         Text("AARVO Assured", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
                         Text("100% Genuine", fontSize = 9.sp, color = Color(0xFF64748B))
                     }
                 }
             }
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(10.dp))
 
-            // PRODUCT DETAILS & HIGHLIGHTS Card (matching screenshot 3)
+            // 5. PRODUCT DETAILS & HIGHLIGHTS Card
             Surface(
                 color = Color.White,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(12.dp),
+                    .padding(horizontal = 14.dp, vertical = 5.dp),
+                shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0))
             ) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         "PRODUCT DETAILS & HIGHLIGHTS",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1E293B)
+                        color = Color(0xFF1E293B),
+                        letterSpacing = 0.5.sp
                     )
 
                     listOf(
@@ -2167,7 +2192,7 @@ private fun ProductDetailsScreen(
                         "GST Invoice and 1 Year Manufacturer Warranty Included"
                     ).forEach { bullet ->
                         Row(verticalAlignment = Alignment.Top) {
-                            Text("• ", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2418D8))
+                            Text("• ", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2418D8))
                             Text(
                                 bullet,
                                 fontSize = 11.sp,
@@ -2177,13 +2202,14 @@ private fun ProductDetailsScreen(
                         }
                     }
 
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
 
                     Text(
                         "DESCRIPTION",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1E293B)
+                        color = Color(0xFF1E293B),
+                        letterSpacing = 0.5.sp
                     )
                     Text(
                         text = product.description.ifBlank { "Authentic quality product sourced directly from verified sellers on AARVO marketplace." },
@@ -2192,24 +2218,24 @@ private fun ProductDetailsScreen(
                         lineHeight = 17.sp
                     )
 
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
 
-                    // Seller Card
+                    // Inset Seller Card
                     Surface(
                         color = Color(0xFFF8FAFC),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(10.dp),
+                                .padding(12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
-                                Text("SELLER", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+                                Text("SELLER", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B), letterSpacing = 0.5.sp)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         product.sellerName.ifBlank { "TechPro Retail India" },
@@ -2250,21 +2276,24 @@ private fun ProductDetailsScreen(
                 }
             }
 
-            // 7. Specifications & Attributes Card
+            Spacer(Modifier.height(10.dp))
+
+            // 6. Specifications & Attributes Card
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(12.dp),
+                    .padding(horizontal = 14.dp, vertical = 5.dp),
+                shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0))
             ) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         "SPECIFICATIONS",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1E293B)
+                        color = Color(0xFF1E293B),
+                        letterSpacing = 0.5.sp
                     )
                     val specList: List<Pair<String, String>> = listOf(
                         Pair("Brand", product.sellerName.ifBlank { "AARVO Verified" }),
@@ -2279,7 +2308,7 @@ private fun ProductDetailsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp),
+                                .padding(vertical = 5.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.Top
                         ) {
@@ -2309,21 +2338,24 @@ private fun ProductDetailsScreen(
                 }
             }
 
-            // 8. Verified Customer Ratings & Reviews Breakdown
+            Spacer(Modifier.height(10.dp))
+
+            // 7. Verified Customer Ratings & Reviews Breakdown
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(12.dp),
+                    .padding(horizontal = 14.dp, vertical = 5.dp),
+                shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0))
             ) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         "RATINGS & REVIEWS",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1E293B)
+                        color = Color(0xFF1E293B),
+                        letterSpacing = 0.5.sp
                     )
 
                     Row(
