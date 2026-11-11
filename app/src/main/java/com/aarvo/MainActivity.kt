@@ -94,6 +94,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.platform.LocalContext
@@ -1400,14 +1401,14 @@ private fun ProductDetailsScreen(
     var tempPincode by remember { mutableStateOf("800001") }
 
     // Dynamic customer rating and review states
-    var currentRating by remember(product.id) { mutableDoubleStateOf(product.rating) }
+    var currentRating by remember(product.id) { mutableStateOf(product.rating) }
     var currentReviewsCount by remember(product.id) { mutableIntStateOf(product.reviewsCount) }
     var showRateDialog by remember { mutableStateOf(false) }
     var reviewStarSelected by remember { mutableIntStateOf(5) }
     var reviewerName by remember { mutableStateOf("") }
     var reviewerComment by remember { mutableStateOf("") }
     var localReviews by remember(product.id) {
-        mutableStateOf(
+        mutableStateOf<List<Triple<String, Int, String>>>(
             if (product.reviewsCount > 0) {
                 listOf(
                     Triple("Verified Buyer", 5, "Genuine authentic product with fast delivery and brand warranty.")
@@ -2579,7 +2580,7 @@ private fun ProductDetailsScreen(
                         // List of actual customer reviews
                         if (localReviews.isNotEmpty()) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                localReviews.forEach { (reviewer, stars, comment) ->
+                                for ((reviewer, stars, comment) in localReviews) {
                                     Surface(
                                         color = Color(0xFFF8FAFC),
                                         shape = RoundedCornerShape(10.dp),
