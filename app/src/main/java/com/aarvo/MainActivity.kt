@@ -4068,10 +4068,10 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
     var hsnCode by remember { mutableStateOf("") }
     var gstRate by remember { mutableStateOf("") }
     val standardSizes = listOf("Zero Size", "XS", "S", "M", "L", "XL", "2XL", "3XL", "Free Size", "UK 7", "UK 8", "UK 9")
-    var selectedSizes by remember { mutableStateOf(setOf("M", "L")) }
+    var selectedSizes by remember { mutableStateOf<Set<String>>(emptySet()) }
     var customSizeText by remember { mutableStateOf("") }
     val standardColors = listOf("Black", "White", "Royal Blue", "Red", "Navy", "Green", "Maroon", "Beige", "Yellow", "Pink")
-    var selectedColors by remember { mutableStateOf(setOf("Black", "Royal Blue")) }
+    var selectedColors by remember { mutableStateOf<Set<String>>(emptySet()) }
     var customColorText by remember { mutableStateOf("") }
     var codAllowed by remember { mutableStateOf(true) }
     var selectedImages by remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }

@@ -43,6 +43,8 @@ import {
   Wifi,
   WifiOff,
   Banknote,
+  Download,
+  Upload,
 } from 'lucide-react';
 import { ScrollToTop } from './ScrollToTop';
 import { MainScreenSkeleton } from './MainScreenSkeleton';
@@ -197,11 +199,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [newProductStock, setNewProductStock] = useState('25');
   const [newProductDescription, setNewProductDescription] = useState('');
   const [newProductImage, setNewProductImage] = useState('https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80');
-  const [selectedSizes, setSelectedSizes] = useState<string[]>(['M', 'L', 'XL']);
+  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [customSizeText, setCustomSizeText] = useState('');
-  const [selectedColors, setSelectedColors] = useState<string[]>(['Black', 'Royal Blue']);
+  const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [customColorText, setCustomColorText] = useState('');
-  const [selectedFabric, setSelectedFabric] = useState('Pure Cotton');
+  const [selectedFabric, setSelectedFabric] = useState('');
   const [codAllowed, setCodAllowed] = useState(true);
   const [selectedReturnPolicy, setSelectedReturnPolicy] = useState('7 Days Return');
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
@@ -211,6 +213,142 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [product360Modal, setProduct360Modal] = useState<Product | null>(null);
   const [zoomImageProduct, setZoomImageProduct] = useState<Product | null>(null);
+  const bulkCsvInputRef = useRef<HTMLInputElement | null>(null);
+
+  const downloadSellerCsvTemplate = () => {
+    haptics.selection();
+    const headers = ['Name*', 'Category*', 'Price_INR*', 'Stock*', 'Sizes', 'Colours', 'COD', 'Fabric', 'Description', 'Length_cm', 'Breadth_cm', 'Height_cm', 'Weight_kg'];
+    const samples = [
+      ['Pure Cotton Slim Fit Kurta', 'Fashion', '899', '40', 'M, L, XL, XXL', 'Royal Blue, White, Black', 'Yes', 'Pure Cotton', 'Authentic breathable cotton ethnic daily wear kurta.', '25', '20', '4', '0.35'],
+      ['Lightweight Running Trainers', 'Footwear', '1899', '25', 'UK 7, UK 8, UK 9, UK 10', 'Black, Navy Blue', 'Yes', 'Standard Material', 'High cushioning athletic footwear for sports and training.', '32', '22', '12', '0.75'],
+      ['AARVO True Wireless Earbuds', 'Electronics', '1499', '50', '', 'Black, White', 'Yes', '', 'Ultra low latency ENC earbuds with deep bass and type-C fast charging.', '10', '10', '4', '0.18']
+    ];
+    const escCsv = (v: any) => {
+      const s = String(v ?? '');
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [headers.map(escCsv).join(','), ...samples.map((r) => r.map(escCsv).join(','))].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'aarvo_products_bulk_template.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('⬇ CSV template downloaded!');
+  };
+
+  const handleBulkCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = String(event.target?.result || '');
+        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        if (lines.length < 2) {
+          showToast('CSV is empty or only has headers.');
+          return;
+        }
+
+        const parseLine = (lineStr: string) => {
+          const res: string[] = [];
+          let cur = '';
+          let inQ = false;
+          for (let i = 0; i < lineStr.length; i++) {
+            const c = lineStr[i];
+            if (c === '"') {
+              if (inQ && lineStr[i + 1] === '"') {
+                cur += '"';
+                i++;
+              } else {
+                inQ = !inQ;
+              }
+            } else if (c === ',' && !inQ) {
+              res.push(cur.trim());
+              cur = '';
+            } else {
+              cur += c;
+            }
+          }
+          res.push(cur.trim());
+          return res;
+        };
+
+        const dataRows = lines.slice(1);
+        const importedProducts: Product[] = [];
+
+        dataRows.forEach((rowStr, idx) => {
+          const cols = parseLine(rowStr);
+          if (cols.length < 3 || !cols[0]) return;
+
+          const name = cols[0];
+          const category = cols[1] || 'Fashion';
+          const price = parseFloat(cols[2]);
+          const stock = parseInt(cols[3], 10) || 15;
+          const sizesStr = cols[4] || '';
+          const colorsStr = cols[5] || '';
+          const codStr = (cols[6] || 'Yes').toLowerCase();
+          const fabricStr = cols[7] || '';
+          const rawDesc = cols[8] || `${name} - verified authentic item.`;
+
+          if (!name || isNaN(price) || price <= 0) return;
+
+          const sizesList = sizesStr ? sizesStr.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
+          const colorsList = colorsStr ? colorsStr.split(',').map((c) => c.trim()).filter(Boolean) : undefined;
+          const codAvailable = !codStr.includes('no');
+
+          const newProd: Product = {
+            id: `prod-bulk-${Date.now()}-${idx}`,
+            name,
+            category,
+            price: Math.round(price),
+            originalPrice: Math.round(price * 1.5),
+            discount: '33% OFF',
+            rating: 0.0,
+            reviewsCount: 0,
+            reviewsList: [],
+            inStock: stock > 0,
+            stockQuantity: stock,
+            image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80',
+            images: [
+              'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80',
+              'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=500&auto=format&fit=crop&q=80',
+            ],
+            seller: sellerForm.business.trim() || 'AARVO Luxury Certified Merchant',
+            description: rawDesc,
+            availableSizes: sizesList && sizesList.length > 0 ? sizesList : undefined,
+            availableColors: colorsList && colorsList.length > 0 ? colorsList : undefined,
+            fabric: fabricStr || undefined,
+            codAvailable,
+            highlights: [
+              `Category: ${category}`,
+              sizesList && sizesList.length > 0 ? `Sizes: ${sizesList.join(', ')}` : '',
+              colorsList && colorsList.length > 0 ? `Colours: ${colorsList.join(', ')}` : '',
+              fabricStr ? `Fabric: ${fabricStr}` : '',
+              codAvailable ? 'Cash on Delivery (COD) Eligible' : 'Prepaid Only',
+            ].filter(Boolean),
+          };
+          importedProducts.push(newProd);
+        });
+
+        if (importedProducts.length > 0) {
+          setAllProducts((prev) => [...importedProducts, ...prev]);
+          haptics.success();
+          showToast(`✓ Bulk imported ${importedProducts.length} product(s) with variants!`);
+        } else {
+          showToast('No valid product rows found in CSV.');
+        }
+      } catch (err: any) {
+        showToast(`CSV error: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+  };
 
   // Orders purchase history state with realistic data
   const [orders, setOrders] = useState<Order[]>(() => {
@@ -3062,15 +3200,43 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
                 {sellerModalTab === 'overview' ? (
                   <div className="space-y-3.5">
-                    {/* Add Product Shortcut Button */}
-                    <button
-                      type="button"
-                      onClick={() => setSellerModalTab('add-product')}
-                      className="w-full py-2.5 px-3 bg-gradient-to-r from-[#2418D8] via-purple-700 to-indigo-800 text-white font-extrabold text-xs rounded-xl shadow-md hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-400/30"
-                    >
-                      <Sparkles className="w-4 h-4 text-amber-300" />
-                      <span>+ Add Luxury Product with Custom Sizes</span>
-                    </button>
+                    {/* Catalog Actions: Add Product, CSV Template & Bulk Upload */}
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => setSellerModalTab('add-product')}
+                        className="w-full py-2.5 px-3 bg-gradient-to-r from-[#2418D8] via-purple-700 to-indigo-800 text-white font-extrabold text-xs rounded-xl shadow-md hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-400/30"
+                      >
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        <span>+ Add Single Product with Custom Sizes</span>
+                      </button>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={downloadSellerCsvTemplate}
+                          className="py-2 px-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-[11px] rounded-xl border border-slate-200 dark:border-slate-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5 text-[#2418D8] dark:text-[#7B73FF]" />
+                          <span>CSV Template</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => bulkCsvInputRef.current?.click()}
+                          className="py-2 px-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-purple-900/60 dark:hover:bg-purple-800/80 text-white font-bold text-[11px] rounded-xl shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Bulk Upload (CSV)</span>
+                        </button>
+                        <input
+                          ref={bulkCsvInputRef}
+                          type="file"
+                          accept=".csv"
+                          className="hidden"
+                          onChange={handleBulkCsvUpload}
+                        />
+                      </div>
+                    </div>
                     {/* Top Stat Cards in Seller Overview */}
                     <div className="grid grid-cols-3 gap-2">
                       <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 text-center">

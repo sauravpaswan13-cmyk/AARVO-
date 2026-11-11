@@ -137,6 +137,36 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     return [product.image];
   }, [product]);
 
+  // Extract real sizes if specified for this product
+  const parsedSizes: string[] = React.useMemo(() => {
+    if (!product) return [];
+    if (product.availableSizes && product.availableSizes.length > 0) {
+      return product.availableSizes;
+    }
+    if (product.description) {
+      const match = product.description.match(/\[Sizes:\s*([^\]]+)\]/i);
+      if (match && match[1]) {
+        return match[1].split(',').map((s) => s.trim()).filter(Boolean);
+      }
+    }
+    return [];
+  }, [product]);
+
+  // Extract real colours if specified for this product
+  const parsedColors: string[] = React.useMemo(() => {
+    if (!product) return [];
+    if (product.availableColors && product.availableColors.length > 0) {
+      return product.availableColors;
+    }
+    if (product.description) {
+      const match = product.description.match(/\[Colours?:\s*([^\]]+)\]/i);
+      if (match && match[1]) {
+        return match[1].split(',').map((c) => c.trim()).filter(Boolean);
+      }
+    }
+    return [];
+  }, [product]);
+
   useEffect(() => {
     // Reset state whenever modal opens or product changes
     setCurrentImageIndex(0);
@@ -151,16 +181,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setReviewSuccess(false);
 
     if (product) {
-      if (product.availableSizes && product.availableSizes.length > 0) {
-        setSelectedSize(product.availableSizes[0]);
-      } else {
-        setSelectedSize('M');
-      }
-      if (product.availableColors && product.availableColors.length > 0) {
-        setSelectedColor(product.availableColors[0]);
-      } else {
-        setSelectedColor('Royal Blue');
-      }
+      const s = product.availableSizes && product.availableSizes.length > 0
+        ? product.availableSizes
+        : (product.description?.match(/\[Sizes:\s*([^\]]+)\]/i)?.[1]?.split(',').map((x) => x.trim()).filter(Boolean) || []);
+      setSelectedSize(s.length > 0 ? s[0] : '');
+
+      const c = product.availableColors && product.availableColors.length > 0
+        ? product.availableColors
+        : (product.description?.match(/\[Colours?:\s*([^\]]+)\]/i)?.[1]?.split(',').map((x) => x.trim()).filter(Boolean) || []);
+      setSelectedColor(c.length > 0 ? c[0] : '');
+
       setLocalReviews(product.reviewsList || []);
     }
 
@@ -743,112 +773,114 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
           {/* =============================================================== */}
           {/* FLIPKART & MEESHO STYLE COLOUR & SIZE VARIANT SELECTOR           */}
+          {/* (SHOWN ONLY WHEN SELLER HAS CONFIGURED SIZES OR COLOURS)          */}
           {/* =============================================================== */}
-          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1638] border border-slate-200/90 dark:border-slate-800 space-y-3">
-            {/* Color Selection */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <span>Colour:</span>
-                  <strong className="text-[#2418D8] dark:text-[#7B73FF] font-black">{selectedColor}</strong>
-                </span>
-                <span className="text-[10px] text-slate-400 font-medium">
-                  {(product.availableColors && product.availableColors.length > 0 ? product.availableColors : ['Black', 'Royal Blue', 'Maroon']).length} options
-                </span>
-              </div>
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-                {(product.availableColors && product.availableColors.length > 0
-                  ? product.availableColors
-                  : ['Black', 'Royal Blue', 'White', 'Maroon', 'Emerald Green']
-                ).map((col) => {
-                  const isColSelected = selectedColor.toLowerCase() === col.toLowerCase();
-                  const colorMap: Record<string, string> = {
-                    black: '#0F172A',
-                    white: '#F8FAFC',
-                    'royal blue': '#2418D8',
-                    red: '#DC2626',
-                    maroon: '#831843',
-                    'emerald green': '#059669',
-                    green: '#059669',
-                    navy: '#1E3A8A',
-                    'navy blue': '#1E3A8A',
-                    yellow: '#FBBF24',
-                    pink: '#F472B6',
-                    grey: '#64748B',
-                    beige: '#D97706',
-                    orange: '#EA580C',
-                  };
-                  const hex = colorMap[col.toLowerCase()] || '#2418D8';
-                  return (
-                    <button
-                      key={col}
-                      type="button"
-                      onClick={() => {
-                        haptics.selection();
-                        setSelectedColor(col);
-                      }}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                        isColSelected
-                          ? 'border-[#2418D8] bg-blue-50/70 dark:bg-blue-950/40 text-[#2418D8] dark:text-[#7B73FF] ring-2 ring-[#2418D8]/20'
-                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                      }`}
-                    >
-                      <span
-                        className="w-3.5 h-3.5 rounded-full border border-black/20 shrink-0 shadow-2xs"
-                        style={{ backgroundColor: hex }}
-                      />
-                      <span>{col}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+          {(parsedColors.length > 0 || parsedSizes.length > 0) && (
+            <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1638] border border-slate-200/90 dark:border-slate-800 space-y-3">
+              {/* Color Selection - Only if product has colours */}
+              {parsedColors.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <span>Colour:</span>
+                      <strong className="text-[#2418D8] dark:text-[#7B73FF] font-black">{selectedColor || parsedColors[0]}</strong>
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      {parsedColors.length} options
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+                    {parsedColors.map((col) => {
+                      const isColSelected = (selectedColor || parsedColors[0]).toLowerCase() === col.toLowerCase();
+                      const colorMap: Record<string, string> = {
+                        black: '#0F172A',
+                        white: '#F8FAFC',
+                        'royal blue': '#2418D8',
+                        red: '#DC2626',
+                        maroon: '#831843',
+                        'emerald green': '#059669',
+                        green: '#059669',
+                        navy: '#1E3A8A',
+                        'navy blue': '#1E3A8A',
+                        yellow: '#FBBF24',
+                        pink: '#F472B6',
+                        grey: '#64748B',
+                        beige: '#D97706',
+                        orange: '#EA580C',
+                        purple: '#7E22CE',
+                      };
+                      const hex = colorMap[col.toLowerCase()] || '#2418D8';
+                      return (
+                        <button
+                          key={col}
+                          type="button"
+                          onClick={() => {
+                            haptics.selection();
+                            setSelectedColor(col);
+                          }}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                            isColSelected
+                              ? 'border-[#2418D8] bg-blue-50/70 dark:bg-blue-950/40 text-[#2418D8] dark:text-[#7B73FF] ring-2 ring-[#2418D8]/20'
+                              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          <span
+                            className="w-3.5 h-3.5 rounded-full border border-black/20 shrink-0 shadow-2xs"
+                            style={{ backgroundColor: hex }}
+                          />
+                          <span>{col}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-            {/* Size Selection (M, L, XL, XXL, Free Size, Zero Size etc) */}
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <span>Size:</span>
-                  <strong className="text-[#2418D8] dark:text-[#7B73FF] font-black">{selectedSize}</strong>
-                </span>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                  <Check className="w-3 h-3" />
-                  <span>In Stock</span>
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {(product.availableSizes && product.availableSizes.length > 0
-                  ? product.availableSizes
-                  : ['Zero Size', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free Size']
-                ).map((size) => {
-                  const isSizeSelected = selectedSize.toLowerCase() === size.toLowerCase();
-                  return (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => {
-                        haptics.selection();
-                        setSelectedSize(size);
-                      }}
-                      className={`min-w-[40px] px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-                        isSizeSelected
-                          ? 'bg-[#2418D8] text-white shadow-sm ring-2 ring-[#2418D8]/30 scale-105'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#2418D8]'
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  );
-                })}
-              </div>
-              {product.fabric && (
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-amber-500" />
-                  <span>Fabric: <strong className="text-slate-700 dark:text-slate-300">{product.fabric}</strong></span>
-                </p>
+              {/* Size Selection - Only if product has sizes */}
+              {parsedSizes.length > 0 && (
+                <div className={parsedColors.length > 0 ? "pt-2 border-t border-slate-100 dark:border-slate-800" : ""}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <span>Size:</span>
+                      <strong className="text-[#2418D8] dark:text-[#7B73FF] font-black">{selectedSize || parsedSizes[0]}</strong>
+                    </span>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      <span>In Stock</span>
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {parsedSizes.map((size) => {
+                      const isSizeSelected = (selectedSize || parsedSizes[0]).toLowerCase() === size.toLowerCase();
+                      return (
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() => {
+                            haptics.selection();
+                            setSelectedSize(size);
+                          }}
+                          className={`min-w-[40px] px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                            isSizeSelected
+                              ? 'bg-[#2418D8] text-white shadow-sm ring-2 ring-[#2418D8]/30 scale-105'
+                              : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#2418D8]'
+                          }`}
+                        >
+                          {size}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {product.fabric && (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>Fabric: <strong className="text-slate-700 dark:text-slate-300">{product.fabric}</strong></span>
+                    </p>
+                  )}
+                </div>
               )}
             </div>
-          </div>
+          )}
 
           {/* =============================================================== */}
           {/* CASH ON DELIVERY & FREE DELIVERY ASSURANCE                       */}
