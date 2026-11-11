@@ -112,6 +112,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [reviewComment, setReviewComment] = useState('');
   const [localReviews, setLocalReviews] = useState<ReviewItem[]>([]);
   const [reviewSuccess, setReviewSuccess] = useState(false);
+  const [showAllOffers, setShowAllOffers] = useState(false);
 
   // Fast Checkout (Cash on Delivery) Drawer states
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -418,9 +419,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         className="fixed inset-0 bg-black/75 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
       />
 
-      {/* Modal / Bottom Sheet Container */}
-      <div className="relative w-full max-w-[440px] max-h-[94vh] bg-white dark:bg-[#14112B] text-slate-900 dark:text-slate-100 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden animate-in slide-in-from-bottom-8 duration-300 border border-slate-100 dark:border-slate-800">
+      {/* Modal / Bottom Sheet Container (Full slide-up on mobile, Flipkart-style) */}
+      <div className="relative w-full max-w-[460px] h-[95vh] sm:h-auto sm:max-h-[94vh] bg-white dark:bg-[#14112B] text-slate-900 dark:text-slate-100 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden animate-in slide-in-from-bottom duration-300 border border-slate-100 dark:border-slate-800">
         
+        {/* Mobile Swipe Grab Handle Indicator */}
+        <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto my-1.5 sm:hidden shrink-0" />
+
         {/* ================================================================= */}
         {/* 1. FLIPKART-STYLE TOP APP BAR                                     */}
         {/* ================================================================= */}
@@ -437,12 +441,25 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             >
               <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
             </button>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[170px]">
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[150px]">
               {product.name}
             </span>
           </div>
 
           <div className="flex items-center gap-1">
+            {/* Search shortcut button (Flipkart style) */}
+            <button
+              type="button"
+              onClick={() => {
+                haptics.light();
+                onClose();
+              }}
+              aria-label="Search items"
+              className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+
             {/* Share button */}
             <button
               type="button"
@@ -727,10 +744,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           </div>
 
           {/* =============================================================== */}
-          {/* PRICING ZONE & NO-COST EMI                                      */}
+          {/* PRICING ZONE WITH FLIPKART SPECIAL PRICE & SUPERCOINS           */}
           {/* =============================================================== */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-100 dark:border-slate-800/80">
-            <div className="flex items-baseline gap-2.5">
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-100 dark:border-slate-800/80 space-y-1.5">
+            {/* Flipkart-style Special Price Green Tag */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/70 px-2 py-0.5 rounded-md flex items-center gap-1">
+                <span>⚡ Special price</span>
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">Ends in 2 days</span>
+            </div>
+
+            <div className="flex items-baseline gap-2.5 pt-0.5">
               <span className="text-2xl font-black text-slate-900 dark:text-white font-display">
                 ₹{product.price.toLocaleString('en-IN')}
               </span>
@@ -740,35 +765,91 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     ₹{product.originalPrice.toLocaleString('en-IN')}
                   </span>
                   <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
-                    {product.discount}
+                    {product.discount} off
                   </span>
                 </>
               )}
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
-              <span>₹{Math.round(product.price / 3).toLocaleString('en-IN')}/month</span>
-              <span className="font-semibold text-[#2418D8] dark:text-[#7B73FF]">No Cost EMI &gt;</span>
+
+            <p className="text-[10px] text-slate-400 dark:text-slate-500">
+              Inclusive of all taxes
             </p>
+
+            {/* SuperCoins Cashback Line (Flipkart hallmark) */}
+            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-bold text-[11px]">
+                <span className="text-sm">🪙</span>
+                <span>Earn 20 SuperCoins cashback on this order</span>
+              </div>
+              <span className="font-semibold text-[#2418D8] dark:text-[#7B73FF] text-[11px] cursor-pointer hover:underline">
+                No Cost EMI &gt;
+              </span>
+            </div>
           </div>
 
           {/* =============================================================== */}
-          {/* BANK OFFERS / COUPON CALLOUT                                     */}
+          {/* FLIPKART "AVAILABLE OFFERS" ACCORDION                            */}
           {/* =============================================================== */}
-          <div className="p-3 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-2.5">
-            <Tag className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
-            <div className="flex-1 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-extrabold text-emerald-900 dark:text-emerald-300">
-                  Extra ₹100 Off On Selected Bank Cards &amp; UPI
-                </span>
-                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 underline cursor-pointer">
-                  T&amp;C
-                </span>
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1638] border border-slate-200/90 dark:border-slate-800 space-y-2.5">
+            <h3 className="font-display font-extrabold text-xs uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Available offers</span>
+            </h3>
+
+            {/* Offer 1 */}
+            <div className="flex items-start gap-2 text-xs">
+              <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+              <div className="flex-1 leading-snug">
+                <span className="font-black text-slate-900 dark:text-slate-100">Bank Offer: </span>
+                <span className="text-slate-700 dark:text-slate-300">5% Unlimited Cashback on AARVO Axis Bank Credit Card </span>
+                <span className="text-[#2418D8] dark:text-[#7B73FF] font-bold text-[10px] cursor-pointer hover:underline">T&amp;C</span>
               </div>
-              <p className="text-[11px] text-emerald-800/80 dark:text-emerald-400/80 mt-0.5">
-                Special Price: Get extra 10% instant discount on order checkout.
-              </p>
             </div>
+
+            {/* Offer 2 */}
+            <div className="flex items-start gap-2 text-xs">
+              <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+              <div className="flex-1 leading-snug">
+                <span className="font-black text-slate-900 dark:text-slate-100">Bank Offer: </span>
+                <span className="text-slate-700 dark:text-slate-300">10% instant discount on SBI &amp; HDFC Bank cards on orders above ₹1,499 </span>
+                <span className="text-[#2418D8] dark:text-[#7B73FF] font-bold text-[10px] cursor-pointer hover:underline">T&amp;C</span>
+              </div>
+            </div>
+
+            {/* Collapsible extra offers */}
+            {showAllOffers && (
+              <div className="space-y-2.5 pt-1 animate-in fade-in duration-200">
+                <div className="flex items-start gap-2 text-xs">
+                  <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 leading-snug">
+                    <span className="font-black text-slate-900 dark:text-slate-100">Special Price: </span>
+                    <span className="text-slate-700 dark:text-slate-300">Get extra ₹150 off on order checkout with coupon AARVO150 </span>
+                    <span className="text-[#2418D8] dark:text-[#7B73FF] font-bold text-[10px] cursor-pointer hover:underline">T&amp;C</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2 text-xs">
+                  <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 leading-snug">
+                    <span className="font-black text-slate-900 dark:text-slate-100">Partner Offer: </span>
+                    <span className="text-slate-700 dark:text-slate-300">Sign-up for AARVO Pay Later &amp; get ₹100 Welcome Gift Card </span>
+                    <span className="text-[#2418D8] dark:text-[#7B73FF] font-bold text-[10px] cursor-pointer hover:underline">Know More</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Accordion expand/collapse toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                haptics.selection();
+                setShowAllOffers(!showAllOffers);
+              }}
+              className="text-xs font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline pt-1 flex items-center gap-1 cursor-pointer"
+            >
+              <span>{showAllOffers ? 'View fewer offers' : '+ 2 more offers'}</span>
+            </button>
           </div>
 
           {/* =============================================================== */}
@@ -966,6 +1047,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           </div>
 
           {/* =============================================================== */}
+          {/* =============================================================== */}
           {/* HIGHLIGHTS & PRODUCT DETAILS                                    */}
           {/* =============================================================== */}
           <div className="space-y-2">
@@ -983,6 +1065,43 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </li>
               ))}
             </ul>
+          </div>
+
+          {/* Flipkart-style 2-Column Specifications Table */}
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1638] border border-slate-200/90 dark:border-slate-800 space-y-2">
+            <h3 className="font-display font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-white flex items-center justify-between">
+              <span>Specifications</span>
+              <span className="text-[10px] font-bold text-[#2418D8] dark:text-[#7B73FF]">All details</span>
+            </h3>
+
+            <div className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
+              <div className="grid grid-cols-2 py-1.5">
+                <span className="text-slate-500 dark:text-slate-400">Category</span>
+                <span className="font-semibold text-slate-900 dark:text-white">{product.category}</span>
+              </div>
+              {product.fabric && (
+                <div className="grid grid-cols-2 py-1.5">
+                  <span className="text-slate-500 dark:text-slate-400">Fabric</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{product.fabric}</span>
+                </div>
+              )}
+              <div className="grid grid-cols-2 py-1.5">
+                <span className="text-slate-500 dark:text-slate-400">Country of Origin</span>
+                <span className="font-semibold text-slate-900 dark:text-white">India</span>
+              </div>
+              <div className="grid grid-cols-2 py-1.5">
+                <span className="text-slate-500 dark:text-slate-400">Generic Name</span>
+                <span className="font-semibold text-slate-900 dark:text-white">{product.name}</span>
+              </div>
+              <div className="grid grid-cols-2 py-1.5">
+                <span className="text-slate-500 dark:text-slate-400">Cash on Delivery</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">Available (COD)</span>
+              </div>
+              <div className="grid grid-cols-2 py-1.5">
+                <span className="text-slate-500 dark:text-slate-400">Manufacturer</span>
+                <span className="font-semibold text-slate-900 dark:text-white">{product.seller}</span>
+              </div>
+            </div>
           </div>
 
           {/* Full Description */}
@@ -1041,6 +1160,58 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
                 <span>{showReviewForm ? 'Cancel' : 'Rate Product'}</span>
               </button>
+            </div>
+
+            {/* Flipkart-style Ratings Breakdown with Progress Bars */}
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#15112B] border border-slate-100 dark:border-slate-800/80 flex items-center gap-4">
+              <div className="text-center shrink-0 pr-3 border-r border-slate-200 dark:border-slate-800">
+                <div className="text-2xl font-black text-slate-900 dark:text-white flex items-center justify-center gap-1">
+                  <span>{product.rating > 0 ? product.rating.toFixed(1) : '4.5'}</span>
+                  <Star className="w-4 h-4 fill-emerald-600 text-emerald-600" />
+                </div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                  {product.reviewsCount > 0 ? `${product.reviewsCount} Ratings` : '50+ Ratings'}
+                </span>
+              </div>
+
+              {/* Progress bars (5★ down to 1★) */}
+              <div className="flex-1 space-y-1 text-[10px]">
+                <div className="flex items-center gap-2">
+                  <span className="w-4 font-bold text-slate-600 dark:text-slate-400">5★</span>
+                  <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-600 rounded-full" style={{ width: '68%' }} />
+                  </div>
+                  <span className="w-6 text-right font-medium text-slate-400">68%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 font-bold text-slate-600 dark:text-slate-400">4★</span>
+                  <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: '20%' }} />
+                  </div>
+                  <span className="w-6 text-right font-medium text-slate-400">20%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 font-bold text-slate-600 dark:text-slate-400">3★</span>
+                  <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-500 rounded-full" style={{ width: '7%' }} />
+                  </div>
+                  <span className="w-6 text-right font-medium text-slate-400">7%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 font-bold text-slate-600 dark:text-slate-400">2★</span>
+                  <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-orange-500 rounded-full" style={{ width: '3%' }} />
+                  </div>
+                  <span className="w-6 text-right font-medium text-slate-400">3%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 font-bold text-slate-600 dark:text-slate-400">1★</span>
+                  <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-rose-500 rounded-full" style={{ width: '2%' }} />
+                  </div>
+                  <span className="w-6 text-right font-medium text-slate-400">2%</span>
+                </div>
+              </div>
             </div>
 
             {/* Review Success Confirmation Banner */}

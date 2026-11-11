@@ -1868,165 +1868,215 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         {/* ================================================================= */}
         {/* TAB 2: CATEGORIES VIEW                                            */}
         {/* ================================================================= */}
+        {/* ================================================================= */}
+        {/* TAB 2: FLIPKART-STYLE 2-PANE CATEGORIES EXPLORER                  */}
+        {/* ================================================================= */}
         {activeTab === 'categories' && (
-          <div className="flex-1 flex flex-col p-3 pb-6">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h2 className="font-display font-black text-lg text-slate-900 dark:text-white">
-                  Explore Categories
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Browse verified collections with direct doorstep delivery
-                </p>
-              </div>
-            </div>
-
-            {/* Category horizontal selector pills */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none mb-3">
-              <button
-                onClick={() => setSelectedCategory('All')}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition-colors ${
-                  selectedCategory === 'All'
-                    ? 'bg-[#2418D8] text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                }`}
-              >
-                All Products
-              </button>
-              {categories.map((cat, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedCategory(cat.name)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition-colors ${
-                    selectedCategory === cat.name
-                      ? 'bg-[#2418D8] text-white shadow-xs'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
-
-            {/* Products Listing in Selected Category */}
-            {filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3">
-                {filteredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  onClick={() => {
-                    haptics.light();
-                    setSelectedProduct(product);
-                  }}
-                  className="bg-white dark:bg-[#1A1633] rounded-2xl p-2.5 border border-slate-100 dark:border-slate-800/80 shadow-xs flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group"
-                >
-                  <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 mb-2">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                    {product.originalPrice > product.price && (
-                      <span className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
-                        {product.discount}
-                      </span>
-                    )}
-
-                    {/* Heart-shaped Wishlist Toggle Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleWishlist(product.id, product.name);
-                      }}
-                      aria-label={wishlist.includes(product.id) ? 'Remove from Wishlist' : 'Add to Wishlist'}
-                      title={wishlist.includes(product.id) ? 'Remove from Wishlist' : 'Add to Wishlist'}
-                      className={`absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 active:scale-75 shadow-xs z-10 cursor-pointer ${
-                        wishlist.includes(product.id)
-                          ? 'bg-rose-50 dark:bg-rose-950/90 text-rose-500 scale-105'
-                          : 'bg-white/85 dark:bg-slate-900/85 backdrop-blur-xs text-slate-400 dark:text-slate-300 hover:text-rose-500 hover:bg-white dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      <Heart
-                        className={`w-3.5 h-3.5 transition-colors ${
-                          wishlist.includes(product.id)
-                            ? 'fill-rose-500 stroke-rose-500'
-                            : 'stroke-current fill-none'
-                        }`}
-                      />
-                    </button>
-
-                  </div>
-
-                  <div>
-                    <span className="text-[10px] font-bold text-[#2418D8] dark:text-[#7B73FF] uppercase tracking-wider block mb-0.5">
-                      {product.category}
-                    </span>
-                    <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
-                      {product.name}
-                    </h4>
-
-                    <div className="flex items-center gap-1 my-1">
-                      <span className="flex items-center gap-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold px-1.5 py-0.5 rounded">
-                        <span>{product.rating}</span>
-                        <Star className="w-2.5 h-2.5 fill-current text-emerald-600 dark:text-emerald-400" />
-                      </span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                        ({product.reviewsCount})
-                      </span>
-                    </div>
-
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-sm font-black text-slate-900 dark:text-white">
-                        ₹{product.price.toLocaleString('en-IN')}
-                      </span>
-                      {product.originalPrice > product.price && (
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500 line-through">
-                          ₹{product.originalPrice.toLocaleString('en-IN')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addToCart(product);
-                    }}
-                    className="mt-2.5 w-full py-1.5 bg-[#2418D8] hover:bg-[#1A10B3] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-xs"
-                  >
-                    <ShoppingCart className="w-3.5 h-3.5" />
-                    <span>Add to Cart</span>
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-12 px-4 text-center bg-slate-50 dark:bg-[#1A1633] rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-              <div className="w-12 h-12 mx-auto rounded-full bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center text-slate-400 mb-3">
-                <Search className="w-6 h-6 stroke-[1.5]" />
-              </div>
-              <h4 className="font-bold text-sm text-slate-800 dark:text-white mb-1">
-                No products found
-              </h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[260px] mx-auto mb-4">
-                No items match your filter. Try exploring all products or choose another category.
-              </p>
+          <div className="flex-1 flex overflow-hidden bg-white dark:bg-[#120F26]">
+            {/* Left Vertical Category Rail (Flipkart signature) */}
+            <aside className="w-20 sm:w-24 shrink-0 overflow-y-auto no-scrollbar border-r border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-[#120F26] divide-y divide-slate-100 dark:divide-slate-800/60">
+              {/* All Products Option */}
               <button
                 type="button"
                 onClick={() => {
-                  haptics.light();
+                  haptics.selection();
                   setSelectedCategory('All');
-                  setSearchQuery('');
                 }}
-                className="px-4 py-2 bg-[#2418D8] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#1A10B3] active:scale-95 transition-all"
+                className={`w-full py-3 px-1.5 flex flex-col items-center text-center transition-all cursor-pointer ${
+                  selectedCategory === 'All'
+                    ? 'bg-white dark:bg-[#1A1633] text-[#2418D8] dark:text-[#7B73FF] font-black border-l-4 border-[#2418D8] shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800/40 font-medium'
+                }`}
               >
-                View All Products
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-1 text-base ${
+                  selectedCategory === 'All'
+                    ? 'bg-[#2418D8] text-white shadow-xs'
+                    : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                }`}>
+                  <LayoutGrid className="w-5 h-5 stroke-[2.2]" />
+                </div>
+                <span className="text-[10px] leading-tight line-clamp-1">All</span>
               </button>
+
+              {/* Categorised Rail Items */}
+              {categories.map((cat, idx) => {
+                const isCatActive = selectedCategory === cat.name;
+                const IconComponent = cat.icon;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      haptics.selection();
+                      setSelectedCategory(cat.name);
+                    }}
+                    className={`w-full py-3 px-1 flex flex-col items-center text-center transition-all cursor-pointer ${
+                      isCatActive
+                        ? 'bg-white dark:bg-[#1A1633] text-[#2418D8] dark:text-[#7B73FF] font-black border-l-4 border-[#2418D8] shadow-2xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800/40 font-medium'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-1 transition-transform ${
+                      isCatActive ? 'scale-105 shadow-xs ring-2 ring-[#2418D8]/20' : ''
+                    } ${cat.color}`}>
+                      <IconComponent className="w-5 h-5 stroke-[2.2]" />
+                    </div>
+                    <span className="text-[10px] leading-tight line-clamp-2 px-0.5">
+                      {cat.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </aside>
+
+            {/* Right Pane: Subcategories & Product Cards Grid */}
+            <div className="flex-1 overflow-y-auto p-2.5 pb-24 no-scrollbar space-y-2.5">
+              {/* Category Header Banner */}
+              <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-[#1A1633] border border-slate-100 dark:border-slate-800/70">
+                <div>
+                  <h3 className="font-display font-black text-xs text-slate-900 dark:text-white uppercase tracking-wider">
+                    {selectedCategory === 'All' ? 'All Collections' : selectedCategory}
+                  </h3>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                    {filteredProducts.length} items available
+                  </span>
+                </div>
+                <span className="text-[9px] font-black text-[#2418D8] dark:text-[#7B73FF] bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-900/60">
+                  ⚡ Express
+                </span>
+              </div>
+
+              {/* Products Listing Grid (2-column Flipkart layout) */}
+              {filteredProducts.length > 0 ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {filteredProducts.map((product) => (
+                    <div
+                      key={product.id}
+                      onClick={() => {
+                        haptics.light();
+                        setSelectedProduct(product);
+                      }}
+                      className="bg-white dark:bg-[#1A1633] rounded-2xl p-2 border border-slate-100 dark:border-slate-800/80 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group active:scale-[0.98]"
+                    >
+                      {/* Product Image Zone */}
+                      <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 mb-1.5">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        {product.originalPrice > product.price && (
+                          <span className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                            {product.discount}
+                          </span>
+                        )}
+
+                        {/* Heart Wishlist Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleWishlist(product.id, product.name);
+                          }}
+                          aria-label={wishlist.includes(product.id) ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                          className={`absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 active:scale-75 shadow-xs z-10 cursor-pointer ${
+                            wishlist.includes(product.id)
+                              ? 'bg-rose-50 dark:bg-rose-950/90 text-rose-500 scale-105'
+                              : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs text-slate-400 dark:text-slate-300 hover:text-rose-500'
+                          }`}
+                        >
+                          <Heart
+                            className={`w-3.5 h-3.5 ${
+                              wishlist.includes(product.id)
+                                ? 'fill-rose-500 stroke-rose-500'
+                                : 'stroke-current fill-none'
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Info Zone */}
+                      <div className="flex-1 flex flex-col justify-between">
+                        <div>
+                          <span className="text-[9px] font-black text-[#2418D8] dark:text-[#7B73FF] uppercase tracking-wider block">
+                            {product.category}
+                          </span>
+                          <h4 className="text-[11px] font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
+                            {product.name}
+                          </h4>
+
+                          {/* Ratings + Assured badge */}
+                          <div className="flex items-center gap-1 my-1">
+                            {product.reviewsCount > 0 ? (
+                              <span className="flex items-center gap-0.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded">
+                                <span>{product.rating.toFixed(1)}</span>
+                                <Star className="w-2 h-2 fill-white text-white" />
+                              </span>
+                            ) : (
+                              <span className="text-[9px] text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/40 px-1 rounded">
+                                New
+                              </span>
+                            )}
+                            <span className="text-[9px] text-slate-400">
+                              ({product.reviewsCount})
+                            </span>
+                          </div>
+
+                          {/* Price Row */}
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-xs font-black text-slate-900 dark:text-white">
+                              ₹{product.price.toLocaleString('en-IN')}
+                            </span>
+                            {product.originalPrice > product.price && (
+                              <span className="text-[9px] text-slate-400 line-through">
+                                ₹{product.originalPrice.toLocaleString('en-IN')}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold block">
+                            FREE Delivery
+                          </span>
+                        </div>
+
+                        {/* Add to Cart Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToCart(product);
+                          }}
+                          className="mt-2 w-full py-1.5 bg-[#2418D8] hover:bg-[#1A10B3] text-white text-[11px] font-extrabold rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-all shadow-2xs cursor-pointer"
+                        >
+                          <ShoppingCart className="w-3 h-3" />
+                          <span>Add to Cart</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 px-3 text-center bg-slate-50 dark:bg-[#1A1633] rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                  <div className="w-10 h-10 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-2">
+                    <Search className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-xs text-slate-800 dark:text-white mb-1">
+                    No items in this category
+                  </h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-3">
+                    Try choosing another category from the left rail.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategory('All')}
+                    className="px-3 py-1.5 bg-[#2418D8] text-white text-xs font-bold rounded-xl"
+                  >
+                    View All Products
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
 
         {/* ================================================================= */}
         {/* TAB 3: OFFERS VIEW                                                */}
@@ -2251,62 +2301,102 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   {cartItems.map((item) => (
                     <div
                       key={item.product.id}
-                      className="bg-white dark:bg-[#1A1633] rounded-2xl p-3 border border-slate-100 dark:border-slate-800/80 shadow-xs flex gap-3"
+                      className="bg-white dark:bg-[#1A1633] rounded-2xl p-3 border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-2.5"
                     >
-                      <div className="w-20 h-20 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 shrink-0">
-                        <img
-                          src={item.product.image}
-                          alt={item.product.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
+                      <div className="flex gap-3">
+                        <div className="w-20 h-20 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 shrink-0 border border-slate-100 dark:border-slate-800">
+                          <img
+                            src={item.product.image}
+                            alt={item.product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
 
-                      <div className="flex-1 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-start justify-between gap-1">
-                            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-1">
+                        <div className="flex-1 min-w-0 flex flex-col justify-between">
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
                               {item.product.name}
                             </h4>
-                            <button
-                              onClick={() => removeFromCart(item.product.id)}
-                              className="text-slate-400 hover:text-rose-500 p-0.5"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                          <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
-                            Seller: {item.product.seller}
-                          </span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                              Seller: {item.product.seller}
+                            </span>
 
-                          <div className="flex items-baseline gap-1.5 mt-1">
-                            <span className="text-sm font-black text-slate-900 dark:text-white">
-                              ₹{(item.product.price * item.quantity).toLocaleString('en-IN')}
+                            <div className="flex items-baseline gap-1.5 mt-1">
+                              <span className="text-sm font-black text-slate-900 dark:text-white">
+                                ₹{(item.product.price * item.quantity).toLocaleString('en-IN')}
+                              </span>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 line-through">
+                                ₹{(item.product.originalPrice * item.quantity).toLocaleString('en-IN')}
+                              </span>
+                              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                {item.product.discount}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">
+                            <Truck className="w-3 h-3 text-emerald-600" />
+                            <span>Delivery by Tomorrow | FREE</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Stepper & Actions (Flipkart signature) */}
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/80 text-xs">
+                        {/* Quantity Stepper */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Qty:</span>
+                          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                haptics.light();
+                                updateCartQuantity(item.product.id, -1);
+                              }}
+                              className="w-5 h-5 rounded flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="text-xs font-black min-w-[14px] text-center dark:text-white">
+                              {item.quantity}
                             </span>
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 line-through">
-                              ₹{(item.product.originalPrice * item.quantity).toLocaleString('en-IN')}
-                            </span>
-                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                              {item.product.discount}
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                haptics.light();
+                                updateCartQuantity(item.product.id, 1);
+                              }}
+                              className="w-5 h-5 rounded flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
                           </div>
                         </div>
 
-                        {/* Quantity Stepper */}
-                        <div className="flex items-center gap-2 mt-2">
+                        {/* Save for later & Remove */}
+                        <div className="flex items-center gap-3">
                           <button
-                            onClick={() => updateCartQuantity(item.product.id, -1)}
-                            className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center font-bold"
+                            type="button"
+                            onClick={() => {
+                              haptics.selection();
+                              toggleWishlist(item.product.id, item.product.name);
+                              showToast(`Saved ${item.product.name} for later! ❤️`);
+                            }}
+                            className="text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:text-[#2418D8] dark:hover:text-[#7B73FF] cursor-pointer"
                           >
-                            <Minus className="w-3 h-3" />
+                            Save for later
                           </button>
-                          <span className="text-xs font-extrabold w-4 text-center dark:text-white">
-                            {item.quantity}
-                          </span>
+                          <span className="text-slate-300 dark:text-slate-700">|</span>
                           <button
-                            onClick={() => updateCartQuantity(item.product.id, 1)}
-                            className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center font-bold"
+                            type="button"
+                            onClick={() => {
+                              haptics.light();
+                              removeFromCart(item.product.id);
+                            }}
+                            className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer flex items-center gap-1"
                           >
-                            <Plus className="w-3 h-3" />
+                            <Trash2 className="w-3 h-3" />
+                            <span>Remove</span>
                           </button>
                         </div>
                       </div>
@@ -2502,49 +2592,66 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   )}
                 </div>
 
-                {/* Place Order CTA Button */}
-                <button
-                  onClick={() => {
-                    haptics.impact();
-                    const orderId = `ARV-${Math.floor(100000 + Math.random() * 900000)}`;
-                    const chosenPayment = paymentMethodSelection === 'COD'
-                      ? 'Cash On Delivery (COD)'
-                      : `Online UPI (${selectedUpiApp}${selectedUpiApp === 'Custom UPI' && customUpiId ? `: ${customUpiId}` : ''})`;
-                    const newOrder: Order = {
-                      id: orderId,
-                      date: 'Today, Just now',
-                      total: finalPayable,
-                      status: 'Processing',
-                      statusStep: 1,
-                      estimatedDelivery: 'Arriving in 2-3 Business Days',
-                      trackingNumber: `AARVO-EXP-${Math.floor(1000000 + Math.random() * 9000000)}`,
-                      carrier: 'AARVO Express FastTrack',
-                      paymentMethod: chosenPayment,
-                      deliveryAddress: 'Flat 402, Green Glen Heights, Outer Ring Road, Bangalore - 560103',
-                      items: cartItems.map((ci) => ({
-                        id: ci.product.id,
-                        name: ci.product.name,
-                        price: ci.product.price,
-                        quantity: ci.quantity,
-                        image: ci.product.image,
-                        category: ci.product.category,
-                      })),
-                      timeline: [
-                        { status: 'Order Verified', time: 'Just now', description: `Order verified via ${chosenPayment}`, completed: true },
-                        { status: 'Processing at Warehouse', time: 'In progress', description: 'Seller preparing package for courier handover', completed: false },
-                        { status: 'Shipped', time: 'Pending', description: 'Will dispatch to local distribution center', completed: false },
-                        { status: 'Delivered', time: 'Expected in 2-3 days', description: 'Doorstep delivery with OTP verification', completed: false },
-                      ],
-                    };
-                    setOrders((prev) => [newOrder, ...prev]);
-                    setOrderSuccessModal(orderId);
-                    setCartItems([]);
-                  }}
-                  className="w-full py-3.5 bg-gradient-to-r from-[#2418D8] to-[#4514B8] text-white font-black text-sm rounded-2xl shadow-lg hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Package className="w-4 h-4" />
-                  <span>Place Order &bull; ₹{finalPayable.toLocaleString('en-IN')}</span>
-                </button>
+                {/* Flipkart-Style Sticky Checkout Bottom Bar */}
+                <div className="sticky bottom-14 left-0 right-0 z-30 -mx-3 -mb-6 p-3 bg-white/95 dark:bg-[#14112B]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800 flex items-center justify-between shadow-xl">
+                  <div>
+                    <span className="text-base font-black text-slate-900 dark:text-white font-display block">
+                      ₹{finalPayable.toLocaleString('en-IN')}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => showToast(`Total Savings: ₹${(totalDiscount + couponDiscount).toLocaleString('en-IN')}`)}
+                      className="text-[10px] font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline cursor-pointer"
+                    >
+                      View price details
+                    </button>
+                  </div>
+
+                  {/* Place Order CTA Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptics.impact();
+                      const orderId = `ARV-${Math.floor(100000 + Math.random() * 900000)}`;
+                      const chosenPayment = paymentMethodSelection === 'COD'
+                        ? 'Cash On Delivery (COD)'
+                        : `Online UPI (${selectedUpiApp}${selectedUpiApp === 'Custom UPI' && customUpiId ? `: ${customUpiId}` : ''})`;
+                      const newOrder: Order = {
+                        id: orderId,
+                        date: 'Today, Just now',
+                        total: finalPayable,
+                        status: 'Processing',
+                        statusStep: 1,
+                        estimatedDelivery: 'Arriving in 2-3 Business Days',
+                        trackingNumber: `AARVO-EXP-${Math.floor(1000000 + Math.random() * 9000000)}`,
+                        carrier: 'AARVO Express FastTrack',
+                        paymentMethod: chosenPayment,
+                        deliveryAddress: 'Flat 402, Green Glen Heights, Outer Ring Road, Bangalore - 560103',
+                        items: cartItems.map((ci) => ({
+                          id: ci.product.id,
+                          name: ci.product.name,
+                          price: ci.product.price,
+                          quantity: ci.quantity,
+                          image: ci.product.image,
+                          category: ci.product.category,
+                        })),
+                        timeline: [
+                          { status: 'Order Verified', time: 'Just now', description: `Order verified via ${chosenPayment}`, completed: true },
+                          { status: 'Processing at Warehouse', time: 'In progress', description: 'Seller preparing package for courier handover', completed: false },
+                          { status: 'Shipped', time: 'Pending', description: 'Will dispatch to local distribution center', completed: false },
+                          { status: 'Delivered', time: 'Expected in 2-3 days', description: 'Doorstep delivery with OTP verification', completed: false },
+                        ],
+                      };
+                      setOrders((prev) => [newOrder, ...prev]);
+                      setOrderSuccessModal(orderId);
+                      setCartItems([]);
+                    }}
+                    className="py-3 px-6 bg-[#2418D8] hover:bg-[#1A10B3] text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>Place Order</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -2553,110 +2660,197 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         {/* ================================================================= */}
         {/* TAB 5: ACCOUNT VIEW                                               */}
         {/* ================================================================= */}
+        {/* ================================================================= */}
+        {/* TAB 5: FLIPKART-STYLE ACCOUNT VIEW                                */}
+        {/* ================================================================= */}
         {activeTab === 'account' && (
-          <div className="flex-1 flex flex-col p-4 pb-6 space-y-4">
-            {/* User Profile Card */}
-            <div className="rounded-2xl bg-gradient-to-r from-[#2418D8] to-[#4B16D8] p-4 text-white shadow-md flex items-center gap-3">
-              <div className="w-14 h-14 rounded-full bg-white/20 border-2 border-white flex items-center justify-center font-display font-black text-xl">
-                SP
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <h3 className="font-display font-black text-base">Saurav Paswan</h3>
-                  <span className="bg-amber-400 text-slate-900 text-[9px] font-black px-1.5 py-0.5 rounded">
-                    PRO
-                  </span>
+          <div className="flex-1 flex flex-col p-3 pb-24 space-y-3.5 no-scrollbar overflow-y-auto">
+            {/* 1. Flipkart-style Profile Header Card */}
+            <div className="rounded-2xl bg-gradient-to-r from-[#2418D8] via-[#3B28E6] to-[#601FE0] p-4 text-white shadow-md flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-13 h-13 rounded-full bg-white/20 border-2 border-white/80 flex items-center justify-center font-display font-black text-lg shadow-xs">
+                  SP
                 </div>
-                <p className="text-xs text-purple-200">+91 9876543210</p>
-                <p className="text-[10px] text-emerald-300 font-semibold mt-0.5">
-                  ✓ Verified Aarvo Shopper
-                </p>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-display font-black text-sm sm:text-base">Saurav Paswan</h3>
+                    <span className="bg-[#FFC200] text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded-sm shadow-2xs">
+                      PLUS
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-purple-200">+91 9876543210</p>
+                  <p className="text-[10px] text-emerald-300 font-bold flex items-center gap-1 mt-0.5">
+                    <ShieldCheck className="w-3 h-3 text-emerald-300" />
+                    <span>Verified AARVO Member</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* SuperCoins Badge in Profile */}
+              <div className="bg-white/15 backdrop-blur-md px-3 py-2 rounded-xl text-center border border-white/20">
+                <span className="text-[10px] text-amber-300 font-extrabold uppercase block">
+                  🪙 SuperCoins
+                </span>
+                <span className="text-sm font-black text-white">240</span>
               </div>
             </div>
 
-            {/* Quick Actions */}
+            {/* 2. Flipkart 4-Action Quick Tiles (Orders, Wishlist, Coupons, Help Center) */}
             <div className="grid grid-cols-2 gap-2.5">
-              <div className="bg-white dark:bg-[#1A1633] p-3 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xs">
-                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">
-                  SuperCoins
-                </span>
-                <p className="text-base font-black text-[#2418D8] dark:text-[#7B73FF] mt-0.5">🪙 240 Coins</p>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Worth ₹240</span>
-              </div>
-              <div className="bg-white dark:bg-[#1A1633] p-3 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xs">
-                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">
-                  Saved Wishlist
-                </span>
-                <p className="text-base font-black text-slate-800 dark:text-slate-100 mt-0.5">❤️ 5 Items</p>
-                <span className="text-[10px] text-[#2418D8] dark:text-[#7B73FF] font-semibold">View Saved</span>
-              </div>
-            </div>
-
-            {/* Theme Toggle Card in Account */}
-            {onToggleTheme && (
-              <div className="bg-white dark:bg-[#1A1633] rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-xs flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-[#2418D8] dark:text-[#7B73FF] flex items-center justify-center">
-                    {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">App Appearance</h4>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                      Currently using {theme === 'dark' ? 'Dark' : 'Light'} theme
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={onToggleTheme}
-                  className="px-3 py-1.5 bg-[#2418D8] text-white text-[11px] font-bold rounded-xl shadow-xs active:scale-95 transition-transform"
-                >
-                  {theme === 'dark' ? 'Switch Light' : 'Switch Dark'}
-                </button>
-              </div>
-            )}
-
-            {/* Account Settings List */}
-            <div className="bg-white dark:bg-[#1A1633] rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xs divide-y divide-slate-100 dark:divide-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200">
+              {/* Tile 1: Orders */}
               <button
+                type="button"
                 onClick={() => {
                   haptics.selection();
                   setIsOrdersViewOpen(true);
                 }}
-                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 flex items-center justify-between transition-colors cursor-pointer"
+                className="p-3.5 bg-white dark:bg-[#1A1633] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-sm active:scale-95 transition-all text-left flex items-start justify-between cursor-pointer group"
               >
-                <div className="flex items-center gap-3">
-                  <Package className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF]" />
-                  <span>Orders &amp; Delivery Tracking</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] bg-blue-50 dark:bg-blue-950/60 text-[#2418D8] dark:text-[#7B73FF] font-bold px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-900/50">
+                <div>
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#2418D8] dark:text-[#7B73FF] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                    <Package className="w-4 h-4 stroke-[2.2]" />
+                  </div>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white">Orders</h4>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
                     {orders.filter((o) => o.status === 'Processing' || o.status === 'Shipped').length > 0
-                      ? `${orders.filter((o) => o.status === 'Processing' || o.status === 'Shipped').length} Active`
-                      : `${orders.length} Orders`}
+                      ? `${orders.filter((o) => o.status === 'Processing' || o.status === 'Shipped').length} Active Order`
+                      : `${orders.length} Total Orders`}
                   </span>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
                 </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 mt-1" />
               </button>
 
+              {/* Tile 2: Wishlist */}
               <button
-                onClick={() => showToast(`You have ${wishlist.length} item(s) in your Wishlist ❤️`)}
-                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 flex items-center justify-between transition-colors"
+                type="button"
+                onClick={() => {
+                  haptics.selection();
+                  showToast(`You have ${wishlist.length} item(s) in your Wishlist ❤️`);
+                }}
+                className="p-3.5 bg-white dark:bg-[#1A1633] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-sm active:scale-95 transition-all text-left flex items-start justify-between cursor-pointer group"
               >
-                <div className="flex items-center gap-3">
-                  <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
-                  <span>My Wishlist &amp; Saved Items</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-bold px-2 py-0.5 rounded-full">
-                    {wishlist.length} items
+                <div>
+                  <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                    <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
+                  </div>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white">Wishlist</h4>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                    {wishlist.length} items saved
                   </span>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
                 </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 mt-1" />
               </button>
 
+              {/* Tile 3: Coupons */}
               <button
-                onClick={() => showToast('Saved address: New Delhi, 110001')}
-                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 flex items-center justify-between transition-colors"
+                type="button"
+                onClick={() => {
+                  haptics.selection();
+                  showToast('Coupon code AARVO200 available for ₹200 instant off! 🏷️');
+                }}
+                className="p-3.5 bg-white dark:bg-[#1A1633] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-sm active:scale-95 transition-all text-left flex items-start justify-between cursor-pointer group"
+              >
+                <div>
+                  <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                    <Tag className="w-4 h-4 stroke-[2.2]" />
+                  </div>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white">Coupons</h4>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                    2 Active Offers
+                  </span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 mt-1" />
+              </button>
+
+              {/* Tile 4: Help Center */}
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.selection();
+                  showToast('AARVO 24x7 Helpdesk: Call 1800-202-9898 or chat with support.');
+                }}
+                className="p-3.5 bg-white dark:bg-[#1A1633] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-sm active:scale-95 transition-all text-left flex items-start justify-between cursor-pointer group"
+              >
+                <div>
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                    <Store className="w-4 h-4 stroke-[2.2]" />
+                  </div>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white">Help Center</h4>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                    24x7 Assistance
+                  </span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 mt-1" />
+              </button>
+            </div>
+
+            {/* 3. Flipkart-style Credit Options (Pay Later & Co-branded Card) */}
+            <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1633] border border-slate-200/90 dark:border-slate-800 space-y-3 shadow-2xs">
+              <h4 className="font-display font-black text-xs uppercase tracking-wider text-slate-900 dark:text-white">
+                Credit Options
+              </h4>
+
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
+                {/* Pay Later */}
+                <div className="py-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-[#2418D8] dark:text-[#7B73FF] flex items-center justify-center font-bold">
+                      💳
+                    </div>
+                    <div>
+                      <span className="font-extrabold text-slate-900 dark:text-white block">
+                        AARVO Pay Later
+                      </span>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                        Pre-approved limit ₹15,000
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => showToast('AARVO Pay Later is active for your account!')}
+                    className="text-[11px] font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline cursor-pointer"
+                  >
+                    View Limit &gt;
+                  </button>
+                </div>
+
+                {/* Co-branded Credit Card */}
+                <div className="py-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#2418D8] dark:text-[#7B73FF] flex items-center justify-center font-bold">
+                      ⚡
+                    </div>
+                    <div>
+                      <span className="font-extrabold text-slate-900 dark:text-white block">
+                        AARVO Axis Bank Credit Card
+                      </span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                        5% Unlimited Cashback on every purchase
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => showToast('Application status: Eligible! Instant approval available.')}
+                    className="text-[11px] font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline cursor-pointer"
+                  >
+                    Apply Now &gt;
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Flipkart-style Account Settings List */}
+            <div className="bg-white dark:bg-[#1A1633] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs divide-y divide-slate-100 dark:divide-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 overflow-hidden">
+              <h4 className="px-4 pt-3 pb-1 font-display font-black text-xs uppercase tracking-wider text-slate-900 dark:text-white">
+                Account Settings
+              </h4>
+
+              <button
+                type="button"
+                onClick={() => showToast('Saved address: 24B, Model Town, Phase 2, Patna - 800001')}
+                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 flex items-center justify-between transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3">
                   <MapPin className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF]" />
@@ -2666,6 +2860,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setSellerModalTab('overview');
                   setIsSellerModalOpen(true);
@@ -2675,7 +2870,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 <div className="flex items-center gap-3">
                   <Store className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   <div className="flex items-center gap-1.5">
-                    <span>Seller Overview &amp; Hub</span>
+                    <span>Seller Hub &amp; Catalog Management</span>
                     {allProducts.filter((p) => (p.stockQuantity ?? 10) < 5).length > 0 && (
                       <span className="text-[9px] bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 font-extrabold px-1.5 py-0.5 rounded-full">
                         {allProducts.filter((p) => (p.stockQuantity ?? 10) < 5).length} Low Stock
@@ -2685,19 +2880,42 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold">
-                    Dashboard
+                    Seller Panel
                   </span>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </div>
               </button>
+
+              {/* Theme Toggle Card in Account */}
+              {onToggleTheme && (
+                <div className="w-full px-4 py-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/50 text-[#2418D8] dark:text-[#7B73FF] flex items-center justify-center">
+                      {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 dark:text-white block">Theme Mode</span>
+                      <span className="text-[10px] text-slate-400">Currently: {theme === 'dark' ? 'Dark' : 'Light'}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onToggleTheme}
+                    className="px-2.5 py-1 bg-[#2418D8] text-white text-[10px] font-bold rounded-lg shadow-2xs active:scale-95 transition-transform cursor-pointer"
+                  >
+                    Toggle
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Logout button */}
             <button
+              type="button"
               onClick={() => {
                 if (onLogout) onLogout();
               }}
-              className="w-full py-3 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-bold text-xs rounded-2xl transition-colors text-center"
+              className="w-full py-3 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-bold text-xs rounded-2xl transition-colors text-center cursor-pointer shadow-2xs"
             >
               Sign Out / Switch Account
             </button>
