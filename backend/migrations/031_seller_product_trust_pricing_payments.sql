@@ -5,8 +5,8 @@ ALTER TABLE products
   ADD COLUMN IF NOT EXISTS delivery_fee_paise INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS warranty_period_months INTEGER,
   ADD COLUMN IF NOT EXISTS guarantee_period_months INTEGER,
-  ADD COLUMN IF NOT EXISTS online_payment_enabled BOOLEAN NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS cod_enabled BOOLEAN NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS online_payment_enabled BOOLEAN,
+  ADD COLUMN IF NOT EXISTS cod_enabled BOOLEAN;
 
 DO $$
 BEGIN
