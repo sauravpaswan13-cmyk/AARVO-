@@ -783,72 +783,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           </div>
 
-          {/* =============================================================== */}
-          {/* FLIPKART "AVAILABLE OFFERS" ACCORDION                            */}
-          {/* =============================================================== */}
-          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1638] border border-slate-200/90 dark:border-slate-800 space-y-2.5">
-            <h3 className="font-display font-extrabold text-xs uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Available offers</span>
-            </h3>
-
-            {/* Offer 1 */}
-            <div className="flex items-start gap-2 text-xs">
-              <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-              <div className="flex-1 leading-snug">
-                <span className="font-black text-slate-900 dark:text-slate-100">Bank Offer: </span>
-                <span className="text-slate-700 dark:text-slate-300">5% Unlimited Cashback on AARVO Axis Bank Credit Card </span>
-                <span className="text-[#2418D8] dark:text-[#7B73FF] font-bold text-[10px] cursor-pointer hover:underline">T&amp;C</span>
-              </div>
-            </div>
-
-            {/* Offer 2 */}
-            <div className="flex items-start gap-2 text-xs">
-              <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-              <div className="flex-1 leading-snug">
-                <span className="font-black text-slate-900 dark:text-slate-100">Bank Offer: </span>
-                <span className="text-slate-700 dark:text-slate-300">10% instant discount on SBI &amp; HDFC Bank cards on orders above ₹1,499 </span>
-                <span className="text-[#2418D8] dark:text-[#7B73FF] font-bold text-[10px] cursor-pointer hover:underline">T&amp;C</span>
-              </div>
-            </div>
-
-            {/* Collapsible extra offers */}
-            {showAllOffers && (
-              <div className="space-y-2.5 pt-1 animate-in fade-in duration-200">
-                <div className="flex items-start gap-2 text-xs">
-                  <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                  <div className="flex-1 leading-snug">
-                    <span className="font-black text-slate-900 dark:text-slate-100">Special Price: </span>
-                    <span className="text-slate-700 dark:text-slate-300">Get extra ₹150 off on order checkout with coupon AARVO150 </span>
-                    <span className="text-[#2418D8] dark:text-[#7B73FF] font-bold text-[10px] cursor-pointer hover:underline">T&amp;C</span>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2 text-xs">
-                  <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                  <div className="flex-1 leading-snug">
-                    <span className="font-black text-slate-900 dark:text-slate-100">Partner Offer: </span>
-                    <span className="text-slate-700 dark:text-slate-300">Sign-up for AARVO Pay Later &amp; get ₹100 Welcome Gift Card </span>
-                    <span className="text-[#2418D8] dark:text-[#7B73FF] font-bold text-[10px] cursor-pointer hover:underline">Know More</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Accordion expand/collapse toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                haptics.selection();
-                setShowAllOffers(!showAllOffers);
-              }}
-              className="text-xs font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline pt-1 flex items-center gap-1 cursor-pointer"
-            >
-              <span>{showAllOffers ? 'View fewer offers' : '+ 2 more offers'}</span>
-            </button>
-          </div>
-
-          {/* =============================================================== */}
+                    {/* Offers remain hidden until AARVO has a verified offer record. */}
+{/* =============================================================== */}
           {/* FLIPKART & MEESHO STYLE COLOUR & SIZE VARIANT SELECTOR           */}
           {/* (SHOWN ONLY WHEN SELLER HAS CONFIGURED SIZES OR COLOURS)          */}
           {/* =============================================================== */}
