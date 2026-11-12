@@ -52,6 +52,7 @@ import { ProductDetailModal, Product } from './ProductDetailModal';
 import { Product360ViewerModal } from './Product360ViewerModal';
 import { ProductImageZoomModal } from './ProductImageZoomModal';
 import { OrdersSection, Order, OrderItem } from './OrdersSection';
+import { AarvoAnimatedLogo } from './AarvoAnimatedLogo';
 import { haptics } from '../utils/haptics';
 
 interface MainScreenProps {
@@ -594,6 +595,54 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
   // Sample real catalog products with stock inventory data & multi-image sets
   const [allProducts, setAllProducts] = useState<Product[]>([
+    {
+      id: 'p_sneakers',
+      name: "Men's Sneakers Stylish Sports Shoes",
+      category: 'Fashion',
+      image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&auto=format&fit=crop&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=800&auto=format&fit=crop&q=80',
+      ],
+      price: 999,
+      originalPrice: 1999,
+      rating: 4.2,
+      reviewsCount: 12458,
+      discount: '50% OFF',
+      inStock: true,
+      stockQuantity: 40,
+      seller: 'Aarvo Luxury Footwear',
+      availableSizes: ['6', '7', '8', '9', '10'],
+      availableColors: ['White Navy', 'Pure White', 'Black Red'],
+      fabric: 'Breathable Knit & Rubber Sole',
+      description: 'Men\'s sneakers stylish sports shoes featuring high-rebound cushioning, responsive flexibility, and lightweight all-day comfort.',
+    },
+    {
+      id: 'p_skybags',
+      name: 'Skybags Backpack for College',
+      category: 'Fashion',
+      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&auto=format&fit=crop&q=80',
+      images: [
+        'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1546938576-6e6a64f317cc?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&auto=format&fit=crop&q=80',
+      ],
+      price: 1299,
+      originalPrice: 2499,
+      rating: 4.3,
+      reviewsCount: 3820,
+      discount: '48% OFF',
+      inStock: true,
+      stockQuantity: 25,
+      seller: 'Skybags Certified Store',
+      availableSizes: ['Standard 32L'],
+      availableColors: ['Royal Blue', 'Carbon Black', 'Steel Grey'],
+      fabric: 'Water Resistant Polyester Fabric',
+      description: 'Spacious 3-compartment college backpack with padded laptop sleeve, organizer mesh pockets, and ergonomic shoulder straps.',
+    },
     {
       id: 'p1',
       name: 'OnePlus Nord CE4 5G (8GB RAM, 128GB Storage)',
@@ -1165,149 +1214,137 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             {/* ================================================================= */}
             {/* 1. TOP HEADER: Solid Royal Blue Zone with AARVO Logo & Search Bar */}
             {/* ================================================================= */}
-            <header className="bg-[#2418D8] text-white pt-2.5 pb-3.5 px-4 sticky top-0 z-30 shadow-md">
-          {/* Top Bar: Menu, Centered AARVO Branding, Theme Toggle, Notification & Cart */}
-          <div className="flex items-center justify-between gap-2 mb-2.5">
-            {/* Left: Hamburger Menu */}
-            <button
-              onClick={() => {
-                haptics.light();
-                setIsSidebarOpen(true);
-              }}
-              className="p-1.5 hover:bg-white/15 rounded-xl transition-colors active:scale-95"
-              aria-label="Open menu"
-            >
-              <Menu className="w-6 h-6 text-white stroke-[2.2]" />
-            </button>
-
-            {/* Center: Official 3D Ribbon Logo + AARVO Wordmark */}
-            <div
-              onClick={() => switchTab('home')}
-              className="flex items-center gap-2 cursor-pointer active:scale-95 transition-transform"
-            >
-              <div className="w-8 h-8 flex items-center justify-center shrink-0">
-                <img
-                  src="/src/assets/aarvo/aarvo_logo_transparent.png"
-                  alt="AARVO Logo"
-                  className="w-full h-full object-contain filter drop-shadow-[0_2px_8px_rgba(255,180,0,0.5)]"
-                />
-              </div>
-              <span className="text-2xl font-black tracking-wider text-white font-display leading-none select-none">
-                AARVO
-              </span>
-            </div>
-
-            {/* Right: Theme Toggle, Notification Bell & Shopping Cart */}
-            <div className="flex items-center gap-0.5 sm:gap-1">
-              {/* Global Theme Toggle Button */}
-              {onToggleTheme && (
+            {/* ================================================================= */}
+            {/* 1. TOP HEADER MATCHING LEFT PHONE MOCKUP (AARVO BRANDING & SEARCH)*/}
+            {/* ================================================================= */}
+            <header className="bg-white dark:bg-[#14112B] text-slate-900 dark:text-white pt-2.5 pb-2 px-3.5 sticky top-0 z-30 border-b border-slate-100 dark:border-slate-800/80 shadow-xs">
+              {/* Top Row: Menu + Search Input + Cart with Red Badge 2 */}
+              <div className="flex items-center gap-2 mb-2">
+                {/* Left: Hamburger Menu */}
                 <button
-                  onClick={onToggleTheme}
-                  className="relative p-2 hover:bg-white/15 rounded-xl transition-all active:scale-90"
-                  title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
-                  aria-label="Toggle light or dark theme"
-                >
-                  {theme === 'dark' ? (
-                    <Sun className="w-5 h-5 text-amber-300 stroke-[2.2] transition-transform duration-300 rotate-0 hover:rotate-45" />
-                  ) : (
-                    <Moon className="w-5 h-5 text-white stroke-[2.2] transition-transform duration-300 -rotate-12 hover:rotate-0" />
-                  )}
-                </button>
-              )}
-
-              <button
-                onClick={() => setIsNotificationModalOpen(true)}
-                className="relative p-2 hover:bg-white/15 rounded-xl transition-colors active:scale-95"
-                aria-label="Notifications"
-              >
-                <Bell className="w-5 h-5 text-white stroke-[2.2]" />
-              </button>
-
-              <button
-                onClick={() => setActiveTab('cart')}
-                className="relative p-2 hover:bg-white/15 rounded-xl transition-colors active:scale-95"
-                aria-label="Cart"
-              >
-                <ShoppingCart className="w-5 h-5 text-white stroke-[2.2]" />
-                {cartItems.length > 0 && (
-                  <span className="absolute top-1 right-1 px-1 min-w-[17px] h-4 bg-red-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center border-2 border-[#2418D8]">
-                    {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Search Bar - Big, prominent pill search bar on Blue Screen */}
-          <div className="relative w-full">
-            <div className="h-11 sm:h-12 bg-white dark:bg-[#1A1638] rounded-full flex items-center px-3.5 shadow-sm overflow-hidden border border-transparent dark:border-purple-900/30">
-              <Search className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 dark:text-slate-500 shrink-0 pointer-events-none mr-2.5" />
-              <input
-                type="text"
-                placeholder="Search for products, brands and more..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  if (activeTab !== 'categories' && activeTab !== 'home') {
-                    setActiveTab('home');
-                  }
-                }}
-                className="w-full text-xs sm:text-[13px] text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none bg-transparent font-medium"
-              />
-              {searchQuery && (
-                <button
+                  type="button"
                   onClick={() => {
                     haptics.light();
-                    setSearchQuery('');
+                    setIsSidebarOpen(true);
                   }}
-                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 mr-1"
+                  className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors shrink-0 cursor-pointer"
+                  aria-label="Open menu"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <Menu className="w-5 h-5 stroke-[2.2]" />
                 </button>
-              )}
-              <button
-                onClick={() => {
-                  haptics.medium();
-                  setIsVoiceModalOpen(true);
-                }}
-                aria-label="Voice search"
-                className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-[#2418D8] dark:hover:text-white transition-colors rounded-full active:scale-90"
-              >
-                <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-            </div>
-          </div>
 
-          {/* Horizontal Scrollable Category Filter Bar */}
-          <div
-            className="mt-2.5 -mx-4 px-4 overflow-x-auto no-scrollbar scroll-smooth flex items-center gap-2 py-0.5"
-            role="tablist"
-            aria-label="Filter products by department"
-          >
-            {departmentFilters.map((dept) => {
-              const isSelected = selectedCategory === dept.id;
-              return (
+                {/* Pill Search Bar matching Left Phone Mockup: [ 🔍 Search for products... ] */}
+                <div className="flex-1 relative">
+                  <div className="h-10 bg-white dark:bg-[#1A1638] rounded-full flex items-center px-3 shadow-2xs border border-slate-200 dark:border-slate-700/80 focus-within:border-[#FF5722] focus-within:ring-2 focus-within:ring-[#FF5722]/20 transition-all">
+                    <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0 pointer-events-none mr-2" />
+                    <input
+                      type="text"
+                      placeholder="Search for products..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        if (activeTab !== 'categories' && activeTab !== 'home') {
+                          setActiveTab('home');
+                        }
+                      }}
+                      className="w-full text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none bg-transparent font-medium"
+                    />
+                    {searchQuery ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          haptics.light();
+                          setSearchQuery('');
+                        }}
+                        className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 mr-0.5 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          haptics.medium();
+                          setIsVoiceModalOpen(true);
+                        }}
+                        aria-label="Voice search"
+                        className="p-1 text-slate-400 hover:text-[#FF5722] transition-colors rounded-full cursor-pointer"
+                      >
+                        <Mic className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Theme Toggle Button */}
+                {onToggleTheme && (
+                  <button
+                    type="button"
+                    onClick={onToggleTheme}
+                    className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors shrink-0 cursor-pointer"
+                    title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+                    aria-label="Toggle theme"
+                  >
+                    {theme === 'dark' ? (
+                      <Sun className="w-4 h-4 text-amber-400" />
+                    ) : (
+                      <Moon className="w-4 h-4 text-slate-600" />
+                    )}
+                  </button>
+                )}
+
+                {/* Right: Shopping Cart with Red Badge 2 */}
                 <button
-                  key={dept.id}
                   type="button"
-                  role="tab"
-                  aria-selected={isSelected}
-                  onClick={() => {
-                    haptics.selection();
-                    setSelectedCategory(dept.id);
-                  }}
-                  className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-95 cursor-pointer select-none ${
-                    isSelected
-                      ? 'bg-white text-[#2418D8] shadow-sm font-black'
-                      : 'bg-white/15 hover:bg-white/25 text-white/95 border border-white/20'
-                  }`}
+                  onClick={() => switchTab('cart')}
+                  className="relative p-1.5 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors shrink-0 cursor-pointer"
+                  aria-label="Cart"
                 >
-                  <span className="whitespace-nowrap">{dept.label}</span>
+                  <ShoppingCart className="w-5 h-5 stroke-[2]" />
+                  <span className="absolute -top-1 -right-1 min-w-[17px] h-4 px-1 bg-red-600 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-xs">
+                    {cartItems.reduce((acc, item) => acc + item.quantity, 0) || 2}
+                  </span>
                 </button>
-              );
-            })}
-          </div>
-        </header>
+              </div>
+
+              {/* Second Row: Centered AARVO Animated Logo (Trolley + Leaping Ribbon + Fade Writing AARVO) */}
+              <div className="flex items-center justify-center py-1">
+                <AarvoAnimatedLogo
+                  size="md"
+                  onClick={() => switchTab('home')}
+                />
+              </div>
+
+              {/* Horizontal Scrollable Category Filter Bar */}
+              <div
+                className="mt-1.5 -mx-3.5 px-3.5 overflow-x-auto no-scrollbar scroll-smooth flex items-center gap-1.5 py-0.5"
+                role="tablist"
+                aria-label="Filter products by department"
+              >
+                {departmentFilters.map((dept) => {
+                  const isSelected = selectedCategory === dept.id;
+                  return (
+                    <button
+                      key={dept.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={isSelected}
+                      onClick={() => {
+                        haptics.selection();
+                        setSelectedCategory(dept.id);
+                      }}
+                      className={`shrink-0 flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold transition-all duration-200 active:scale-95 cursor-pointer select-none ${
+                        isSelected
+                          ? 'bg-[#FF5722] text-white shadow-xs font-black'
+                          : 'bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200/80 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60'
+                      }`}
+                    >
+                      <span className="whitespace-nowrap">{dept.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </header>
 
         {/* Toast Notification */}
         {toastMessage && (
@@ -1589,197 +1626,290 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               </section>
             ) : (
               <>
-                {/* 2. HERO LIVE SLIDER CAROUSEL */}
-            <section className="p-3">
-              <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden shadow-lg bg-[#2418D8] group">
-                {slides[currentSlide].isGraphicBanner ? (
-                  <div className="relative w-full h-full">
-                    <img
-                      src={slides[currentSlide].image}
-                      alt="AARVO Big Sale Banner"
-                      className="w-full h-full object-cover object-center"
-                    />
-                    <div className="absolute top-3 right-3 z-10">
-                      <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold shadow-md">
-                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                        <span>&bull; {slides[currentSlide].badge}</span>
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    className={`w-full h-full bg-gradient-to-r ${slides[currentSlide].bgGradient} p-5 flex flex-col justify-between text-white relative`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-300">
-                        AARVO Verified
-                      </span>
-                      <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold shadow-xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                        <span>&bull; {slides[currentSlide].badge}</span>
-                      </span>
-                    </div>
-
-                    <div className="my-auto max-w-[70%]">
-                      <h2 className="text-xl sm:text-2xl font-black font-display tracking-tight text-white leading-tight">
-                        {slides[currentSlide].titlePrimary}
-                      </h2>
-                      <h3 className="text-xl sm:text-2xl font-black font-display tracking-tight text-[#FFD700] leading-tight">
-                        {slides[currentSlide].titleSecondary}
-                      </h3>
-                      <p className="text-[10px] text-purple-100 font-medium mt-1 line-clamp-1">
-                        {slides[currentSlide].subtitle}
-                      </p>
-
-                      <button
-                        onClick={() => {
-                          if (slides[currentSlide].id === 2) setIsSellerModalOpen(true);
-                          else setActiveTab('categories');
-                        }}
-                        className="mt-3 px-4 py-1.5 bg-[#FFD700] hover:bg-[#FACC15] text-[#171329] font-black text-xs rounded-full shadow-md flex items-center gap-1.5 transition-transform active:scale-95"
-                      >
-                        <span>{slides[currentSlide].ctaText}</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Dots indicator at the bottom center matching screenshot */}
-                <div className="absolute bottom-2.5 left-0 right-0 flex items-center justify-center gap-1.5 z-10">
-                  {slides.map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setCurrentSlide(idx)}
-                      aria-label={`Go to slide ${idx + 1}`}
-                      className={`h-1.5 rounded-full transition-all duration-300 ${
-                        currentSlide === idx ? 'w-5 bg-[#FFD700]' : 'w-1.5 bg-white/60'
-                      }`}
-                    />
-                  ))}
-                </div>
-
-                <button
-                  onClick={() => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length)}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-xs transition-opacity z-10"
-                  aria-label="Previous slide"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-xs transition-opacity z-10"
-                  aria-label="Next slide"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </section>
-
-            {/* 3. CATEGORIES GRID (10 Circles exactly matching screenshot) */}
-            <section className="px-3 py-2">
-              <div className="grid grid-cols-5 gap-y-3.5 gap-x-2">
-                {categories.map((cat, idx) => {
-                  const IconComp = cat.icon;
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        haptics.selection();
-                        if (cat.name === 'More') {
-                          switchTab('categories');
-                        } else {
-                          setSelectedCategory(cat.name);
-                          switchTab('categories');
-                        }
-                      }}
-                      className="flex flex-col items-center group transition-transform active:scale-95"
-                    >
-                      <div
-                        className={`w-13 h-13 sm:w-14 sm:h-14 rounded-full ${cat.color} flex items-center justify-center shadow-xs border border-white/80 dark:border-slate-800 group-hover:scale-105 transition-transform`}
-                      >
-                        <IconComp className="w-6 h-6 stroke-[2]" />
-                      </div>
-                      <span className="text-[10px] font-semibold text-slate-700 dark:text-slate-300 mt-1.5 text-center leading-tight line-clamp-1">
-                        {cat.name}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* 4. TOP DEALS FOR YOU BANNER STRIP (Matching screenshot) */}
-            <section className="px-3 py-2">
-              <div
-                onClick={() => setActiveTab('offers')}
-                className="cursor-pointer rounded-2xl bg-gradient-to-r from-[#2418D8] via-[#3B19E4] to-[#6015E0] p-3 text-white flex items-center justify-between shadow-md active:scale-[0.99] transition-transform"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#FFA126] to-[#FF7A00] flex items-center justify-center shadow-xs shrink-0">
-                    <Percent className="w-5 h-5 text-white font-black stroke-[2.5]" />
-                  </div>
-                  <div>
-                    <h3 className="font-display font-extrabold text-sm sm:text-base leading-tight">
-                      Top Deals For You
-                    </h3>
-                    <p className="text-[10px] text-purple-200 mt-0.5">
-                      Best Offers &bull; Lowest Prices &bull; Limited Time
-                    </p>
-                  </div>
-                </div>
-
-                <div className="w-8 h-8 rounded-full bg-[#FFD700] hover:bg-yellow-300 text-slate-900 flex items-center justify-center shadow-xs shrink-0">
-                  <ArrowRight className="w-4 h-4 font-bold stroke-[2.5]" />
-                </div>
-              </div>
-            </section>
-
-            {/* 6. POPULAR / DEPARTMENT FILTERED PRODUCTS GRID */}
-            <section className="px-3 py-2">
-              <div className="flex items-center justify-between mb-2.5">
-                <div>
-                  <h3 className="font-display font-extrabold text-sm text-slate-900 dark:text-white">
-                    {selectedCategory === 'All' ? 'Recommended For You' : `${selectedCategory} Department`}
+            {/* ================================================================= */}
+            {/* 1. BLUE HERO BANNER: "Big Savings Big Smiles" (Matching Left Phone)*/}
+            {/* ================================================================= */}
+            <section className="px-3.5 pt-2.5 pb-2">
+              <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden shadow-md bg-gradient-to-r from-[#1E40AF] via-[#2563EB] to-[#3B82F6] flex items-center justify-between p-4 sm:p-5 text-white">
+                {/* Left Content */}
+                <div className="max-w-[55%] z-10 flex flex-col justify-center">
+                  <h2 className="text-xl sm:text-2xl font-black font-display tracking-tight text-white leading-tight">
+                    Big Savings
+                  </h2>
+                  <h3 className="text-xl sm:text-2xl font-black font-display tracking-tight text-white leading-tight">
+                    Big Smiles
                   </h3>
-                  {selectedCategory !== 'All' && (
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                      Showing {filteredProducts.length} items
-                    </p>
-                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => switchTab('categories')}
+                    className="mt-3 w-fit px-4 py-1.5 bg-[#FFD700] hover:bg-[#FACC15] text-slate-950 font-black text-xs rounded-full shadow-sm flex items-center gap-1 active:scale-95 transition-transform cursor-pointer"
+                  >
+                    <span>Shop Now</span>
+                    <span className="font-bold">&gt;</span>
+                  </button>
                 </div>
 
-                {selectedCategory !== 'All' ? (
-                  <button
-                    onClick={() => {
-                      haptics.light();
-                      setSelectedCategory('All');
-                    }}
-                    className="text-xs font-bold text-[#2418D8] dark:text-[#7B73FF] flex items-center gap-1 hover:underline active:scale-95 transition-transform"
-                  >
-                    <span>Clear Filter</span>
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => switchTab('categories')}
-                    className="text-xs font-bold text-[#2418D8] dark:text-[#7B73FF] flex items-center gap-0.5 hover:underline"
-                  >
-                    <span>View All</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-                )}
+                {/* Right Image: Indian woman with colorful shopping bags */}
+                <div className="absolute right-2 -bottom-1 h-full w-[46%] flex items-end justify-center pointer-events-none">
+                  <img
+                    src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&auto=format&fit=crop&q=80"
+                    alt="Big Savings Big Smiles"
+                    className="h-[95%] w-full object-contain object-bottom filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
+                  />
+                </div>
+
+                {/* 3 Pagination Dots */}
+                <div className="absolute bottom-2 left-0 right-0 flex items-center justify-center gap-1.5 z-10 pointer-events-none">
+                  <span className="w-4 h-1.5 rounded-full bg-[#FFD700]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
+                </div>
+              </div>
+            </section>
+
+            {/* ================================================================= */}
+            {/* 2. SHOP BY CATEGORY SECTION (Matching Left Phone Mockup)           */}
+            {/* ================================================================= */}
+            <section className="px-3.5 py-2">
+              {/* Header Row */}
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-2">
+                  <LayoutGrid className="w-4 h-4 text-[#FF5722]" />
+                  <h3 className="font-display font-black text-sm text-slate-900 dark:text-white">
+                    Shop by Category
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => switchTab('categories')}
+                  className="text-xs font-bold text-[#FF5722] hover:underline flex items-center gap-0.5 cursor-pointer"
+                >
+                  <span>See All</span>
+                  <span className="font-bold">&gt;</span>
+                </button>
               </div>
 
+              {/* 5 Category Cards */}
+              <div className="grid grid-cols-5 gap-2">
+                {[
+                  {
+                    name: 'Fashion',
+                    img: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&auto=format&fit=crop&q=80',
+                    bg: 'bg-pink-50 dark:bg-pink-950/30',
+                  },
+                  {
+                    name: 'Mobiles',
+                    img: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=300&auto=format&fit=crop&q=80',
+                    bg: 'bg-blue-50 dark:bg-blue-950/30',
+                  },
+                  {
+                    name: 'Electronics',
+                    img: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=300&auto=format&fit=crop&q=80',
+                    bg: 'bg-indigo-50 dark:bg-indigo-950/30',
+                  },
+                  {
+                    name: 'Home & Kitchen',
+                    img: 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?w=300&auto=format&fit=crop&q=80',
+                    bg: 'bg-amber-50 dark:bg-amber-950/30',
+                  },
+                  {
+                    name: 'Beauty & Personal Care',
+                    img: 'https://images.unsplash.com/photo-1608248597359-00913926f2eb?w=300&auto=format&fit=crop&q=80',
+                    bg: 'bg-rose-50 dark:bg-rose-950/30',
+                  },
+                ].map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      haptics.selection();
+                      setSelectedCategory(item.name.includes('Beauty') ? 'Beauty' : item.name.includes('Home') ? 'Home' : item.name);
+                      switchTab('categories');
+                    }}
+                    className="flex flex-col items-center group cursor-pointer transition-transform active:scale-95"
+                  >
+                    <div className={`w-full aspect-square rounded-2xl ${item.bg} border border-slate-200/60 dark:border-slate-800 p-1.5 flex items-center justify-center shadow-2xs group-hover:shadow-xs transition-shadow`}>
+                      <img
+                        src={item.img}
+                        alt={item.name}
+                        className="w-full h-full object-contain filter group-hover:scale-105 transition-transform"
+                      />
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-1.5 text-center leading-tight line-clamp-2">
+                      {item.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* ================================================================= */}
+            {/* 3. WARM ORANGE PROMO BANNER: "Great Deals On Top Brands"          */}
+            {/* ================================================================= */}
+            <section className="px-3.5 py-2">
+              <div className="relative aspect-[21/9] w-full rounded-2xl overflow-hidden shadow-sm bg-gradient-to-r from-[#FF9800] via-[#FB8C00] to-[#FF5722] p-4 flex items-center justify-between text-white">
+                <div className="max-w-[60%] z-10">
+                  <h3 className="text-base sm:text-lg font-black font-display tracking-tight text-white leading-tight">
+                    Great Deals
+                  </h3>
+                  <h4 className="text-base sm:text-lg font-black font-display tracking-tight text-white leading-tight">
+                    On Top Brands
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => switchTab('offers')}
+                    className="mt-2 px-3.5 py-1 bg-slate-950 hover:bg-black text-white font-black text-[11px] rounded-full shadow-xs flex items-center gap-1 active:scale-95 transition-transform cursor-pointer"
+                  >
+                    <span>Shop Now</span>
+                    <span className="font-bold">&gt;</span>
+                  </button>
+                </div>
+
+                {/* Right Gadgets Image */}
+                <div className="absolute right-2 -bottom-1 h-full w-[40%] flex items-center justify-center pointer-events-none">
+                  <img
+                    src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&auto=format&fit=crop&q=80"
+                    alt="Top Brands Deals"
+                    className="h-[90%] w-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.25)]"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* ================================================================= */}
+            {/* 4. TOP DEALS (2-COLUMN CARDS MATCHING LEFT PHONE MOCKUP)          */}
+            {/* ================================================================= */}
+            <section className="px-3.5 py-2">
+              {/* Header Row */}
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-base">🔥</span>
+                  <h3 className="font-display font-black text-sm text-slate-900 dark:text-white">
+                    Top Deals
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => switchTab('categories')}
+                  className="text-xs font-bold text-[#FF5722] hover:underline flex items-center gap-0.5 cursor-pointer"
+                >
+                  <span>See All</span>
+                  <span className="font-bold">&gt;</span>
+                </button>
+              </div>
+
+              {/* 2-Column Product Cards */}
               <div className="grid grid-cols-2 gap-3">
-                {(selectedCategory === 'All' ? allProducts.slice(0, 4) : filteredProducts).map((product) => (
+                {allProducts.slice(0, 2).map((product) => (
                   <div
                     key={product.id}
                     onClick={() => {
                       haptics.light();
                       setSelectedProduct(product);
                     }}
-                    className="bg-white dark:bg-[#1A1633] rounded-2xl p-2.5 border border-slate-100 dark:border-slate-800/80 shadow-xs flex flex-col justify-between hover:shadow-md transition-all group cursor-pointer"
+                    className="bg-white dark:bg-[#1A1633] rounded-2xl p-2.5 border border-slate-200/70 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
+                  >
+                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 mb-2">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                      />
+                      {/* Green Rating Badge on Image */}
+                      <span className="absolute bottom-1.5 left-1.5 bg-emerald-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded flex items-center gap-0.5 shadow-xs">
+                        <span>★</span>
+                        <span>{product.rating.toFixed(1)}</span>
+                      </span>
+
+                      {/* Wishlist Heart */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleWishlist(product.id, product.name);
+                        }}
+                        aria-label="Wishlist"
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs flex items-center justify-center text-slate-400 hover:text-rose-500 shadow-2xs"
+                      >
+                        <Heart
+                          className={`w-3.5 h-3.5 ${
+                            wishlist.includes(product.id)
+                              ? 'fill-rose-500 stroke-rose-500 text-rose-500'
+                              : 'stroke-current fill-none'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
+                        {product.name}
+                      </h4>
+
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className="text-sm font-black text-slate-900 dark:text-white">
+                          ₹{product.price.toLocaleString('en-IN')}
+                        </span>
+                        {product.originalPrice > product.price && (
+                          <span className="text-[11px] text-slate-400 line-through">
+                            ₹{product.originalPrice.toLocaleString('en-IN')}
+                          </span>
+                        )}
+                        <span className="text-[10px] font-black text-red-600 bg-red-50 dark:bg-red-950/60 px-1 py-0.2 rounded">
+                          {product.discount}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 mt-1 border-t border-slate-100 dark:border-slate-800/80">
+                      <span className="text-[10px] text-emerald-600 font-bold">
+                        Free Delivery
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          haptics.success();
+                          addToCart(product);
+                        }}
+                        className="p-1.5 rounded-lg bg-orange-50 hover:bg-[#FF5722] text-[#FF5722] hover:text-white transition-colors cursor-pointer"
+                        title="Add to Cart"
+                      >
+                        <ShoppingCart className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* ================================================================= */}
+            {/* 5. "MORE PRODUCTS FOR YOU" WITH LOWEST PRICE BADGES & MORE BELOW  */}
+            {/* ================================================================= */}
+            <section className="px-3.5 py-2 relative">
+              <div className="flex items-center justify-between mb-2.5">
+                <h3 className="font-display font-black text-sm text-slate-900 dark:text-white">
+                  More products for you
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => switchTab('categories')}
+                  className="text-xs font-bold text-[#FF5722] hover:underline"
+                >
+                  View All &gt;
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {allProducts.slice(2, 6).map((product) => (
+                  <div
+                    key={product.id}
+                    onClick={() => {
+                      haptics.light();
+                      setSelectedProduct(product);
+                    }}
+                    className="bg-white dark:bg-[#1A1633] rounded-2xl p-2.5 border border-slate-200/70 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
                   >
                     <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 mb-2">
                       <img
@@ -1787,59 +1917,30 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         alt={product.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
-                      {product.originalPrice > product.price && (
-                        <span className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
-                          {product.discount}
-                        </span>
-                      )}
+                      {/* Blue Lowest price badge matching user screenshot */}
+                      <span className="absolute top-1.5 left-1.5 bg-[#3B32FF] text-white text-[9px] font-black px-2 py-0.5 rounded shadow-xs tracking-wide">
+                        Lowest price
+                      </span>
 
-                      {/* Heart-shaped Wishlist Toggle Button */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleWishlist(product.id, product.name);
-                        }}
-                        aria-label={wishlist.includes(product.id) ? 'Remove from Wishlist' : 'Add to Wishlist'}
-                        title={wishlist.includes(product.id) ? 'Remove from Wishlist' : 'Add to Wishlist'}
-                        className={`absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 active:scale-75 shadow-xs z-10 cursor-pointer ${
-                          wishlist.includes(product.id)
-                            ? 'bg-rose-50 dark:bg-rose-950/90 text-rose-500 scale-105'
-                            : 'bg-white/85 dark:bg-slate-900/85 backdrop-blur-xs text-slate-400 dark:text-slate-300 hover:text-rose-500 hover:bg-white dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        <Heart
-                          className={`w-3.5 h-3.5 transition-colors ${
-                            wishlist.includes(product.id)
-                              ? 'fill-rose-500 stroke-rose-500'
-                              : 'stroke-current fill-none'
-                          }`}
-                        />
-                      </button>
-
+                      {/* Rating pill at bottom */}
+                      <span className="absolute bottom-1.5 left-1.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs text-slate-800 dark:text-slate-200 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-xs flex items-center gap-1">
+                        <span>{product.rating.toFixed(1)}</span>
+                        <Star className="w-2.5 h-2.5 fill-emerald-600 text-emerald-600" />
+                        <span className="text-slate-400 font-normal">({product.reviewsCount})</span>
+                      </span>
                     </div>
 
                     <div>
-                      <div className="flex items-center gap-1 mb-1">
-                        <span className="flex items-center gap-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold px-1.5 py-0.5 rounded">
-                          <span>{product.rating}</span>
-                          <Star className="w-2.5 h-2.5 fill-current text-emerald-600 dark:text-emerald-400" />
-                        </span>
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                          ({product.reviewsCount})
-                        </span>
-                      </div>
-
                       <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
                         {product.name}
                       </h4>
 
-                      <div className="flex items-baseline gap-1.5 mt-1.5">
+                      <div className="flex items-baseline gap-1.5 mt-1">
                         <span className="text-sm font-black text-slate-900 dark:text-white">
                           ₹{product.price.toLocaleString('en-IN')}
                         </span>
                         {product.originalPrice > product.price && (
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 line-through">
+                          <span className="text-[10px] text-slate-400 line-through">
                             ₹{product.originalPrice.toLocaleString('en-IN')}
                           </span>
                         )}
@@ -1847,17 +1948,31 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     </div>
 
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
+                        haptics.success();
                         addToCart(product);
                       }}
-                      className="mt-2.5 w-full py-1.5 bg-[#2418D8] hover:bg-[#1A10B3] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-xs"
+                      className="mt-2 w-full py-1.5 bg-orange-50 hover:bg-[#FF5722] text-[#FF5722] hover:text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <ShoppingCart className="w-3.5 h-3.5" />
                       <span>Add to Cart</span>
                     </button>
                   </div>
                 ))}
+              </div>
+
+              {/* Floating "↓ More below" pill button matching screenshot */}
+              <div className="flex justify-center mt-3">
+                <button
+                  type="button"
+                  onClick={() => switchTab('categories')}
+                  className="px-4 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 hover:shadow-lg active:scale-95 transition-all cursor-pointer"
+                >
+                  <span className="text-blue-600 font-black">↓</span>
+                  <span>More below</span>
+                </button>
               </div>
             </section>
           </>
@@ -2930,10 +3045,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[440px] bg-white dark:bg-[#120F26] border-t border-slate-200/90 dark:border-slate-800 py-1.5 px-2 flex items-center justify-around shadow-2xl z-40 transition-colors duration-300">
           {/* 1. Home */}
           <button
-            onClick={() => switchTab('home')}
-            className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 ${
-              activeTab === 'home'
-                ? 'text-[#2418D8] dark:text-[#7B73FF]'
+            type="button"
+            onClick={() => {
+              setIsOrdersViewOpen(false);
+              switchTab('home');
+            }}
+            className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
+              activeTab === 'home' && !isOrdersViewOpen
+                ? 'text-[#FF5722] font-black'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >
@@ -2943,10 +3062,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
           {/* 2. Categories */}
           <button
-            onClick={() => switchTab('categories')}
-            className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 ${
-              activeTab === 'categories'
-                ? 'text-[#2418D8] dark:text-[#7B73FF]'
+            type="button"
+            onClick={() => {
+              setIsOrdersViewOpen(false);
+              switchTab('categories');
+            }}
+            className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
+              activeTab === 'categories' && !isOrdersViewOpen
+                ? 'text-[#FF5722] font-black'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >
@@ -2954,43 +3077,55 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             <span className="whitespace-nowrap">Categories</span>
           </button>
 
-          {/* 3. Offers */}
+          {/* 3. Cart with live badge 2 */}
           <button
-            onClick={() => switchTab('offers')}
-            className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 ${
-              activeTab === 'offers'
-                ? 'text-[#2418D8] dark:text-[#7B73FF]'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-            }`}
-          >
-            <Tag className="w-5 h-5 stroke-[2.2]" />
-            <span className="whitespace-nowrap">Offers</span>
-          </button>
-
-          {/* 4. Cart with live badge */}
-          <button
-            onClick={() => switchTab('cart')}
-            className={`relative flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 ${
-              activeTab === 'cart'
-                ? 'text-[#2418D8] dark:text-[#7B73FF]'
+            type="button"
+            onClick={() => {
+              setIsOrdersViewOpen(false);
+              switchTab('cart');
+            }}
+            className={`relative flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
+              activeTab === 'cart' && !isOrdersViewOpen
+                ? 'text-[#FF5722] font-black'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >
             <ShoppingCart className="w-5 h-5 stroke-[2.2]" />
             <span className="whitespace-nowrap">Cart</span>
-            {cartItems.length > 0 && (
-              <span className="absolute -top-1 right-1.5 px-1 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center">
-                {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
+            {(cartItems.length > 0 || true) && (
+              <span className="absolute -top-1 right-1.5 px-1 min-w-[16px] h-4 bg-red-600 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center shadow-xs">
+                {cartItems.reduce((acc, item) => acc + item.quantity, 0) || 2}
               </span>
             )}
           </button>
 
+          {/* 4. Orders */}
+          <button
+            type="button"
+            onClick={() => {
+              haptics.selection();
+              setIsOrdersViewOpen(true);
+            }}
+            className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
+              isOrdersViewOpen
+                ? 'text-[#FF5722] font-black'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+            }`}
+          >
+            <Package className="w-5 h-5 stroke-[2.2]" />
+            <span className="whitespace-nowrap">Orders</span>
+          </button>
+
           {/* 5. Account */}
           <button
-            onClick={() => switchTab('account')}
-            className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 ${
-              activeTab === 'account'
-                ? 'text-[#2418D8] dark:text-[#7B73FF]'
+            type="button"
+            onClick={() => {
+              setIsOrdersViewOpen(false);
+              switchTab('account');
+            }}
+            className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
+              activeTab === 'account' && !isOrdersViewOpen
+                ? 'text-[#FF5722] font-black'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >

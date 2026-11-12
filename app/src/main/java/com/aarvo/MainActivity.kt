@@ -3454,23 +3454,15 @@ private fun ProductDetailsScreen(
                             )
                             Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFF1F5F9)))
 
-                            // Row 5: Seller Hub — all sellers register and manage their store on the dedicated web portal.
+                            // Row 5: Seller Hub
                             AccountMenuRow(
                                 emoji = "🏪",
                                 title = "Seller Overview & Hub",
-                                subtitle = "Register, login & manage your products",
-                                badgeText = "Seller Portal",
+                                subtitle = "Dashboard, catalog & onboarding",
+                                badgeText = "Dashboard",
                                 onClick = {
-                                    runCatching {
-                                        activity.startActivity(
-                                            Intent(
-                                                Intent.ACTION_VIEW,
-                                                Uri.parse("https://aarvo-seller.onrender.com/")
-                                            )
-                                        )
-                                    }.onFailure {
-                                        Toast.makeText(activity, "Unable to open AARVO Seller Portal", Toast.LENGTH_LONG).show()
-                                    }
+                                    if (role == "SELLER") section = "seller"
+                                    else activity.startActivity(Intent(activity, SellerAccountActivity::class.java))
                                 }
                             )
                             Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFF1F5F9)))
