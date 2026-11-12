@@ -57,6 +57,11 @@ export interface Product {
   highlights?: string[];
   specifications?: Record<string, string>;
   codAvailable?: boolean;
+  onlinePaymentEnabled?: boolean;
+  deliveryFee?: number;
+  warrantyPeriodMonths?: number;
+  guaranteePeriodMonths?: number;
+  assuredVerified?: boolean;
   availableSizes?: string[];
   availableColors?: string[];
   fabric?: string;
@@ -282,17 +287,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const totalPrice = product.price * selectedQty;
   const totalMRP = product.originalPrice * selectedQty;
 
-  const defaultDescription =
-    product.description ||
-    `Experience top-tier quality and premium craftsmanship with the ${product.name}. Designed to deliver maximum performance, verified durability, and complete comfort, backed by the AARVO Authentic Guarantee with hassle-free doorstep returns.`;
-
-  const defaultHighlights = product.highlights || [
-    '100% Original and Brand-Certified Product',
-    'Free Express Doorstep Delivery within 24-48 Hours',
-    'Cash On Delivery (COD) Eligible with Zero Extra Fee',
-    '7 Days Easy Replacement & Refund Guarantee',
-    'GST Invoice and 1 Year Manufacturer Warranty Included',
-  ];
+  const defaultDescription = product.description || '';
+  const defaultHighlights = product.highlights || [];
 
   const handleShare = () => {
     haptics.light();
