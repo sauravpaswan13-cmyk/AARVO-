@@ -172,8 +172,10 @@ if (!source.includes('AARVO_LOGIN_OTP_ENABLED')) {
   }
 }
 
-const msg91Import = "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';";
-const msg91Registration = "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });";
+const msg91Import = "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';
+import { registerSellerPasswordReset } from './seller-password-reset.js';";
+const msg91Registration = "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });
+await registerSellerPasswordReset({ app, pool, normalizePhone, hashPassword, verifyPassword });";
 
 // MSG91 must have both the import and the executable registration call in the
 // generated runtime. Check them independently so a partially patched server
