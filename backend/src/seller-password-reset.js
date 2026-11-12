@@ -1,7 +1,7 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { sendPhoneOtp } from './otp-delivery.js';
 
-const genericRequest = { sent: true, expiresInSeconds: 600, message: 'If this number belongs to an AARVO seller account, an OTP has been sent.' };
+const genericRequest = { sent: true, expiresInSeconds: 600, deliveryStatus: 'not_confirmed', message: 'If this number belongs to an AARVO seller account, the reset request was received. OTP delivery depends on SMS service availability.' };
 
 export async function registerSellerPasswordReset({ app, pool, normalizePhone, hashPassword, verifyPassword }) {
   app.post('/v1/seller/auth/password-reset/request', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (request, reply) => {
