@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  MSG91_WIDGET_TOKEN: ${{ secrets.MSG91_WIDGET_TOKEN }}
+
 jobs:
   build-apk:
     runs-on: ubuntu-latest
@@ -22,6 +25,20 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Verify MSG91 widget token
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN="${MSG91_WIDGET_TOKEN//$'\\r'/}"
+          TOKEN="${TOKEN//$'\\n'/}"
+          TOKEN="$(printf '%s' "$TOKEN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -z "$TOKEN" ]; then
+            echo "MSG91_WIDGET_TOKEN is empty or unavailable; refusing to build a broken OTP APK."
+            exit 1
+          fi
+          echo "MSG91_WIDGET_TOKEN is available (length: ${#TOKEN})"
+          printf 'MSG91_WIDGET_TOKEN=%s\\n' "$TOKEN" >> "$GITHUB_ENV"
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -29,7 +46,7 @@ jobs:
           validate-wrappers: false
 
       - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug -PaarvoApiBaseUrl=https://aarvo-api.onrender.com
+        run: gradle --no-daemon :app:assembleDebug -PaarvoApiBaseUrl=https://aarvo-api.onrender.com -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
