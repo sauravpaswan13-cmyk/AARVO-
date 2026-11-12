@@ -352,21 +352,25 @@ app.post('/v1/orders', { preHandler: requireRole('BUYER') }, async (request, rep
       return { orderId:o.id,amountPaise:o.total_paise,currency:'INR',...(o.gateway_order_id ? {gatewayOrderId:o.gateway_order_id,keyId:process.env.RAZORPAY_KEY_ID} : {}),paymentStatus:o.payment_status,status:o.status,paymentMethod:o.payment_method,paymentMode:o.payment_method==='COD'?'COD':(testCheckout?'TEST':'RAZORPAY'),idempotentReplay:true };
     }
     const ids = [...merged.keys()].sort((a,b) => a-b);
-    const products = await client.query('SELECT id,seller_id,price_paise,stock_quantity,is_published FROM products WHERE id=ANY($1::bigint[]) FOR UPDATE', [ids]);
+    const products = await client.query('SELECT id,seller_id,price_paise,delivery_fee_paise,warranty_period_months,guarantee_period_months,online_payment_enabled,cod_enabled,stock_quantity,is_published FROM products WHERE id=ANY($1::bigint[]) FOR UPDATE', [ids]);
     if (products.rowCount !== ids.length) throw httpError(409,'PRODUCT_CHANGED');
-    let subtotal = 0;
+    let subtotal = 0, sellerDeliveryFee = 0;
     for (const p of products.rows) {
       const qty = merged.get(Number(p.id));
       if (!p.is_published || p.stock_quantity < qty) throw httpError(409,`INSUFFICIENT_STOCK:${p.id}`);
+      if (paymentMethod === 'COD' && p.cod_enabled === false) throw httpError(409,`COD_NOT_AVAILABLE:${p.id}`);
+      if (paymentMethod === 'RAZORPAY' && p.online_payment_enabled === false) throw httpError(409,`ONLINE_PAYMENT_NOT_AVAILABLE:${p.id}`);
       subtotal += Number(p.price_paise)*qty;
+      sellerDeliveryFee += Number(p.delivery_fee_paise || 0)*qty;
     }
     const platformFee = Math.floor(subtotal*PLATFORM_FEE_BPS/10000);
-    const total = subtotal + DELIVERY_FEE_PAISE + platformFee;
+    const totalDeliveryFee = DELIVERY_FEE_PAISE + sellerDeliveryFee;
+    const total = subtotal + totalDeliveryFee + platformFee;
     const orderId = randomUUID();
     const gatewayOrder = paymentMethod === 'COD' ? null : (testCheckout ? {id:`TEST_${orderId}`} : await razorpay.orders.create({amount:total,currency:'INR',receipt:orderId}));
     const initialPaymentStatus = paymentMethod === 'COD' ? 'COD_PENDING' : (testCheckout ? 'CAPTURED' : 'CREATED');
     const initialOrderStatus = paymentMethod === 'COD' ? 'CONFIRMED' : (testCheckout ? 'PAID' : 'PENDING_PAYMENT');
-    await client.query("INSERT INTO orders(id,buyer_id,subtotal_paise,delivery_fee_paise,platform_fee_paise,total_paise,payment_status,status,address_json,gateway_order_id,payment_expires_at,idempotency_key,payment_method) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CASE WHEN $7='CREATED' THEN now()+($11 * interval '1 minute') ELSE NULL END,$12,$13)", [orderId,request.user.sub,subtotal,DELIVERY_FEE_PAISE,platformFee,total,initialPaymentStatus,initialOrderStatus,JSON.stringify(address),gatewayOrder?.id || null,PAYMENT_WINDOW_MINUTES,idempotencyKey,paymentMethod]);
+    await client.query("INSERT INTO orders(id,buyer_id,subtotal_paise,delivery_fee_paise,platform_fee_paise,total_paise,payment_status,status,address_json,gateway_order_id,payment_expires_at,idempotency_key,payment_method) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CASE WHEN $7='CREATED' THEN now()+($11 * interval '1 minute') ELSE NULL END,$12,$13)", [orderId,request.user.sub,subtotal,totalDeliveryFee,platformFee,total,initialPaymentStatus,initialOrderStatus,JSON.stringify(address),gatewayOrder?.id || null,PAYMENT_WINDOW_MINUTES,idempotencyKey,paymentMethod]);
     for (const p of products.rows) {
       const qty = merged.get(Number(p.id)), lineTotal = Number(p.price_paise) * qty;
       const sellerAmount = lineTotal - Math.floor(lineTotal * PLATFORM_FEE_BPS / 10000);
