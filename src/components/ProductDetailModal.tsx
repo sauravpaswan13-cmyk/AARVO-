@@ -726,7 +726,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </span>
 
               {/* Flipkart Assured style AARVO Assured Badge (only shown when verified ratings exist) */}
-              {product.reviewsCount > 0 && (
+              {product.assuredVerified === true && (
                 <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/80">
                   <span className="w-3.5 h-3.5 rounded-full bg-[#2418D8] text-white flex items-center justify-center text-[9px] font-black">
                     ⚡
