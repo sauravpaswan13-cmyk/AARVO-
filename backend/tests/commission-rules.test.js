@@ -16,7 +16,7 @@ test('AARVO applies a flat 3% commission to every product category', () => {
 });
 
 test('seller commission is deducted from seller proceeds, not added twice to buyer checkout', () => {
-  assert.match(launcher, /total=subtotal\\+deliveryFee,orderId=randomUUID\\(\\)/);
-  assert.doesNotMatch(launcher, /total=subtotal\\+deliveryFee\\+platformFee/);
-  assert.match(launcher, /sellerAmount=lineTotal-commissionPaise\\(lineTotal,p\\.category\\)/);
+  assert.ok(launcher.includes('total=subtotal+deliveryFee,orderId=randomUUID()'));
+  assert.ok(!launcher.includes('total=subtotal+deliveryFee+platformFee'));
+  assert.ok(launcher.includes('sellerAmount=lineTotal-commissionPaise(lineTotal,p.category)'));
 });
