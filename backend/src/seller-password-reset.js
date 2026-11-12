@@ -44,7 +44,7 @@ export async function registerSellerPasswordReset({ app, pool, normalizePhone, h
     const phone = normalizePhone(request.body?.phone);
     const otp = String(request.body?.otp || '').trim();
     const newPassword = String(request.body?.newPassword || '');
-    if (!phone || !/^\\d{6}$/.test(otp) || newPassword.length < 8 || newPassword.length > 128) {
+    if (!phone || !/^\d{6}$/.test(otp) || newPassword.length < 8 || newPassword.length > 128) {
       return reply.code(400).send({ error: 'INVALID_RESET_DETAILS' });
     }
 
