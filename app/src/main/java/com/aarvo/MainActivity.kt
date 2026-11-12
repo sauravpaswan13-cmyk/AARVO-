@@ -3461,7 +3461,6 @@ private fun ProductDetailsScreen(
                                 subtitle = "Register, login & manage your products",
                                 badgeText = "Seller Portal",
                                 onClick = {
-                                    scope.launch { drawerState.close() }
                                     runCatching {
                                         activity.startActivity(
                                             Intent(
