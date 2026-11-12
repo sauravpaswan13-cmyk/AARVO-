@@ -173,7 +173,35 @@ if (!source.includes('AARVO_LOGIN_OTP_ENABLED')) {
 }
 
 const msg91Import = "import { registerMsg91WidgetAuth } from './msg91-widget-auth.js';";
+const resetImport = "import { registerSellerPasswordReset } from './seller-password-reset.js';";
 const msg91Registration = "await registerMsg91WidgetAuth({ app, pool, issueToken, normalizePhone });";
+const resetRegistration = "await registerSellerPasswordReset({ app, pool, normalizePhone, hashPassword, verifyPassword });";
+
+// Keep both auth modules wired into the generated runtime independently.
+if (!source.includes(msg91Import)) {
+  const cryptoAnchors = [cryptoImportWithRandomInt, cryptoImport];
+  const cryptoAnchor = cryptoAnchors.find((value) => source.includes(value));
+  if (!cryptoAnchor) throw new Error("AARVO launcher safety check: crypto import anchor not found for MSG91 wiring");
+  source = source.replace(cryptoAnchor, cryptoAnchor + "\n" + msg91Import);
+}
+if (!source.includes(resetImport)) {
+  source = source.replace(msg91Import, msg91Import + "\n" + resetImport);
+}
+if (!source.includes(msg91Registration)) {
+  const listenMarkers = [
+    "app.listen(PORT, '0.0.0.0', () => {",
+    "const port=Number(process.env.PORT||8080);await app.listen({port,host:'0.0.0.0'});"
+  ];
+  const marker = listenMarkers.find((value) => source.includes(value));
+  if (!marker) throw new Error("AARVO launcher safety check: Fastify listen marker missing for auth route registration");
+  source = source.replace(marker, msg91Registration + "\n" + marker);
+}
+if (!source.includes(resetRegistration)) {
+  source = source.replace(msg91Registration, msg91Registration + "\n" + resetRegistration);
+}
+if (!source.includes(msg91Import) || !source.includes(resetImport) || !source.includes(msg91Registration) || !source.includes(resetRegistration)) {
+  throw new Error("AARVO launcher safety check: seller password reset route wiring incomplete");
+}
 
 // MSG91 must have both the import and the executable registration call in the
 // generated runtime. Check them independently so a partially patched server
