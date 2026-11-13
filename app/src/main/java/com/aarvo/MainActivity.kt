@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -407,7 +408,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         } else recentlyViewed = emptyList()
     }
     LaunchedEffect(query, category, api) { loading = true; error = ""; try { products = api.products(query, category).toProductList().distinctBy { it.id } } catch (t: Throwable) { products = emptyList(); error = t.message ?: "Unable to load products." } finally { loading = false } }
-    val visibleProducts = remember(products, sortMode, minRating, maxPrice, inStockOnly) { products.filter { (minRating <= 0.0 || it.rating >= minRating) && (maxPrice == null || it.pricePaise <= maxPrice!!) && (!inStockOnly || it.stockQuantity > 0) }.let { list -> when (sortMode) { "Price: Low to High" -> list.sortedBy { it.pricePaise }; "Price: High to Low" -> list.sortedByDescending { it.pricePaise }; "Rating: High to Low" -> list.sortedByDescending { it.rating }; else -> list } } }
+    val visibleProducts = remember(products, sortMode, minRating, maxPrice, inStockOnly) { val maxPriceCap = maxPrice; products.filter { (minRating <= 0.0 || it.rating >= minRating) && (maxPriceCap == null || it.pricePaise <= maxPriceCap) && (!inStockOnly || it.stockQuantity > 0) }.let { list -> when (sortMode) { "Price: Low to High" -> list.sortedBy { it.pricePaise }; "Price: High to Low" -> list.sortedByDescending { it.pricePaise }; "Rating: High to Low" -> list.sortedByDescending { it.rating }; else -> list } } }
     fun syncAuthenticatedCart() {
         if (guestMode || role != "BUYER") return
         scope.launch {
@@ -427,8 +428,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     }
     val availableCategories = remember(allProducts) { listOf("All") + allProducts.map { it.category.trim() }.filter { it.isNotBlank() }.distinct().sorted() }
     if (showFilters) ProductFilterDialog(sortMode, minRating, maxPrice, inStockOnly, { sortMode = it; showFilters = false }, { minRating = it }, { maxPrice = it }, { inStockOnly = it }, { showFilters = false })
-    if (selectedProduct != null) {
-        val product = selectedProduct!!
+    selectedProduct?.let { product ->
         ProductDetailsScreen(
             product = product,
             isSaved = product.id in wishlist,
@@ -907,35 +907,35 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){IconButton(onClick=onBack){Icon(Icons.Default.ArrowBack,"Back")};Text("Notifications",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)}}
         if(error.isNotBlank()) item{Text(error,color=MaterialTheme.colorScheme.error)}
         if(items.isEmpty() && error.isBlank()) item{Text("No new notifications.")}
-        items(items,key={it.optLong("id")}){n->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text(n.optString("title").ifBlank{"AARVO Update"},fontWeight=FontWeight.Bold);Text(n.optString("message").ifBlank{n.optString("body")});if(!n.optBoolean("read"))TextButton(onClick={scope.launch{runCatching{api.markNotificationRead(n.optLong("id"))};reload()}}){Text("Mark as read")}}}}
+        itemsIndexed(items, key = { index, n -> "notif_${index}_${n.optString("id")}" }) { _, n -> Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp)){Text(n.optString("title").ifBlank{"AARVO Update"},fontWeight=FontWeight.Bold);Text(n.optString("message").ifBlank{n.optString("body")});if(!n.optBoolean("read"))TextButton(onClick={scope.launch{runCatching{api.markNotificationRead(n.optLong("id"))};reload()}}){Text("Mark as read")}}}}
     }
 }
 
 @Composable private fun LoginRequiredDialog(onLogin: () -> Unit, onDismiss: () -> Unit) { AlertDialog(onDismissRequest = onDismiss, title = { Text("Login Required") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("To complete your purchase, please login or create an account."); Text("You can still browse and add to cart.", style = MaterialTheme.typography.bodySmall) } }, confirmButton = { Button(onClick = onLogin) { Text("Login / Sign Up") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Continue Browsing") } }) }
 
-@Composable private fun ProductFilterDialog(sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean, onSort: (String) -> Unit, onRating: (Double) -> Unit, onMaxPrice: (Long?) -> Unit, onStock: (Boolean) -> Unit, onClose: () -> Unit) { var priceText by remember(maxPrice) { mutableStateOf(if (maxPrice == null) "" else (maxPrice!! / 100).toString()) }; AlertDialog(onDismissRequest = onClose, title = { Text("Filters & Sorting") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Sort", fontWeight = FontWeight.Bold); listOf("Relevance", "Price: Low to High", "Price: High to Low", "Rating: High to Low").forEach { option -> TextButton(onClick = { onSort(option) }) { Text(if (sortMode == option) "✓ $option" else option) } }; Text("Minimum rating: ${if (minRating == 0.0) "Any" else "${minRating}★"}", fontWeight = FontWeight.Bold); Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { listOf(0.0, 3.0, 4.0, 4.5).forEach { r -> TextButton(onClick = { onRating(r) }) { Text(if (minRating == r) "✓ ${if (r == 0.0) "Any" else r.toString()}★" else if (r == 0.0) "Any" else "${r}★") } } }; OutlinedTextField(priceText, { priceText = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Maximum price ₹ (optional)") }); TextButton(onClick = { onMaxPrice(priceText.trim().toLongOrNull()?.times(100)); onClose() }) { Text("Apply price") }; TextButton(onClick = { onStock(!inStockOnly) }) { Text(if (inStockOnly) "✓ In stock only" else "In stock only") } } }, confirmButton = { Button(onClick = onClose) { Text("Done") } }) }
+@Composable private fun ProductFilterDialog(sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean, onSort: (String) -> Unit, onRating: (Double) -> Unit, onMaxPrice: (Long?) -> Unit, onStock: (Boolean) -> Unit, onClose: () -> Unit) { var priceText by remember(maxPrice) { mutableStateOf(maxPrice?.let { (it / 100).toString() } ?: "") }; AlertDialog(onDismissRequest = onClose, title = { Text("Filters & Sorting") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Sort", fontWeight = FontWeight.Bold); listOf("Relevance", "Price: Low to High", "Price: High to Low", "Rating: High to Low").forEach { option -> TextButton(onClick = { onSort(option) }) { Text(if (sortMode == option) "✓ $option" else option) } }; Text("Minimum rating: ${if (minRating == 0.0) "Any" else "${minRating}★"}", fontWeight = FontWeight.Bold); Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { listOf(0.0, 3.0, 4.0, 4.5).forEach { r -> TextButton(onClick = { onRating(r) }) { Text(if (minRating == r) "✓ ${if (r == 0.0) "Any" else r.toString()}★" else if (r == 0.0) "Any" else "${r}★") } } }; OutlinedTextField(priceText, { priceText = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Maximum price ₹ (optional)") }); TextButton(onClick = { onMaxPrice(priceText.trim().toLongOrNull()?.times(100)); onClose() }) { Text("Apply price") }; TextButton(onClick = { onStock(!inStockOnly) }) { Text(if (inStockOnly) "✓ In stock only" else "In stock only") } } }, confirmButton = { Button(onClick = onClose) { Text("Done") } }) }
 
 private fun JSONArray.toProductList(): List<Product> = buildList {
     val seenIds = mutableSetOf<Int>()
     for (i in 0 until length()) {
-        val o = getJSONObject(i)
-        val id = o.getLong("id").toInt()
-        if (!seenIds.add(id)) continue
-        val pricePaise = o.getLong("price_paise")
+        val o = optJSONObject(i) ?: continue
+        val id = o.optLong("id", 0L).toInt()
+        if (id <= 0 || !seenIds.add(id)) continue
+        val pricePaise = o.optLong("price_paise", 0L)
         val originalPricePaise = o.optLong("original_price_paise", pricePaise)
         val reviewsCount = o.optInt("reviews_count", o.optInt("reviewsCount", 0))
         add(
             Product(
                 id = id,
-                sellerId = o.getString("seller_id"),
-                sellerName = o.getString("seller_name"),
-                name = o.getString("name"),
-                category = o.getString("category"),
+                sellerId = o.optString("seller_id", ""),
+                sellerName = o.optString("seller_name", "AARVO Seller"),
+                name = o.optString("name", "Product"),
+                category = o.optString("category", "General"),
                 price = (pricePaise / 100L).toInt(),
                 rating = o.optDouble("rating", 0.0),
                 emoji = "🛍️",
-                description = o.getString("description"),
-                stockQuantity = o.getInt("stock_quantity"),
+                description = o.optString("description", ""),
+                stockQuantity = o.optInt("stock_quantity", 0),
                 isPublished = o.optBoolean("is_published", true),
                 pricePaise = pricePaise,
                 imageUrl = o.optString("image_url").takeIf { it.startsWith("https://") || it.startsWith("http://") },
@@ -1408,7 +1408,7 @@ private fun ProductDetailsScreen(
     onOpenCart: () -> Unit
 ) {
     val context = LocalContext.current
-    var activeSlideIndex by remember { mutableIntStateOf(0) }
+    var activeSlideIndex by remember(product.id) { mutableIntStateOf(0) }
     var deliveryPincode by remember { mutableStateOf("800001") }
     var showPincodeDialog by remember { mutableStateOf(false) }
     var tempPincode by remember { mutableStateOf("800001") }
@@ -1600,12 +1600,16 @@ private fun ProductDetailsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // Native Share Action
                         IconButton(onClick = {
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, "Check out ${product.name} on AARVO: ₹${product.pricePaise / 100}")
-                                type = "text/plain"
+                            runCatching {
+                                val sendIntent = Intent().apply {
+                                    action = Intent.ACTION_SEND
+                                    putExtra(Intent.EXTRA_TEXT, "Check out ${product.name} on AARVO: ₹${product.pricePaise / 100}")
+                                    type = "text/plain"
+                                }
+                                context.startActivity(Intent.createChooser(sendIntent, "Share Product"))
+                            }.onFailure {
+                                Toast.makeText(context, "Sharing is not available on this device", Toast.LENGTH_SHORT).show()
                             }
-                            context.startActivity(Intent.createChooser(sendIntent, "Share Product"))
                         }) {
                             ShareIcon(tint = Color(0xFF475569))
                         }
@@ -3596,7 +3600,7 @@ private fun ProductDetailsScreen(
         if(message.isNotBlank()) Text(message,color=MaterialTheme.colorScheme.error)
     }},confirmButton={Button(onClick={scope.launch{saving=true;message="";try{api.updateProfile(name,email);onDone()}catch(t:Throwable){message=t.message?:"Unable to save profile"}finally{saving=false}}},enabled=!loading&&!saving&&name.isNotBlank()){Text(if(saving)"Saving..." else "Save changes")}},dismissButton={TextButton(onClick=onDone,enabled=!saving){Text("Close")}})}
 
-@Composable private fun OrdersScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) { var orders by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); fun reload() { scope.launch { loading = true; error = ""; try { val a = api.orders(); orders = buildList { for (i in 0 until a.length()) add(a.getJSONObject(i)) } } catch (t: Throwable) { error = t.message ?: "Unable to load orders" } finally { loading = false } } }; LaunchedEffect(Unit) { reload() }; Box(modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding())) { Scaffold(topBar = { TopAppBar(title = { Text("My Orders") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { inner -> LazyColumn(Modifier.fillMaxSize().padding(inner), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 48.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { if (loading) item { CircularProgressIndicator() }; if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }; if (!loading && orders.isEmpty()) item { Text("No orders yet.") }; items(orders, key = { it.optString("id") }) { order -> OrderCard(order, api, ::reload) }; item { Spacer(Modifier.height(32.dp)) } } } } }
+@Composable private fun OrdersScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) { var orders by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); fun reload() { scope.launch { loading = true; error = ""; try { val a = api.orders(); orders = buildList { for (i in 0 until a.length()) add(a.getJSONObject(i)) } } catch (t: Throwable) { error = t.message ?: "Unable to load orders" } finally { loading = false } } }; LaunchedEffect(Unit) { reload() }; Box(modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding())) { Scaffold(topBar = { TopAppBar(title = { Text("My Orders") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { inner -> LazyColumn(Modifier.fillMaxSize().padding(inner), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 48.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { if (loading) item { CircularProgressIndicator() }; if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }; if (!loading && orders.isEmpty()) item { Text("No orders yet.") }; itemsIndexed(orders, key = { index, order -> "order_${index}_${order.optString("id")}" }) { _, order -> OrderCard(order, api, ::reload) }; item { Spacer(Modifier.height(32.dp)) } } } } }
 
 @Composable
 private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismiss: () -> Unit) {
@@ -3815,8 +3819,12 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                         // Call button
                         Button(
                             onClick = {
-                                val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:+919876543210"))
-                                context.startActivity(dialIntent)
+                                runCatching {
+                                    val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:+919876543210"))
+                                    context.startActivity(dialIntent)
+                                }.onFailure {
+                                    Toast.makeText(context, "Unable to open phone dialer", Toast.LENGTH_SHORT).show()
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
                             shape = RoundedCornerShape(8.dp),
@@ -3862,7 +3870,8 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                 onClick = {
                     etaMinutes = (etaMinutes - 1).coerceAtLeast(2)
                     speedKmh = (28..38).random()
-                    distanceKm = "%.1f".format((distanceKm.toDoubleOrNull() ?: 1.4) - 0.2).coerceAtLeast("0.4")
+                    val nextDist = ((distanceKm.toDoubleOrNull() ?: 1.4) - 0.2).coerceAtLeast(0.4)
+                    distanceKm = String.format(java.util.Locale.US, "%.1f", nextDist)
                     Toast.makeText(context, "GPS Telemetry refreshed from rider unit", Toast.LENGTH_SHORT).show()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
@@ -3966,7 +3975,7 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
 
 @Composable private fun DisputeDialog(api: AarvoApiClient, orderId: String, onDone: () -> Unit) { var reason by remember { mutableStateOf("ITEM_NOT_RECEIVED") }; var details by remember { mutableStateOf("") }; var busy by remember { mutableStateOf(false) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); AlertDialog(onDismissRequest = { if (!busy) onDone() }, title = { Text("Report an order issue") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Reason"); Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { listOf("ITEM_NOT_RECEIVED", "DAMAGED", "WRONG_ITEM", "OTHER").forEach { value -> TextButton(onClick = { reason = value }) { Text(if (reason == value) "✓ $value" else value) } } }; OutlinedTextField(details, { details = it }, Modifier.fillMaxWidth(), minLines = 3, label = { Text("Describe the issue") }); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error) } }, confirmButton = { Button(onClick = { scope.launch { busy = true; error = ""; try { api.openDispute(orderId, reason, details); onDone() } catch (t: Throwable) { error = t.message ?: "Unable to open issue" } finally { busy = false } } }, enabled = !busy && details.trim().length >= 5) { if (busy) CircularProgressIndicator() else Text("Submit issue") } }, dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text("Close") } }) }
 
-@Composable private fun SellerDashboardScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) { var products by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var orders by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var profile by remember { mutableStateOf<JSONObject?>(null) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; var showCreate by remember { mutableStateOf(false) }; var editing by remember { mutableStateOf<JSONObject?>(null) }; val scope = rememberCoroutineScope(); fun reload() { scope.launch { loading = true; error = ""; try { val p = api.sellerProducts(); products = buildList { for (i in 0 until p.length()) add(p.getJSONObject(i)) }; val o = api.sellerOrders(); orders = buildList { for (i in 0 until o.length()) add(o.getJSONObject(i)) }; profile = api.sellerProfile() } catch (t: Throwable) { error = t.message ?: "Unable to load seller dashboard" } finally { loading = false } } }; LaunchedEffect(Unit) { reload() }; if (showCreate) SellerProductDialog(api, { showCreate = false; reload() }); editing?.let { SellerProductEditDialog(it, api, { editing = null; reload() }) }; val lowStockCount = products.count { it.optInt("stock_quantity") < 5 }; Box(modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding())) { Scaffold(topBar = { TopAppBar(title = { Text("Seller Dashboard") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { inner -> LazyColumn(Modifier.fillMaxSize().padding(inner), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 48.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { if (loading) item { CircularProgressIndicator() }; if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }; item { Text("Seller status: ${if (profile?.optBoolean("verified", false) == true) "Verified" else "Verification pending"}") }; item { SellerPickupDetailsCard(profile, api) { reload() } }; if (lowStockCount > 0) item { Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(14.dp)) { Text("⚠️ Low Stock Alert ($lowStockCount)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer); Text("$lowStockCount product(s) in your catalog have less than 5 units remaining.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer) } } }; item { Button(onClick = { showCreate = true }, modifier = Modifier.fillMaxWidth()) { Text("Add Product") } }; item { Text("My Products (${products.size})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }; items(products, key = { it.optInt("id") }) { p -> SellerProductRow(p, api, { editing = p }, ::reload) }; item { Text("Recent Orders (${orders.size})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }; items(orders, key = { it.optString("id") }) { o -> SellerOrderRow(o, api, ::reload) }; item { Spacer(Modifier.height(32.dp)) } } } } }
+@Composable private fun SellerDashboardScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) { var products by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var orders by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var profile by remember { mutableStateOf<JSONObject?>(null) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; var showCreate by remember { mutableStateOf(false) }; var editing by remember { mutableStateOf<JSONObject?>(null) }; val scope = rememberCoroutineScope(); fun reload() { scope.launch { loading = true; error = ""; try { val p = api.sellerProducts(); products = buildList { for (i in 0 until p.length()) add(p.getJSONObject(i)) }; val o = api.sellerOrders(); orders = buildList { for (i in 0 until o.length()) add(o.getJSONObject(i)) }; profile = api.sellerProfile() } catch (t: Throwable) { error = t.message ?: "Unable to load seller dashboard" } finally { loading = false } } }; LaunchedEffect(Unit) { reload() }; if (showCreate) SellerProductDialog(api, { showCreate = false; reload() }); editing?.let { SellerProductEditDialog(it, api, { editing = null; reload() }) }; val lowStockCount = products.count { it.optInt("stock_quantity") < 5 }; Box(modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding())) { Scaffold(topBar = { TopAppBar(title = { Text("Seller Dashboard") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { inner -> LazyColumn(Modifier.fillMaxSize().padding(inner), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 48.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { if (loading) item { CircularProgressIndicator() }; if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }; item { Text("Seller status: ${if (profile?.optBoolean("verified", false) == true) "Verified" else "Verification pending"}") }; item { SellerPickupDetailsCard(profile, api) { reload() } }; if (lowStockCount > 0) item { Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(14.dp)) { Text("⚠️ Low Stock Alert ($lowStockCount)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer); Text("$lowStockCount product(s) in your catalog have less than 5 units remaining.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer) } } }; item { Button(onClick = { showCreate = true }, modifier = Modifier.fillMaxWidth()) { Text("Add Product") } }; item { Text("My Products (${products.size})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }; itemsIndexed(products, key = { index, p -> "sprod_${index}_${p.optInt("id")}" }) { _, p -> SellerProductRow(p, api, { editing = p }, ::reload) }; item { Text("Recent Orders (${orders.size})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }; itemsIndexed(orders, key = { index, o -> "sorder_${index}_${o.optString("id")}" }) { _, o -> SellerOrderRow(o, api, ::reload) }; item { Spacer(Modifier.height(32.dp)) } } } } }
 
 
 @Composable private fun SellerPickupDetailsCard(profile: JSONObject?, api: AarvoApiClient, onSaved: () -> Unit) {
@@ -4469,7 +4478,7 @@ private fun OffersScreen(padding: PaddingValues, api: AarvoApiClient, products: 
                 }
             }
         }
-        items(deals, key = { it.optLong("id", it.optLong("productId")) }) { deal ->
+        itemsIndexed(deals, key = { index, d -> "deal_${index}_${d.optLong("id", d.optLong("productId"))}" }) { _, deal ->
             val product = products.firstOrNull { it.id == deal.optLong("productId").toInt() }
             Card(Modifier.fillMaxWidth().clickable { if (product != null) onOpenProduct(product) }, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), border = BorderStroke(1.dp, Color(0xFFFFE0C2))) {
                 Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

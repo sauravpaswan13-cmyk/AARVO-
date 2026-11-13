@@ -1,8 +1,48 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { Component, useState, useEffect, useRef } from 'react';
 import { SplashScreen } from './components/SplashScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { MainScreen } from './components/MainScreen';
 import { haptics } from './utils/haptics';
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+class AarvoErrorBoundary extends Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-[#FFFDF9] dark:bg-[#120E0C] px-6 text-center">
+          <div className="max-w-sm w-full bg-white dark:bg-[#181311] border border-[#FFDFC4] dark:border-[#332620] rounded-2xl p-6 shadow-sm">
+            <div className="w-12 h-12 mx-auto rounded-full bg-[#FFF4E8] dark:bg-[#2B1A12] text-[#FF5722] flex items-center justify-center text-xl font-black mb-3">
+              !
+            </div>
+            <h2 className="text-lg font-bold text-[#1F1612] dark:text-[#FAF3EE] mb-1">Something went wrong</h2>
+            <p className="text-xs text-[#6B5B53] dark:text-[#CBBDB4] mb-4">
+              Tap below to restore AARVO safely without losing your cart or wishlist.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                this.setState({ hasError: false });
+              }}
+              className="w-full py-2.5 rounded-xl bg-[#FF5722] hover:bg-[#E64A19] text-white text-sm font-bold transition-colors"
+            >
+              Restore AARVO
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function App() {
   // Navigation Flow State: Default to 'main' so user immediately sees the MainScreen
@@ -167,30 +207,32 @@ export default function App() {
   };
 
   return (
-    <div
-      data-theme={theme}
-      className={`min-h-screen ${theme === 'dark' ? 'dark' : ''} bg-[#FFFDF9] dark:bg-[#120E0C] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300`}
-    >
-      {currentScreen === 'splash' && (
-        <SplashScreen
-          duration={2000}
-          onFinish={() => setCurrentScreen('login')}
-        />
-      )}
+    <AarvoErrorBoundary>
+      <div
+        data-theme={theme}
+        className={`min-h-screen ${theme === 'dark' ? 'dark' : ''} bg-[#FFFDF9] dark:bg-[#120E0C] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300`}
+      >
+        {currentScreen === 'splash' && (
+          <SplashScreen
+            duration={2000}
+            onFinish={() => setCurrentScreen('login')}
+          />
+        )}
 
-      {currentScreen === 'login' && (
-        <LoginScreen
-          onSuccess={() => setCurrentScreen('main')}
-        />
-      )}
+        {currentScreen === 'login' && (
+          <LoginScreen
+            onSuccess={() => setCurrentScreen('main')}
+          />
+        )}
 
-      {currentScreen === 'main' && (
-        <MainScreen
-          theme={theme}
-          onToggleTheme={toggleTheme}
-          onLogout={() => setCurrentScreen('login')}
-        />
-      )}
-    </div>
+        {currentScreen === 'main' && (
+          <MainScreen
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onLogout={() => setCurrentScreen('login')}
+          />
+        )}
+      </div>
+    </AarvoErrorBoundary>
   );
 }
