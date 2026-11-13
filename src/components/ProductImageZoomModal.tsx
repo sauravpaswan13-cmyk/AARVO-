@@ -330,7 +330,7 @@ export const ProductImageZoomModal: React.FC<ProductImageZoomModalProps> = ({
       aria-modal="true"
       aria-labelledby="image-zoom-title"
       style={{
-        backgroundColor: `rgba(2, 6, 23, ${backdropOpacity})`,
+        backgroundColor: `rgba(18, 14, 12, ${backdropOpacity})`,
       }}
       className={`fixed inset-0 z-[110] flex flex-col justify-between overflow-hidden select-none transition-opacity duration-200 ${
         isDismissing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
@@ -339,7 +339,7 @@ export const ProductImageZoomModal: React.FC<ProductImageZoomModalProps> = ({
       {/* =================================================================== */}
       {/* TOP FLIPKART-STYLE APP BAR                                          */}
       {/* =================================================================== */}
-      <div className="relative z-30 flex items-center justify-between px-3 sm:px-5 py-3 bg-gradient-to-b from-slate-950/90 via-slate-950/60 to-transparent backdrop-blur-xs">
+      <div className="relative z-30 flex items-center justify-between px-3 sm:px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 bg-gradient-to-b from-[#181311]/95 via-[#181311]/70 to-transparent backdrop-blur-xs">
         <div className="flex items-center gap-2.5 min-w-0">
           <button
             type="button"
@@ -360,7 +360,7 @@ export const ProductImageZoomModal: React.FC<ProductImageZoomModalProps> = ({
               {product.name}
             </h2>
             <div className="flex items-center gap-2 text-[10px] text-slate-400">
-              <span className="uppercase font-semibold tracking-wider text-[#7B73FF]">
+              <span className="uppercase font-semibold tracking-wider text-[#FF8A65]">
                 {product.category}
               </span>
               <span>&bull;</span>
@@ -382,7 +382,7 @@ export const ProductImageZoomModal: React.FC<ProductImageZoomModalProps> = ({
                 onClose();
                 onOpen360(product);
               }}
-              className="px-2.5 py-1.5 rounded-full bg-gradient-to-r from-[#2418D8] to-purple-600 hover:from-blue-600 hover:to-indigo-600 text-white text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+              className="px-2.5 py-1.5 rounded-full bg-gradient-to-r from-[#FF5722] to-[#E64A19] hover:from-[#F4511E] hover:to-[#D84315] text-white text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
               title="Open 360° Interactive View"
             >
               <RotateCcw className="w-3.5 h-3.5 animate-spin-slow" />
@@ -482,7 +482,7 @@ export const ProductImageZoomModal: React.FC<ProductImageZoomModalProps> = ({
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none opacity-80 animate-pulse">
             <span className="text-[11px] font-semibold text-slate-300 bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-full border border-slate-700/60 shadow-lg flex items-center gap-1.5">
               <span>Pinch or double-tap to zoom</span>
-              <span className="text-[#7B73FF]">&bull;</span>
+              <span className="text-[#FF8A65]">&bull;</span>
               <span>Swipe down to close</span>
             </span>
           </div>
@@ -564,7 +564,7 @@ export const ProductImageZoomModal: React.FC<ProductImageZoomModalProps> = ({
                 }}
                 className={`relative w-12 h-12 rounded-xl overflow-hidden border-2 transition-all cursor-pointer shrink-0 ${
                   activeImageIndex === idx
-                    ? 'border-[#2418D8] ring-2 ring-indigo-500/50 scale-105'
+                    ? 'border-[#FF5722] ring-2 ring-[#FF5722]/50 scale-105'
                     : 'border-slate-800 opacity-60 hover:opacity-100'
                 }`}
               >
@@ -607,7 +607,7 @@ export const ProductImageZoomModal: React.FC<ProductImageZoomModalProps> = ({
                   haptics.success();
                   onAddToCart(product);
                 }}
-                className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-slate-700"
+                className="px-3.5 py-2.5 rounded-xl bg-[#211A17] hover:bg-[#2C221E] active:scale-95 text-[#FF8A65] text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-[#FF5722]/40"
               >
                 <ShoppingCart className="w-3.5 h-3.5" />
                 <span>Add to Cart</span>
@@ -622,7 +622,7 @@ export const ProductImageZoomModal: React.FC<ProductImageZoomModalProps> = ({
                   onClose();
                   onBuyNow(product);
                 }}
-                className="px-4 py-2.5 rounded-xl bg-[#2418D8] hover:bg-[#1f15b8] active:scale-95 text-white text-xs font-black flex items-center gap-1.5 shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+                className="px-4 py-2.5 rounded-xl bg-[#FF5722] hover:bg-[#E64A19] active:scale-95 text-white text-xs font-black flex items-center gap-1.5 shadow-lg shadow-orange-600/30 transition-all cursor-pointer"
               >
                 <Zap className="w-3.5 h-3.5 fill-current" />
                 <span>Buy Now</span>

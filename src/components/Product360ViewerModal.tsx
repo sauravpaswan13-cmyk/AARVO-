@@ -374,7 +374,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
       // Universal Premium Showcase Showcase Model (Rotatable Cylinder/Pillar display with emblem)
       const mainGeo = new THREE.CylinderGeometry(0.8, 0.8, 1.6, 32);
       const mainMat = new THREE.MeshStandardMaterial({
-        color: 0x2418d8,
+        color: 0xff5722,
         metalness: 0.65,
         roughness: 0.25,
       });
@@ -434,9 +434,9 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
     mainKeyLight.position.set(4, 6, 5);
     scene.add(mainKeyLight);
 
-    const rimBlueLight = new THREE.DirectionalLight(0x60a5fa, 1.8);
-    rimBlueLight.position.set(-5, 3, -4);
-    scene.add(rimBlueLight);
+    const rimWarmLight = new THREE.DirectionalLight(0xff8a65, 1.8);
+    rimWarmLight.position.set(-5, 3, -4);
+    scene.add(rimWarmLight);
 
     const warmAccentLight = new THREE.DirectionalLight(0xfef08a, 1.0);
     warmAccentLight.position.set(0, -3, 3);
@@ -574,13 +574,13 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[100] w-screen h-screen bg-slate-950 text-white flex flex-col overflow-hidden animate-in fade-in duration-300"
+      className="fixed inset-0 z-[100] w-screen h-screen bg-[#120E0C] text-white flex flex-col overflow-hidden animate-in fade-in duration-300"
     >
       {/* Full Screen 360 Viewer Canvas Container */}
-      <div className="relative w-full h-full flex flex-col overflow-hidden bg-slate-950">
+      <div className="relative w-full h-full flex flex-col overflow-hidden bg-[#120E0C]">
         
         {/* Full Screen Top Header with Back button, AARVO 360° Badge & Angle indicator */}
-        <div className="flex items-center justify-between p-3.5 sm:p-4 bg-slate-900/95 backdrop-blur-md border-b border-slate-800/80 z-20 shrink-0">
+        <div className="flex items-center justify-between px-3.5 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:px-4 bg-[#181311]/95 backdrop-blur-md border-b border-orange-950/50 z-20 shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <button
               type="button"
@@ -589,16 +589,16 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
                 onClose();
               }}
               title="Back"
-              className="p-2 -ml-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors cursor-pointer shrink-0 active:scale-90"
+              className="p-2 -ml-1 text-slate-300 hover:text-white hover:bg-[#261D19] rounded-full transition-colors cursor-pointer shrink-0 active:scale-90"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#2418D8] to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#FF5722] to-[#E64A19] text-white flex items-center justify-center shadow-lg shadow-orange-500/20 shrink-0">
               <RotateCcw className="w-4 h-4 animate-spin-slow" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#7B73FF] bg-[#2418D8]/20 px-2 py-0.5 rounded-md border border-[#2418D8]/30">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#FF8A65] bg-[#FF5722]/20 px-2 py-0.5 rounded-md border border-[#FF5722]/30">
                   AARVO 360°
                 </span>
                 <span className="text-[11px] font-bold text-slate-400">
@@ -635,19 +635,19 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
         </div>
 
         {/* View Mode Pill Switcher (3D Model vs Photo Sequence) */}
-        <div className="flex items-center justify-between px-4 py-2 bg-slate-900/50 border-b border-slate-800/50 text-xs">
+        <div className="flex items-center justify-between px-4 py-2 bg-[#181311]/70 border-b border-orange-950/30 text-xs">
           <div className="flex items-center gap-1.5 text-slate-300 font-semibold text-[11px]">
-            <Compass className="w-3.5 h-3.5 text-[#7B73FF]" />
+            <Compass className="w-3.5 h-3.5 text-[#FF8A65]" />
             <span>{getAngleLabel(rotationAngle)}</span>
           </div>
 
-          <div className="flex bg-slate-800 p-0.5 rounded-lg text-[10px] font-bold">
+          <div className="flex bg-[#211A17] p-0.5 rounded-lg text-[10px] font-bold">
             <button
               type="button"
               onClick={() => setViewMode('3d')}
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                 viewMode === '3d'
-                  ? 'bg-[#2418D8] text-white shadow-xs'
+                  ? 'bg-[#FF5722] text-white shadow-xs'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -658,7 +658,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
               onClick={() => setViewMode('frames')}
               className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                 viewMode === 'frames'
-                  ? 'bg-[#2418D8] text-white shadow-xs'
+                  ? 'bg-[#FF5722] text-white shadow-xs'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -669,7 +669,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
 
         {/* Interactive 3D / 360 Viewport Area */}
         <div
-          className="relative flex-1 bg-gradient-to-b from-slate-900 via-slate-950 to-black overflow-hidden flex items-center justify-center select-none cursor-grab active:cursor-grabbing"
+          className="relative flex-1 bg-gradient-to-b from-[#1D1512] via-[#140F0D] to-[#0D0A09] overflow-hidden flex items-center justify-center select-none cursor-grab active:cursor-grabbing"
           onMouseDown={(e) => handlePointerDown(e.clientX)}
           onMouseMove={(e) => handlePointerMove(e.clientX)}
           onMouseUp={handlePointerUp}
@@ -728,8 +728,8 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
               title={isAutoRotating ? 'Pause auto-spin' : 'Auto-spin 360°'}
               className={`w-9 h-9 rounded-xl backdrop-blur-md flex items-center justify-center transition-all cursor-pointer shadow-lg ${
                 isAutoRotating
-                  ? 'bg-[#2418D8] text-white ring-2 ring-indigo-400/50'
-                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300'
+                  ? 'bg-[#FF5722] text-white ring-2 ring-[#FF8A65]/50'
+                  : 'bg-[#211A17]/90 hover:bg-[#2C221E] text-slate-300'
               }`}
             >
               {isAutoRotating ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
@@ -739,7 +739,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
               type="button"
               onClick={() => handleZoom(0.2)}
               title="Zoom In"
-              className="w-9 h-9 rounded-xl bg-slate-800/80 hover:bg-slate-700 backdrop-blur-md text-slate-300 flex items-center justify-center transition-all cursor-pointer shadow-lg"
+              className="w-9 h-9 rounded-xl bg-[#211A17]/90 hover:bg-[#2C221E] backdrop-blur-md text-slate-300 flex items-center justify-center transition-all cursor-pointer shadow-lg"
             >
               <ZoomIn className="w-4 h-4" />
             </button>
@@ -748,7 +748,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
               type="button"
               onClick={() => handleZoom(-0.2)}
               title="Zoom Out"
-              className="w-9 h-9 rounded-xl bg-slate-800/80 hover:bg-slate-700 backdrop-blur-md text-slate-300 flex items-center justify-center transition-all cursor-pointer shadow-lg"
+              className="w-9 h-9 rounded-xl bg-[#211A17]/90 hover:bg-[#2C221E] backdrop-blur-md text-slate-300 flex items-center justify-center transition-all cursor-pointer shadow-lg"
             >
               <ZoomOut className="w-4 h-4" />
             </button>
@@ -767,8 +767,8 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
                 }}
                 className={`px-2.5 py-1 rounded-xl text-[10px] font-bold backdrop-blur-md border flex items-center gap-1.5 transition-all cursor-pointer shadow-md ${
                   activeHotspot?.id === spot.id || Math.abs(rotationAngle - spot.angle) < 25
-                    ? 'bg-[#2418D8] border-indigo-400 text-white shadow-indigo-500/30'
-                    : 'bg-slate-900/80 border-slate-700/80 text-slate-300 hover:text-white'
+                    ? 'bg-[#FF5722] border-[#FF8A65] text-white shadow-orange-500/30'
+                    : 'bg-[#181311]/85 border-orange-950/60 text-slate-300 hover:text-white'
                 }`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -779,10 +779,10 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
 
           {/* Hotspot Detail Card Popup (when user clicks a feature highlight) */}
           {activeHotspot && (
-            <div className="absolute bottom-4 left-4 right-4 bg-slate-900/95 backdrop-blur-md p-3.5 rounded-2xl border border-indigo-500/40 shadow-2xl z-20 animate-in slide-in-from-bottom-2">
+            <div className="absolute bottom-4 left-4 right-4 bg-[#181311]/95 backdrop-blur-md p-3.5 rounded-2xl border border-[#FF5722]/40 shadow-2xl z-20 animate-in slide-in-from-bottom-2">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <div className="flex items-center gap-1.5 text-[#7B73FF] text-[10px] font-black uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 text-[#FF8A65] text-[10px] font-black uppercase tracking-wider">
                     <Sparkles className="w-3 h-3" />
                     <span>AARVO Feature Highlight &bull; {activeHotspot.angle}° Angle</span>
                   </div>
@@ -806,7 +806,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
         </div>
 
         {/* 360° Angle Scrubber Slider & Quick Snap Buttons */}
-        <div className="p-3 bg-slate-900 border-t border-slate-800 space-y-2.5 z-20">
+        <div className="p-3 bg-[#181311] border-t border-orange-950/50 space-y-2.5 z-20">
           {/* Degree Slider Bar */}
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
@@ -822,7 +822,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
               max="360"
               value={rotationAngle}
               onChange={(e) => rotateToDegree(Number(e.target.value))}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#2418D8]"
+              className="w-full h-1.5 bg-[#2A201B] rounded-lg appearance-none cursor-pointer accent-[#FF5722]"
             />
           </div>
 
@@ -840,8 +840,8 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
                 onClick={() => rotateToDegree(preset.deg)}
                 className={`py-1.5 px-2 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer ${
                   Math.abs(rotationAngle - preset.deg) < 20
-                    ? 'bg-[#2418D8] border-indigo-400 text-white shadow-xs'
-                    : 'bg-slate-800/80 border-slate-700/60 text-slate-300 hover:bg-slate-800'
+                    ? 'bg-[#FF5722] border-[#FF8A65] text-white shadow-xs'
+                    : 'bg-[#211A17] border-orange-950/50 text-slate-300 hover:bg-[#2C221E]'
                 }`}
               >
                 {preset.label}
@@ -850,7 +850,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
           </div>
 
           {/* Bottom Buy / Add to Cart Bar */}
-          <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-orange-950/50">
             <div>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-base font-black text-white">
@@ -873,7 +873,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
                     haptics.success();
                     onAddToCart(product);
                   }}
-                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
+                  className="px-3 py-2 bg-[#211A17] hover:bg-[#2C221E] text-[#FF8A65] border border-[#FF5722]/40 font-bold text-xs rounded-xl flex items-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
                 >
                   <ShoppingCart className="w-3.5 h-3.5" />
                   <span>Add to Cart</span>
@@ -887,7 +887,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
                     haptics.success();
                     onBuyNow(product);
                   }}
-                  className="px-4 py-2 bg-gradient-to-r from-[#2418D8] to-purple-600 hover:from-[#1A10B3] hover:to-purple-700 text-white font-black text-xs rounded-xl shadow-lg shadow-indigo-500/25 flex items-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
+                  className="px-4 py-2 bg-gradient-to-r from-[#FF5722] to-[#E64A19] hover:from-[#F4511E] hover:to-[#D84315] text-white font-black text-xs rounded-xl shadow-lg shadow-orange-500/25 flex items-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
                 >
                   <Zap className="w-3.5 h-3.5" />
                   <span>Buy Now</span>

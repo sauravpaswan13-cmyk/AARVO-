@@ -86,12 +86,12 @@ export async function registerServiceWorker(
 
   // Setup online/offline listeners
   window.addEventListener('online', () => {
-    console.log('%c[AARVO SW]%c App is back online', 'color: #2418D8; font-weight: bold;', 'color: #059669;');
+    console.log('%c[AARVO SW]%c App is back online', 'color: #FF5722; font-weight: bold;', 'color: #059669;');
     options.onOnline?.();
   });
 
   window.addEventListener('offline', () => {
-    console.warn('%c[AARVO SW]%c App is running in offline mode. Serving cached resources.', 'color: #2418D8; font-weight: bold;', 'color: #D97706;');
+    console.warn('%c[AARVO SW]%c App is running in offline mode. Serving cached resources.', 'color: #FF5722; font-weight: bold;', 'color: #D97706;');
     options.onOffline?.();
   });
 
@@ -103,7 +103,7 @@ export async function registerServiceWorker(
       const registration = await navigator.serviceWorker.register(swUrl, { scope });
       console.log(
         `%c[AARVO SW]%c Registered successfully with scope: ${registration.scope}`,
-        'color: #2418D8; font-weight: bold;',
+        'color: #FF5722; font-weight: bold;',
         'color: #334155;'
       );
 

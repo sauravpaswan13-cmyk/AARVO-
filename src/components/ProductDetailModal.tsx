@@ -77,6 +77,9 @@ interface ProductDetailModalProps {
   onOpenCart?: () => void;
   onOpenOrders?: () => void;
   onOpenImageZoom?: (product: Product) => void;
+  savedAddress?: string;
+  customerName?: string;
+  onUpdateAddress?: (addr: string) => void;
 }
 
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
@@ -93,6 +96,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onOpenCart,
   onOpenOrders,
   onOpenImageZoom,
+  savedAddress,
+  customerName = 'Saurav Paswan',
+  onUpdateAddress,
 }) => {
   // Image slider state
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -102,13 +108,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [isZoomOpen, setIsZoomOpen] = useState(false);
 
   // Variant states: Size & Color
-  const [selectedSize, setSelectedSize] = useState<string>('M');
-  const [selectedColor, setSelectedColor] = useState<string>('Royal Blue');
+  const [selectedSize, setSelectedSize] = useState<string>('');
+  const [selectedColor, setSelectedColor] = useState<string>('');
 
   // Customer Ratings & Reviews state
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
-  const [reviewerName, setReviewerName] = useState('Saurav Paswan');
+  const [reviewerName, setReviewerName] = useState(customerName);
   const [reviewComment, setReviewComment] = useState('');
   const [localReviews, setLocalReviews] = useState<ReviewItem[]>([]);
   const [reviewSuccess, setReviewSuccess] = useState(false);
@@ -117,9 +123,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // Fast Checkout (Cash on Delivery) Drawer states
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'UPI' | 'CARD'>('COD');
-  const [deliveryAddress, setDeliveryAddress] = useState('Home • 24B, Model Town, Phase 2, Patna - 800001');
+  const [deliveryAddress, setDeliveryAddress] = useState(
+    savedAddress || 'Home • 24B, Model Town, Phase 2, Patna - 800001'
+  );
   const [isEditingAddress, setIsEditingAddress] = useState(false);
-  const [pincode, setPincode] = useState('800001');
+  const [pincode, setPincode] = useState(() => {
+    const m = savedAddress?.match(/\b\d{6}\b/);
+    return m ? m[0] : '800001';
+  });
+  const [isEditingPincode, setIsEditingPincode] = useState(false);
+  const [pincodeInput, setPincodeInput] = useState('');
   const [isPincodeValid, setIsPincodeValid] = useState(true);
   const [orderConfirmed, setOrderConfirmed] = useState<Order | null>(null);
 
@@ -187,6 +200,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setShowReviewForm(false);
     setReviewComment('');
     setReviewSuccess(false);
+    setIsEditingPincode(false);
+
+    if (savedAddress) {
+      setDeliveryAddress(savedAddress);
+      const pinMatch = savedAddress.match(/\b\d{6}\b/);
+      if (pinMatch) setPincode(pinMatch[0]);
+    }
+    if (customerName) {
+      setReviewerName(customerName);
+    }
 
     if (product) {
       const s = product.availableSizes && product.availableSizes.length > 0
@@ -284,6 +307,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const handleMouseUp = () => {
     isMouseDown.current = false;
   };
+
+  const baseReviewsCount = product.reviewsCount || 0;
+  const totalReviewsCount = baseReviewsCount + localReviews.length;
+  const effectiveRating =
+    totalReviewsCount > 0
+      ? localReviews.length > 0
+        ? (baseReviewsCount * (product.rating || 0) +
+            localReviews.reduce((sum, r) => sum + r.rating, 0)) /
+          totalReviewsCount
+        : product.rating || 0
+      : 0;
 
   const savings = Math.max(0, product.originalPrice - product.price);
   const totalPrice = product.price * selectedQty;
@@ -427,15 +461,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       />
 
       {/* Modal / Bottom Sheet Container (Full slide-up on mobile, Flipkart-style) */}
-      <div className="relative w-full max-w-[460px] h-[95vh] sm:h-auto sm:max-h-[94vh] bg-white dark:bg-[#14112B] text-slate-900 dark:text-slate-100 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden animate-in slide-in-from-bottom duration-300 border border-slate-100 dark:border-slate-800">
+      <div className="relative w-full max-w-[460px] h-[95vh] sm:h-auto sm:max-h-[94vh] bg-white dark:bg-[#181311] text-slate-900 dark:text-slate-100 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden animate-in slide-in-from-bottom duration-300 border border-orange-100/80 dark:border-orange-950/50">
         
         {/* Mobile Swipe Grab Handle Indicator */}
-        <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto my-1.5 sm:hidden shrink-0" />
+        <div className="w-12 h-1.5 rounded-full bg-orange-200 dark:bg-orange-900/60 mx-auto my-1.5 sm:hidden shrink-0" />
 
         {/* ================================================================= */}
         {/* 1. FLIPKART-STYLE TOP APP BAR                                     */}
         {/* ================================================================= */}
-        <header className="sticky top-0 z-30 flex items-center justify-between px-3.5 py-3 bg-white/98 dark:bg-[#14112B]/98 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/80">
+        <header className="sticky top-0 z-30 flex items-center justify-between px-3.5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 bg-gradient-to-b from-[#FFE5CC]/75 via-[#FFF8F2] to-white dark:from-[#26160C] dark:via-[#1B120E] dark:to-[#181311] backdrop-blur-md border-b border-orange-100/80 dark:border-orange-950/50">
           <div className="flex items-center gap-2.5">
             <button
               type="button"
@@ -504,9 +538,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               className="relative p-1.5 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
             >
               <ShoppingCart className="w-5 h-5 stroke-[2]" />
-              {(cartBadgeCount > 0 || true) && (
-                <span className="absolute -top-1 -right-1 min-w-[17px] h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-black flex items-center justify-center shadow-xs">
-                  {cartBadgeCount > 0 ? cartBadgeCount : 2}
+              {cartBadgeCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[17px] h-4 px-1 rounded-full bg-[#FF5722] text-white text-[9px] font-black flex items-center justify-center shadow-xs">
+                  {cartBadgeCount}
                 </span>
               )}
             </button>
@@ -536,7 +570,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
-              className="relative aspect-square w-full rounded-2xl overflow-hidden bg-white dark:bg-[#1A1638] shadow-sm border border-slate-100 dark:border-slate-800/80 group select-none cursor-grab active:cursor-grabbing"
+              className="relative aspect-square w-full rounded-2xl overflow-hidden bg-white dark:bg-[#211A17] shadow-sm border border-orange-100/80 dark:border-orange-950/50 group select-none cursor-grab active:cursor-grabbing"
             >
               {/* Image Slides Track */}
               <div
@@ -591,7 +625,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     setIsZoomOpen(true);
                   }
                 }}
-                className="absolute bottom-3 left-3 bg-black/60 hover:bg-[#2418D8] backdrop-blur-md text-white px-2.5 py-1 rounded-full shadow-md border border-white/20 flex items-center gap-1.5 text-[10px] font-bold transition-colors cursor-pointer z-10"
+                className="absolute bottom-3 left-3 bg-black/60 hover:bg-[#FF5722] backdrop-blur-md text-white px-2.5 py-1 rounded-full shadow-md border border-white/20 flex items-center gap-1.5 text-[10px] font-bold transition-colors cursor-pointer z-10"
               >
                 <ZoomIn className="w-3 h-3" />
                 <span>Tap to Zoom</span>
@@ -642,7 +676,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       }}
                       className={`transition-all duration-300 rounded-full cursor-pointer ${
                         isActive
-                          ? 'w-6 h-2 bg-[#2418D8] shadow-xs'
+                          ? 'w-6 h-2 bg-[#FF5722] shadow-xs'
                           : 'w-2 h-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
                       }`}
                     />
@@ -702,20 +736,35 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </button>
             </div>
 
-            {/* Rating pill: 4.2 ★ (12,458 reviews) */}
+            {/* Real Rating pill or honest empty prompt */}
             <div className="flex items-center gap-2 mt-2">
-              <div className="flex items-center gap-1 bg-emerald-600 text-white text-xs font-black px-2 py-0.5 rounded-md shadow-2xs">
-                <span>{product.rating.toFixed(1)}</span>
-                <Star className="w-3 h-3 fill-white" />
-              </div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                ({(product.reviewsCount || 12458).toLocaleString('en-IN')} reviews)
-              </span>
+              {totalReviewsCount > 0 ? (
+                <>
+                  <div className="flex items-center gap-1 bg-emerald-600 text-white text-xs font-black px-2 py-0.5 rounded-md shadow-2xs">
+                    <span>{effectiveRating.toFixed(1)}</span>
+                    <Star className="w-3 h-3 fill-white" />
+                  </div>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    ({totalReviewsCount.toLocaleString('en-IN')} reviews)
+                  </span>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.selection();
+                    setShowReviewForm(true);
+                  }}
+                  className="text-xs font-semibold text-[#FF5722] dark:text-[#FF8A65] hover:underline cursor-pointer"
+                >
+                  No reviews yet &bull; Be the first to rate
+                </button>
+              )}
             </div>
           </div>
 
           {/* =============================================================== */}
-          {/* PRICING ZONE (₹999 ₹1,999 50% OFF)                              */}
+          {/* PRICING ZONE                                                    */}
           {/* =============================================================== */}
           <div className="flex items-baseline gap-2.5 pt-1">
             <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white font-display">
@@ -726,9 +775,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <span className="text-sm sm:text-base text-slate-400 dark:text-slate-500 line-through font-semibold">
                   ₹{product.originalPrice.toLocaleString('en-IN')}
                 </span>
-                <span className="text-xs font-bold text-white bg-[#E53935] px-2 py-0.5 rounded shadow-xs tracking-wide">
-                  {product.discount || '50% OFF'}
-                </span>
+                {product.discount && (
+                  <span className="text-xs font-bold text-white bg-[#E53935] px-2 py-0.5 rounded shadow-xs tracking-wide">
+                    {product.discount}
+                  </span>
+                )}
               </>
             )}
           </div>
@@ -771,7 +822,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           {/* =============================================================== */}
           {/* FLIPKART "AVAILABLE OFFERS" ACCORDION                            */}
           {/* =============================================================== */}
-          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1638] border border-slate-200/90 dark:border-slate-800 space-y-2.5">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100/80 dark:border-orange-950/50 space-y-2.5">
             <h3 className="font-display font-extrabold text-xs uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
               <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Available offers</span>
@@ -783,7 +834,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <div className="flex-1 leading-snug">
                 <span className="font-black text-slate-900 dark:text-slate-100">Bank Offer: </span>
                 <span className="text-slate-700 dark:text-slate-300">5% Unlimited Cashback on AARVO Axis Bank Credit Card </span>
-                <span className="text-[#2418D8] dark:text-[#7B73FF] font-bold text-[10px] cursor-pointer hover:underline">T&amp;C</span>
+                <span className="text-[#FF5722] dark:text-[#FF8A65] font-bold text-[10px]">T&amp;C</span>
               </div>
             </div>
 
@@ -793,7 +844,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <div className="flex-1 leading-snug">
                 <span className="font-black text-slate-900 dark:text-slate-100">Bank Offer: </span>
                 <span className="text-slate-700 dark:text-slate-300">10% instant discount on SBI &amp; HDFC Bank cards on orders above ₹1,499 </span>
-                <span className="text-[#2418D8] dark:text-[#7B73FF] font-bold text-[10px] cursor-pointer hover:underline">T&amp;C</span>
+                <span className="text-[#FF5722] dark:text-[#FF8A65] font-bold text-[10px]">T&amp;C</span>
               </div>
             </div>
 
@@ -803,18 +854,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="flex items-start gap-2 text-xs">
                   <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <div className="flex-1 leading-snug">
-                    <span className="font-black text-slate-900 dark:text-slate-100">Special Price: </span>
-                    <span className="text-slate-700 dark:text-slate-300">Get extra ₹150 off on order checkout with coupon AARVO150 </span>
-                    <span className="text-[#2418D8] dark:text-[#7B73FF] font-bold text-[10px] cursor-pointer hover:underline">T&amp;C</span>
+                    <span className="font-black text-slate-900 dark:text-slate-100">Coupon Offer: </span>
+                    <span className="text-slate-700 dark:text-slate-300">Use AARVO200 in Cart on orders ₹999+ for flat ₹200 off </span>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-2 text-xs">
                   <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <div className="flex-1 leading-snug">
-                    <span className="font-black text-slate-900 dark:text-slate-100">Partner Offer: </span>
-                    <span className="text-slate-700 dark:text-slate-300">Sign-up for AARVO Pay Later &amp; get ₹100 Welcome Gift Card </span>
-                    <span className="text-[#2418D8] dark:text-[#7B73FF] font-bold text-[10px] cursor-pointer hover:underline">Know More</span>
+                    <span className="font-black text-slate-900 dark:text-slate-100">Welcome Offer: </span>
+                    <span className="text-slate-700 dark:text-slate-300">Use WELCOME100 in Cart on orders ₹499+ for flat ₹100 off </span>
                   </div>
                 </div>
               </div>
@@ -827,7 +876,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 haptics.selection();
                 setShowAllOffers(!showAllOffers);
               }}
-              className="text-xs font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline pt-1 flex items-center gap-1 cursor-pointer"
+              className="text-xs font-bold text-[#FF5722] dark:text-[#FF8A65] hover:underline pt-1 flex items-center gap-1 cursor-pointer"
             >
               <span>{showAllOffers ? 'View fewer offers' : '+ 2 more offers'}</span>
             </button>
@@ -838,14 +887,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           {/* (SHOWN ONLY WHEN SELLER HAS CONFIGURED SIZES OR COLOURS)          */}
           {/* =============================================================== */}
           {(parsedColors.length > 0 || parsedSizes.length > 0) && (
-            <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1638] border border-slate-200/90 dark:border-slate-800 space-y-3">
+            <div className="p-3.5 rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100/80 dark:border-orange-950/50 space-y-3">
               {/* Color Selection - Only if product has colours */}
               {parsedColors.length > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                       <span>Colour:</span>
-                      <strong className="text-[#2418D8] dark:text-[#7B73FF] font-black">{selectedColor || parsedColors[0]}</strong>
+                      <strong className="text-[#FF5722] dark:text-[#FF8A65] font-black">{selectedColor || parsedColors[0]}</strong>
                     </span>
                     <span className="text-[10px] text-slate-400 font-medium">
                       {parsedColors.length} options
@@ -857,7 +906,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       const colorMap: Record<string, string> = {
                         black: '#0F172A',
                         white: '#F8FAFC',
-                        'royal blue': '#2418D8',
+                        'royal blue': '#2563EB',
+                        blue: '#2563EB',
                         red: '#DC2626',
                         maroon: '#831843',
                         'emerald green': '#059669',
@@ -871,7 +921,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         orange: '#EA580C',
                         purple: '#7E22CE',
                       };
-                      const hex = colorMap[col.toLowerCase()] || '#2418D8';
+                      const hex = colorMap[col.toLowerCase()] || '#FF5722';
                       return (
                         <button
                           key={col}
@@ -882,8 +932,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           }}
                           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                             isColSelected
-                              ? 'border-[#2418D8] bg-blue-50/70 dark:bg-blue-950/40 text-[#2418D8] dark:text-[#7B73FF] ring-2 ring-[#2418D8]/20'
-                              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                              ? 'border-[#FF5722] bg-[#FFF4E8] dark:bg-orange-950/40 text-[#FF5722] dark:text-[#FF8A65] ring-2 ring-[#FF5722]/20'
+                              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-[#181311] text-slate-700 dark:text-slate-300'
                           }`}
                         >
                           <span
@@ -900,11 +950,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
               {/* Size Selection - Only if product has sizes */}
               {parsedSizes.length > 0 && (
-                <div className={parsedColors.length > 0 ? "pt-2 border-t border-slate-100 dark:border-slate-800" : ""}>
+                <div className={parsedColors.length > 0 ? "pt-2 border-t border-orange-100/80 dark:border-orange-950/50" : ""}>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                       <span>Size:</span>
-                      <strong className="text-[#2418D8] dark:text-[#7B73FF] font-black">{selectedSize || parsedSizes[0]}</strong>
+                      <strong className="text-[#FF5722] dark:text-[#FF8A65] font-black">{selectedSize || parsedSizes[0]}</strong>
                     </span>
                     <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
                       <Check className="w-3 h-3" />
@@ -924,8 +974,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           }}
                           className={`min-w-[40px] px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
                             isSizeSelected
-                              ? 'bg-[#2418D8] text-white shadow-sm ring-2 ring-[#2418D8]/30 scale-105'
-                              : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#2418D8]'
+                              ? 'bg-[#FF5722] text-white shadow-sm ring-2 ring-[#FF5722]/30 scale-105'
+                              : 'bg-[#FFFDF9] dark:bg-[#181311] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#FF5722]'
                           }`}
                         >
                           {size}
@@ -947,10 +997,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           {/* =============================================================== */}
           {/* CASH ON DELIVERY & FREE DELIVERY ASSURANCE                       */}
           {/* =============================================================== */}
-          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1638] border border-slate-200/90 dark:border-slate-800 space-y-2.5">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100 dark:border-orange-950/60 space-y-2.5">
             {/* Delivery time */}
             <div className="flex items-center gap-2.5">
-              <Truck className="w-4 h-4 text-slate-700 dark:text-slate-300 shrink-0" />
+              <Truck className="w-4 h-4 text-[#FF5722] shrink-0" />
               <div className="text-xs">
                 <span className="font-bold text-slate-900 dark:text-white">
                   Delivery by Tomorrow, 9 PM
@@ -961,69 +1011,112 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
             </div>
 
-            {/* Pincode check */}
-            <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
-              <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-                <MapPin className="w-3.5 h-3.5 text-[#2418D8]" />
-                <span>Deliver to: <strong className="text-slate-800 dark:text-slate-200">{pincode}</strong></span>
+            {/* Inline Pincode check (no window.prompt) */}
+            <div className="pt-1.5 border-t border-slate-100 dark:border-white/10 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                  <MapPin className="w-3.5 h-3.5 text-[#FF5722]" />
+                  <span>Deliver to: <strong className="text-slate-900 dark:text-white">{pincode}</strong></span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.light();
+                    setPincodeInput(pincode);
+                    setIsEditingPincode(!isEditingPincode);
+                  }}
+                  className="text-xs font-bold text-[#FF5722] dark:text-[#FF8A65] hover:underline cursor-pointer"
+                >
+                  {isEditingPincode ? 'Cancel' : 'Change'}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  haptics.light();
-                  const newPin = prompt('Enter delivery pincode:', pincode);
-                  if (newPin && newPin.trim().length === 6) {
-                    setPincode(newPin.trim());
-                    setIsPincodeValid(true);
-                  }
-                }}
-                className="text-xs font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline cursor-pointer"
-              >
-                Change
-              </button>
+              {isEditingPincode && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const cleaned = pincodeInput.replace(/\D/g, '').slice(0, 6);
+                    if (cleaned.length === 6) {
+                      setPincode(cleaned);
+                      setIsPincodeValid(true);
+                      setIsEditingPincode(false);
+                      haptics.success();
+                    } else {
+                      setIsPincodeValid(false);
+                      haptics.warning();
+                    }
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={pincodeInput}
+                    onChange={(e) => {
+                      setPincodeInput(e.target.value.replace(/\D/g, '').slice(0, 6));
+                      setIsPincodeValid(true);
+                    }}
+                    placeholder="6-digit pincode"
+                    className="flex-1 px-2.5 py-1.5 rounded-lg text-xs bg-[#FFF4E8] dark:bg-[#181311] text-slate-900 dark:text-white border border-orange-200 dark:border-orange-900/60 outline-none focus:border-[#FF5722]"
+                  />
+                  <button
+                    type="submit"
+                    className="px-3 py-1.5 rounded-lg bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold text-xs cursor-pointer"
+                  >
+                    Check
+                  </button>
+                </form>
+              )}
+              {!isPincodeValid && (
+                <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+                  Please enter a valid 6-digit delivery pincode.
+                </p>
+              )}
             </div>
 
             {/* Cash on Delivery Banner */}
-            <div className="flex items-center gap-2 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60">
-              <Banknote className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
-              <div className="flex-1 text-[11px] leading-tight">
-                <span className="font-extrabold text-amber-900 dark:text-amber-300 block">
-                  Cash On Delivery Available
-                </span>
-                <span className="text-amber-800/80 dark:text-amber-400/80 text-[10px]">
-                  Pay cash at your doorstep with 100% purchase protection.
-                </span>
+            {product.codAvailable !== false && (
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60">
+                <Banknote className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
+                <div className="flex-1 text-[11px] leading-tight">
+                  <span className="font-extrabold text-amber-900 dark:text-amber-300 block">
+                    Cash On Delivery Available
+                  </span>
+                  <span className="text-amber-800/80 dark:text-amber-400/80 text-[10px]">
+                    Pay cash at your doorstep with 100% purchase protection.
+                  </span>
+                </div>
+                <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               </div>
-              <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            </div>
+            )}
           </div>
 
           {/* =============================================================== */}
           {/* THREE CORE TRUST ASSURANCES                                     */}
           {/* =============================================================== */}
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/60 flex flex-col items-center">
-              <Truck className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF] mb-1" />
+            <div className="p-2.5 rounded-xl bg-[#FFF4E8]/70 dark:bg-[#211A17] border border-orange-100 dark:border-orange-950/50 flex flex-col items-center">
+              <Truck className="w-4 h-4 text-[#FF5722] dark:text-[#FF8A65] mb-1" />
               <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">
                 Free Delivery
               </span>
-              <span className="text-[9px] text-slate-500">Fast doorstep</span>
+              <span className="text-[9px] text-slate-500 dark:text-slate-400">Fast doorstep</span>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/60 flex flex-col items-center">
-              <RotateCcw className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF] mb-1" />
+            <div className="p-2.5 rounded-xl bg-[#FFF4E8]/70 dark:bg-[#211A17] border border-orange-100 dark:border-orange-950/50 flex flex-col items-center">
+              <RotateCcw className="w-4 h-4 text-[#FF5722] dark:text-[#FF8A65] mb-1" />
               <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">
                 7 Days Return
               </span>
-              <span className="text-[9px] text-slate-500">Easy replacement</span>
+              <span className="text-[9px] text-slate-500 dark:text-slate-400">Easy replacement</span>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/60 flex flex-col items-center">
-              <ShieldCheck className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF] mb-1" />
+            <div className="p-2.5 rounded-xl bg-[#FFF4E8]/70 dark:bg-[#211A17] border border-orange-100 dark:border-orange-950/50 flex flex-col items-center">
+              <ShieldCheck className="w-4 h-4 text-[#FF5722] dark:text-[#FF8A65] mb-1" />
               <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">
-                AARVO Assured
+                Quality Checked
               </span>
-              <span className="text-[9px] text-slate-500">100% Genuine</span>
+              <span className="text-[9px] text-slate-500 dark:text-slate-400">Verified item</span>
             </div>
           </div>
 
@@ -1041,7 +1134,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   key={idx}
                   className="text-xs text-slate-700 dark:text-slate-300 flex items-start gap-2"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#2418D8] dark:bg-[#7B73FF] mt-1.5 shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF5722] dark:bg-[#FF8A65] mt-1.5 shrink-0" />
                   <span>{hl}</span>
                 </li>
               ))}
@@ -1049,13 +1142,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           </div>
 
           {/* Flipkart-style 2-Column Specifications Table */}
-          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1638] border border-slate-200/90 dark:border-slate-800 space-y-2">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100 dark:border-orange-950/60 space-y-2">
             <h3 className="font-display font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-white flex items-center justify-between">
               <span>Specifications</span>
-              <span className="text-[10px] font-bold text-[#2418D8] dark:text-[#7B73FF]">All details</span>
+              <span className="text-[10px] font-bold text-[#FF5722] dark:text-[#FF8A65]">All details</span>
             </h3>
 
-            <div className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
+            <div className="divide-y divide-slate-100 dark:divide-white/10 text-xs">
               <div className="grid grid-cols-2 py-1.5">
                 <span className="text-slate-500 dark:text-slate-400">Category</span>
                 <span className="font-semibold text-slate-900 dark:text-white">{product.category}</span>
@@ -1076,17 +1169,19 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
               <div className="grid grid-cols-2 py-1.5">
                 <span className="text-slate-500 dark:text-slate-400">Cash on Delivery</span>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">Available (COD)</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                  {product.codAvailable !== false ? 'Available (COD)' : 'Prepaid Only'}
+                </span>
               </div>
               <div className="grid grid-cols-2 py-1.5">
-                <span className="text-slate-500 dark:text-slate-400">Manufacturer</span>
+                <span className="text-slate-500 dark:text-slate-400">Seller</span>
                 <span className="font-semibold text-slate-900 dark:text-white">{product.seller}</span>
               </div>
             </div>
           </div>
 
           {/* Full Description */}
-          <div className="space-y-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+          <div className="space-y-1.5 pt-1 border-t border-slate-100 dark:border-white/10">
             <h4 className="font-display font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Description
             </h4>
@@ -1095,28 +1190,27 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </p>
           </div>
 
-          {/* Seller Information */}
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#1A1638] border border-slate-100 dark:border-slate-800 text-xs flex items-center justify-between">
+          {/* Seller Information (Zero fake ratings or genuine badges) */}
+          <div className="p-3 rounded-xl bg-[#FFF4E8]/70 dark:bg-[#211A17] border border-orange-100 dark:border-orange-950/60 text-xs flex items-center justify-between">
             <div>
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">
-                Seller
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold block">
+                Sold By
               </span>
-              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                <span>{product.seller}</span>
-                <span className="text-[10px] font-extrabold text-white bg-emerald-600 px-1 rounded">
-                  4.8 ★
-                </span>
+              <span className="font-bold text-slate-900 dark:text-white">
+                {product.seller}
               </span>
             </div>
-            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
-              100% Genuine
-            </span>
+            {totalReviewsCount > 0 && (
+              <span className="text-[10px] font-extrabold text-white bg-emerald-600 px-1.5 py-0.5 rounded">
+                {effectiveRating.toFixed(1)} ★
+              </span>
+            )}
           </div>
 
           {/* =============================================================== */}
           {/* REAL CUSTOMER RATINGS & REVIEWS SECTION                          */}
           {/* =============================================================== */}
-          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1638] border border-slate-200/90 dark:border-slate-800 space-y-3">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100 dark:border-orange-950/60 space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-display font-black text-xs uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -1136,63 +1230,56 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   haptics.selection();
                   setShowReviewForm(!showReviewForm);
                 }}
-                className="px-3 py-1.5 bg-[#2418D8] text-white text-xs font-bold rounded-xl hover:bg-[#1D12B8] active:scale-95 transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                className="px-3 py-1.5 bg-[#FF5722] text-white text-xs font-bold rounded-xl hover:bg-[#E64A19] active:scale-95 transition-all shadow-xs cursor-pointer flex items-center gap-1"
               >
-                <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
+                <Star className="w-3.5 h-3.5 fill-amber-200 text-amber-200" />
                 <span>{showReviewForm ? 'Cancel' : 'Rate Product'}</span>
               </button>
             </div>
 
-            {/* Flipkart-style Ratings Breakdown with Progress Bars */}
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#15112B] border border-slate-100 dark:border-slate-800/80 flex items-center gap-4">
-              <div className="text-center shrink-0 pr-3 border-r border-slate-200 dark:border-slate-800">
+            {/* Real Ratings Summary (Zero fabricated breakdown percentages) */}
+            <div className="p-3 rounded-xl bg-[#FFF4E8]/60 dark:bg-[#181311] border border-orange-100 dark:border-orange-950/50 flex items-center gap-4">
+              <div className="text-center shrink-0 pr-3 border-r border-orange-200/70 dark:border-white/10">
                 <div className="text-2xl font-black text-slate-900 dark:text-white flex items-center justify-center gap-1">
-                  <span>{product.rating > 0 ? product.rating.toFixed(1) : '4.5'}</span>
-                  <Star className="w-4 h-4 fill-emerald-600 text-emerald-600" />
+                  <span>{totalReviewsCount > 0 ? effectiveRating.toFixed(1) : '—'}</span>
+                  <Star className={`w-4 h-4 ${totalReviewsCount > 0 ? 'fill-emerald-600 text-emerald-600' : 'text-slate-400'}`} />
                 </div>
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
-                  {product.reviewsCount > 0 ? `${product.reviewsCount} Ratings` : '50+ Ratings'}
+                  {totalReviewsCount > 0 ? `${totalReviewsCount.toLocaleString('en-IN')} Ratings` : '0 Ratings'}
                 </span>
               </div>
 
-              {/* Progress bars (5★ down to 1★) */}
-              <div className="flex-1 space-y-1 text-[10px]">
-                <div className="flex items-center gap-2">
-                  <span className="w-4 font-bold text-slate-600 dark:text-slate-400">5★</span>
-                  <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-600 rounded-full" style={{ width: '68%' }} />
-                  </div>
-                  <span className="w-6 text-right font-medium text-slate-400">68%</span>
+              {localReviews.length > 0 ? (
+                <div className="flex-1 space-y-1 text-[10px]">
+                  {[5, 4, 3, 2, 1].map((starLevel) => {
+                    const count = localReviews.filter((r) => Math.round(r.rating) === starLevel).length;
+                    const pct = Math.round((count / localReviews.length) * 100);
+                    const barColor =
+                      starLevel >= 4
+                        ? 'bg-emerald-600'
+                        : starLevel === 3
+                        ? 'bg-amber-500'
+                        : starLevel === 2
+                        ? 'bg-orange-500'
+                        : 'bg-rose-500';
+                    return (
+                      <div key={starLevel} className="flex items-center gap-2">
+                        <span className="w-4 font-bold text-slate-600 dark:text-slate-400">{starLevel}★</span>
+                        <div className="flex-1 h-1.5 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                          <div className={`h-full ${barColor} rounded-full`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="w-7 text-right font-medium text-slate-500 dark:text-slate-400">{pct}%</span>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-4 font-bold text-slate-600 dark:text-slate-400">4★</span>
-                  <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: '20%' }} />
-                  </div>
-                  <span className="w-6 text-right font-medium text-slate-400">20%</span>
+              ) : (
+                <div className="flex-1 text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
+                  {totalReviewsCount > 0
+                    ? `Rated ${effectiveRating.toFixed(1)} ★ across ${totalReviewsCount.toLocaleString('en-IN')} verified orders. Write a review to add yours.`
+                    : 'No customer ratings yet — tap "Rate Product" to add the first verified rating.'}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-4 font-bold text-slate-600 dark:text-slate-400">3★</span>
-                  <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-amber-500 rounded-full" style={{ width: '7%' }} />
-                  </div>
-                  <span className="w-6 text-right font-medium text-slate-400">7%</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-4 font-bold text-slate-600 dark:text-slate-400">2★</span>
-                  <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-orange-500 rounded-full" style={{ width: '3%' }} />
-                  </div>
-                  <span className="w-6 text-right font-medium text-slate-400">3%</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-4 font-bold text-slate-600 dark:text-slate-400">1★</span>
-                  <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-rose-500 rounded-full" style={{ width: '2%' }} />
-                  </div>
-                  <span className="w-6 text-right font-medium text-slate-400">2%</span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Review Success Confirmation Banner */}
@@ -1261,7 +1348,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     placeholder="Enter your name"
                     value={reviewerName}
                     onChange={(e) => setReviewerName(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#1A1638] text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-[#2418D8]"
+                    className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#211A17] text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded-lg outline-none focus:border-[#FF5722]"
                   />
                 </div>
 
@@ -1276,14 +1363,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     placeholder="Describe product quality, fitting, fabric or packaging..."
                     value={reviewComment}
                     onChange={(e) => setReviewComment(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#1A1638] text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-[#2418D8]"
+                    className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-[#211A17] text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded-lg outline-none focus:border-[#FF5722]"
                   />
                 </div>
 
                 {/* Submit Review Button */}
                 <button
                   type="submit"
-                  className="w-full py-2 bg-gradient-to-r from-[#2418D8] to-purple-700 text-white font-extrabold text-xs rounded-lg shadow-sm hover:opacity-95 active:scale-95 transition-all cursor-pointer"
+                  className="w-full py-2 bg-gradient-to-r from-[#FF7043] to-[#FF5722] text-white font-extrabold text-xs rounded-lg shadow-sm hover:opacity-95 active:scale-95 transition-all cursor-pointer"
                 >
                   Submit Customer Review
                 </button>
@@ -1341,9 +1428,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         </div>
 
         {/* ================================================================= */}
-        {/* 3. FLIPKART-STYLE STICKY BOTTOM ACTIONS BAR                       */}
+        {/* 3. STICKY BOTTOM ACTIONS BAR                                      */}
         {/* ================================================================= */}
-        <div className="sticky bottom-0 z-30 p-3 bg-white/98 dark:bg-[#14112B]/98 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800 flex items-center gap-3 shadow-xl">
+        <div className="sticky bottom-0 z-30 p-3 bg-white/98 dark:bg-[#181311]/98 backdrop-blur-md border-t border-orange-100 dark:border-white/10 flex items-center gap-3 shadow-xl">
           {/* Add to Cart Button (White with orange border) */}
           <button
             type="button"
@@ -1351,7 +1438,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               haptics.success();
               onAddToCart(product, selectedQty);
             }}
-            className="flex-1 py-3 px-3 rounded-xl bg-white dark:bg-[#1A1638] hover:bg-orange-50/60 dark:hover:bg-slate-800 text-[#FF5722] font-black text-xs sm:text-sm flex items-center justify-center gap-2 border-2 border-[#FF5722] active:scale-95 transition-all shadow-xs cursor-pointer"
+            className="flex-1 py-3 px-3 rounded-xl bg-white dark:bg-[#211A17] hover:bg-orange-50/60 dark:hover:bg-white/5 text-[#FF5722] font-black text-xs sm:text-sm flex items-center justify-center gap-2 border-2 border-[#FF5722] active:scale-95 transition-all shadow-xs cursor-pointer"
           >
             <ShoppingCart className="w-4 h-4 text-[#FF5722] stroke-[2.2]" />
             <span>Add to Cart</span>
@@ -1364,7 +1451,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               haptics.impact();
               setIsCheckoutOpen(true);
             }}
-            className="flex-1 py-3 px-3 rounded-xl bg-[#FF5722] hover:bg-[#EA580C] text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-md cursor-pointer"
+            className="flex-1 py-3 px-3 rounded-xl bg-[#FF5722] hover:bg-[#E64A19] text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-md cursor-pointer"
           >
             <Zap className="w-4 h-4 fill-white text-white" />
             <span>Buy Now</span>
@@ -1375,20 +1462,20 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         {/* 4. REAL CASH ON DELIVERY (COD) FAST CHECKOUT DRAWER               */}
         {/* ================================================================= */}
         {isCheckoutOpen && (
-          <div className="absolute inset-0 z-40 bg-white dark:bg-[#14112B] flex flex-col animate-in slide-in-from-bottom duration-200 overflow-hidden">
+          <div className="absolute inset-0 z-40 bg-[#FFFDF9] dark:bg-[#181311] flex flex-col animate-in slide-in-from-bottom duration-200 overflow-hidden">
             {/* Checkout Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-[#2418D8] text-white shadow-sm">
+            <div className="flex items-center justify-between px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-gradient-to-b from-[#FFE5CC] via-[#FFF4E8] to-white dark:from-[#26160C] dark:via-[#1B120E] dark:to-[#181311] border-b border-orange-100 dark:border-white/10">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setIsCheckoutOpen(false)}
-                  className="p-1 hover:bg-white/20 rounded-full cursor-pointer"
+                  className="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full cursor-pointer text-slate-900 dark:text-white"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <h3 className="font-bold text-sm">Order Checkout</h3>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Order Checkout</h3>
               </div>
-              <span className="text-xs bg-white/20 px-2 py-0.5 rounded font-bold">
+              <span className="text-[11px] bg-[#FF5722]/15 text-[#FF5722] dark:text-[#FF8A65] px-2.5 py-0.5 rounded-full font-bold">
                 100% Safe
               </span>
             </div>
@@ -1396,18 +1483,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             {/* Checkout Body */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3.5 no-scrollbar">
               {/* Delivery Address */}
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-200/80 dark:border-slate-800">
+              <div className="p-3 rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100 dark:border-white/10">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-[#2418D8]" />
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-[#FF5722]" />
                     <span>Deliver to</span>
                   </span>
                   <button
                     type="button"
-                    onClick={() => setIsEditingAddress(!isEditingAddress)}
-                    className="text-xs font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline cursor-pointer"
+                    onClick={() => {
+                      if (isEditingAddress && onUpdateAddress && deliveryAddress.trim()) {
+                        onUpdateAddress(deliveryAddress.trim());
+                      }
+                      setIsEditingAddress(!isEditingAddress);
+                    }}
+                    className="text-xs font-bold text-[#FF5722] dark:text-[#FF8A65] hover:underline cursor-pointer"
                   >
-                    {isEditingAddress ? 'Done' : 'Change'}
+                    {isEditingAddress ? 'Save' : 'Change'}
                   </button>
                 </div>
                 {isEditingAddress ? (
@@ -1415,7 +1507,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     rows={2}
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
-                    className="w-full text-xs p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none"
+                    className="w-full text-xs p-2 rounded-xl border border-orange-200 dark:border-white/15 bg-[#FFF4E8]/50 dark:bg-[#181311] text-slate-900 dark:text-white outline-none focus:border-[#FF5722]"
                   />
                 ) : (
                   <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
@@ -1425,7 +1517,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
 
               {/* Product preview & quantity selector */}
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-200/80 dark:border-slate-800 flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100 dark:border-white/10 flex items-center gap-3">
                 <img
                   src={product.image}
                   alt={product.name}
@@ -1446,14 +1538,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
 
                 {/* Qty controller */}
-                <div className="flex items-center gap-2 bg-white dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-2 bg-[#FFF4E8] dark:bg-[#181311] rounded-lg p-1 border border-orange-200/70 dark:border-white/10">
                   <button
                     type="button"
                     onClick={() => {
                       haptics.light();
                       setSelectedQty((prev) => Math.max(1, prev - 1));
                     }}
-                    className="w-6 h-6 rounded flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+                    className="w-6 h-6 rounded flex items-center justify-center text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 cursor-pointer"
                   >
                     <Minus className="w-3 h-3" />
                   </button>
@@ -1466,20 +1558,20 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       haptics.light();
                       setSelectedQty((prev) => prev + 1);
                     }}
-                    className="w-6 h-6 rounded flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+                    className="w-6 h-6 rounded flex items-center justify-center text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-white/10 cursor-pointer"
                   >
                     <Plus className="w-3 h-3" />
                   </button>
                 </div>
               </div>
 
-              {/* PAYMENT METHOD SELECTION (CASH ON DELIVERY HIGHLIGHTED) */}
+              {/* PAYMENT METHOD SELECTION */}
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
                   Select Payment Option
                 </span>
 
-                {/* Option 1: Cash On Delivery (Selected by Default) */}
+                {/* Option 1: Cash On Delivery */}
                 <div
                   onClick={() => {
                     haptics.selection();
@@ -1487,8 +1579,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   }}
                   className={`p-3 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
                     paymentMethod === 'COD'
-                      ? 'border-[#2418D8] bg-blue-50/70 dark:bg-blue-950/40 shadow-xs'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1A1638]'
+                      ? 'border-[#FF5722] bg-[#FFF4E8] dark:bg-[#2E1A12] shadow-xs'
+                      : 'border-slate-200 dark:border-white/10 bg-white dark:bg-[#211A17]'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -1512,7 +1604,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <div
                     className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
                       paymentMethod === 'COD'
-                        ? 'border-[#2418D8] bg-[#2418D8]'
+                        ? 'border-[#FF5722] bg-[#FF5722]'
                         : 'border-slate-300 dark:border-slate-600'
                     }`}
                   >
@@ -1526,14 +1618,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     haptics.selection();
                     setPaymentMethod('UPI');
                   }}
-                  className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                  className={`p-3 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
                     paymentMethod === 'UPI'
-                      ? 'border-[#2418D8] bg-blue-50/70 dark:bg-blue-950/40 shadow-xs'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1A1638]'
+                      ? 'border-[#FF5722] bg-[#FFF4E8] dark:bg-[#2E1A12] shadow-xs'
+                      : 'border-slate-200 dark:border-white/10 bg-white dark:bg-[#211A17]'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-black text-xs">
+                    <div className="w-8 h-8 rounded-full bg-[#FF5722] text-white flex items-center justify-center font-black text-xs">
                       UPI
                     </div>
                     <div>
@@ -1548,7 +1640,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <div
                     className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
                       paymentMethod === 'UPI'
-                        ? 'border-[#2418D8] bg-[#2418D8]'
+                        ? 'border-[#FF5722] bg-[#FF5722]'
                         : 'border-slate-300 dark:border-slate-600'
                     }`}
                   >
@@ -1558,8 +1650,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
 
               {/* Price Details */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs">
-                <span className="font-bold text-slate-900 dark:text-white block pb-1 border-b border-slate-200 dark:border-slate-700">
+              <div className="p-3.5 rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100 dark:border-white/10 space-y-2 text-xs">
+                <span className="font-bold text-slate-900 dark:text-white block pb-1 border-b border-slate-100 dark:border-white/10">
                   Price Details ({selectedQty} {selectedQty === 1 ? 'item' : 'items'})
                 </span>
                 <div className="flex justify-between text-slate-600 dark:text-slate-400">
@@ -1578,9 +1670,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <span>COD Handling Fee</span>
                   <span className="text-emerald-600 font-bold">FREE</span>
                 </div>
-                <div className="flex justify-between font-black text-sm text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">
+                <div className="flex justify-between font-black text-sm text-slate-900 dark:text-white pt-2 border-t border-slate-100 dark:border-white/10">
                   <span>Total Payable</span>
-                  <span className="text-[#2418D8] dark:text-[#7B73FF]">
+                  <span className="text-[#FF5722] dark:text-[#FF8A65]">
                     ₹{totalPrice.toLocaleString('en-IN')}
                   </span>
                 </div>
@@ -1588,13 +1680,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
 
             {/* Confirm COD Order Button */}
-            <div className="p-3.5 bg-white dark:bg-[#14112B] border-t border-slate-200 dark:border-slate-800">
+            <div className="p-3.5 bg-white dark:bg-[#181311] border-t border-orange-100 dark:border-white/10">
               <button
                 type="button"
                 onClick={handleConfirmOrder}
-                className="w-full py-3.5 rounded-xl bg-[#2418D8] hover:bg-[#1A10B3] text-white font-extrabold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md cursor-pointer"
+                className="w-full py-3.5 rounded-xl bg-[#FF5722] hover:bg-[#E64A19] text-white font-extrabold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md cursor-pointer"
               >
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-200" />
                 <span>
                   {paymentMethod === 'COD'
                     ? `Confirm Order with Cash on Delivery (₹${totalPrice.toLocaleString('en-IN')})`
@@ -1609,7 +1701,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         {/* 5. ORDER PLACED SUCCESS CELEBRATION MODAL                         */}
         {/* ================================================================= */}
         {orderConfirmed && (
-          <div className="absolute inset-0 z-50 bg-white dark:bg-[#14112B] flex flex-col items-center justify-center p-6 text-center animate-in zoom-in-95 duration-200">
+          <div className="absolute inset-0 z-50 bg-[#FFFDF9] dark:bg-[#181311] flex flex-col items-center justify-center p-6 text-center animate-in zoom-in-95 duration-200">
             <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center mb-3 animate-bounce">
               <CheckCircle2 className="w-10 h-10 stroke-[2.5]" />
             </div>
@@ -1628,17 +1720,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 : 'Thank you for shopping on AARVO. Your item has been sent for dispatch.'}
             </p>
 
-            <div className="w-full max-w-[320px] p-3 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-200/80 dark:border-slate-800 mb-5 text-left text-xs space-y-1.5">
+            <div className="w-full max-w-[320px] p-3 rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100 dark:border-white/10 mb-5 text-left text-xs space-y-1.5">
               <div className="flex justify-between">
-                <span className="text-slate-500">Order ID:</span>
+                <span className="text-slate-500 dark:text-slate-400">Order ID:</span>
                 <span className="font-bold text-slate-900 dark:text-white">{orderConfirmed.id}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Amount Due:</span>
+                <span className="text-slate-500 dark:text-slate-400">Amount Due:</span>
                 <span className="font-black text-emerald-600">₹{orderConfirmed.total.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Estimated Delivery:</span>
+                <span className="text-slate-500 dark:text-slate-400">Estimated Delivery:</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200">{orderConfirmed.estimatedDelivery}</span>
               </div>
             </div>
@@ -1654,7 +1746,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     onOpenOrders();
                   }
                 }}
-                className="w-full py-3 bg-[#2418D8] hover:bg-[#1A10B3] text-white font-bold text-xs rounded-xl shadow-md active:scale-95 transition-all cursor-pointer"
+                className="w-full py-3 bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold text-xs rounded-xl shadow-md active:scale-95 transition-all cursor-pointer"
               >
                 View in Orders &amp; Delivery
               </button>
@@ -1665,7 +1757,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   setOrderConfirmed(null);
                   onClose();
                 }}
-                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl active:scale-95 transition-all cursor-pointer"
+                className="w-full py-2.5 bg-orange-50 hover:bg-orange-100 dark:bg-[#211A17] dark:hover:bg-white/10 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl active:scale-95 transition-all cursor-pointer"
               >
                 Continue Shopping
               </button>

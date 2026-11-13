@@ -78,6 +78,9 @@ interface OrdersSectionProps {
   onReorderAll?: (items: OrderItem[]) => void;
   onShowToast: (message: string) => void;
   onNavigateToCart?: () => void;
+  customerName?: string;
+  customerPhone?: string;
+  onOpenSupport?: () => void;
 }
 
 interface OrderDetailModalProps {
@@ -89,6 +92,9 @@ interface OrderDetailModalProps {
   onShowToast: (message: string) => void;
   onNavigateToCart?: () => void;
   onTrackRider?: (order: Order) => void;
+  customerName?: string;
+  customerPhone?: string;
+  onOpenSupport?: () => void;
 }
 
 export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
@@ -100,6 +106,9 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
   onShowToast,
   onNavigateToCart,
   onTrackRider,
+  customerName = 'Saurav Paswan',
+  customerPhone = '+91 9876543210',
+  onOpenSupport,
 }) => {
   const [copiedTracking, setCopiedTracking] = useState(false);
   const [reorderedSuccess, setReorderedSuccess] = useState(false);
@@ -168,17 +177,17 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
       />
 
       {/* Modal / Bottom Sheet Content */}
-      <div className="relative w-full max-w-[440px] max-h-[92vh] bg-white dark:bg-[#14112B] text-slate-900 dark:text-slate-100 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden animate-in slide-in-from-bottom-8 duration-300 border border-slate-100 dark:border-slate-800">
+      <div className="relative w-full max-w-[440px] max-h-[92vh] bg-white dark:bg-[#181311] text-slate-900 dark:text-slate-100 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden animate-in slide-in-from-bottom-8 duration-300 border border-orange-100/80 dark:border-orange-950/50">
         
         {/* Top Header */}
-        <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3.5 bg-white/95 dark:bg-[#14112B]/95 backdrop-blur-md border-b border-slate-100 dark:border-slate-800">
+        <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3.5 bg-gradient-to-b from-[#FFE5CC]/70 via-[#FFF8F2] to-white dark:from-[#26160C] dark:via-[#1B120E] dark:to-[#181311] backdrop-blur-md border-b border-orange-100/80 dark:border-orange-950/50">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-[#2418D8] dark:text-[#7B73FF] flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-orange-50 dark:bg-orange-950/50 text-[#FF5722] dark:text-[#FF8A65] flex items-center justify-center shrink-0">
               <Package className="w-4 h-4 stroke-[2.2]" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h2 id="order-detail-title" className="font-mono font-bold text-xs sm:text-sm text-[#2418D8] dark:text-[#7B73FF]">
+                <h2 id="order-detail-title" className="font-mono font-bold text-xs sm:text-sm text-[#FF5722] dark:text-[#FF8A65]">
                   {order.id}
                 </h2>
                 <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
@@ -207,7 +216,7 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
           
           {/* Status Header Strip */}
-          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50 via-indigo-50/60 to-purple-50 dark:from-purple-950/40 dark:via-blue-950/30 dark:to-purple-950/40 border border-blue-100 dark:border-purple-900/40 flex items-center justify-between">
+          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#FFF4E8] via-orange-50/70 to-amber-50/60 dark:from-[#26160C] dark:via-[#211A17] dark:to-[#26160C] border border-orange-200/80 dark:border-orange-900/40 flex items-center justify-between">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-0.5">
                 Current Status
@@ -215,13 +224,13 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
               <div className="flex items-center gap-1.5">
                 {order.status === 'Processing' && (
                   <span className="inline-flex items-center gap-1.5 text-xs font-black text-amber-700 dark:text-amber-400">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
                     Processing &bull; Packing at Warehouse
                   </span>
                 )}
                 {order.status === 'Shipped' && (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-black text-blue-700 dark:text-blue-400">
-                    <Truck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="inline-flex items-center gap-1.5 text-xs font-black text-[#FF5722] dark:text-[#FF8A65]">
+                    <Truck className="w-4 h-4 text-[#FF5722] dark:text-[#FF8A65]" />
                     Shipped &bull; Out for Delivery
                   </span>
                 )}
@@ -234,25 +243,24 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
               </div>
             </div>
 
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-white dark:bg-[#1A1638] text-slate-800 dark:text-slate-200 shadow-xs border border-slate-200 dark:border-slate-700">
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-white dark:bg-[#211A17] text-slate-800 dark:text-slate-200 shadow-xs border border-orange-200/70 dark:border-orange-900/50">
               {order.status}
             </span>
           </div>
 
           {/* 1. Visual 3-Step Status Tracker */}
-          <div className="p-4 bg-slate-50 dark:bg-[#1A1638] rounded-2xl border border-slate-100 dark:border-slate-800">
+          <div className="p-4 bg-[#FFFDF9] dark:bg-[#211A17] rounded-2xl border border-orange-100/80 dark:border-orange-950/50">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 flex items-center justify-between">
               <span>Order Tracking Journey</span>
-              <span className="font-mono text-[10px] text-[#2418D8] dark:text-[#7B73FF] lowercase">
+              <span className="font-mono text-[10px] text-[#FF5722] dark:text-[#FF8A65] lowercase">
                 Step {order.statusStep} of 3
               </span>
             </h3>
 
             <div className="relative flex items-center justify-between px-3 my-2">
-              {/* Connecting Progress Line */}
               <div className="absolute left-7 right-7 top-3.5 h-1 bg-slate-200 dark:bg-slate-700 -z-0">
                 <div
-                  className="h-full bg-gradient-to-r from-[#2418D8] to-emerald-500 transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-[#FF5722] to-emerald-500 transition-all duration-500"
                   style={{
                     width:
                       order.statusStep === 1
@@ -264,12 +272,11 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
                 />
               </div>
 
-              {/* Step 1: Processing */}
               <div className="flex flex-col items-center gap-1.5 z-10">
                 <div
                   className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs transition-colors ${
                     order.statusStep >= 1
-                      ? 'bg-[#2418D8] text-white shadow-xs'
+                      ? 'bg-[#FF5722] text-white shadow-xs'
                       : 'bg-slate-200 text-slate-500'
                   }`}
                 >
@@ -280,12 +287,11 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
                 </span>
               </div>
 
-              {/* Step 2: Shipped */}
               <div className="flex flex-col items-center gap-1.5 z-10">
                 <div
                   className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs transition-colors ${
                     order.statusStep >= 2
-                      ? 'bg-[#2418D8] text-white shadow-xs'
+                      ? 'bg-[#FF5722] text-white shadow-xs'
                       : 'bg-slate-200 dark:bg-slate-700 text-slate-400'
                   }`}
                 >
@@ -326,9 +332,9 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
             </div>
 
             {/* Carrier & Tracking Number Strip */}
-            <div className="mt-4 p-2.5 rounded-xl bg-white dark:bg-[#14112B] border border-slate-200/80 dark:border-slate-800 text-xs flex items-center justify-between">
+            <div className="mt-4 p-2.5 rounded-xl bg-white dark:bg-[#181311] border border-orange-100/80 dark:border-orange-950/50 text-xs flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Truck className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF]" />
+                <Truck className="w-4 h-4 text-[#FF5722] dark:text-[#FF8A65]" />
                 <div>
                   <p className="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight">
                     {order.carrier}
@@ -342,7 +348,7 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
                 type="button"
                 onClick={handleCopyTracking}
                 title="Copy tracking number"
-                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors flex items-center gap-1 text-[10px] font-bold"
+                className="p-1.5 hover:bg-orange-50 dark:hover:bg-[#261D19] rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors flex items-center gap-1 text-[10px] font-bold"
               >
                 <Copy className="w-3 h-3" />
                 <span>{copiedTracking ? 'Copied' : 'Copy'}</span>
@@ -350,9 +356,9 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
             </div>
 
             {/* LIVE RIDER GPS TRACKING CARD */}
-            <div className="mt-2.5 p-3 rounded-2xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-indigo-500/10 border border-[#2418D8]/30 dark:border-[#7B73FF]/30 flex items-center justify-between gap-2.5 shadow-xs">
+            <div className="mt-2.5 p-3 rounded-2xl bg-gradient-to-r from-[#FF5722]/10 via-orange-500/10 to-amber-500/10 border border-[#FF5722]/30 dark:border-[#FF8A65]/30 flex items-center justify-between gap-2.5 shadow-xs">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-[#2418D8] text-white flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                <div className="w-9 h-9 rounded-xl bg-[#FF5722] text-white flex items-center justify-center shrink-0 shadow-sm">
                   <Bike className="w-5 h-5 text-white" />
                 </div>
                 <div className="min-w-0">
@@ -375,7 +381,7 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
                     onTrackRider(order);
                   }
                 }}
-                className="px-3 py-1.5 bg-[#2418D8] hover:bg-[#1A10B3] text-white text-[11px] font-bold rounded-xl shadow-xs transition-all flex items-center gap-1 active:scale-95 cursor-pointer shrink-0"
+                className="px-3 py-1.5 bg-[#FF5722] hover:bg-[#E64A19] text-white text-[11px] font-bold rounded-xl shadow-xs transition-all flex items-center gap-1 active:scale-95 cursor-pointer shrink-0"
               >
                 <Navigation className="w-3.5 h-3.5" />
                 <span>Track Rider</span>
@@ -383,8 +389,8 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
             </div>
 
             {/* Expected Delivery Callout */}
-            <div className="mt-2.5 p-2 rounded-xl bg-blue-50/80 dark:bg-purple-950/30 text-[11px] text-blue-900 dark:text-purple-200 flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 text-[#2418D8] dark:text-[#7B73FF] shrink-0" />
+            <div className="mt-2.5 p-2 rounded-xl bg-[#FFF4E8] dark:bg-[#26160C] text-[11px] text-[#9A3412] dark:text-orange-200 flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 text-[#FF5722] dark:text-[#FF8A65] shrink-0" />
               <span className="font-medium">{order.estimatedDelivery}</span>
             </div>
 
@@ -432,11 +438,10 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
                 </span>
               </div>
 
-              {/* Reorder All Shortcut Button */}
               <button
                 type="button"
                 onClick={handleReorderAll}
-                className="px-2.5 py-1 bg-[#2418D8]/10 hover:bg-[#2418D8] text-[#2418D8] hover:text-white dark:text-[#7B73FF] dark:hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 active:scale-95 cursor-pointer shadow-xs"
+                className="px-2.5 py-1 bg-[#FF5722]/10 hover:bg-[#FF5722] text-[#FF5722] hover:text-white dark:text-[#FF8A65] dark:hover:text-white text-[10px] font-bold rounded-lg transition-all flex items-center gap-1 active:scale-95 cursor-pointer shadow-xs"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Reorder All ({totalItemsCount})</span>
@@ -447,15 +452,15 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
               {order.items.map((item) => (
                 <div
                   key={item.id}
-                  className="p-3 bg-white dark:bg-[#1A1633] rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 shadow-xs"
+                  className="p-3 bg-white dark:bg-[#211A17] rounded-2xl border border-orange-100/80 dark:border-orange-950/50 flex items-center justify-between gap-3 shadow-xs"
                 >
                   <img
                     src={item.image}
                     alt={item.name}
-                    className="w-14 h-14 rounded-xl object-cover bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shrink-0"
+                    className="w-14 h-14 rounded-xl object-cover bg-orange-50/40 dark:bg-[#181311] border border-orange-100/70 dark:border-orange-950/50 shrink-0"
                   />
                   <div className="flex-1 min-w-0">
-                    <span className="text-[9px] font-bold text-[#2418D8] dark:text-[#7B73FF] uppercase tracking-wide block">
+                    <span className="text-[9px] font-bold text-[#FF5722] dark:text-[#FF8A65] uppercase tracking-wide block">
                       {item.category}
                     </span>
                     <h4 className="font-bold text-xs text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
@@ -478,7 +483,7 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
                       onReorder(item);
                       onShowToast(`Added ${item.name.slice(0, 18)}... to cart!`);
                     }}
-                    className="px-2.5 py-1.5 bg-[#2418D8]/10 hover:bg-[#2418D8] text-[#2418D8] hover:text-white dark:text-[#7B73FF] dark:hover:text-white text-[11px] font-bold rounded-xl transition-all flex items-center gap-1 active:scale-95 shrink-0 cursor-pointer shadow-xs"
+                    className="px-2.5 py-1.5 bg-[#FF5722]/10 hover:bg-[#FF5722] text-[#FF5722] hover:text-white dark:text-[#FF8A65] dark:hover:text-white text-[11px] font-bold rounded-xl transition-all flex items-center gap-1 active:scale-95 shrink-0 cursor-pointer shadow-xs"
                   >
                     <RotateCcw className="w-3 h-3" />
                     <span>Reorder</span>
@@ -488,23 +493,21 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
             </div>
           </div>
 
-          {/* 3. Delivery Address & Recipient Card */}
-          <div className="p-3.5 bg-white dark:bg-[#1A1633] rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
+          <div className="p-3.5 bg-white dark:bg-[#211A17] rounded-2xl border border-orange-100/80 dark:border-orange-950/50 space-y-2">
             <div className="flex items-center gap-2 text-slate-900 dark:text-white">
-              <MapPin className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF] shrink-0" />
+              <MapPin className="w-4 h-4 text-[#FF5722] dark:text-[#FF8A65] shrink-0" />
               <h3 className="font-display font-bold text-xs">Delivery Address</h3>
             </div>
             <div className="pl-6 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              <p className="font-bold text-slate-900 dark:text-white mb-0.5">Saurav Paswan</p>
+              <p className="font-bold text-slate-900 dark:text-white mb-0.5">{customerName}</p>
               <p>{order.deliveryAddress}</p>
-              <p className="text-[10px] text-slate-400 mt-1 font-mono">Contact: +91 9876543210</p>
+              <p className="text-[10px] text-slate-400 mt-1 font-mono">Contact: {customerPhone}</p>
             </div>
           </div>
 
-          {/* 4. Payment Information Card */}
-          <div className="p-3.5 bg-white dark:bg-[#1A1633] rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
+          <div className="p-3.5 bg-white dark:bg-[#211A17] rounded-2xl border border-orange-100/80 dark:border-orange-950/50 space-y-2">
             <div className="flex items-center gap-2 text-slate-900 dark:text-white">
-              <CreditCard className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF] shrink-0" />
+              <CreditCard className="w-4 h-4 text-[#FF5722] dark:text-[#FF8A65] shrink-0" />
               <h3 className="font-display font-bold text-xs">Payment Information</h3>
             </div>
             <div className="pl-6 text-xs text-slate-600 dark:text-slate-300 space-y-1">
@@ -522,8 +525,7 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
             </div>
           </div>
 
-          {/* 5. Price Breakdown Summary */}
-          <div className="p-3.5 bg-slate-50 dark:bg-[#161230] rounded-2xl border border-slate-100 dark:border-slate-800 space-y-1.5 text-xs">
+          <div className="p-3.5 bg-[#FFFDF9] dark:bg-[#15100E] rounded-2xl border border-orange-100/80 dark:border-orange-950/50 space-y-1.5 text-xs">
             <h4 className="font-bold uppercase tracking-wider text-[10px] text-slate-400 mb-1">
               Payment Summary
             </h4>
@@ -539,23 +541,21 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
               <span>Tax &amp; Handling</span>
               <span>Included</span>
             </div>
-            <div className="flex items-center justify-between font-black text-sm text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between font-black text-sm text-slate-900 dark:text-white pt-2 border-t border-orange-100 dark:border-orange-950/60">
               <span>Total Paid</span>
-              <span className="text-[#2418D8] dark:text-[#7B73FF]">₹{order.total.toLocaleString('en-IN')}</span>
+              <span className="text-[#FF5722] dark:text-[#FF8A65]">₹{order.total.toLocaleString('en-IN')}</span>
             </div>
           </div>
         </div>
 
-        {/* Sticky Action Footer */}
-        <div className="sticky bottom-0 z-20 p-3 bg-white/95 dark:bg-[#14112B]/95 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 space-y-2">
-          {/* Main Full-Order Reorder Action Button */}
+        <div className="sticky bottom-0 z-20 p-3 bg-white/95 dark:bg-[#181311]/95 backdrop-blur-md border-t border-orange-100/80 dark:border-orange-950/50 space-y-2">
           <button
             type="button"
             onClick={handleReorderAll}
             className={`w-full py-3 px-4 rounded-xl text-xs font-black active:scale-[0.98] transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
               reorderedSuccess
                 ? 'bg-emerald-600 text-white shadow-emerald-900/20'
-                : 'bg-[#2418D8] hover:bg-[#1A10B3] text-white shadow-blue-900/25'
+                : 'bg-[#FF5722] hover:bg-[#E64A19] text-white shadow-orange-900/25'
             }`}
           >
             {reorderedSuccess ? (
@@ -576,9 +576,9 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
             <button
               type="button"
               onClick={handleDownloadInvoice}
-              className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-[#1A1638] dark:hover:bg-[#221D47] text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-xs cursor-pointer"
+              className="flex-1 py-2 px-3 bg-orange-50/70 hover:bg-orange-100/80 dark:bg-[#211A17] dark:hover:bg-[#2C221E] text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-xs cursor-pointer"
             >
-              <FileText className="w-3.5 h-3.5 text-[#2418D8] dark:text-[#7B73FF]" />
+              <FileText className="w-3.5 h-3.5 text-[#FF5722] dark:text-[#FF8A65]" />
               <span>Invoice</span>
             </button>
 
@@ -586,9 +586,14 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
               type="button"
               onClick={() => {
                 haptics.light();
-                onShowToast(`Support ticket opened for Order ${order.id}`);
+                if (onOpenSupport) {
+                  onClose();
+                  onOpenSupport();
+                } else {
+                  onShowToast(`Support ticket opened for Order ${order.id}`);
+                }
               }}
-              className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-[#1A1638] dark:hover:bg-[#221D47] text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-xs cursor-pointer"
+              className="flex-1 py-2 px-3 bg-orange-50/70 hover:bg-orange-100/80 dark:bg-[#211A17] dark:hover:bg-[#2C221E] text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-xs cursor-pointer"
             >
               <ExternalLink className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Need Help?</span>
@@ -708,9 +713,9 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
       />
 
       {/* Modal Content */}
-      <div className="relative w-full max-w-[460px] max-h-[92vh] bg-white dark:bg-[#14112B] text-slate-900 dark:text-slate-100 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden animate-in slide-in-from-bottom-8 duration-300 border border-slate-100 dark:border-slate-800">
+      <div className="relative w-full max-w-[460px] max-h-[92vh] bg-white dark:bg-[#181311] text-slate-900 dark:text-slate-100 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col z-10 overflow-hidden animate-in slide-in-from-bottom-8 duration-300 border border-orange-100/80 dark:border-orange-950/50">
         {/* Header */}
-        <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[#2418D8] text-white shadow-sm">
+        <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#FF5722] to-[#E64A19] text-white shadow-sm">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
               <Bike className="w-5 h-5 text-white" />
@@ -719,7 +724,7 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
               <h2 id="rider-tracking-title" className="font-display font-black text-sm sm:text-base leading-tight">
                 Live Rider GPS Tracking
               </h2>
-              <p className="text-[10px] text-purple-200">
+              <p className="text-[10px] text-orange-100">
                 Order <strong className="font-mono">{order.id}</strong> &bull; {order.carrier}
               </p>
             </div>
@@ -740,7 +745,6 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 space-y-3.5 no-scrollbar">
           {/* SIMULATED LIVE MAP CONTAINER */}
           <div className="relative w-full h-56 rounded-2xl overflow-hidden bg-[#1E293B] border border-slate-700 shadow-inner flex flex-col justify-between p-3 select-none">
-            {/* Map Roads & Stylized Grid Background */}
             <svg className="absolute inset-0 w-full h-full opacity-30" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
@@ -748,7 +752,6 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
                 </pattern>
               </defs>
               <rect width="100%" height="100%" fill="url(#grid)" />
-              {/* Route Polyline from Hub to Destination */}
               <path
                 d="M 35 180 Q 90 140 160 110 T 260 70 T 380 40"
                 fill="none"
@@ -759,14 +762,13 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
               <path
                 d="M 35 180 Q 90 140 160 110 T 260 70 T 380 40"
                 fill="none"
-                stroke="#2418D8"
+                stroke="#FF5722"
                 strokeWidth="4"
                 strokeLinecap="round"
                 strokeDasharray="6,4"
               />
             </svg>
 
-            {/* Top Overlay: Live Telemetry Pill */}
             <div className="relative z-10 flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 text-white shadow-md">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
@@ -779,7 +781,6 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
               </div>
             </div>
 
-            {/* Interactive Rider Marker in Map Canvas */}
             <div
               className="absolute z-10 transition-all duration-700 ease-out flex flex-col items-center"
               style={{
@@ -789,8 +790,8 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
               }}
             >
               <div className="relative flex items-center justify-center">
-                <div className="absolute w-10 h-10 rounded-full bg-[#2418D8]/40 animate-ping" />
-                <div className="w-9 h-9 rounded-full bg-[#2418D8] text-white border-2 border-white shadow-xl flex items-center justify-center">
+                <div className="absolute w-10 h-10 rounded-full bg-[#FF5722]/40 animate-ping" />
+                <div className="w-9 h-9 rounded-full bg-[#FF5722] text-white border-2 border-white shadow-xl flex items-center justify-center">
                   <Bike className="w-5 h-5 text-white" />
                 </div>
               </div>
@@ -827,14 +828,14 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
           </div>
 
           {/* RIDER PROFILE CARD */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-200/80 dark:border-slate-800 space-y-3">
+          <div className="p-3.5 rounded-2xl bg-[#FFFDF9] dark:bg-[#211A17] border border-orange-100/80 dark:border-orange-950/50 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#2418D8] to-purple-600 text-white font-black text-sm flex items-center justify-center shadow-md">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#FF5722] to-[#E64A19] text-white font-black text-sm flex items-center justify-center shadow-md">
                     RS
                   </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white dark:border-[#1A1638] flex items-center justify-center text-[8px] text-white">
+                  <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white dark:border-[#211A17] flex items-center justify-center text-[8px] text-white">
                     ✓
                   </span>
                 </div>
@@ -843,20 +844,16 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
                     <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
                       Rahul Sharma
                     </h3>
-                    <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[9px] font-black">
-                      4.9 ★
-                    </span>
                   </div>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                    AARVO Express Fleet &bull; 1,840+ Deliveries
+                    AARVO Express Fleet &bull; Delivery Partner
                   </p>
-                  <p className="text-[10px] font-semibold text-[#2418D8] dark:text-[#7B73FF]">
+                  <p className="text-[10px] font-semibold text-[#FF5722] dark:text-[#FF8A65]">
                     TVS iQube EV &bull; KA-03-EM-8821
                   </p>
                 </div>
               </div>
 
-              {/* Action Buttons: Call & Message */}
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
@@ -869,7 +866,7 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
                 <button
                   type="button"
                   onClick={handleMessageRider}
-                  className="p-2.5 rounded-xl bg-[#2418D8] hover:bg-[#1A10B3] text-white shadow-md active:scale-95 transition-all cursor-pointer"
+                  className="p-2.5 rounded-xl bg-[#FF5722] hover:bg-[#E64A19] text-white shadow-md active:scale-95 transition-all cursor-pointer"
                   title="Message delivery partner"
                 >
                   <MessageSquare className="w-4 h-4" />
@@ -919,7 +916,7 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
           </div>
 
           {/* LIVE MILESTONES CHECKPOINT */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1A1638] border border-slate-200/80 dark:border-slate-800 space-y-2.5">
+          <div className="p-3.5 rounded-2xl bg-[#FFFDF9] dark:bg-[#211A17] border border-orange-100/80 dark:border-orange-950/50 space-y-2.5">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
               Live Delivery Milestones
             </span>
@@ -936,9 +933,9 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
                 </div>
               </div>
               <div className="flex items-start gap-2.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#2418D8] mt-1 ring-2 ring-blue-200 animate-pulse shrink-0" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#FF5722] mt-1 ring-2 ring-orange-200 shrink-0" />
                 <div className="flex-1">
-                  <p className="font-bold text-[#2418D8] dark:text-[#7B73FF]">
+                  <p className="font-bold text-[#FF5722] dark:text-[#FF8A65]">
                     Rider On Route ({distanceKm} km away)
                   </p>
                   <p className="text-[10px] text-slate-500">
@@ -962,9 +959,9 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3 bg-slate-50 dark:bg-[#14112B] border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+        <div className="p-3 bg-[#FFFDF9] dark:bg-[#181311] border-t border-orange-100/80 dark:border-orange-950/50 flex items-center justify-between">
           <span className="text-[10px] text-slate-500">
-            AARVO Express Real-Time Telemetry
+            AARVO Express Delivery
           </span>
           <button
             type="button"
@@ -972,7 +969,7 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
               haptics.light();
               onClose();
             }}
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl active:scale-95 transition-all cursor-pointer"
+            className="px-4 py-2 bg-orange-50 hover:bg-orange-100 dark:bg-[#211A17] text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl active:scale-95 transition-all cursor-pointer"
           >
             Close Tracker
           </button>
@@ -989,6 +986,9 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
   onReorderAll,
   onShowToast,
   onNavigateToCart,
+  customerName = 'Saurav Paswan',
+  customerPhone = '+91 9876543210',
+  onOpenSupport,
 }) => {
   const [filter, setFilter] = useState<'All' | 'Active' | 'Processing' | 'Shipped' | 'Delivered'>('All');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -1047,8 +1047,8 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
       name: 'Shipped',
       count: statusCounts.Shipped,
       amount: statusAmounts.Shipped,
-      color: '#2418D8',
-      lightBg: 'bg-blue-50 dark:bg-blue-950/30 text-[#2418D8] dark:text-[#7B73FF] border-blue-200 dark:border-blue-800/40',
+      color: '#FF5722',
+      lightBg: 'bg-orange-50 dark:bg-orange-950/30 text-[#FF5722] dark:text-[#FF8A65] border-orange-200 dark:border-orange-800/40',
     },
     {
       statusKey: 'Delivered' as const,
@@ -1169,7 +1169,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
       const item = payload[0].payload;
       const percentage = totalOrdersCount > 0 ? Math.round((item.count / totalOrdersCount) * 100) : 0;
       return (
-        <div className="bg-slate-900/95 dark:bg-[#1A1638]/95 backdrop-blur-md text-white px-3 py-2.5 rounded-xl shadow-xl border border-white/10 text-xs space-y-1.5 z-30 pointer-events-none">
+        <div className="bg-[#181311]/95 dark:bg-[#211A17]/95 backdrop-blur-md text-white px-3 py-2.5 rounded-xl shadow-xl border border-orange-900/30 text-xs space-y-1.5 z-30 pointer-events-none">
           <div className="flex items-center gap-2 font-bold pb-1 border-b border-white/10">
             <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
             <span className="text-white">{item.name}</span>
@@ -1183,7 +1183,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
             <span>Total Value:</span>
             <strong className="text-emerald-400 font-mono">₹{item.amount.toLocaleString('en-IN')}</strong>
           </div>
-          <p className="text-[9px] text-purple-300 pt-0.5">
+          <p className="text-[9px] text-[#FF8A65] pt-0.5">
             Click bar to filter list
           </p>
         </div>
@@ -1193,9 +1193,9 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-[#F7F5FF] dark:bg-[#0A0718] pb-12 animate-in fade-in duration-200">
+    <div className="flex-1 flex flex-col bg-[#FFFDF9] dark:bg-[#120E0C] pb-12 animate-in fade-in duration-200">
       {/* Top Header Bar */}
-      <div className="bg-[#2418D8] text-white px-4 pt-3 pb-4 sticky top-0 z-20 shadow-md">
+      <div className="bg-gradient-to-b from-[#FFE5CC] via-[#FFF4E8] to-white dark:from-[#26160C] dark:via-[#1B120E] dark:to-[#181311] text-slate-900 dark:text-white px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-4 sticky top-0 z-20 border-b border-orange-100/80 dark:border-orange-950/50 shadow-xs">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <button
@@ -1203,26 +1203,25 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                 haptics.light();
                 onBack();
               }}
-              className="p-1.5 hover:bg-white/15 rounded-xl transition-colors active:scale-95 cursor-pointer shrink-0"
+              className="p-1.5 hover:bg-orange-100/70 dark:hover:bg-[#261D19] rounded-xl transition-colors active:scale-95 cursor-pointer shrink-0 text-slate-800 dark:text-white"
               aria-label="Back to Account"
             >
               <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
             </button>
             <div className="min-w-0">
-              <h1 className="font-display font-black text-base sm:text-lg leading-tight truncate">
+              <h1 className="font-display font-black text-base sm:text-lg leading-tight truncate text-slate-900 dark:text-white">
                 Orders &amp; Delivery
               </h1>
-              <p className="text-[11px] text-purple-200 truncate">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                 Track packages &amp; purchase history ({orders.length} total)
               </p>
             </div>
           </div>
 
-          {/* Download CSV Action Button */}
           <button
             type="button"
             onClick={handleDownloadCSV}
-            className="px-2.5 py-1.5 bg-white/20 hover:bg-white text-white hover:text-[#2418D8] border border-white/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs shrink-0"
+            className="px-2.5 py-1.5 bg-[#FFF4E8] hover:bg-[#FF5722] text-[#FF5722] hover:text-white dark:bg-[#211A17] dark:text-[#FF8A65] dark:hover:bg-[#FF5722] dark:hover:text-white border border-orange-200 dark:border-orange-900/50 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs shrink-0"
             title="Download CSV export"
           >
             <Download className="w-3.5 h-3.5 stroke-[2.2]" />
@@ -1230,21 +1229,20 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
           </button>
         </div>
 
-        {/* Search Order bar */}
         <div className="mt-3 relative">
-          <div className="h-9 bg-white/15 backdrop-blur-xs rounded-xl flex items-center px-3 border border-white/20">
-            <Search className="w-3.5 h-3.5 text-white/70 mr-2 shrink-0" />
+          <div className="h-9 bg-white dark:bg-[#211A17] rounded-xl flex items-center px-3 border border-orange-200/80 dark:border-orange-900/50 shadow-2xs">
+            <Search className="w-3.5 h-3.5 text-slate-400 mr-2 shrink-0" />
             <input
               type="text"
               placeholder="Search by Order ID or product name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-xs text-white placeholder-white/60 bg-transparent outline-none"
+              className="w-full text-xs text-slate-800 dark:text-white placeholder-slate-400 bg-transparent outline-none"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="p-1 text-white/70 hover:text-white"
+                className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1252,7 +1250,6 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
           </div>
         </div>
 
-        {/* Filter Pills with Counts */}
         <div className="flex items-center gap-2 mt-3 overflow-x-auto no-scrollbar">
           {(['All', 'Active', 'Processing', 'Shipped', 'Delivered'] as const).map((tab) => {
             const countLabel =
@@ -1271,16 +1268,16 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                 }}
                 className={`px-3 py-1 rounded-full text-xs font-bold transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                   filter === tab
-                    ? 'bg-white text-[#2418D8] shadow-sm font-black'
-                    : 'bg-white/15 text-white/90 hover:bg-white/25 border border-white/15'
+                    ? 'bg-[#FF5722] text-white shadow-sm font-black'
+                    : 'bg-white/90 dark:bg-[#211A17] text-slate-700 dark:text-slate-200 hover:bg-orange-50 border border-orange-200/70 dark:border-orange-950/60'
                 }`}
               >
                 <span>{tab === 'Active' ? 'Active / In Transit' : tab}</span>
                 <span
                   className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
                     filter === tab
-                      ? 'bg-[#2418D8]/10 text-[#2418D8]'
-                      : 'bg-white/20 text-white'
+                      ? 'bg-white/25 text-white'
+                      : 'bg-orange-50 dark:bg-orange-950/60 text-[#FF5722] dark:text-[#FF8A65]'
                   }`}
                 >
                   {countLabel}
@@ -1291,15 +1288,11 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
         </div>
       </div>
 
-      {/* ================================================================= */}
-      {/* SUMMARY DASHBOARD WITH STATUS COUNTS & RECHARTS BAR CHART         */}
-      {/* ================================================================= */}
       <div className="p-3 pb-1 space-y-2.5">
-        <div className="bg-white dark:bg-[#14112B] rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-xs p-3.5 space-y-3">
-          {/* Dashboard Header Bar */}
+        <div className="bg-white dark:bg-[#181311] rounded-2xl border border-orange-100/80 dark:border-orange-950/50 shadow-xs p-3.5 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#2418D8]/10 text-[#2418D8] dark:bg-[#7B73FF]/15 dark:text-[#7B73FF] flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-[#FF5722]/10 text-[#FF5722] dark:bg-[#FF5722]/15 dark:text-[#FF8A65] flex items-center justify-center shrink-0">
                 <BarChart2 className="w-4 h-4" />
               </div>
               <div>
@@ -1308,7 +1301,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                     Orders Summary Dashboard
                   </h2>
                   <span className="inline-flex items-center px-1.5 py-0.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 text-[9px] font-extrabold rounded-md border border-emerald-200 dark:border-emerald-800/50">
-                    Live Status
+                    Tracked
                   </span>
                 </div>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
@@ -1349,15 +1342,15 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
               }}
               className={`p-2.5 rounded-xl border text-left transition-all active:scale-95 cursor-pointer flex flex-col justify-between ${
                 filter === 'All'
-                  ? 'bg-[#2418D8]/10 dark:bg-[#2418D8]/20 border-[#2418D8] shadow-xs'
-                  : 'bg-slate-50 dark:bg-[#1A1638] border-slate-100 dark:border-slate-800 hover:border-slate-300'
+                  ? 'bg-[#FF5722]/10 dark:bg-[#FF5722]/20 border-[#FF5722] shadow-xs'
+                  : 'bg-[#FFFDF9] dark:bg-[#211A17] border-orange-100/80 dark:border-orange-950/50 hover:border-orange-300'
               }`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight truncate">
                   Total
                 </span>
-                <Package className="w-3.5 h-3.5 text-[#2418D8] dark:text-[#7B73FF] shrink-0" />
+                <Package className="w-3.5 h-3.5 text-[#FF5722] dark:text-[#FF8A65] shrink-0" />
               </div>
               <div className="mt-1">
                 <span className="font-display font-black text-sm sm:text-base text-slate-900 dark:text-white">
@@ -1369,7 +1362,6 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
               </div>
             </button>
 
-            {/* 2. Processing Metric */}
             <button
               type="button"
               onClick={() => {
@@ -1379,7 +1371,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
               className={`p-2.5 rounded-xl border text-left transition-all active:scale-95 cursor-pointer flex flex-col justify-between ${
                 filter === 'Processing'
                   ? 'bg-amber-500/15 dark:bg-amber-500/25 border-amber-500 shadow-xs'
-                  : 'bg-slate-50 dark:bg-[#1A1638] border-slate-100 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-700'
+                  : 'bg-[#FFFDF9] dark:bg-[#211A17] border-orange-100/80 dark:border-orange-950/50 hover:border-amber-300 dark:hover:border-amber-700'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -1398,7 +1390,6 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
               </div>
             </button>
 
-            {/* 3. Shipped Metric */}
             <button
               type="button"
               onClick={() => {
@@ -1407,15 +1398,15 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
               }}
               className={`p-2.5 rounded-xl border text-left transition-all active:scale-95 cursor-pointer flex flex-col justify-between ${
                 filter === 'Shipped'
-                  ? 'bg-blue-500/15 dark:bg-blue-500/25 border-blue-600 shadow-xs'
-                  : 'bg-slate-50 dark:bg-[#1A1638] border-slate-100 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700'
+                  ? 'bg-[#FF5722]/15 dark:bg-[#FF5722]/25 border-[#FF5722] shadow-xs'
+                  : 'bg-[#FFFDF9] dark:bg-[#211A17] border-orange-100/80 dark:border-orange-950/50 hover:border-orange-300 dark:hover:border-orange-700'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-tight truncate">
+                <span className="text-[10px] font-bold text-[#FF5722] dark:text-[#FF8A65] uppercase tracking-tight truncate">
                   Shipped
                 </span>
-                <Truck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                <Truck className="w-3.5 h-3.5 text-[#FF5722] dark:text-[#FF8A65] shrink-0" />
               </div>
               <div className="mt-1">
                 <span className="font-display font-black text-sm sm:text-base text-slate-900 dark:text-white">
@@ -1427,7 +1418,6 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
               </div>
             </button>
 
-            {/* 4. Delivered Metric */}
             <button
               type="button"
               onClick={() => {
@@ -1437,7 +1427,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
               className={`p-2.5 rounded-xl border text-left transition-all active:scale-95 cursor-pointer flex flex-col justify-between ${
                 filter === 'Delivered'
                   ? 'bg-emerald-500/15 dark:bg-emerald-500/25 border-emerald-500 shadow-xs'
-                  : 'bg-slate-50 dark:bg-[#1A1638] border-slate-100 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700'
+                  : 'bg-[#FFFDF9] dark:bg-[#211A17] border-orange-100/80 dark:border-orange-950/50 hover:border-emerald-300 dark:hover:border-emerald-700'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -1457,9 +1447,8 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
             </button>
           </div>
 
-          {/* Recharts Bar Chart Section */}
           {isDashboardExpanded && (
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
+            <div className="pt-2 border-t border-orange-100/80 dark:border-orange-950/50 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold text-[11px] text-slate-700 dark:text-slate-300">
@@ -1476,15 +1465,14 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                       haptics.light();
                       setFilter('All');
                     }}
-                    className="text-[10px] font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline cursor-pointer"
+                    className="text-[10px] font-bold text-[#FF5722] dark:text-[#FF8A65] hover:underline cursor-pointer"
                   >
                     Reset Filter (Show All)
                   </button>
                 )}
               </div>
 
-              {/* Bar Chart Container using Recharts */}
-              <div className="h-44 w-full bg-slate-50/70 dark:bg-[#100D24] rounded-xl p-2 border border-slate-100 dark:border-slate-800/50">
+              <div className="h-44 w-full bg-[#FFFDF9] dark:bg-[#15100E] rounded-xl p-2 border border-orange-100/80 dark:border-orange-950/50">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={chartData}
@@ -1510,7 +1498,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                       axisLine={false}
                       tick={{ fontSize: 10, fill: '#94A3B8' }}
                     />
-                    <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'rgba(36, 24, 216, 0.04)', radius: 6 }} />
+                    <Tooltip content={<CustomBarTooltip />} cursor={{ fill: 'rgba(255, 87, 34, 0.06)', radius: 6 }} />
                     <Bar
                       dataKey="count"
                       radius={[6, 6, 0, 0]}
@@ -1532,7 +1520,6 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                 </ResponsiveContainer>
               </div>
 
-              {/* Proportional Distribution Bar */}
               <div className="space-y-1.5 pt-1">
                 <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
                   {chartData.map((item) => {
@@ -1556,7 +1543,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                       Processing ({statusCounts.Processing})
                     </span>
                     <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-[#2418D8]" />
+                      <span className="w-2 h-2 rounded-full bg-[#FF5722]" />
                       Shipped ({statusCounts.Shipped})
                     </span>
                     <span className="flex items-center gap-1">
@@ -1572,18 +1559,17 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
         </div>
       </div>
 
-      {/* Sub-toolbar: Order count & Download CSV export link & Expand All toggle */}
       <div className="px-3.5 pt-1.5 pb-1 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
         <span className="font-medium text-[11px]">
           Showing <strong className="text-slate-800 dark:text-slate-200">{filteredOrders.length}</strong> of {orders.length} order{orders.length > 1 ? 's' : ''}
-          {filter !== 'All' && <span className="text-[#2418D8] dark:text-[#7B73FF] ml-1 font-bold">({filter})</span>}
+          {filter !== 'All' && <span className="text-[#FF5722] dark:text-[#FF8A65] ml-1 font-bold">({filter})</span>}
         </span>
         <div className="flex items-center gap-3">
           {filteredOrders.length > 0 && (
             <button
               type="button"
               onClick={toggleExpandAll}
-              className="text-[#2418D8] dark:text-[#7B73FF] hover:underline font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+              className="text-[#FF5722] dark:text-[#FF8A65] hover:underline font-bold text-[11px] flex items-center gap-1 cursor-pointer"
             >
               {areAllExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               <span>{areAllExpanded ? 'Collapse All' : 'Expand All'}</span>
@@ -1592,7 +1578,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
           <button
             type="button"
             onClick={handleDownloadCSV}
-            className="text-[#2418D8] dark:text-[#7B73FF] hover:underline font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+            className="text-[#FF5722] dark:text-[#FF8A65] hover:underline font-bold text-[11px] flex items-center gap-1 cursor-pointer"
           >
             <Download className="w-3 h-3" />
             <span>Export CSV</span>
@@ -1600,11 +1586,10 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
         </div>
       </div>
 
-      {/* Orders List Container */}
       <div className="p-3 space-y-3">
         {filteredOrders.length === 0 ? (
-          <div className="text-center py-12 px-4 bg-white dark:bg-[#14112B] rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-            <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-3">
+          <div className="text-center py-12 px-4 bg-white dark:bg-[#181311] rounded-2xl border border-dashed border-orange-200 dark:border-orange-950/60">
+            <div className="w-12 h-12 rounded-full bg-orange-50 dark:bg-[#211A17] text-[#FF5722] flex items-center justify-center mx-auto mb-3">
               <Package className="w-6 h-6" />
             </div>
             <h3 className="font-display font-bold text-sm text-slate-800 dark:text-slate-200">
@@ -1622,16 +1607,15 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
             return (
               <div
                 key={order.id}
-                className="bg-white dark:bg-[#14112B] rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden"
+                className="bg-white dark:bg-[#181311] rounded-2xl border border-orange-100/80 dark:border-orange-950/50 shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden"
               >
-                {/* Header row: ID, Date, Total, and Expand Button (Clickable) */}
                 <div
                   onClick={(e) => toggleOrderExpanded(order.id, e)}
-                  className="p-3.5 flex items-start justify-between gap-2 cursor-pointer hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+                  className="p-3.5 flex items-start justify-between gap-2 cursor-pointer hover:bg-orange-50/40 dark:hover:bg-[#211A17]/60 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono font-bold text-xs text-[#2418D8] dark:text-[#7B73FF]">
+                      <span className="font-mono font-bold text-xs text-[#FF5722] dark:text-[#FF8A65]">
                         {order.id}
                       </span>
                       <span className="text-[10px] text-slate-400 dark:text-slate-500">
@@ -1639,17 +1623,16 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                       </span>
                     </div>
 
-                    {/* Status Badge */}
                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                       {order.status === 'Processing' && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                           Processing
                         </span>
                       )}
                       {order.status === 'Shipped' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60">
-                          <Truck className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 dark:bg-orange-950/60 text-[#FF5722] dark:text-[#FF8A65] border border-orange-200 dark:border-orange-800/60">
+                          <Truck className="w-3 h-3 text-[#FF5722] dark:text-[#FF8A65]" />
                           Shipped &bull; In Transit
                         </span>
                       )}
@@ -1675,15 +1658,14 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                       </span>
                     </div>
 
-                    {/* Expand/Collapse Chevron Indicator */}
                     <button
                       type="button"
                       onClick={(e) => toggleOrderExpanded(order.id, e)}
                       aria-label={isExpanded ? 'Collapse order' : 'Expand order'}
                       className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                         isExpanded
-                          ? 'bg-[#2418D8] text-white rotate-180'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-[#2418D8]/10 hover:text-[#2418D8]'
+                          ? 'bg-[#FF5722] text-white rotate-180'
+                          : 'bg-orange-50 dark:bg-[#211A17] text-slate-600 dark:text-slate-300 hover:bg-[#FF5722]/10 hover:text-[#FF5722]'
                       }`}
                     >
                       <ChevronDown className="w-4 h-4 transition-transform" />
@@ -1691,11 +1673,10 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                   </div>
                 </div>
 
-                {/* Collapsed Preview Strip (when not expanded) */}
                 {!isExpanded && (
                   <div
                     onClick={(e) => toggleOrderExpanded(order.id, e)}
-                    className="px-3.5 pb-3 flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/60 cursor-pointer group"
+                    className="px-3.5 pb-3 flex items-center gap-2 pt-2 border-t border-orange-100/70 dark:border-orange-950/40 cursor-pointer group"
                   >
                     <div className="flex -space-x-2 overflow-hidden py-0.5 shrink-0">
                       {order.items.slice(0, 3).map((item, idx) => (
@@ -1703,11 +1684,11 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                           key={idx}
                           src={item.image}
                           alt={item.name}
-                          className="inline-block w-8 h-8 rounded-lg object-cover ring-2 ring-white dark:ring-slate-900 shadow-xs bg-slate-50 dark:bg-slate-800"
+                          className="inline-block w-8 h-8 rounded-lg object-cover ring-2 ring-white dark:ring-[#181311] shadow-xs bg-orange-50/40 dark:bg-[#211A17]"
                         />
                       ))}
                       {order.items.length > 3 && (
-                        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 ring-2 ring-white dark:ring-slate-900 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                        <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-[#211A17] ring-2 ring-white dark:ring-[#181311] flex items-center justify-center text-[10px] font-bold text-slate-500">
                           +{order.items.length - 3}
                         </div>
                       )}
@@ -1717,16 +1698,15 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                         {order.items.map((i) => i.name).join(', ')}
                       </p>
                     </div>
-                    <span className="text-[11px] font-bold text-[#2418D8] dark:text-[#7B73FF] flex items-center gap-0.5 group-hover:underline shrink-0">
+                    <span className="text-[11px] font-bold text-[#FF5722] dark:text-[#FF8A65] flex items-center gap-0.5 group-hover:underline shrink-0">
                       Show Items ({order.items.length})
                       <ChevronDown className="w-3.5 h-3.5" />
                     </span>
                   </div>
                 )}
 
-                {/* EXPANDABLE LIST: Reveals product thumbnails, quantities, and prices when clicked */}
                 {isExpanded && (
-                  <div className="px-3.5 pb-3.5 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3 bg-slate-50/50 dark:bg-[#120F26]/60 animate-in fade-in duration-200">
+                  <div className="px-3.5 pb-3.5 pt-2 border-t border-orange-100/80 dark:border-orange-950/50 space-y-3 bg-[#FFFDF9] dark:bg-[#15100E] animate-in fade-in duration-200">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         Order Items &bull; {order.items.length} Product{order.items.length > 1 ? 's' : ''} ({itemCount} Unit{itemCount > 1 ? 's' : ''})
@@ -1738,7 +1718,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                             e.stopPropagation();
                             onReorderAll(order.items);
                           }}
-                          className="text-[10px] font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline flex items-center gap-1 cursor-pointer"
+                          className="text-[10px] font-bold text-[#FF5722] dark:text-[#FF8A65] hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           <RotateCcw className="w-3 h-3" />
                           <span>Reorder All</span>
@@ -1746,23 +1726,20 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                       )}
                     </div>
 
-                    {/* Expandable items list with thumbnail, quantity, unit price, total price, reorder */}
                     <div className="space-y-2">
                       {order.items.map((item) => (
                         <div
                           key={item.id}
-                          className="p-3 bg-white dark:bg-[#1A1638] rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-3"
+                          className="p-3 bg-white dark:bg-[#211A17] rounded-xl border border-orange-100/80 dark:border-orange-950/50 shadow-xs flex items-center gap-3"
                         >
-                          {/* Product Thumbnail */}
                           <img
                             src={item.image}
                             alt={item.name}
-                            className="w-14 h-14 rounded-xl object-cover bg-slate-100 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shrink-0 shadow-xs"
+                            className="w-14 h-14 rounded-xl object-cover bg-orange-50/40 dark:bg-[#181311] border border-orange-100/80 dark:border-orange-950/50 shrink-0 shadow-xs"
                           />
 
-                          {/* Title, Category, Quantity and Price */}
                           <div className="flex-1 min-w-0">
-                            <span className="text-[9px] font-bold text-[#2418D8] dark:text-[#7B73FF] uppercase tracking-wide block">
+                            <span className="text-[9px] font-bold text-[#FF5722] dark:text-[#FF8A65] uppercase tracking-wide block">
                               {item.category}
                             </span>
                             <h4 className="font-bold text-xs text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
@@ -1770,12 +1747,10 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                             </h4>
 
                             <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
-                              {/* Quantity Badge */}
-                              <span className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/60 text-[#2418D8] dark:text-[#7B73FF] text-[10px] font-extrabold border border-purple-200/80 dark:border-purple-800">
+                              <span className="px-2 py-0.5 rounded-md bg-orange-50 dark:bg-orange-950/50 text-[#FF5722] dark:text-[#FF8A65] text-[10px] font-extrabold border border-orange-200/80 dark:border-orange-800">
                                 Qty: {item.quantity}
                               </span>
 
-                              {/* Price */}
                               <span className="text-xs font-black text-slate-900 dark:text-white">
                                 ₹{(item.price * item.quantity).toLocaleString('en-IN')}
                               </span>
@@ -1788,7 +1763,6 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                             </div>
                           </div>
 
-                          {/* Individual Item Reorder Action */}
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1797,7 +1771,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                               onReorder(item);
                               onShowToast(`Added ${item.name.slice(0, 18)}... to cart!`);
                             }}
-                            className="px-2.5 py-1.5 bg-[#2418D8]/10 hover:bg-[#2418D8] text-[#2418D8] hover:text-white dark:text-[#7B73FF] dark:hover:text-white text-[11px] font-bold rounded-xl transition-all flex items-center gap-1 active:scale-95 shrink-0 cursor-pointer shadow-xs"
+                            className="px-2.5 py-1.5 bg-[#FF5722]/10 hover:bg-[#FF5722] text-[#FF5722] hover:text-white dark:text-[#FF8A65] dark:hover:text-white text-[11px] font-bold rounded-xl transition-all flex items-center gap-1 active:scale-95 shrink-0 cursor-pointer shadow-xs"
                             title="Reorder this product"
                           >
                             <RotateCcw className="w-3 h-3" />
@@ -1807,10 +1781,9 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                       ))}
                     </div>
 
-                    {/* Order Footer with Address & Full Tracking Modal Trigger */}
-                    <div className="pt-2 border-t border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap text-xs">
+                    <div className="pt-2 border-t border-orange-100/80 dark:border-orange-950/50 flex items-center justify-between gap-2 flex-wrap text-xs">
                       <div className="min-w-0 flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                        <MapPin className="w-3 h-3 text-[#2418D8] dark:text-[#7B73FF] shrink-0" />
+                        <MapPin className="w-3 h-3 text-[#FF5722] dark:text-[#FF8A65] shrink-0" />
                         <span className="truncate">{order.deliveryAddress}</span>
                       </div>
 
@@ -1822,7 +1795,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                             haptics.selection();
                             setRiderTrackOrder(order);
                           }}
-                          className="px-3 py-1.5 bg-gradient-to-r from-[#2418D8] to-purple-600 text-white hover:opacity-95 text-[11px] font-bold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1 shrink-0"
+                          className="px-3 py-1.5 bg-gradient-to-r from-[#FF5722] to-[#E64A19] text-white hover:opacity-95 text-[11px] font-bold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1 shrink-0"
                         >
                           <Bike className="w-3.5 h-3.5" />
                           <span>Live Rider GPS</span>
@@ -1833,7 +1806,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                             e.stopPropagation();
                             handleOpenDetailModal(order);
                           }}
-                          className="px-3 py-1.5 bg-[#2418D8] text-white hover:bg-[#1B11AB] text-[11px] font-bold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                          className="px-3 py-1.5 bg-[#211A17] text-white hover:bg-[#2C221E] text-[11px] font-bold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1"
                         >
                           <Truck className="w-3.5 h-3.5" />
                           <span>Track Delivery</span>
@@ -1841,7 +1814,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                         <button
                           type="button"
                           onClick={(e) => toggleOrderExpanded(order.id, e)}
-                          className="px-2.5 py-1.5 bg-slate-200/70 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold rounded-xl transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                          className="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 dark:bg-[#211A17] dark:hover:bg-[#2C221E] text-slate-700 dark:text-slate-300 text-[11px] font-bold rounded-xl transition-all active:scale-95 cursor-pointer flex items-center gap-1"
                         >
                           <ChevronUp className="w-3.5 h-3.5" />
                           <span>Collapse</span>
@@ -1856,7 +1829,6 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
         )}
       </div>
 
-      {/* Detailed Order Modal */}
       <OrderDetailModal
         order={selectedOrder}
         isOpen={!!selectedOrder}
@@ -1866,9 +1838,11 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
         onShowToast={onShowToast}
         onNavigateToCart={onNavigateToCart}
         onTrackRider={(ord) => setRiderTrackOrder(ord)}
+        customerName={customerName}
+        customerPhone={customerPhone}
+        onOpenSupport={onOpenSupport}
       />
 
-      {/* Live Rider GPS Tracking Modal */}
       <LiveRiderTrackingModal
         order={riderTrackOrder}
         isOpen={!!riderTrackOrder}

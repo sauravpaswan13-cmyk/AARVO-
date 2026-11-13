@@ -204,9 +204,9 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
             .background(
                 Brush.linearGradient(
                     listOf(
-                        Color(0xFFFFFBFF),
-                        Color(0xFFF7F1FF),
-                        Color(0xFFF1F7FF)
+                        Color(0xFFFFE5CC),
+                        Color(0xFFFFF4E8),
+                        Color(0xFFFFFDF9)
                     )
                 )
             )
@@ -232,7 +232,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     modifier = Modifier
                         .size(150.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFEDE5FA)),
+                        .background(Color(0xFFFFEDE0)),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
@@ -248,7 +248,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 36.sp,
-                    color = Color.Black,
+                    color = Color(0xFFFF5722),
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(2.dp))
@@ -256,7 +256,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     "Shop Smart • Live Better",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black,
+                    color = Color(0xFF1F1612),
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(10.dp))
@@ -264,7 +264,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     "Discover products. Shop freely. Enjoy\nAARVO.",
                     fontSize = 17.sp,
                     lineHeight = 22.sp,
-                    color = Color(0xFF222222),
+                    color = Color(0xFF6B5B53),
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(26.dp))
@@ -273,7 +273,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     modifier = Modifier.fillMaxWidth().height(58.dp),
                     shape = RoundedCornerShape(18.dp),
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF7135D4)
+                        containerColor = Color(0xFFFF5722)
                     )
                 ) {
                     Icon(Icons.Default.Person, contentDescription = null)
@@ -285,15 +285,15 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     onClick = onGuest,
                     modifier = Modifier.fillMaxWidth().height(58.dp),
                     shape = RoundedCornerShape(18.dp),
-                    border = BorderStroke(1.5.dp, Color(0xFFC0A7DF))
+                    border = BorderStroke(1.5.dp, Color(0xFFFFB299))
                 ) {
-                    Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = Color(0xFF625C6C))
+                    Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = Color(0xFF6B5B53))
                     Spacer(Modifier.width(9.dp))
                     Text(
                         "Continue as Guest",
                         fontSize = 19.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Black
+                        color = Color(0xFF1F1612)
                     )
                 }
             }
@@ -331,7 +331,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     isDarkTheme: Boolean = false,
     onToggleTheme: () -> Unit = {}
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }; var query by remember { mutableStateOf("") }; var category by remember { mutableStateOf("All") }; var sortMode by remember { mutableStateOf("Relevance") }; var minRating by remember { mutableStateOf(0.0) }; var maxPrice by remember { mutableStateOf<Long?>(null) }; var inStockOnly by remember { mutableStateOf(false) }; var showFilters by remember { mutableStateOf(false) }; var showNotifications by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableIntStateOf(0) }; var accountSection by remember { mutableStateOf("account") }; var query by remember { mutableStateOf("") }; var category by remember { mutableStateOf("All") }; var sortMode by remember { mutableStateOf("Relevance") }; var minRating by remember { mutableStateOf(0.0) }; var maxPrice by remember { mutableStateOf<Long?>(null) }; var inStockOnly by remember { mutableStateOf(false) }; var showFilters by remember { mutableStateOf(false) }; var showNotifications by remember { mutableStateOf(false) }
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
     val voiceSpeechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -475,14 +475,13 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                drawerContainerColor = if (isDarkTheme) Color(0xFF181324) else Color.White
+                drawerContainerColor = if (isDarkTheme) Color(0xFF181311) else Color(0xFFFFFDF9)
             ) {
                 Column(
                     Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp, vertical = 14.dp)
                 ) {
-                    // Header: 3D Logo + AARVO + Close Button (matching Screenshot_20261103-140356.png)
                     Row(
                         Modifier
                             .fillMaxWidth()
@@ -501,14 +500,14 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                                 "AARVO",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 22.sp,
-                                color = Color(0xFF2418D8)
+                                color = Color(0xFFFF5722)
                             )
                         }
                         IconButton(onClick = { scope.launch { drawerState.close() } }) {
                             Icon(
                                 Icons.Default.Close,
                                 contentDescription = "Close",
-                                tint = Color(0xFF94A3B8)
+                                tint = Color(0xFF9E8E84)
                             )
                         }
                     }
@@ -520,9 +519,9 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                             .padding(vertical = 8.dp),
                         shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isDarkTheme) Color(0xFF2E1B4E) else Color(0xFFF5F3FF)
+                            containerColor = if (isDarkTheme) Color(0xFF2B1A12) else Color(0xFFFFF4E8)
                         ),
-                        border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF4C2A85) else Color(0xFFEDE9FE))
+                        border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF4A2B1D) else Color(0xFFFFDFC4))
                     ) {
                         Row(
                             modifier = Modifier
@@ -539,19 +538,19 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                                         if (isDarkTheme) "Dark Mode" else "Light Mode",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp,
-                                        color = if (isDarkTheme) Color.White else Color(0xFF1E293B)
+                                        color = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF1F1612)
                                     )
                                     Text(
                                         "Click to toggle theme",
                                         fontSize = 10.sp,
-                                        color = if (isDarkTheme) Color(0xFFCAC2D2) else Color(0xFF64748B)
+                                        color = if (isDarkTheme) Color(0xFFCBBDB4) else Color(0xFF6B5B53)
                                     )
                                 }
                             }
                             Button(
                                 onClick = onToggleTheme,
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF2418D8),
+                                    containerColor = Color(0xFFFF5722),
                                     contentColor = Color.White
                                 ),
                                 shape = RoundedCornerShape(8.dp),
@@ -600,16 +599,16 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         }
                     )
 
-                    // 4. Orders & Delivery
                     DrawerNavRow(
                         icon = "📦",
                         label = "Orders & Delivery",
                         badge = if (userOrderCount > 0) "$userOrderCount" else null,
-                        badgeColor = Color(0xFFDBEAFE),
-                        badgeTextColor = Color(0xFF2418D8),
+                        badgeColor = Color(0xFFFFEDE0),
+                        badgeTextColor = Color(0xFFFF5722),
                         textColor = itemTextColor,
                         onClick = {
                             scope.launch { drawerState.close() }
+                            accountSection = "orders"
                             selectedTab = 4
                         }
                     )
@@ -624,6 +623,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         textColor = itemTextColor,
                         onClick = {
                             scope.launch { drawerState.close() }
+                            accountSection = "wishlist"
                             selectedTab = 4
                         }
                     )
@@ -632,7 +632,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     DrawerNavRow(
                         icon = "🏪",
                         label = "Seller Business Onboarding",
-                        textColor = Color(0xFFD97706),
+                        textColor = Color(0xFFE64A19),
                         onClick = {
                             scope.launch { drawerState.close() }
                             activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java))
@@ -641,15 +641,15 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 
                     Spacer(Modifier.weight(1f))
                     androidx.compose.material3.HorizontalDivider(
-                        color = if (isDarkTheme) Color(0xFF2E2442) else Color(0xFFF1F5F9)
+                        color = if (isDarkTheme) Color(0xFF332620) else Color(0xFFFFE8D6)
                     )
                     Spacer(Modifier.height(10.dp))
 
                     Button(
                         onClick = { scope.launch { drawerState.close() }; onSignOut() },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isDarkTheme) Color(0xFF2E2442) else Color(0xFFF1F5F9),
-                            contentColor = if (isDarkTheme) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+                            containerColor = if (isDarkTheme) Color(0xFF2B1F1A) else Color(0xFFFFF4E8),
+                            contentColor = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF1F1612)
                         ),
                         modifier = Modifier.fillMaxWidth().height(42.dp),
                         shape = RoundedCornerShape(12.dp)
@@ -670,11 +670,18 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         }
     ) {
         Scaffold(
+            containerColor = if (isDarkTheme) Color(0xFF120E0C) else Color(0xFFFFFDF9),
             topBar = {
+                val topIconTint = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF1F1612)
+                val headerBrush = if (isDarkTheme) {
+                    Brush.verticalGradient(listOf(Color(0xFF26160C), Color(0xFF1B120E), Color(0xFF181311)))
+                } else {
+                    Brush.verticalGradient(listOf(Color(0xFFFFE5CC), Color(0xFFFFF4E8), Color(0xFFFFFFFF)))
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF2418D8))
+                        .background(headerBrush)
                         .padding(bottom = 12.dp)
                 ) {
                     // Top Bar: Hamburger Menu, AARVO Brand Logo + Name, Notifications and Cart
@@ -686,12 +693,12 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, "Menu", tint = Color.White)
+                            Icon(Icons.Default.Menu, "Menu", tint = topIconTint)
                         }
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { selectedTab = 0 }
+                            modifier = Modifier.clickable { selectedTab = 0; accountSection = "account" }
                         ) {
                             androidx.compose.foundation.Image(
                                 painter = coil3.compose.rememberAsyncImagePainter(model = R.drawable.aarvo_brand_logo),
@@ -702,45 +709,46 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                             Text(
                                 "AARVO",
                                 fontWeight = FontWeight.Black,
-                                color = Color.White,
+                                color = Color(0xFFFF5722),
                                 fontSize = 22.sp
                             )
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (unreadNotificationCount > 0) {
-                                BadgedBox(badge = { Badge { Text(unreadNotificationCount.toString()) } }) {
+                                BadgedBox(badge = { Badge(containerColor = Color(0xFFFF5722), contentColor = Color.White) { Text(unreadNotificationCount.toString()) } }) {
                                     IconButton(onClick = { showNotifications = true }) {
-                                        Icon(Icons.Default.Notifications, "Notifications", tint = Color.White)
+                                        Icon(Icons.Default.Notifications, "Notifications", tint = topIconTint)
                                     }
                                 }
                             } else {
                                 IconButton(onClick = { showNotifications = true }) {
-                                    Icon(Icons.Default.Notifications, "Notifications", tint = Color.White)
+                                    Icon(Icons.Default.Notifications, "Notifications", tint = topIconTint)
                                 }
                             }
                             if (cartBadgeCount > 0) {
-                                BadgedBox(badge = { Badge { Text(cartBadgeCount.toString()) } }) {
+                                BadgedBox(badge = { Badge(containerColor = Color(0xFFFF5722), contentColor = Color.White) { Text(cartBadgeCount.toString()) } }) {
                                     IconButton(onClick = { selectedTab = 3 }) {
-                                        Icon(Icons.Default.ShoppingCart, "Cart", tint = Color.White)
+                                        Icon(Icons.Default.ShoppingCart, "Cart", tint = topIconTint)
                                     }
                                 }
                             } else {
                                 IconButton(onClick = { selectedTab = 3 }) {
-                                    Icon(Icons.Default.ShoppingCart, "Cart", tint = Color.White)
+                                    Icon(Icons.Default.ShoppingCart, "Cart", tint = topIconTint)
                                 }
                             }
                         }
                     }
 
-                    // Bada Search Bar inside the Blue Screen matching user's exact design
+                    // Search Bar inside Warm Peach Header
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 14.dp)
                             .height(48.dp),
                         shape = CircleShape,
-                        color = Color.White,
+                        color = if (isDarkTheme) Color(0xFF211A17) else Color.White,
+                        border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF4A3B34) else Color(0xFFFFDFC4)),
                         shadowElevation = 2.dp
                     ) {
                         Row(
@@ -752,7 +760,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                             Icon(
                                 Icons.Default.Search,
                                 contentDescription = "Search",
-                                tint = Color(0xFF94A3B8),
+                                tint = Color(0xFFFF5722),
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(Modifier.width(8.dp))
@@ -760,7 +768,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                                 if (query.isEmpty()) {
                                     Text(
                                         "Search for products, brands and more...",
-                                        color = Color(0xFF94A3B8),
+                                        color = if (isDarkTheme) Color(0xFFA8988F) else Color(0xFF9E8E84),
                                         fontSize = 13.sp,
                                         maxLines = 1
                                     )
@@ -773,7 +781,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                                     },
                                     singleLine = true,
                                     textStyle = androidx.compose.ui.text.TextStyle(
-                                        color = Color(0xFF1E293B),
+                                        color = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF1F1612),
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Medium
                                     ),
@@ -782,7 +790,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                             }
                             if (query.isNotEmpty()) {
                                 IconButton(onClick = { query = "" }, modifier = Modifier.size(24.dp)) {
-                                    Text("✕", fontSize = 12.sp, color = Color(0xFF94A3B8))
+                                    Text("✕", fontSize = 12.sp, color = Color(0xFF9E8E84))
                                 }
                             }
                             IconButton(
@@ -809,34 +817,36 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                 }
             },
             bottomBar = {
-                NavigationBar(containerColor = Color.White) {
+                val navBarColor = if (isDarkTheme) Color(0xFF181311) else Color.White
+                val navUnselected = if (isDarkTheme) Color(0xFFCBBDB4) else Color(0xFF6B5B53)
+                NavigationBar(containerColor = navBarColor) {
                     NavigationBarItem(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
                         icon = { Icon(Icons.Default.Home, "Home") },
                         label = { Text("Home", fontSize = 10.sp, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF2418D8), selectedTextColor = Color(0xFF2418D8), unselectedIconColor = Color(0xFF64748B), unselectedTextColor = Color(0xFF64748B), indicatorColor = Color.Transparent)
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFFFF5722), selectedTextColor = Color(0xFFFF5722), unselectedIconColor = navUnselected, unselectedTextColor = navUnselected, indicatorColor = Color.Transparent)
                     )
                     NavigationBarItem(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
                         icon = { Text("🔲", fontSize = 18.sp) },
                         label = { Text("Categories", fontSize = 10.sp, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF2418D8), selectedTextColor = Color(0xFF2418D8), unselectedIconColor = Color(0xFF64748B), unselectedTextColor = Color(0xFF64748B), indicatorColor = Color.Transparent)
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFFFF5722), selectedTextColor = Color(0xFFFF5722), unselectedIconColor = navUnselected, unselectedTextColor = navUnselected, indicatorColor = Color.Transparent)
                     )
                     NavigationBarItem(
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
                         icon = { Text("🏷️", fontSize = 18.sp) },
                         label = { Text("Offers", fontSize = 10.sp, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF2418D8), selectedTextColor = Color(0xFF2418D8), unselectedIconColor = Color(0xFF64748B), unselectedTextColor = Color(0xFF64748B), indicatorColor = Color.Transparent)
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFFFF5722), selectedTextColor = Color(0xFFFF5722), unselectedIconColor = navUnselected, unselectedTextColor = navUnselected, indicatorColor = Color.Transparent)
                     )
                     NavigationBarItem(
                         selected = selectedTab == 3,
                         onClick = { selectedTab = 3 },
                         icon = {
                             if (cartBadgeCount > 0) {
-                                BadgedBox(badge = { Badge { Text(cartBadgeCount.toString()) } }) {
+                                BadgedBox(badge = { Badge(containerColor = Color(0xFFFF5722), contentColor = Color.White) { Text(cartBadgeCount.toString()) } }) {
                                     Icon(Icons.Default.ShoppingCart, "Cart")
                                 }
                             } else {
@@ -844,14 +854,14 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                             }
                         },
                         label = { Text("Cart", fontSize = 10.sp, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF2418D8), selectedTextColor = Color(0xFF2418D8), unselectedIconColor = Color(0xFF64748B), unselectedTextColor = Color(0xFF64748B), indicatorColor = Color.Transparent)
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFFFF5722), selectedTextColor = Color(0xFFFF5722), unselectedIconColor = navUnselected, unselectedTextColor = navUnselected, indicatorColor = Color.Transparent)
                     )
                     NavigationBarItem(
                         selected = selectedTab == 4,
-                        onClick = { selectedTab = 4 },
+                        onClick = { accountSection = "account"; selectedTab = 4 },
                         icon = { Icon(Icons.Default.Person, "Account") },
                         label = { Text("Account", fontSize = 10.sp, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF2418D8), selectedTextColor = Color(0xFF2418D8), unselectedIconColor = Color(0xFF64748B), unselectedTextColor = Color(0xFF64748B), indicatorColor = Color.Transparent)
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFFFF5722), selectedTextColor = Color(0xFFFF5722), unselectedIconColor = navUnselected, unselectedTextColor = navUnselected, indicatorColor = Color.Transparent)
                     )
                 }
             }
@@ -860,7 +870,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                 0 -> HomeScreen(padding, api, query, { query = it }, availableCategories, category, { category = it }, visibleProducts, recentlyViewed, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { showFilters = true }, sortMode, minRating, maxPrice, inStockOnly, { activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java)) }, { selectedTab = 2 })
                 1 -> CategoriesGridScreen(padding, availableCategories) { category = it; selectedTab = 0 }
                 2 -> OffersScreen(padding, api, allProducts) { selectedProduct = it }
-                3 -> CartScreen(padding, cartItems, allProducts, saveForLater, { product -> cartViewModel.increment(product); syncAuthenticatedCart() }, { product -> cartViewModel.decrement(product); syncAuthenticatedCart() }, { id -> cartViewModel.removeAll(id); syncAuthenticatedCart() }, cartViewModel::quantity, { cartViewModel.clear(); if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } } }, { product -> cartViewModel.removeAll(product.id); saveForLater = saveForLaterStore.toggle(product.id); syncAuthenticatedCart() }, { product -> saveForLater = saveForLaterStore.remove(product.id); cartViewModel.add(product); syncAuthenticatedCart() }, { id -> saveForLater = saveForLaterStore.remove(id) }, { if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" } }, onOpenOrders = { selectedTab = 4 })
+                3 -> CartScreen(padding, cartItems, allProducts, saveForLater, { product -> cartViewModel.increment(product); syncAuthenticatedCart() }, { product -> cartViewModel.decrement(product); syncAuthenticatedCart() }, { id -> cartViewModel.removeAll(id); syncAuthenticatedCart() }, cartViewModel::quantity, { cartViewModel.clear(); if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } } }, { product -> cartViewModel.removeAll(product.id); saveForLater = saveForLaterStore.toggle(product.id); syncAuthenticatedCart() }, { product -> saveForLater = saveForLaterStore.remove(product.id); cartViewModel.add(product); syncAuthenticatedCart() }, { id -> saveForLater = saveForLaterStore.remove(id) }, { if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" } }, onOpenOrders = { accountSection = "orders"; selectedTab = 4 })
                 else -> AccountScreen(
                     padding = padding,
                     userName = userName,
@@ -870,7 +880,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     guestMode = guestMode,
                     onLogin = onLogin,
                     onSignOut = onSignOut,
-                    onWishlist = { selectedTab = 2 },
+                    onWishlist = { accountSection = "wishlist" },
                     onNotifications = { showNotifications = true },
                     isDarkTheme = isDarkTheme,
                     onToggleTheme = onToggleTheme,
@@ -878,7 +888,10 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     wishlist = wishlist,
                     onToggleWishlist = { id -> wishlist = wishlistStore.toggle(id) },
                     onOpenProduct = { selectedProduct = it },
-                    onAddToCart = { product -> cartViewModel.add(product); syncAuthenticatedCart() }
+                    onAddToCart = { product -> cartViewModel.add(product); syncAuthenticatedCart() },
+                    userOrderCount = userOrderCount,
+                    section = accountSection,
+                    onSectionChange = { accountSection = it }
                 )
             }
         }
@@ -987,14 +1000,14 @@ private fun JSONArray.toProductList(): List<Product> = buildList {
                 val staticCategories = listOf(
                     Triple("Mobiles", "📱", Color(0xFFDBEAFE)),
                     Triple("Fashion", "👕", Color(0xFFFFEDD5)),
-                    Triple("Electronics", "💻", Color(0xFFE0E7FF)),
+                    Triple("Electronics", "💻", Color(0xFFFFF4E8)),
                     Triple("Home & Living", "🛋️", Color(0xFFFEF3C7)),
                     Triple("Appliances", "📺", Color(0xFFE0F2FE)),
                     Triple("Beauty & Health", "✨", Color(0xFFFFE4E6)),
                     Triple("Sports", "👟", Color(0xFFCCFBF1)),
                     Triple("Toys & Kids", "🧸", Color(0xFFFEF9C3)),
                     Triple("Grocery", "🧺", Color(0xFFD1FAE5)),
-                    Triple("More", "🔲", Color(0xFFF3E8FF))
+                    Triple("More", "🔲", Color(0xFFFFEDE0))
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                     staticCategories.take(5).forEach { (name, emoji, bg) ->
@@ -1038,7 +1051,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList {
             Card(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onOpenOffers() },
                 shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2418D8))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFF5722))
             ) {
                 Row(
                     Modifier.fillMaxWidth().padding(14.dp),
@@ -1047,7 +1060,7 @@ private fun JSONArray.toProductList(): List<Product> = buildList {
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
-                            Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFFF7A00)),
+                            Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFFF8A65)),
                             contentAlignment = Alignment.Center
                         ) {
                             Text("%", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
@@ -1055,14 +1068,14 @@ private fun JSONArray.toProductList(): List<Product> = buildList {
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text("Top Deals For You", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-                            Text("Best Offers • Lowest Prices • Limited Time", color = Color(0xFFD8D1EE), fontSize = 10.sp)
+                            Text("Verified Offers • Great Value • Limited Time", color = Color(0xFFFFE5CC), fontSize = 10.sp)
                         }
                     }
                     Box(
-                        Modifier.size(34.dp).clip(CircleShape).background(Color(0xFFFFD700)),
+                        Modifier.size(34.dp).clip(CircleShape).background(Color.White),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("→", color = Color(0xFF171329), fontWeight = FontWeight.Black, fontSize = 16.sp)
+                        Text("→", color = Color(0xFFFF5722), fontWeight = FontWeight.Black, fontSize = 16.sp)
                     }
                 }
             }
@@ -1141,14 +1154,14 @@ private fun JSONArray.toProductList(): List<Product> = buildList {
                             "View All",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF2418D8)
+                            color = Color(0xFFFF5722)
                         )
                         Spacer(Modifier.width(2.dp))
                         Text(
                             ">",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF2418D8)
+                            color = Color(0xFFFF5722)
                         )
                     }
                 }
@@ -1227,7 +1240,7 @@ private fun ProductCard(
                             .fillMaxSize()
                             .background(
                                 Brush.verticalGradient(
-                                    listOf(Color(0xFFEDE9FE), Color(0xFFDBEAFE))
+                                    listOf(Color(0xFFFFEDE0), Color(0xFFFFF4E8))
                                 )
                             ),
                         contentAlignment = Alignment.Center
@@ -1360,7 +1373,7 @@ private fun ProductCard(
             Button(
                 onClick = { onAdd(product) },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF2418D8),
+                    containerColor = Color(0xFFFF5722),
                     contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(10.dp),
@@ -1487,7 +1500,7 @@ private fun ProductDetailsScreen(
                         reviewerComment = ""
                         Toast.makeText(context, "Thank you! Your verified review has been submitted.", Toast.LENGTH_SHORT).show()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
                 ) {
                     Text("Submit Review", color = Color.White)
                 }
@@ -1525,7 +1538,7 @@ private fun ProductDetailsScreen(
                             Toast.makeText(context, "Delivery PIN code set to $deliveryPincode • COD Available!", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
                 ) {
                     Text("Check", color = Color.White)
                 }
@@ -1658,17 +1671,17 @@ private fun ProductDetailsScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Add to Cart Button (AARVO outline style)
+                    // Add to Cart Button (AARVO orange outline style)
                     OutlinedButton(
                         onClick = { onAdd(product) },
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.5.dp, Color(0xFF2418D8)),
+                        border = BorderStroke(1.5.dp, Color(0xFFFF5722)),
                         colors = ButtonDefaults.outlinedButtonColors(
                             containerColor = Color.White,
-                            contentColor = Color(0xFF2418D8)
+                            contentColor = Color(0xFFFF5722)
                         ),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
@@ -1676,18 +1689,18 @@ private fun ProductDetailsScreen(
                             imageVector = Icons.Default.ShoppingCart,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
-                            tint = Color(0xFF2418D8)
+                            tint = Color(0xFFFF5722)
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
                             "Add to Cart",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF2418D8)
+                            color = Color(0xFFFF5722)
                         )
                     }
 
-                    // Buy Now Button (Gold #FFC200 with bold black text)
+                    // Buy Now Button (AARVO Vibrant Orange #FF5722)
                     Button(
                         onClick = { onBuyNow(product) },
                         modifier = Modifier
@@ -1695,8 +1708,8 @@ private fun ProductDetailsScreen(
                             .height(48.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFFC200),
-                            contentColor = Color(0xFF0F172A)
+                            containerColor = Color(0xFFFF5722),
+                            contentColor = Color.White
                         ),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
@@ -1705,7 +1718,7 @@ private fun ProductDetailsScreen(
                             "⚡ Buy Now",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF0F172A)
+                            color = Color.White
                         )
                     }
                 }
@@ -1761,7 +1774,7 @@ private fun ProductDetailsScreen(
                             .fillMaxSize()
                             .background(
                                 Brush.verticalGradient(
-                                    listOf(Color(0xFFEDE9FE), Color(0xFFDBEAFE))
+                                    listOf(Color(0xFFFFEDE0), Color(0xFFFFF4E8))
                                 )
                             ),
                         contentAlignment = Alignment.Center
@@ -1888,14 +1901,14 @@ private fun ProductDetailsScreen(
                                     if (isSelected) Modifier.width(24.dp).height(6.dp).clip(RoundedCornerShape(3.dp))
                                     else Modifier.size(6.dp).clip(CircleShape)
                                 )
-                                .background(if (isSelected) Color(0xFF2418D8) else Color(0xFFCBD5E1))
+                                .background(if (isSelected) Color(0xFFFF5722) else Color(0xFFCBD5E1))
                                 .clickable { activeSlideIndex = idx }
                         )
                     }
                 }
             }
 
-            // Horizontal Thumbnail Preview Strip (matching screenshot 1)
+            // Horizontal Thumbnail Preview Strip
             if (images.isNotEmpty()) {
                 Row(
                     modifier = Modifier
@@ -1911,7 +1924,7 @@ private fun ProductDetailsScreen(
                             shape = RoundedCornerShape(8.dp),
                             border = BorderStroke(
                                 if (isSelected) 2.dp else 1.dp,
-                                if (isSelected) Color(0xFF2418D8) else Color(0xFFE2E8F0)
+                                if (isSelected) Color(0xFFFF5722) else Color(0xFFE2E8F0)
                             ),
                             color = Color.White,
                             modifier = Modifier
@@ -1981,24 +1994,6 @@ private fun ProductDetailsScreen(
                                 fontWeight = FontWeight.Medium,
                                 color = Color(0xFF64748B)
                             )
-
-                            Spacer(Modifier.width(10.dp))
-
-                            // AARVO Assured Badge
-                            Surface(
-                                color = Color(0xFFEEF2FF),
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, Color(0xFFC7D2FE))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("⚡", fontSize = 10.sp, color = Color(0xFF2418D8))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Assured", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2418D8))
-                                }
-                            }
                         } else {
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
@@ -2071,7 +2066,7 @@ private fun ProductDetailsScreen(
                             Text(
                                 text = "₹$emiAmount/month  No Cost EMI ›",
                                 fontSize = 12.sp,
-                                color = Color(0xFF2418D8),
+                                color = Color(0xFFFF5722),
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(top = 4.dp)
                             )
@@ -2111,7 +2106,7 @@ private fun ProductDetailsScreen(
                             "T&C",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF2418D8)
+                            color = Color(0xFFFF5722)
                         )
                     }
                     Spacer(Modifier.height(6.dp))
@@ -2173,7 +2168,7 @@ private fun ProductDetailsScreen(
                             "Change",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF2418D8),
+                            color = Color(0xFFFF5722),
                             modifier = Modifier.clickable { showPincodeDialog = true }
                         )
                     }
@@ -2269,7 +2264,7 @@ private fun ProductDetailsScreen(
                     }
                 }
 
-                // 3. AARVO Assured
+                // 3. Brand Warranty
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(14.dp),
@@ -2282,8 +2277,8 @@ private fun ProductDetailsScreen(
                     ) {
                         Text("🛡️", fontSize = 20.sp)
                         Spacer(Modifier.height(6.dp))
-                        Text("AARVO Assured", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
-                        Text("100% Genuine", fontSize = 9.sp, color = Color(0xFF64748B))
+                        Text("Verified Quality", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                        Text("Brand warranty", fontSize = 9.sp, color = Color(0xFF64748B))
                     }
                 }
             }
@@ -2316,7 +2311,7 @@ private fun ProductDetailsScreen(
                         "GST Invoice and 1 Year Manufacturer Warranty Included"
                     ).forEach { bullet ->
                         Row(verticalAlignment = Alignment.Top) {
-                            Text("• ", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2418D8))
+                            Text("• ", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF5722))
                             Text(
                                 bullet,
                                 fontSize = 11.sp,
@@ -2344,57 +2339,26 @@ private fun ProductDetailsScreen(
 
                     Spacer(Modifier.height(4.dp))
 
-                    // Inset Seller Card
+                    // Inset Seller Card (no fake seller rating or badge)
                     Surface(
-                        color = Color(0xFFF8FAFC),
+                        color = Color(0xFFFFFBF7),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        border = BorderStroke(1.dp, Color(0xFFFFE5CC)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(12.dp)
                         ) {
-                            Column {
-                                Text("SELLER", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B), letterSpacing = 0.5.sp)
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        product.sellerName.ifBlank { "TechPro Retail India" },
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF0F172A)
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = Color(0xFF047857)
-                                    ) {
-                                        Text(
-                                            "4.8 ★",
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                        )
-                                    }
-                                }
-                            }
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, Color(0xFF10B981)),
-                                color = Color(0xFFECFDF5)
-                            ) {
-                                Text(
-                                    "100% Genuine",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF047857),
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                )
-                            }
+                            Text("SOLD BY", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6B5B53), letterSpacing = 0.5.sp)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                product.sellerName.ifBlank { "AARVO Seller" },
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1F1612)
+                            )
                         }
                     }
                 }
@@ -2488,7 +2452,7 @@ private fun ProductDetailsScreen(
                         )
                         Button(
                             onClick = { showRateDialog = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8)),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722)),
                             shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
@@ -2518,7 +2482,7 @@ private fun ProductDetailsScreen(
                                     Text("★", fontSize = 22.sp, color = Color(0xFF047857))
                                 }
                                 Text(
-                                    "$currentReviewsCount verified\nreviews",
+                                    "$currentReviewsCount ratings",
                                     fontSize = 10.sp,
                                     color = Color(0xFF64748B),
                                     textAlign = TextAlign.Center,
@@ -2526,52 +2490,58 @@ private fun ProductDetailsScreen(
                                 )
                             }
 
-                            // Right Rating Progress Bars
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                listOf(
-                                    Triple("5 ★", 0.78f, Color(0xFF047857)),
-                                    Triple("4 ★", 0.15f, Color(0xFF10B981)),
-                                    Triple("3 ★", 0.04f, Color(0xFFF59E0B)),
-                                    Triple("2 ★", 0.02f, Color(0xFFFB923C)),
-                                    Triple("1 ★", 0.01f, Color(0xFFEF4444))
-                                ).forEach { (star, pct, color) ->
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text(
-                                            star,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF475569),
-                                            modifier = Modifier.width(22.dp)
-                                        )
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(6.dp)
-                                                .clip(CircleShape)
-                                                .background(Color(0xFFE2E8F0))
+                            // Right Rating Progress Bars (computed purely from real submitted reviews)
+                            if (localReviews.isNotEmpty()) {
+                                val totalLocal = localReviews.size.toFloat()
+                                val barColors = mapOf(
+                                    5 to Color(0xFF047857),
+                                    4 to Color(0xFF10B981),
+                                    3 to Color(0xFFF59E0B),
+                                    2 to Color(0xFFFB923C),
+                                    1 to Color(0xFFEF4444)
+                                )
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    (5 downTo 1).forEach { s ->
+                                        val pct = localReviews.count { it.second == s } / totalLocal
+                                        val color = barColors[s] ?: Color(0xFF047857)
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            modifier = Modifier.fillMaxWidth()
                                         ) {
+                                            Text(
+                                                "$s ★",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF475569),
+                                                modifier = Modifier.width(22.dp)
+                                            )
                                             Box(
                                                 modifier = Modifier
+                                                    .weight(1f)
                                                     .height(6.dp)
-                                                    .fillMaxWidth(pct)
                                                     .clip(CircleShape)
-                                                    .background(color)
+                                                    .background(Color(0xFFE2E8F0))
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .height(6.dp)
+                                                        .fillMaxWidth(pct)
+                                                        .clip(CircleShape)
+                                                        .background(color)
+                                                )
+                                            }
+                                            Text(
+                                                "${(pct * 100).toInt()}%",
+                                                fontSize = 9.sp,
+                                                color = Color(0xFF64748B),
+                                                modifier = Modifier.width(24.dp),
+                                                textAlign = TextAlign.End
                                             )
                                         }
-                                        Text(
-                                            "${(pct * 100).toInt()}%",
-                                            fontSize = 9.sp,
-                                            color = Color(0xFF64748B),
-                                            modifier = Modifier.width(24.dp),
-                                            textAlign = TextAlign.End
-                                        )
                                     }
                                 }
                             }
@@ -2693,7 +2663,7 @@ private fun ProductDetailsScreen(
                             onClick = onOpenOrders,
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                         ) {
-                            Text("📦 View My Orders", fontSize = 11.sp, color = Color(0xFF2418D8), fontWeight = FontWeight.Bold)
+                            Text("📦 View My Orders", fontSize = 11.sp, color = Color(0xFFFF5722), fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.width(6.dp))
                     }
@@ -2714,7 +2684,7 @@ private fun ProductDetailsScreen(
                         Spacer(Modifier.height(12.dp))
                         Button(
                             onClick = onOpenOrders,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8))
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
                         ) {
                             Text("📦 View My Orders", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
@@ -2881,7 +2851,7 @@ private fun ProductDetailsScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Surface(
-                    color = Color(0xFFEEF2FF),
+                    color = Color(0xFFFFF4E8),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -2890,14 +2860,14 @@ private fun ProductDetailsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Total Order Amount:", fontSize = 12.sp, color = Color(0xFF334155))
-                        Text(formatPaise(totalPaise), fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color(0xFF2418D8))
+                        Text("Total Order Amount:", fontSize = 12.sp, color = Color(0xFF4A3B34))
+                        Text(formatPaise(totalPaise), fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color(0xFFFF5722))
                     }
                 }
 
-                if (addressLoading) Text("Loading saved delivery addresses...", fontSize = 11.sp, color = Color(0xFF64748B))
+                if (addressLoading) Text("Loading saved delivery addresses...", fontSize = 11.sp, color = Color(0xFF6B5B53))
                 if (savedAddresses.isNotEmpty()) {
-                    Text("Saved Delivery Addresses", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = Color(0xFF0F172A))
+                    Text("Saved Delivery Addresses", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = Color(0xFF1F1612))
                     savedAddresses.forEach { address ->
                         val id = address.optString("id")
                         val label = address.optString("label").ifBlank { "Saved address" }
@@ -2905,15 +2875,15 @@ private fun ProductDetailsScreen(
                         val addressLine = listOf(address.optString("line1"), address.optString("city"), address.optString("state"), address.optString("postal_code", address.optString("postalCode"))).filter { it.isNotBlank() }.joinToString(", ")
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = if (selectedAddressId == id) Color(0xFFEFF6FF) else Color(0xFFF8FAFC),
-                            border = BorderStroke(1.dp, if (selectedAddressId == id) Color(0xFF2418D8) else Color(0xFFE2E8F0)),
+                            color = if (selectedAddressId == id) Color(0xFFFFF4E8) else Color(0xFFFFFBF7),
+                            border = BorderStroke(1.dp, if (selectedAddressId == id) Color(0xFFFF5722) else Color(0xFFEBD9CA)),
                             modifier = Modifier.fillMaxWidth().clickable { applyAddress(address) }
                         ) {
                             Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(if (selectedAddressId == id) "✓ " else "○ ", color = if (selectedAddressId == id) Color(0xFF2418D8) else Color(0xFF94A3B8), fontWeight = FontWeight.Bold)
+                                Text(if (selectedAddressId == id) "✓ " else "○ ", color = if (selectedAddressId == id) Color(0xFFFF5722) else Color(0xFF9E8E84), fontWeight = FontWeight.Bold)
                                 Column {
                                     Text("$label — $name", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    Text(addressLine, fontSize = 10.sp, color = Color(0xFF64748B))
+                                    Text(addressLine, fontSize = 10.sp, color = Color(0xFF6B5B53))
                                 }
                             }
                         }
@@ -2959,7 +2929,7 @@ private fun ProductDetailsScreen(
 
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = if (selectedPaymentMethod != "COD") Color(0xFF2418D8) else Color.Transparent,
+                        color = if (selectedPaymentMethod != "COD") Color(0xFFFF5722) else Color.Transparent,
                         modifier = Modifier.weight(1f).clickable { selectedPaymentMethod = "RAZORPAY" }
                     ) {
                         Text(
@@ -3000,8 +2970,8 @@ private fun ProductDetailsScreen(
                 // Option 2: Online Payment Card
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = if (selectedPaymentMethod != "COD") Color(0xFFEFF6FF) else Color.White,
-                    border = BorderStroke(if (selectedPaymentMethod != "COD") 2.dp else 1.dp, if (selectedPaymentMethod != "COD") Color(0xFF2418D8) else Color(0xFFE2E8F0)),
+                    color = if (selectedPaymentMethod != "COD") Color(0xFFFFF4E8) else Color.White,
+                    border = BorderStroke(if (selectedPaymentMethod != "COD") 2.dp else 1.dp, if (selectedPaymentMethod != "COD") Color(0xFFFF5722) else Color(0xFFE2E8F0)),
                     modifier = Modifier.fillMaxWidth().clickable { selectedPaymentMethod = "RAZORPAY" }
                 ) {
                     Row(
@@ -3017,15 +2987,15 @@ private fun ProductDetailsScreen(
                                 Text("Instant secure payment via GPay, PhonePe, Paytm or Cards.", fontSize = 10.sp, color = Color(0xFF64748B))
                             }
                         }
-                        Text(if (selectedPaymentMethod != "COD") "●" else "○", fontSize = 18.sp, color = if (selectedPaymentMethod != "COD") Color(0xFF2418D8) else Color(0xFF94A3B8), fontWeight = FontWeight.Bold)
+                        Text(if (selectedPaymentMethod != "COD") "●" else "○", fontSize = 18.sp, color = if (selectedPaymentMethod != "COD") Color(0xFFFF5722) else Color(0xFF94A3B8), fontWeight = FontWeight.Bold)
                     }
                 }
 
                 // Add Payment Method Button
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Color(0xFFC7D2FE)),
-                    color = Color(0xFFF5F3FF),
+                    border = BorderStroke(1.dp, Color(0xFFFFD8B8)),
+                    color = Color(0xFFFFF4E8),
                     modifier = Modifier.fillMaxWidth().clickable {
                         Toast.makeText(context, "Payment options updated. UPI & COD are ready for instant checkout.", Toast.LENGTH_SHORT).show()
                     }
@@ -3038,9 +3008,9 @@ private fun ProductDetailsScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("💳", fontSize = 14.sp)
                             Spacer(Modifier.width(8.dp))
-                            Text("Add Payment Method (Cards / Wallets)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2418D8))
+                            Text("Add Payment Method (Cards / Wallets)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF5722))
                         }
-                        Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2418D8))
+                        Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF5722))
                     }
                 }
 
@@ -3054,7 +3024,7 @@ private fun ProductDetailsScreen(
                 onClick = { onPlaceOrder(fullName, phone, line1, city, state, postalCode, selectedPaymentMethod) },
                 enabled = !loading && fullName.isNotBlank() && Regex("^[6-9][0-9]{9}$").matches(phone.trim()) && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && Regex("^[0-9]{6}$").matches(postalCode.trim()),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (selectedPaymentMethod == "COD") Color(0xFF047857) else Color(0xFF2418D8),
+                    containerColor = if (selectedPaymentMethod == "COD") Color(0xFF047857) else Color(0xFFFF5722),
                     contentColor = Color.White
                 )
             ) {
@@ -3093,51 +3063,59 @@ private fun ProductDetailsScreen(
     wishlist: Set<Int> = emptySet(),
     onToggleWishlist: (Int) -> Unit = {},
     onOpenProduct: (Product) -> Unit = {},
-    onAddToCart: (Product) -> Unit = {}
+    onAddToCart: (Product) -> Unit = {},
+    userOrderCount: Int = 0,
+    section: String = "account",
+    onSectionChange: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
-    var section by remember { mutableStateOf("account") }
     var showProfile by remember { mutableStateOf(false) }
     var showSupport by remember { mutableStateOf(false) }
     var showPaymentSecurityInfo by remember { mutableStateOf(false) }
+
+    val cardBg = if (isDarkTheme) Color(0xFF181311) else Color.White
+    val cardBorder = if (isDarkTheme) Color(0xFF332620) else Color(0xFFFFDFC4)
+    val headingColor = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF1F1612)
+    val mutedColor = if (isDarkTheme) Color(0xFFCBBDB4) else Color(0xFF6B5B53)
+    val dividerColor = if (isDarkTheme) Color(0xFF2B1F1A) else Color(0xFFFFEFE0)
 
     if (showProfile) ProfileDialog(api) { showProfile = false }
     if (showSupport) SupportDialog(api) { showSupport = false }
     if (showPaymentSecurityInfo) {
         AlertDialog(
             onDismissRequest = { showPaymentSecurityInfo = false },
-            title = { Text("Payment & Security", fontWeight = FontWeight.Bold, color = Color(0xFF0F172A)) },
+            title = { Text("Payment & Security", fontWeight = FontWeight.Bold, color = Color(0xFF1F1612)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("• Cash On Delivery (COD) with zero pre-payment required.", fontSize = 12.sp, color = Color(0xFF334155))
-                    Text("• Instant UPI with Google Pay, PhonePe & Paytm.", fontSize = 12.sp, color = Color(0xFF334155))
-                    Text("• 256-bit bank grade encryption for debit and credit cards.", fontSize = 12.sp, color = Color(0xFF334155))
-                    Text("• 100% Money Back and Easy Replacement Guarantee.", fontSize = 12.sp, color = Color(0xFF334155))
+                    Text("• Cash On Delivery (COD) with zero pre-payment required.", fontSize = 12.sp, color = Color(0xFF4A3B34))
+                    Text("• Instant UPI with Google Pay, PhonePe & Paytm.", fontSize = 12.sp, color = Color(0xFF4A3B34))
+                    Text("• 256-bit bank grade encryption for debit and credit cards.", fontSize = 12.sp, color = Color(0xFF4A3B34))
+                    Text("• 100% Money Back and Easy Replacement Guarantee.", fontSize = 12.sp, color = Color(0xFF4A3B34))
                 }
             },
             confirmButton = {
                 Button(
                     onClick = { showPaymentSecurityInfo = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8))
-                ) { Text("Got it") }
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
+                ) { Text("Got it", color = Color.White) }
             }
         )
     }
 
     when (section) {
-        "orders" -> OrdersScreen(padding, api) { section = "account" }
-        "seller" -> SellerDashboardScreen(padding, api) { section = "account" }
+        "orders" -> OrdersScreen(padding, api) { onSectionChange("account") }
+        "seller" -> SellerDashboardScreen(padding, api) { onSectionChange("account") }
         "wishlist" -> {
             Column(Modifier.fillMaxSize().padding(padding)) {
                 Surface(
-                    color = Color(0xFF2418D8),
+                    color = Color(0xFFFF5722),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = { section = "account" }) {
+                        IconButton(onClick = { onSectionChange("account") }) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
                         }
                         Text(
@@ -3166,10 +3144,10 @@ private fun ProductDetailsScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // 1. User Profile Card (Royal Blue Gradient Banner matching Web Preview)
+                // 1. User Profile Card (Warm AARVO Orange Gradient, No Fake Badges)
                 item {
-                    val displayName = if (guestMode) "Guest User" else userName.ifBlank { "Saurav Paswan" }
-                    val initials = displayName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").ifBlank { "SP" }
+                    val displayName = if (guestMode) "Guest User" else userName.ifBlank { "AARVO Shopper" }
+                    val initials = displayName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").uppercase().ifBlank { "A" }
 
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -3182,7 +3160,7 @@ private fun ProductDetailsScreen(
                                 .fillMaxWidth()
                                 .background(
                                     Brush.horizontalGradient(
-                                        listOf(Color(0xFF2418D8), Color(0xFF4B16D8))
+                                        listOf(Color(0xFFFF5722), Color(0xFFE64A19))
                                     )
                                 )
                                 .padding(16.dp)
@@ -3209,40 +3187,30 @@ private fun ProductDetailsScreen(
                                     }
                                     Spacer(Modifier.width(14.dp))
                                     Column(Modifier.weight(1f)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(
-                                                displayName,
-                                                fontWeight = FontWeight.Black,
-                                                fontSize = 17.sp,
-                                                color = Color.White
-                                            )
-                                            if (!guestMode) {
-                                                Spacer(Modifier.width(6.dp))
-                                                Surface(
-                                                    shape = RoundedCornerShape(4.dp),
-                                                    color = Color(0xFFF59E0B)
-                                                ) {
-                                                    Text(
-                                                        "PRO",
-                                                        fontSize = 9.sp,
-                                                        fontWeight = FontWeight.Black,
-                                                        color = Color(0xFF0F172A),
-                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
                                         Text(
-                                            if (guestMode) "Sign in to manage your orders & profile" else "+91 9876543210",
-                                            fontSize = 12.sp,
-                                            color = Color(0xFFE0E7FF)
+                                            displayName,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 17.sp,
+                                            color = Color.White
                                         )
-                                        if (!guestMode) {
+                                        Text(
+                                            if (guestMode) "Sign in to manage your orders & profile" else "AARVO Account • Manage orders & profile",
+                                            fontSize = 12.sp,
+                                            color = Color(0xFFFFE5CC)
+                                        )
+                                    }
+                                    if (!guestMode) {
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = Color.White.copy(alpha = 0.22f),
+                                            modifier = Modifier.clickable { showProfile = true }
+                                        ) {
                                             Text(
-                                                "✓ Verified Aarvo Shopper",
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = Color(0xFF6EE7B7)
+                                                "Edit",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                             )
                                         }
                                     }
@@ -3258,7 +3226,7 @@ private fun ProductDetailsScreen(
                                         shape = RoundedCornerShape(12.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = Color.White,
-                                            contentColor = Color(0xFF2418D8)
+                                            contentColor = Color(0xFFFF5722)
                                         )
                                     ) {
                                         Text("Login / Sign Up with OTP", fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -3269,43 +3237,41 @@ private fun ProductDetailsScreen(
                     }
                 }
 
-                // 2. Quick Actions / Metrics Grid (SuperCoins & Saved Wishlist)
+                // 2. Quick Actions Grid (My Orders & Saved Wishlist - Real Metrics Only)
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Card 1: SuperCoins
+                        // Card 1: My Orders
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable {
-                                    Toast.makeText(context, "🪙 You have 240 SuperCoins worth ₹240. Usable on checkout!", Toast.LENGTH_SHORT).show()
-                                },
+                                .clickable { onSectionChange("orders") },
                             shape = RoundedCornerShape(16.dp),
-                            color = Color.White,
-                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            color = cardBg,
+                            border = BorderStroke(1.dp, cardBorder),
                             shadowElevation = 1.dp
                         ) {
                             Column(Modifier.padding(12.dp)) {
                                 Text(
-                                    "SUPERCOINS",
+                                    "MY ORDERS",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF94A3B8)
+                                    color = mutedColor
                                 )
                                 Spacer(Modifier.height(2.dp))
                                 Text(
-                                    "🪙 240 Coins",
+                                    "📦 $userOrderCount Orders",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Black,
-                                    color = Color(0xFF2418D8)
+                                    color = headingColor
                                 )
                                 Text(
-                                    "Worth ₹240",
+                                    "Track & Manage",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF047857)
+                                    color = Color(0xFFFF5722)
                                 )
                             }
                         }
@@ -3314,12 +3280,10 @@ private fun ProductDetailsScreen(
                         Surface(
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable {
-                                    section = "wishlist"
-                                },
+                                .clickable { onSectionChange("wishlist") },
                             shape = RoundedCornerShape(16.dp),
-                            color = Color.White,
-                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            color = cardBg,
+                            border = BorderStroke(1.dp, cardBorder),
                             shadowElevation = 1.dp
                         ) {
                             Column(Modifier.padding(12.dp)) {
@@ -3327,20 +3291,20 @@ private fun ProductDetailsScreen(
                                     "SAVED WISHLIST",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF94A3B8)
+                                    color = mutedColor
                                 )
                                 Spacer(Modifier.height(2.dp))
                                 Text(
                                     "❤️ ${wishlist.size} Items",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Black,
-                                    color = Color(0xFF0F172A)
+                                    color = headingColor
                                 )
                                 Text(
                                     "View Saved",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF2418D8)
+                                    color = Color(0xFFFF5722)
                                 )
                             }
                         }
@@ -3352,8 +3316,8 @@ private fun ProductDetailsScreen(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        color = Color.White,
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        color = cardBg,
+                        border = BorderStroke(1.dp, cardBorder),
                         shadowElevation = 1.dp
                     ) {
                         Row(
@@ -3366,7 +3330,7 @@ private fun ProductDetailsScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
-                                    color = Color(0xFFF3E8FF),
+                                    color = if (isDarkTheme) Color(0xFF2B1A12) else Color(0xFFFFEDE0),
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
@@ -3379,19 +3343,19 @@ private fun ProductDetailsScreen(
                                         "App Appearance",
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF0F172A)
+                                        color = headingColor
                                     )
                                     Text(
                                         "Currently using ${if (isDarkTheme) "Dark" else "Light"} theme",
                                         fontSize = 10.sp,
-                                        color = Color(0xFF64748B)
+                                        color = mutedColor
                                     )
                                 }
                             }
                             Button(
                                 onClick = onToggleTheme,
                                 shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8)),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722)),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                                 modifier = Modifier.height(34.dp)
                             ) {
@@ -3411,76 +3375,76 @@ private fun ProductDetailsScreen(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        color = Color.White,
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        color = cardBg,
+                        border = BorderStroke(1.dp, cardBorder),
                         shadowElevation = 1.dp
                     ) {
                         Column {
-                            // Row 1: Profile
                             AccountMenuRow(
                                 emoji = "👤",
                                 title = "My Profile",
                                 subtitle = "Personal details & mobile number",
+                                isDarkTheme = isDarkTheme,
                                 onClick = { showProfile = true }
                             )
-                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFF1F5F9)))
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(dividerColor))
 
-                            // Row 2: Orders
                             AccountMenuRow(
                                 emoji = "📦",
                                 title = "Orders & Delivery Tracking",
                                 subtitle = "Live status, tracking & history",
-                                badgeText = "Orders",
-                                onClick = { section = "orders" }
+                                badgeText = if (userOrderCount > 0) "$userOrderCount" else "Orders",
+                                isDarkTheme = isDarkTheme,
+                                onClick = { onSectionChange("orders") }
                             )
-                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFF1F5F9)))
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(dividerColor))
 
-                            // Row 3: Wishlist
                             AccountMenuRow(
                                 emoji = "❤️",
                                 title = "My Wishlist & Saved Items",
                                 subtitle = "${wishlist.size} saved items ready to buy",
                                 badgeText = "${wishlist.size} items",
-                                onClick = { section = "wishlist" }
+                                isDarkTheme = isDarkTheme,
+                                onClick = { onSectionChange("wishlist") }
                             )
-                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFF1F5F9)))
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(dividerColor))
 
-                            // Row 4: Saved Addresses
                             AccountMenuRow(
                                 emoji = "📍",
                                 title = "Saved Delivery Addresses",
                                 subtitle = "Manage doorstep delivery pins",
+                                isDarkTheme = isDarkTheme,
                                 onClick = { activity.startActivity(Intent(activity, AddressBookActivity::class.java)) }
                             )
-                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFF1F5F9)))
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(dividerColor))
 
-                            // Row 5: Seller Hub
                             AccountMenuRow(
                                 emoji = "🏪",
                                 title = "Seller Overview & Hub",
                                 subtitle = "Dashboard, catalog & onboarding",
                                 badgeText = "Dashboard",
+                                isDarkTheme = isDarkTheme,
                                 onClick = {
-                                    if (role == "SELLER") section = "seller"
+                                    if (role == "SELLER") onSectionChange("seller")
                                     else activity.startActivity(Intent(activity, SellerAccountActivity::class.java))
                                 }
                             )
-                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFF1F5F9)))
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(dividerColor))
 
-                            // Row 6: Payment & Security
                             AccountMenuRow(
                                 emoji = "💳",
                                 title = "Payment & Security",
                                 subtitle = "UPI, Cards & 256-bit bank encryption",
+                                isDarkTheme = isDarkTheme,
                                 onClick = { showPaymentSecurityInfo = true }
                             )
-                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFF1F5F9)))
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(dividerColor))
 
-                            // Row 7: Help & Support
                             AccountMenuRow(
                                 emoji = "🎧",
                                 title = "Help & 24/7 Support",
                                 subtitle = "Instant resolution & tickets",
+                                isDarkTheme = isDarkTheme,
                                 onClick = { showSupport = true }
                             )
                         }
@@ -3517,6 +3481,7 @@ private fun ProductDetailsScreen(
     title: String,
     subtitle: String,
     badgeText: String? = null,
+    isDarkTheme: Boolean = false,
     onClick: () -> Unit
 ) {
     Surface(
@@ -3537,31 +3502,31 @@ private fun ProductDetailsScreen(
                     title,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
+                    color = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF1F1612)
                 )
                 Text(
                     subtitle,
                     fontSize = 10.sp,
-                    color = Color(0xFF64748B)
+                    color = if (isDarkTheme) Color(0xFFCBBDB4) else Color(0xFF6B5B53)
                 )
             }
             if (badgeText != null) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFFEFF6FF),
-                    border = BorderStroke(1.dp, Color(0xFFBFDBFE))
+                    color = if (isDarkTheme) Color(0xFF2B1A12) else Color(0xFFFFF4E8),
+                    border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF4A2B1D) else Color(0xFFFFDFC4))
                 ) {
                     Text(
                         badgeText,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2418D8),
+                        color = Color(0xFFFF5722),
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
                 Spacer(Modifier.width(6.dp))
             }
-            Text("›", fontSize = 20.sp, color = Color(0xFF94A3B8), fontWeight = FontWeight.SemiBold)
+            Text("›", fontSize = 20.sp, color = Color(0xFF9E8E84), fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -3657,9 +3622,9 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
             ) {
                 // Live Status Banner
                 Surface(
-                    color = Color(0xFFEFF6FF),
+                    color = Color(0xFFFFF4E8),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                    border = BorderStroke(1.dp, Color(0xFFFFDFC4)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.padding(12.dp)) {
@@ -3668,7 +3633,7 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Delivery in Transit", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E40AF))
+                            Text("Delivery in Transit", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE64A19))
                             Text("Order #$orderId", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFF64748B))
                         }
                         Spacer(Modifier.height(6.dp))
@@ -3717,8 +3682,8 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                         drawLine(roadColor, Offset(w * 0.42f, h * 0.55f), Offset(w * 0.68f, h * 0.38f), 10f, StrokeCap.Round)
                         drawLine(roadColor, Offset(w * 0.68f, h * 0.38f), Offset(w - 35f, h * 0.22f), 10f, StrokeCap.Round)
 
-                        // Draw active delivery route polyline (Royal Blue glowing path)
-                        val routeColor = Color(0xFF2418D8)
+                        // Draw active delivery route polyline (AARVO Orange glowing path)
+                        val routeColor = Color(0xFFFF5722)
                         drawLine(routeColor, Offset(35f, h * 0.85f), Offset(w * 0.42f, h * 0.55f), 4.5f, StrokeCap.Round)
                         drawLine(routeColor, Offset(w * 0.42f, h * 0.55f), Offset(w * 0.68f, h * 0.38f), 4.5f, StrokeCap.Round)
                         drawLine(routeColor, Offset(w * 0.68f, h * 0.38f), Offset(w - 35f, h * 0.22f), 4.5f, StrokeCap.Round)
@@ -3730,8 +3695,8 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                         // Draw Rider Current Position (calculated along route)
                         val rx = w * 0.52f
                         val ry = h * 0.48f
-                        drawCircle(Color(0xFF2418D8).copy(alpha = 0.3f), radius = 24f, center = Offset(rx, ry))
-                        drawCircle(Color(0xFF2418D8), radius = 11f, center = Offset(rx, ry))
+                        drawCircle(Color(0xFFFF5722).copy(alpha = 0.3f), radius = 24f, center = Offset(rx, ry))
+                        drawCircle(Color(0xFFFF5722), radius = 11f, center = Offset(rx, ry))
                         drawCircle(Color.White, radius = 5f, center = Offset(rx, ry))
 
                         // Draw Customer Doorstep Pin
@@ -3765,7 +3730,7 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                         modifier = Modifier
                             .align(Alignment.Center)
                             .padding(bottom = 26.dp)
-                            .background(Color(0xFF2418D8), RoundedCornerShape(8.dp))
+                            .background(Color(0xFFFF5722), RoundedCornerShape(8.dp))
                             .padding(horizontal = 7.dp, vertical = 3.dp)
                     ) {
                         Text("🛵 Rahul (Rider)", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
@@ -3833,7 +3798,7 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 shape = CircleShape,
-                                color = Color(0xFFEEF2FF),
+                                color = Color(0xFFFFEDE0),
                                 modifier = Modifier.size(42.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
@@ -3842,14 +3807,8 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                             }
                             Spacer(Modifier.width(10.dp))
                             Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("Rahul Sharma", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF0F172A))
-                                    Spacer(Modifier.width(6.dp))
-                                    Surface(shape = RoundedCornerShape(4.dp), color = Color(0xFF047857)) {
-                                        Text("4.9 ★", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
-                                    }
-                                }
-                                Text("AARVO Express Fleet Executive", fontSize = 10.sp, color = Color(0xFF64748B))
+                                Text("Rahul Sharma", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF1F1612))
+                                Text("AARVO Express Fleet Executive", fontSize = 10.sp, color = Color(0xFF6B5B53))
                             }
                         }
 
@@ -3887,8 +3846,8 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                             Text("Picked up by Rahul Sharma (09:12 AM)", fontSize = 11.sp, color = Color(0xFF334155))
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("● ", color = Color(0xFF2418D8), fontWeight = FontWeight.Black)
-                            Text("On The Way • Live GPS tracking active (Now)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2418D8))
+                            Text("● ", color = Color(0xFFFF5722), fontWeight = FontWeight.Black)
+                            Text("On The Way • Live GPS tracking active (Now)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF5722))
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("○ ", color = Color(0xFF94A3B8), fontWeight = FontWeight.Bold)
@@ -3906,7 +3865,7 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                     distanceKm = "%.1f".format((distanceKm.toDoubleOrNull() ?: 1.4) - 0.2).coerceAtLeast("0.4")
                     Toast.makeText(context, "GPS Telemetry refreshed from rider unit", Toast.LENGTH_SHORT).show()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
             ) {
                 Text("🔄 Refresh GPS", fontSize = 12.sp, color = Color.White)
             }
@@ -3948,7 +3907,7 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                 Text("Order #$id", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Button(
                     onClick = { riderTrackingOpen = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722)),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                     modifier = Modifier.height(28.dp)
@@ -4092,13 +4051,13 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                         "AARVO Merchant Studio",
                         fontWeight = FontWeight.Black,
                         fontSize = 17.sp,
-                        color = Color(0xFF1E1B4B)
+                        color = Color(0xFF1F1612)
                     )
                 }
                 Text(
                     "Publish catalog products with Meesho & Flipkart standard sizing, colors and genuine customer ratings",
                     fontSize = 11.sp,
-                    color = Color(0xFF64748B)
+                    color = Color(0xFF6B5B53)
                 )
             }
         },
@@ -4128,8 +4087,8 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                             val isSel = opt == selectedCategoryOption
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = if (isSel) Color(0xFF2418D8) else Color(0xFFF1F5F9),
-                                border = BorderStroke(1.dp, if (isSel) Color(0xFF2418D8) else Color(0xFFE2E8F0)),
+                                color = if (isSel) Color(0xFFFF5722) else Color(0xFFF1F5F9),
+                                border = BorderStroke(1.dp, if (isSel) Color(0xFFFF5722) else Color(0xFFE2E8F0)),
                                 modifier = Modifier.clickable {
                                     selectedCategoryOption = opt
                                     category = if (opt == "Other") customCategoryInput else opt
@@ -4170,9 +4129,9 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
 
                 // Sizing & Variant Suite (Meesho & Flipkart standard)
                 Surface(
-                    color = Color(0xFFFAF5FF),
+                    color = Color(0xFFFFF4E8),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFFE9D5FF)),
+                    border = BorderStroke(1.dp, Color(0xFFFFDFC4)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -4185,12 +4144,12 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                                 "👑 SIZE VARIANTS",
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Black,
-                                color = Color(0xFF6B21A8)
+                                color = Color(0xFFE64A19)
                             )
                             Text(
                                 "${selectedSizes.size} selected",
                                 fontSize = 10.sp,
-                                color = Color(0xFF7E22CE),
+                                color = Color(0xFFFF5722),
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -4204,8 +4163,8 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                                 val isChosen = sizeOption in selectedSizes
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
-                                    color = if (isChosen) Color(0xFF2418D8) else Color.White,
-                                    border = BorderStroke(1.dp, if (isChosen) Color(0xFF2418D8) else Color(0xFFCBD5E1)),
+                                    color = if (isChosen) Color(0xFFFF5722) else Color.White,
+                                    border = BorderStroke(1.dp, if (isChosen) Color(0xFFFF5722) else Color(0xFFCBD5E1)),
                                     modifier = Modifier.clickable {
                                         selectedSizes = if (isChosen) selectedSizes - sizeOption else selectedSizes + sizeOption
                                     }
@@ -4326,14 +4285,14 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                 // Genuine Ratings & Reviews Policy
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFEEF2FF),
-                    border = BorderStroke(1.dp, Color(0xFFC7D2FE)),
+                    color = Color(0xFFFFF4E8),
+                    border = BorderStroke(1.dp, Color(0xFFFFDFC4)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         "✓ AARVO Verified Policy: Zero fake ratings or fake badges. Newly added products start at 0.0 ★ and display real ratings as verified customers submit feedback.",
                         fontSize = 10.sp,
-                        color = Color(0xFF2418D8),
+                        color = Color(0xFFE64A19),
                         modifier = Modifier.padding(10.dp),
                         lineHeight = 14.sp
                     )
@@ -4343,7 +4302,7 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                 Button(
                     onClick = { imagePicker.launch("image/*") },
                     enabled = !busy && selectedImages.size < 5,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4F46E5)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("📸 Choose Studio Photos (${selectedImages.size}/5)", color = Color.White)
@@ -4422,7 +4381,7 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                     }
                 },
                 enabled = !busy && name.isNotBlank() && (category.isNotBlank() || customCategoryInput.isNotBlank()) && description.isNotBlank() && parseRupeesToPaiseOrNull(price)?.let { it > 0 } == true && stock.toIntOrNull()?.let { it >= 0 } == true && (hsnCode.isBlank() || hsnCode.matches(Regex("[A-Za-z0-9]{4,8}"))) && (gstRate.isBlank() || gstRate.toDoubleOrNull()?.let { it in listOf(0.0, 5.0, 12.0, 18.0, 28.0) } == true),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2418D8))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
             ) {
                 if (busy) CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White) else Text("Publish Product", color = Color.White)
             }
@@ -4444,14 +4403,14 @@ private fun CategoriesGridScreen(padding: PaddingValues, categories: List<String
     val items = listOf(
         Triple("Mobiles", "📱", Color(0xFFDBEAFE)),
         Triple("Fashion", "👕", Color(0xFFFFEDD5)),
-        Triple("Electronics", "💻", Color(0xFFE0E7FF)),
+        Triple("Electronics", "💻", Color(0xFFFFF4E8)),
         Triple("Home & Living", "🛋️", Color(0xFFFEF3C7)),
         Triple("Appliances", "📺", Color(0xFFE0F2FE)),
         Triple("Beauty & Health", "✨", Color(0xFFFFE4E6)),
         Triple("Sports", "👟", Color(0xFFCCFBF1)),
         Triple("Toys & Kids", "🧸", Color(0xFFFEF9C3)),
         Triple("Grocery", "🧺", Color(0xFFD1FAE5)),
-        Triple("More", "🔲", Color(0xFFF3E8FF))
+        Triple("More", "🔲", Color(0xFFFFEDE0))
     )
     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Text("All Categories", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
@@ -4467,7 +4426,7 @@ private fun CategoriesGridScreen(padding: PaddingValues, categories: List<String
                         Row(Modifier.fillMaxSize().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(emoji, fontSize = 32.sp)
                             Spacer(Modifier.width(10.dp))
-                            Text(name, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF171329))
+                            Text(name, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF1F1612))
                         }
                     }
                 }
@@ -4490,9 +4449,9 @@ private fun OffersScreen(padding: PaddingValues, api: AarvoApiClient, products: 
         finally { loading = false }
     }
     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Text("TOP DEALS & OFFERS", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = Color(0xFFFF7A00)) }
+        item { Text("TOP DEALS & OFFERS", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = Color(0xFFFF5722)) }
         item {
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFF7A00))) {
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFF5722))) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("AARVO TOP DEALS", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Color.White)
                     Text("Special prices on selected products", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
@@ -4521,12 +4480,12 @@ private fun OffersScreen(padding: PaddingValues, api: AarvoApiClient, products: 
                         Text(deal.optString("name", "Top Deal"), fontWeight = FontWeight.Bold, maxLines = 2)
                         Text(deal.optString("category", "Special offer"), fontSize = 12.sp, color = Color.Gray)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("₹${deal.optLong("dealPricePaise") / 100}", fontWeight = FontWeight.ExtraBold, color = Color(0xFFFF7A00))
+                            Text("₹${deal.optLong("dealPricePaise") / 100}", fontWeight = FontWeight.ExtraBold, color = Color(0xFFFF5722))
                             Text("₹${deal.optLong("originalPricePaise") / 100}", fontSize = 12.sp, color = Color.Gray, textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)
                         }
                         Text("Ends ${deal.optString("endsAt").take(10)}", fontSize = 11.sp, color = Color.Gray)
                     }
-                    Text("›", fontSize = 26.sp, color = Color(0xFFFF7A00), fontWeight = FontWeight.Bold)
+                    Text("›", fontSize = 26.sp, color = Color(0xFFFF5722), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -4538,9 +4497,9 @@ private fun DrawerNavRow(
     icon: String,
     label: String,
     badge: String? = null,
-    badgeColor: Color = Color(0xFFDBEAFE),
-    badgeTextColor: Color = Color(0xFF2418D8),
-    textColor: Color = Color(0xFF1E293B),
+    badgeColor: Color = Color(0xFFFFEDE0),
+    badgeTextColor: Color = Color(0xFFFF5722),
+    textColor: Color = Color(0xFF1F1612),
     onClick: () -> Unit
 ) {
     Surface(

@@ -20,7 +20,7 @@ export default function App() {
       `%c[AARVO Analytics]%c [${timestamp}] Screen View: %c${currentScreen.toUpperCase()}%c${
         prev ? ` (Transitioned from: ${prev})` : ' (Initial Screen)'
       }`,
-      'color: #2418D8; font-weight: bold; padding: 2px 4px; border-radius: 4px;',
+      'color: #FF5722; font-weight: bold; padding: 2px 4px; border-radius: 4px;',
       'color: #64748B;',
       'color: #059669; font-weight: bold;',
       'color: #64748B;'
@@ -91,7 +91,7 @@ export default function App() {
 
         console.groupCollapsed(
           `%c[AARVO Performance]%c Startup TTI: %c${ttiTime} ms%c (${rating})`,
-          'color: #2418D8; font-weight: bold; padding: 2px 4px; border-radius: 4px;',
+          'color: #FF5722; font-weight: bold; padding: 2px 4px; border-radius: 4px;',
           'color: #475569;',
           `color: ${ratingColor}; font-weight: bold;`,
           'color: #64748B;'
@@ -169,7 +169,7 @@ export default function App() {
   return (
     <div
       data-theme={theme}
-      className={`min-h-screen ${theme === 'dark' ? 'dark' : ''} bg-[#F7F5FF] dark:bg-[#0A0718] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300`}
+      className={`min-h-screen ${theme === 'dark' ? 'dark' : ''} bg-[#FFFDF9] dark:bg-[#120E0C] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300`}
     >
       {currentScreen === 'splash' && (
         <SplashScreen

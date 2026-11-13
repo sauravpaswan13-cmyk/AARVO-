@@ -45,6 +45,10 @@ import {
   Banknote,
   Download,
   Upload,
+  Copy,
+  HelpCircle,
+  MessageSquare,
+  Edit2,
 } from 'lucide-react';
 import { ScrollToTop } from './ScrollToTop';
 import { MainScreenSkeleton } from './MainScreenSkeleton';
@@ -54,6 +58,15 @@ import { ProductImageZoomModal } from './ProductImageZoomModal';
 import { OrdersSection, Order, OrderItem } from './OrdersSection';
 import { AarvoAnimatedLogo } from './AarvoAnimatedLogo';
 import { haptics } from '../utils/haptics';
+import catFashionBagImg from '../assets/images/cat_fashion_bag_1794533648322.jpg';
+import catMobilesPhoneImg from '../assets/images/cat_mobiles_phone_1794533648438.jpg';
+import catElectronicsLaptopImg from '../assets/images/cat_electronics_laptop_1794533650182.jpg';
+import catHomeBlenderImg from '../assets/images/cat_home_blender_1794533649563.jpg';
+import catBeautySerumImg from '../assets/images/cat_beauty_serum_1794533649077.jpg';
+import heroBigSavingsWomanImg from '../assets/images/hero_big_savings_woman_1794533651427.jpg';
+import promoGadgetsTrioImg from '../assets/images/promo_gadgets_trio_1794533651323.jpg';
+import prodWhiteSneakersImg from '../assets/images/prod_white_sneakers_1794533652181.jpg';
+import prodNavyBackpackImg from '../assets/images/prod_navy_backpack_1794533651856.jpg';
 
 interface MainScreenProps {
   onLogout?: () => void;
@@ -209,12 +222,135 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [selectedReturnPolicy, setSelectedReturnPolicy] = useState('7 Days Return');
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [orderSuccessModal, setOrderSuccessModal] = useState<string | null>(null);
-  const [couponApplied, setCouponApplied] = useState(false);
+  const [appliedCouponCode, setAppliedCouponCode] = useState<'AARVO200' | 'WELCOME100' | null>(null);
+  const [couponInputCode, setCouponInputCode] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [product360Modal, setProduct360Modal] = useState<Product | null>(null);
   const [zoomImageProduct, setZoomImageProduct] = useState<Product | null>(null);
   const bulkCsvInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Interactive Account Modals & Persistent User State
+  const [userProfile, setUserProfile] = useState<{ name: string; phone: string }>(() => {
+    try {
+      const saved = localStorage.getItem('aarvo_profile');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // safe fallback
+    }
+    return { name: 'Saurav Paswan', phone: '+91 9876543210' };
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('aarvo_profile', JSON.stringify(userProfile));
+    } catch {
+      // safe catch
+    }
+  }, [userProfile]);
+
+  interface SavedAddress {
+    id: string;
+    label: string;
+    fullName: string;
+    phone: string;
+    addressLine: string;
+    city: string;
+    pincode: string;
+  }
+
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>(() => {
+    try {
+      const saved = localStorage.getItem('aarvo_addresses');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // safe fallback
+    }
+    return [
+      {
+        id: 'addr-1',
+        label: 'Home',
+        fullName: 'Saurav Paswan',
+        phone: '+91 9876543210',
+        addressLine: '24B, Model Town, Phase 2',
+        city: 'Patna',
+        pincode: '800001',
+      },
+      {
+        id: 'addr-2',
+        label: 'Work',
+        fullName: 'Saurav Paswan',
+        phone: '+91 9876543210',
+        addressLine: 'Flat 402, Green Glen Heights, Outer Ring Road',
+        city: 'Bangalore',
+        pincode: '560103',
+      },
+    ];
+  });
+
+  const [activeAddressId, setActiveAddressId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('aarvo_active_address_id') || 'addr-1';
+    } catch {
+      return 'addr-1';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('aarvo_addresses', JSON.stringify(savedAddresses));
+      localStorage.setItem('aarvo_active_address_id', activeAddressId);
+    } catch {
+      // safe catch
+    }
+  }, [savedAddresses, activeAddressId]);
+
+  const activeAddressObj =
+    savedAddresses.find((a) => a.id === activeAddressId) || savedAddresses[0];
+  const activeAddressString = activeAddressObj
+    ? `${activeAddressObj.fullName}, ${activeAddressObj.addressLine}, ${activeAddressObj.city} - ${activeAddressObj.pincode}`
+    : '24B, Model Town, Phase 2, Patna - 800001';
+
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [profileDraftName, setProfileDraftName] = useState('');
+  const [profileDraftPhone, setProfileDraftPhone] = useState('');
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [addressDraft, setAddressDraft] = useState({
+    label: 'Home',
+    fullName: '',
+    phone: '',
+    addressLine: '',
+    city: '',
+    pincode: '',
+  });
+  const [isWishlistModalOpen, setIsWishlistModalOpen] = useState(false);
+  const [isCouponsModalOpen, setIsCouponsModalOpen] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [ticketSubject, setTicketSubject] = useState('Order & Delivery Inquiry');
+  const [ticketMessage, setTicketMessage] = useState('');
+  const [supportTickets, setSupportTickets] = useState<
+    { id: string; subject: string; message: string; status: string; createdAt: string }[]
+  >(() => {
+    try {
+      const saved = localStorage.getItem('aarvo_support_tickets');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // safe fallback
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('aarvo_support_tickets', JSON.stringify(supportTickets));
+    } catch {
+      // safe catch
+    }
+  }, [supportTickets]);
 
   const downloadSellerCsvTemplate = () => {
     haptics.selection();
@@ -599,12 +735,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       id: 'p_sneakers',
       name: "Men's Sneakers Stylish Sports Shoes",
       category: 'Fashion',
-      image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&auto=format&fit=crop&q=80',
+      image: prodWhiteSneakersImg,
       images: [
+        prodWhiteSneakersImg,
         'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&auto=format&fit=crop&q=80',
         'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=800&auto=format&fit=crop&q=80',
         'https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=800&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=800&auto=format&fit=crop&q=80',
       ],
       price: 999,
       originalPrice: 1999,
@@ -623,12 +759,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       id: 'p_skybags',
       name: 'Skybags Backpack for College',
       category: 'Fashion',
-      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&auto=format&fit=crop&q=80',
+      image: prodNavyBackpackImg,
       images: [
+        prodNavyBackpackImg,
         'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&auto=format&fit=crop&q=80',
         'https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?w=800&auto=format&fit=crop&q=80',
         'https://images.unsplash.com/photo-1546938576-6e6a64f317cc?w=800&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&auto=format&fit=crop&q=80',
       ],
       price: 1299,
       originalPrice: 2499,
@@ -639,7 +775,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       stockQuantity: 25,
       seller: 'Skybags Certified Store',
       availableSizes: ['Standard 32L'],
-      availableColors: ['Royal Blue', 'Carbon Black', 'Steel Grey'],
+      availableColors: ['Navy Blue', 'Carbon Black', 'Steel Grey'],
       fabric: 'Water Resistant Polyester Fabric',
       description: 'Spacious 3-compartment college backpack with padded laptop sleeve, organizer mesh pockets, and ergonomic shoulder straps.',
     },
@@ -833,6 +969,45 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       seller: 'NutriHarvest Daily',
       description: 'Premium whole jumbo California almonds and W240 cashew nuts packed in airtight nitrogen-flushed zipper pouches for ultimate crunch.',
     },
+    {
+      id: 'p_blender',
+      name: 'NutriBlend Pro 750W Compact Mixer & Smoothie Blender',
+      category: 'Home & Kitchen',
+      image: catHomeBlenderImg,
+      images: [
+        catHomeBlenderImg,
+        'https://images.unsplash.com/photo-1570222094114-d054a817e56b?w=800&auto=format&fit=crop&q=80',
+      ],
+      price: 2199,
+      originalPrice: 3999,
+      rating: 4.4,
+      reviewsCount: 640,
+      discount: '45% OFF',
+      inStock: true,
+      stockQuantity: 18,
+      seller: 'KitchenWorld Express',
+      availableColors: ['Royal Blue & Silver', 'Jet Black'],
+      description: 'Heavy-duty 750W copper motor smoothie blender with stainless steel blades and BPA-free Tritan jar.',
+    },
+    {
+      id: 'p_serum',
+      name: 'Botanica Glow 10% Vitamin C + Hyaluronic Face Serum (30ml)',
+      category: 'Beauty & Personal Care',
+      image: catBeautySerumImg,
+      images: [
+        catBeautySerumImg,
+        'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&auto=format&fit=crop&q=80',
+      ],
+      price: 499,
+      originalPrice: 899,
+      rating: 4.5,
+      reviewsCount: 1120,
+      discount: '44% OFF',
+      inStock: true,
+      stockQuantity: 32,
+      seller: 'Botanica Skincare Official',
+      description: 'Dermatologist-tested daily brightening serum for radiant skin tone and deep hydration without stickiness.',
+    },
   ]);
 
   const restockProduct = (id: string, amount: number = 10) => {
@@ -907,10 +1082,16 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   };
 
   // Cart total calculations
+  const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const totalMRP = cartItems.reduce((acc, item) => acc + item.product.originalPrice * item.quantity, 0);
   const totalSellingPrice = cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
   const totalDiscount = totalMRP - totalSellingPrice;
-  const couponDiscount = couponApplied ? Math.min(200, Math.round(totalSellingPrice * 0.1)) : 0;
+  const couponDiscount =
+    appliedCouponCode === 'AARVO200' && totalSellingPrice >= 999
+      ? 200
+      : appliedCouponCode === 'WELCOME100' && totalSellingPrice >= 499
+      ? 100
+      : 0;
   const platformFee = cartItems.length > 0 ? 3 : 0;
   const finalPayable = Math.max(0, totalSellingPrice - couponDiscount + platformFee);
 
@@ -937,7 +1118,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       id: 1,
       badge: 'Exclusive',
       isGraphicBanner: true,
-      image: '/src/assets/aarvo/hero_banner_1.jpg',
+      titlePrimary: 'Big Savings',
+      titleSecondary: 'Big Smiles',
+      ctaText: 'Shop Now',
+      image: heroBigSavingsWomanImg,
+      bgGradient: 'from-[#1E40AF] via-[#2563EB] to-[#3B82F6]',
     },
     {
       id: 2,
@@ -945,9 +1130,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       isGraphicBanner: false,
       titlePrimary: 'Verified Sellers',
       titleSecondary: 'Direct & Genuine',
-      subtitle: 'Doorstep Delivery • 100% Quality Invoices',
+      subtitle: 'Doorstep Delivery • GST Verified Invoices',
       ctaText: 'Explore Drops',
-      bgGradient: 'from-[#1E0E62] via-[#2D1282] to-[#4514B8]',
+      bgGradient: 'from-[#EA580C] via-[#FF5722] to-[#FB8C00]',
     },
     {
       id: 3,
@@ -957,7 +1142,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       titleSecondary: 'Up to 60% OFF',
       subtitle: 'Smartphones, Audio & Wearables with 1 Yr Warranty',
       ctaText: 'Shop Electronics',
-      bgGradient: 'from-[#0A1A44] via-[#122A70] to-[#2515DB]',
+      bgGradient: 'from-[#1E293B] via-[#334155] to-[#FF5722]',
     },
   ];
 
@@ -1006,6 +1191,25 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     });
   }, [allProducts, searchQuery]);
 
+  const matchesCategory = useCallback((productCat: string, selectedCat: string) => {
+    if (!selectedCat || selectedCat === 'All' || selectedCat === 'More') return true;
+    const pCat = (productCat || '').toLowerCase();
+    const sCat = selectedCat.toLowerCase();
+    if (sCat.includes('home')) {
+      return pCat.includes('home') || pCat.includes('kitchen') || pCat.includes('living');
+    }
+    if (sCat.includes('beauty')) {
+      return pCat.includes('beauty') || pCat.includes('personal') || pCat.includes('mouth');
+    }
+    if (sCat.includes('sports') || sCat.includes('footwear')) {
+      return pCat.includes('sport') || pCat.includes('footwear');
+    }
+    if (sCat.includes('toys')) {
+      return pCat.includes('toy') || pCat.includes('baby') || pCat.includes('kid');
+    }
+    return pCat.startsWith(sCat.slice(0, 4)) || pCat.includes(sCat);
+  }, []);
+
   // Dynamic category chips for refining search results with real-time matching product counts
   const searchCategoryChips = useMemo(() => {
     const baseCategories = [
@@ -1013,9 +1217,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       { id: 'Electronics', label: 'Electronics' },
       { id: 'Fashion', label: 'Fashion' },
       { id: 'Mobiles', label: 'Mobiles' },
-      { id: 'Home', label: 'Home & Living' },
+      { id: 'Home & Kitchen', label: 'Home & Kitchen' },
       { id: 'Grocery', label: 'Grocery' },
-      { id: 'Beauty', label: 'Beauty & Care' },
+      { id: 'Beauty & Personal Care', label: 'Beauty & Care' },
       { id: 'Appliances', label: 'Appliances' },
       { id: 'Sports', label: 'Sports' },
       { id: 'Toys', label: 'Toys & Kids' },
@@ -1029,42 +1233,33 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           count: queryMatchedProducts.length,
         };
       }
-      const target = cat.id.toLowerCase();
-      const count = queryMatchedProducts.filter((p) => {
-        const pCat = (p.category || '').toLowerCase();
-        return pCat.startsWith(target.slice(0, 4)) || pCat.includes(target);
-      }).length;
-
+      const count = queryMatchedProducts.filter((p) => matchesCategory(p.category, cat.id)).length;
       return {
         ...cat,
         count,
       };
     });
-  }, [queryMatchedProducts]);
+  }, [queryMatchedProducts, matchesCategory]);
 
   // Real-time filtered products matching both search and selected category chip
   const filteredProducts = useMemo(() => {
-    if (selectedCategory === 'All') {
+    if (selectedCategory === 'All' || selectedCategory === 'More') {
       return queryMatchedProducts;
     }
-    const target = selectedCategory.toLowerCase();
-    return queryMatchedProducts.filter((p) => {
-      const pCat = (p.category || '').toLowerCase();
-      return pCat.startsWith(target.slice(0, 4)) || pCat.includes(target);
-    });
-  }, [queryMatchedProducts, selectedCategory]);
+    return queryMatchedProducts.filter((p) => matchesCategory(p.category, selectedCategory));
+  }, [queryMatchedProducts, selectedCategory, matchesCategory]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#F7F5FF] dark:bg-[#0A0718] text-slate-900 dark:text-slate-100 flex justify-center pb-16 select-none font-sans transition-colors duration-300">
+      <div className="min-h-screen bg-[#FFFDF9] dark:bg-[#120E0C] text-slate-900 dark:text-slate-100 flex justify-center pb-16 select-none font-sans transition-colors duration-300">
         <MainScreenSkeleton />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F5FF] dark:bg-[#0A0718] text-slate-900 dark:text-slate-100 flex justify-center pb-16 select-none font-sans transition-colors duration-300 animate-in fade-in duration-300">
-      <div className="w-full max-w-[440px] bg-white dark:bg-[#120F26] min-h-screen shadow-2xl flex flex-col relative overflow-x-hidden transition-colors duration-300">
+    <div className="min-h-screen bg-[#FFFDF9] dark:bg-[#120E0C] text-slate-900 dark:text-slate-100 flex justify-center pb-16 select-none font-sans transition-colors duration-300 animate-in fade-in duration-300">
+      <div className="w-full max-w-[440px] bg-[#FFFDF9] dark:bg-[#181311] min-h-screen shadow-2xl flex flex-col relative overflow-x-hidden transition-colors duration-300">
 
         {/* ================================================================= */}
         {/* FLOATING NETWORK CONNECTIVITY STATUS INDICATOR                    */}
@@ -1150,6 +1345,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           <OrdersSection
             orders={orders}
             onBack={() => setIsOrdersViewOpen(false)}
+            customerName={userProfile.name}
+            customerPhone={userProfile.phone}
+            onOpenSupport={() => {
+              setIsOrdersViewOpen(false);
+              setIsHelpModalOpen(true);
+            }}
             onReorder={(item) => {
               const matchedProduct = allProducts.find((p) => p.id === item.id) || {
                 id: item.id,
@@ -1158,11 +1359,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 image: item.image,
                 price: item.price,
                 originalPrice: Math.round(item.price * 1.25),
-                rating: 4.5,
-                reviewsCount: 150,
+                rating: 0,
+                reviewsCount: 0,
                 discount: '20% OFF',
                 inStock: true,
-                seller: 'AARVO Assured',
+                seller: 'AARVO Seller',
               };
               addToCart(matchedProduct);
               showToast(`Added ${item.name.slice(0, 20)}... to Cart!`);
@@ -1179,11 +1380,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     image: orderItem.image,
                     price: orderItem.price,
                     originalPrice: Math.round(orderItem.price * 1.25),
-                    rating: 4.5,
-                    reviewsCount: 150,
+                    rating: 0,
+                    reviewsCount: 0,
                     discount: '20% OFF',
                     inStock: true,
-                    seller: 'AARVO Assured',
+                    seller: 'AARVO Seller',
                   };
                   const existingIndex = nextCart.findIndex((ci) => ci.product.id === orderItem.id);
                   if (existingIndex > -1) {
@@ -1217,8 +1418,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             {/* ================================================================= */}
             {/* 1. TOP HEADER MATCHING LEFT PHONE MOCKUP (AARVO BRANDING & SEARCH)*/}
             {/* ================================================================= */}
-            <header className="bg-white dark:bg-[#14112B] text-slate-900 dark:text-white pt-2.5 pb-2 px-3.5 sticky top-0 z-30 border-b border-slate-100 dark:border-slate-800/80 shadow-xs">
-              {/* Top Row: Menu + Search Input + Cart with Red Badge 2 */}
+            <header className="bg-gradient-to-b from-[#FFE5CC] via-[#FFF4E8] to-white dark:from-[#26160C] dark:via-[#1B120E] dark:to-[#181311] text-slate-900 dark:text-white pt-[max(0.625rem,env(safe-area-inset-top))] pb-2 px-3.5 sticky top-0 z-30 border-b border-orange-100/80 dark:border-stone-800/80 shadow-xs">
+              {/* Top Row: Menu + Search Input + Cart */}
               <div className="flex items-center gap-2 mb-2">
                 {/* Left: Hamburger Menu */}
                 <button
@@ -1227,15 +1428,15 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     haptics.light();
                     setIsSidebarOpen(true);
                   }}
-                  className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors shrink-0 cursor-pointer"
+                  className="p-1.5 text-slate-800 dark:text-slate-200 hover:bg-orange-100/70 dark:hover:bg-stone-800 rounded-full transition-colors shrink-0 cursor-pointer"
                   aria-label="Open menu"
                 >
                   <Menu className="w-5 h-5 stroke-[2.2]" />
                 </button>
 
-                {/* Pill Search Bar matching Left Phone Mockup: [ 🔍 Search for products... ] */}
+                {/* Pill Search Bar */}
                 <div className="flex-1 relative">
-                  <div className="h-10 bg-white dark:bg-[#1A1638] rounded-full flex items-center px-3 shadow-2xs border border-slate-200 dark:border-slate-700/80 focus-within:border-[#FF5722] focus-within:ring-2 focus-within:ring-[#FF5722]/20 transition-all">
+                  <div className="h-10 bg-white dark:bg-[#211A17] rounded-full flex items-center px-3 shadow-2xs border border-orange-200/80 dark:border-stone-700/80 focus-within:border-[#FF5722] focus-within:ring-2 focus-within:ring-[#FF5722]/20 transition-all">
                     <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0 pointer-events-none mr-2" />
                     <input
                       type="text"
@@ -1281,33 +1482,35 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   <button
                     type="button"
                     onClick={onToggleTheme}
-                    className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors shrink-0 cursor-pointer"
+                    className="p-1.5 text-slate-800 dark:text-slate-200 hover:bg-orange-100/70 dark:hover:bg-stone-800 rounded-full transition-colors shrink-0 cursor-pointer"
                     title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
                     aria-label="Toggle theme"
                   >
                     {theme === 'dark' ? (
                       <Sun className="w-4 h-4 text-amber-400" />
                     ) : (
-                      <Moon className="w-4 h-4 text-slate-600" />
+                      <Moon className="w-4 h-4 text-slate-700" />
                     )}
                   </button>
                 )}
 
-                {/* Right: Shopping Cart with Red Badge 2 */}
+                {/* Right: Shopping Cart with Live Count Badge */}
                 <button
                   type="button"
                   onClick={() => switchTab('cart')}
-                  className="relative p-1.5 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors shrink-0 cursor-pointer"
+                  className="relative p-1.5 text-slate-800 dark:text-slate-100 hover:bg-orange-100/70 dark:hover:bg-stone-800 rounded-full transition-colors shrink-0 cursor-pointer"
                   aria-label="Cart"
                 >
                   <ShoppingCart className="w-5 h-5 stroke-[2]" />
-                  <span className="absolute -top-1 -right-1 min-w-[17px] h-4 px-1 bg-red-600 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-xs">
-                    {cartItems.reduce((acc, item) => acc + item.quantity, 0) || 2}
-                  </span>
+                  {totalCartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[17px] h-4 px-1 bg-[#FF5722] text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-xs">
+                      {totalCartCount}
+                    </span>
+                  )}
                 </button>
               </div>
 
-              {/* Second Row: Centered AARVO Animated Logo (Trolley + Leaping Ribbon + Fade Writing AARVO) */}
+              {/* Second Row: Centered AARVO Animated Logo */}
               <div className="flex items-center justify-center py-1">
                 <AarvoAnimatedLogo
                   size="md"
@@ -1336,7 +1539,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       className={`shrink-0 flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold transition-all duration-200 active:scale-95 cursor-pointer select-none ${
                         isSelected
                           ? 'bg-[#FF5722] text-white shadow-xs font-black'
-                          : 'bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200/80 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60'
+                          : 'bg-white/80 dark:bg-[#211A17] hover:bg-orange-50 dark:hover:bg-stone-800 text-slate-700 dark:text-slate-300 border border-orange-200/70 dark:border-stone-700/70'
                       }`}
                     >
                       <span className="whitespace-nowrap">{dept.label}</span>
@@ -1348,8 +1551,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
         {/* Toast Notification */}
         {toastMessage && (
-          <div className="fixed top-28 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 dark:bg-purple-950/95 text-white px-4 py-2 rounded-full text-xs font-semibold shadow-xl backdrop-blur-xs flex items-center gap-2 animate-bounce border border-white/10">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <div className="fixed top-28 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 dark:bg-[#211A17]/95 text-white px-4 py-2 rounded-full text-xs font-semibold shadow-xl backdrop-blur-xs flex items-center gap-2 animate-bounce border border-orange-500/30">
+            <CheckCircle2 className="w-4 h-4 text-[#FF8A65]" />
             <span>{toastMessage}</span>
           </div>
         )}
@@ -1362,10 +1565,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             {searchQuery.trim() !== '' ? (
               /* REAL-TIME LIVE SEARCH RESULTS VIEW */
               <section className="p-3 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between mb-3 bg-slate-50 dark:bg-[#1A1633] p-3 rounded-2xl border border-slate-200/70 dark:border-slate-800 shadow-2xs">
+                <div className="flex items-center justify-between mb-3 bg-[#FFF4E8] dark:bg-[#211A17] p-3 rounded-2xl border border-orange-200/70 dark:border-stone-800 shadow-2xs">
                   <div className="min-w-0 pr-2">
                     <div className="flex items-center gap-1.5">
-                      <Search className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF] shrink-0" />
+                      <Search className="w-4 h-4 text-[#FF5722] dark:text-[#FF8A65] shrink-0" />
                       <h3 className="font-display font-black text-sm text-slate-900 dark:text-white truncate">
                         Search Results
                       </h3>
@@ -1393,7 +1596,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                       <span>Refine by Category</span>
                       {selectedCategory !== 'All' && (
-                        <span className="text-[#2418D8] dark:text-[#7B73FF] font-black normal-case">
+                        <span className="text-[#FF5722] dark:text-[#FF8A65] font-black normal-case">
                           &bull; {selectedCategory}
                         </span>
                       )}
@@ -1405,7 +1608,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           haptics.light();
                           setSelectedCategory('All');
                         }}
-                        className="text-[11px] font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline flex items-center gap-0.5 active:scale-95 transition-transform cursor-pointer"
+                        className="text-[11px] font-bold text-[#FF5722] dark:text-[#FF8A65] hover:underline flex items-center gap-0.5 active:scale-95 transition-transform cursor-pointer"
                       >
                         <span>Show All</span>
                         <X className="w-3 h-3" />
@@ -1433,10 +1636,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           }}
                           className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-95 cursor-pointer select-none ${
                             isSelected
-                              ? 'bg-[#2418D8] text-white shadow-sm ring-2 ring-[#2418D8]/20 font-extrabold'
+                              ? 'bg-[#FF5722] text-white shadow-sm ring-2 ring-[#FF5722]/20 font-extrabold'
                               : hasMatches
-                              ? 'bg-white dark:bg-[#1A1633] text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/80 hover:border-[#2418D8]/50 shadow-2xs'
-                              : 'bg-slate-50 dark:bg-slate-900/40 text-slate-400 dark:text-slate-500 border border-slate-100 dark:border-slate-800/60 opacity-60'
+                              ? 'bg-white dark:bg-[#211A17] text-slate-800 dark:text-slate-200 border border-orange-200/70 dark:border-stone-700/80 hover:border-[#FF5722]/50 shadow-2xs'
+                              : 'bg-slate-50 dark:bg-stone-900/40 text-slate-400 dark:text-slate-500 border border-slate-100 dark:border-stone-800/60 opacity-60'
                           }`}
                         >
                           <span className="whitespace-nowrap">{chip.label}</span>
@@ -1445,7 +1648,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                               isSelected
                                 ? 'bg-white/25 text-white'
                                 : hasMatches
-                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                ? 'bg-orange-50 dark:bg-stone-800 text-slate-600 dark:text-slate-400'
                                 : 'bg-transparent text-slate-400'
                             }`}
                           >
@@ -1466,7 +1669,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           haptics.light();
                           setSelectedProduct(product);
                         }}
-                        className="bg-white dark:bg-[#1A1633] rounded-2xl p-2.5 border border-slate-100 dark:border-slate-800/80 shadow-xs flex flex-col justify-between hover:shadow-md transition-all group cursor-pointer"
+                        className="bg-white dark:bg-[#211A17] rounded-2xl p-2.5 border border-orange-100/80 dark:border-stone-800/80 shadow-xs flex flex-col justify-between hover:shadow-md transition-all group cursor-pointer"
                       >
                         <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 mb-2">
                           <img
@@ -1537,7 +1740,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             e.stopPropagation();
                             addToCart(product);
                           }}
-                          className="mt-2.5 w-full py-1.5 bg-[#2418D8] hover:bg-[#1A10B3] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-xs"
+                          className="mt-2.5 w-full py-1.5 bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-xs cursor-pointer"
                         >
                           <ShoppingCart className="w-3.5 h-3.5" />
                           <span>Add to Cart</span>
@@ -1546,8 +1749,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <div className="py-12 px-4 text-center bg-slate-50 dark:bg-[#1A1633] rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                    <div className="w-12 h-12 mx-auto rounded-full bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center text-slate-400 mb-3">
+                  <div className="py-12 px-4 text-center bg-[#FFF4E8] dark:bg-[#211A17] rounded-2xl border border-dashed border-orange-200 dark:border-stone-800">
+                    <div className="w-12 h-12 mx-auto rounded-full bg-orange-100/70 dark:bg-stone-800/80 flex items-center justify-center text-[#FF5722] mb-3">
                       <Search className="w-6 h-6 stroke-[1.5]" />
                     </div>
                     <h4 className="font-bold text-sm text-slate-800 dark:text-white mb-1">
@@ -1574,7 +1777,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             haptics.light();
                             setSelectedCategory('All');
                           }}
-                          className="px-4 py-2 bg-[#2418D8] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#1A10B3] active:scale-95 transition-all cursor-pointer"
+                          className="px-4 py-2 bg-[#FF5722] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#E64A19] active:scale-95 transition-all cursor-pointer"
                         >
                           Show All Categories ({queryMatchedProducts.length} items)
                         </button>
@@ -1593,7 +1796,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     ) : (
                       <>
                         <div className="flex flex-wrap justify-center gap-1.5 mb-4">
-                          {['Shoes', 'Phone', 'Kurta', 'Neem', 'Earbuds', 'Dung'].map((tag) => (
+                          {['Shoes', 'Phone', 'Kurta', 'Neem', 'Earbuds', 'Blender'].map((tag) => (
                             <button
                               key={tag}
                               type="button"
@@ -1602,7 +1805,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                                 setSearchQuery(tag);
                                 setSelectedCategory('All');
                               }}
-                              className="px-2.5 py-1 text-xs font-medium rounded-full bg-white dark:bg-slate-800 text-[#2418D8] dark:text-[#7B73FF] border border-slate-200 dark:border-slate-700 shadow-2xs hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95"
+                              className="px-2.5 py-1 text-xs font-medium rounded-full bg-white dark:bg-stone-800 text-[#FF5722] dark:text-[#FF8A65] border border-orange-200 dark:border-stone-700 shadow-2xs hover:bg-orange-50 dark:hover:bg-stone-700 active:scale-95 cursor-pointer"
                             >
                               {tag}
                             </button>
@@ -1615,7 +1818,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             setSearchQuery('');
                             setSelectedCategory('All');
                           }}
-                          className="px-4 py-2 bg-[#2418D8] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#1A10B3] active:scale-95 transition-all"
+                          className="px-4 py-2 bg-[#FF5722] text-white text-xs font-bold rounded-xl shadow-xs hover:bg-[#E64A19] active:scale-95 transition-all cursor-pointer"
                         >
                           Clear Search
                         </button>
@@ -1627,52 +1830,76 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             ) : (
               <>
             {/* ================================================================= */}
-            {/* 1. BLUE HERO BANNER: "Big Savings Big Smiles" (Matching Left Phone)*/}
+            {/* 1. HERO BANNER CAROUSEL                                           */}
             {/* ================================================================= */}
             <section className="px-3.5 pt-2.5 pb-2">
-              <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden shadow-md bg-gradient-to-r from-[#1E40AF] via-[#2563EB] to-[#3B82F6] flex items-center justify-between p-4 sm:p-5 text-white">
-                {/* Left Content */}
-                <div className="max-w-[55%] z-10 flex flex-col justify-center">
-                  <h2 className="text-xl sm:text-2xl font-black font-display tracking-tight text-white leading-tight">
-                    Big Savings
-                  </h2>
-                  <h3 className="text-xl sm:text-2xl font-black font-display tracking-tight text-white leading-tight">
-                    Big Smiles
-                  </h3>
+              {(() => {
+                const activeSlide = slides[currentSlide] || slides[0];
+                return (
+                  <div className={`relative aspect-[16/9] w-full rounded-2xl overflow-hidden shadow-md bg-gradient-to-r ${activeSlide.bgGradient} flex items-center justify-between p-4 sm:p-5 text-white transition-all duration-300`}>
+                    <div className="max-w-[58%] z-10 flex flex-col justify-center">
+                      <h2 className="text-xl sm:text-2xl font-black font-display tracking-tight text-white leading-tight">
+                        {activeSlide.titlePrimary}
+                      </h2>
+                      <h3 className="text-xl sm:text-2xl font-black font-display tracking-tight text-white leading-tight">
+                        {activeSlide.titleSecondary}
+                      </h3>
+                      {activeSlide.subtitle && (
+                        <p className="text-[10px] text-white/90 font-medium mt-1 line-clamp-1">
+                          {activeSlide.subtitle}
+                        </p>
+                      )}
 
-                  <button
-                    type="button"
-                    onClick={() => switchTab('categories')}
-                    className="mt-3 w-fit px-4 py-1.5 bg-[#FFD700] hover:bg-[#FACC15] text-slate-950 font-black text-xs rounded-full shadow-sm flex items-center gap-1 active:scale-95 transition-transform cursor-pointer"
-                  >
-                    <span>Shop Now</span>
-                    <span className="font-bold">&gt;</span>
-                  </button>
-                </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (activeSlide.id === 3) {
+                            setSelectedCategory('Electronics');
+                            switchTab('categories');
+                          } else {
+                            switchTab('categories');
+                          }
+                        }}
+                        className="mt-3 w-fit px-4 py-1.5 bg-[#FFD700] hover:bg-[#FACC15] text-slate-950 font-black text-xs rounded-full shadow-sm flex items-center gap-1 active:scale-95 transition-transform cursor-pointer"
+                      >
+                        <span>{activeSlide.ctaText}</span>
+                        <span className="font-bold">&gt;</span>
+                      </button>
+                    </div>
 
-                {/* Right Image: Indian woman with colorful shopping bags */}
-                <div className="absolute right-2 -bottom-1 h-full w-[46%] flex items-end justify-center pointer-events-none">
-                  <img
-                    src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&auto=format&fit=crop&q=80"
-                    alt="Big Savings Big Smiles"
-                    className="h-[95%] w-full object-contain object-bottom filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
-                  />
-                </div>
+                    {activeSlide.image && (
+                      <div className="absolute right-0 bottom-0 h-full w-[48%] flex items-end justify-end pointer-events-none">
+                        <img
+                          src={activeSlide.image}
+                          alt={`${activeSlide.titlePrimary} ${activeSlide.titleSecondary}`}
+                          className="h-full w-full object-cover object-top filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.28)]"
+                        />
+                      </div>
+                    )}
 
-                {/* 3 Pagination Dots */}
-                <div className="absolute bottom-2 left-0 right-0 flex items-center justify-center gap-1.5 z-10 pointer-events-none">
-                  <span className="w-4 h-1.5 rounded-full bg-[#FFD700]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
-                </div>
-              </div>
+                    {/* Clickable Pagination Dots */}
+                    <div className="absolute bottom-2 left-0 right-0 flex items-center justify-center gap-1.5 z-10">
+                      {slides.map((s, idx) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          aria-label={`Slide ${idx + 1}`}
+                          onClick={() => setCurrentSlide(idx)}
+                          className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                            currentSlide === idx ? 'w-4 bg-[#FFD700]' : 'w-1.5 bg-white/60 hover:bg-white/90'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </section>
 
             {/* ================================================================= */}
-            {/* 2. SHOP BY CATEGORY SECTION (Matching Left Phone Mockup)           */}
+            {/* 2. SHOP BY CATEGORY SECTION                                       */}
             {/* ================================================================= */}
             <section className="px-3.5 py-2">
-              {/* Header Row */}
               <div className="flex items-center justify-between mb-2.5">
                 <div className="flex items-center gap-2">
                   <LayoutGrid className="w-4 h-4 text-[#FF5722]" />
@@ -1682,7 +1909,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => switchTab('categories')}
+                  onClick={() => {
+                    setSelectedCategory('All');
+                    switchTab('categories');
+                  }}
                   className="text-xs font-bold text-[#FF5722] hover:underline flex items-center gap-0.5 cursor-pointer"
                 >
                   <span>See All</span>
@@ -1690,33 +1920,37 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 </button>
               </div>
 
-              {/* 5 Category Cards */}
               <div className="grid grid-cols-5 gap-2">
                 {[
                   {
                     name: 'Fashion',
-                    img: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&auto=format&fit=crop&q=80',
-                    bg: 'bg-pink-50 dark:bg-pink-950/30',
+                    filterKey: 'Fashion',
+                    img: catFashionBagImg,
+                    bg: 'bg-[#FFF0F5] dark:bg-rose-950/30',
                   },
                   {
                     name: 'Mobiles',
-                    img: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=300&auto=format&fit=crop&q=80',
-                    bg: 'bg-blue-50 dark:bg-blue-950/30',
+                    filterKey: 'Mobiles',
+                    img: catMobilesPhoneImg,
+                    bg: 'bg-[#EEF4FF] dark:bg-blue-950/30',
                   },
                   {
                     name: 'Electronics',
-                    img: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=300&auto=format&fit=crop&q=80',
-                    bg: 'bg-indigo-50 dark:bg-indigo-950/30',
+                    filterKey: 'Electronics',
+                    img: catElectronicsLaptopImg,
+                    bg: 'bg-[#F0F2FF] dark:bg-indigo-950/30',
                   },
                   {
                     name: 'Home & Kitchen',
-                    img: 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?w=300&auto=format&fit=crop&q=80',
-                    bg: 'bg-amber-50 dark:bg-amber-950/30',
+                    filterKey: 'Home',
+                    img: catHomeBlenderImg,
+                    bg: 'bg-[#FFF6EB] dark:bg-amber-950/30',
                   },
                   {
                     name: 'Beauty & Personal Care',
-                    img: 'https://images.unsplash.com/photo-1608248597359-00913926f2eb?w=300&auto=format&fit=crop&q=80',
-                    bg: 'bg-rose-50 dark:bg-rose-950/30',
+                    filterKey: 'Beauty',
+                    img: catBeautySerumImg,
+                    bg: 'bg-[#FFF1EA] dark:bg-orange-950/30',
                   },
                 ].map((item, idx) => (
                   <button
@@ -1724,16 +1958,16 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     type="button"
                     onClick={() => {
                       haptics.selection();
-                      setSelectedCategory(item.name.includes('Beauty') ? 'Beauty' : item.name.includes('Home') ? 'Home' : item.name);
+                      setSelectedCategory(item.filterKey);
                       switchTab('categories');
                     }}
                     className="flex flex-col items-center group cursor-pointer transition-transform active:scale-95"
                   >
-                    <div className={`w-full aspect-square rounded-2xl ${item.bg} border border-slate-200/60 dark:border-slate-800 p-1.5 flex items-center justify-center shadow-2xs group-hover:shadow-xs transition-shadow`}>
+                    <div className={`w-full aspect-square rounded-2xl ${item.bg} border border-orange-100/80 dark:border-stone-800 overflow-hidden p-1 flex items-center justify-center shadow-2xs group-hover:shadow-xs transition-shadow`}>
                       <img
                         src={item.img}
                         alt={item.name}
-                        className="w-full h-full object-contain filter group-hover:scale-105 transition-transform"
+                        className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform"
                       />
                     </div>
                     <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-1.5 text-center leading-tight line-clamp-2">
@@ -1749,7 +1983,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             {/* ================================================================= */}
             <section className="px-3.5 py-2">
               <div className="relative aspect-[21/9] w-full rounded-2xl overflow-hidden shadow-sm bg-gradient-to-r from-[#FF9800] via-[#FB8C00] to-[#FF5722] p-4 flex items-center justify-between text-white">
-                <div className="max-w-[60%] z-10">
+                <div className="max-w-[58%] z-10">
                   <h3 className="text-base sm:text-lg font-black font-display tracking-tight text-white leading-tight">
                     Great Deals
                   </h3>
@@ -1767,11 +2001,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 </div>
 
                 {/* Right Gadgets Image */}
-                <div className="absolute right-2 -bottom-1 h-full w-[40%] flex items-center justify-center pointer-events-none">
+                <div className="absolute right-0 bottom-0 h-full w-[44%] flex items-center justify-end pointer-events-none">
                   <img
-                    src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&auto=format&fit=crop&q=80"
+                    src={promoGadgetsTrioImg}
                     alt="Top Brands Deals"
-                    className="h-[90%] w-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.25)]"
+                    className="h-full w-full object-cover object-center filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.2)]"
                   />
                 </div>
               </div>
@@ -1808,19 +2042,21 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       haptics.light();
                       setSelectedProduct(product);
                     }}
-                    className="bg-white dark:bg-[#1A1633] rounded-2xl p-2.5 border border-slate-200/70 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
+                    className="bg-white dark:bg-[#211A17] rounded-2xl p-2.5 border border-orange-100/80 dark:border-stone-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
                   >
-                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 mb-2">
+                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#FFF9F2] dark:bg-stone-900 mb-2">
                       <img
                         src={product.image}
                         alt={product.name}
                         className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
                       />
-                      {/* Green Rating Badge on Image */}
-                      <span className="absolute bottom-1.5 left-1.5 bg-emerald-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded flex items-center gap-0.5 shadow-xs">
-                        <span>★</span>
-                        <span>{product.rating.toFixed(1)}</span>
-                      </span>
+                      {/* Green Rating Badge only if product has genuine reviews */}
+                      {product.reviewsCount > 0 && (
+                        <span className="absolute bottom-1.5 left-1.5 bg-emerald-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded flex items-center gap-0.5 shadow-xs">
+                          <span>★</span>
+                          <span>{product.rating.toFixed(1)}</span>
+                        </span>
+                      )}
 
                       {/* Wishlist Heart */}
                       <button
@@ -1830,7 +2066,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           toggleWishlist(product.id, product.name);
                         }}
                         aria-label="Wishlist"
-                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs flex items-center justify-center text-slate-400 hover:text-rose-500 shadow-2xs"
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/85 dark:bg-stone-900/85 backdrop-blur-xs flex items-center justify-center text-slate-400 hover:text-rose-500 shadow-2xs cursor-pointer"
                       >
                         <Heart
                           className={`w-3.5 h-3.5 ${
@@ -1856,13 +2092,15 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             ₹{product.originalPrice.toLocaleString('en-IN')}
                           </span>
                         )}
-                        <span className="text-[10px] font-black text-red-600 bg-red-50 dark:bg-red-950/60 px-1 py-0.2 rounded">
-                          {product.discount}
-                        </span>
+                        {product.discount && (
+                          <span className="text-[10px] font-black text-red-600 bg-red-50 dark:bg-red-950/60 px-1 py-0.2 rounded">
+                            {product.discount}
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 mt-1 border-t border-slate-100 dark:border-slate-800/80">
+                    <div className="flex items-center justify-between pt-2 mt-1 border-t border-orange-100/70 dark:border-stone-800/80">
                       <span className="text-[10px] text-emerald-600 font-bold">
                         Free Delivery
                       </span>
@@ -1873,7 +2111,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           haptics.success();
                           addToCart(product);
                         }}
-                        className="p-1.5 rounded-lg bg-orange-50 hover:bg-[#FF5722] text-[#FF5722] hover:text-white transition-colors cursor-pointer"
+                        className="p-1.5 rounded-lg bg-orange-50 dark:bg-stone-800 hover:bg-[#FF5722] text-[#FF5722] hover:text-white transition-colors cursor-pointer"
                         title="Add to Cart"
                       >
                         <ShoppingCart className="w-3.5 h-3.5" />
@@ -1885,7 +2123,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             </section>
 
             {/* ================================================================= */}
-            {/* 5. "MORE PRODUCTS FOR YOU" WITH LOWEST PRICE BADGES & MORE BELOW  */}
+            {/* 5. "MORE PRODUCTS FOR YOU"                                        */}
             {/* ================================================================= */}
             <section className="px-3.5 py-2 relative">
               <div className="flex items-center justify-between mb-2.5">
@@ -1895,7 +2133,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => switchTab('categories')}
-                  className="text-xs font-bold text-[#FF5722] hover:underline"
+                  className="text-xs font-bold text-[#FF5722] hover:underline cursor-pointer"
                 >
                   View All &gt;
                 </button>
@@ -1909,25 +2147,29 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       haptics.light();
                       setSelectedProduct(product);
                     }}
-                    className="bg-white dark:bg-[#1A1633] rounded-2xl p-2.5 border border-slate-200/70 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
+                    className="bg-white dark:bg-[#211A17] rounded-2xl p-2.5 border border-orange-100/80 dark:border-stone-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
                   >
-                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 mb-2">
+                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#FFF9F2] dark:bg-stone-900 mb-2">
                       <img
                         src={product.image}
                         alt={product.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
-                      {/* Blue Lowest price badge matching user screenshot */}
-                      <span className="absolute top-1.5 left-1.5 bg-[#3B32FF] text-white text-[9px] font-black px-2 py-0.5 rounded shadow-xs tracking-wide">
-                        Lowest price
-                      </span>
 
-                      {/* Rating pill at bottom */}
-                      <span className="absolute bottom-1.5 left-1.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs text-slate-800 dark:text-slate-200 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-xs flex items-center gap-1">
-                        <span>{product.rating.toFixed(1)}</span>
-                        <Star className="w-2.5 h-2.5 fill-emerald-600 text-emerald-600" />
-                        <span className="text-slate-400 font-normal">({product.reviewsCount})</span>
-                      </span>
+                      {product.originalPrice > product.price && product.discount && (
+                        <span className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                          {product.discount}
+                        </span>
+                      )}
+
+                      {/* Genuine Rating pill at bottom if rated */}
+                      {product.reviewsCount > 0 && (
+                        <span className="absolute bottom-1.5 left-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-xs text-slate-800 dark:text-slate-200 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-xs flex items-center gap-1">
+                          <span>{product.rating.toFixed(1)}</span>
+                          <Star className="w-2.5 h-2.5 fill-emerald-600 text-emerald-600" />
+                          <span className="text-slate-400 font-normal">({product.reviewsCount})</span>
+                        </span>
+                      )}
                     </div>
 
                     <div>
@@ -1954,7 +2196,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         haptics.success();
                         addToCart(product);
                       }}
-                      className="mt-2 w-full py-1.5 bg-orange-50 hover:bg-[#FF5722] text-[#FF5722] hover:text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="mt-2 w-full py-1.5 bg-orange-50 dark:bg-stone-800 hover:bg-[#FF5722] text-[#FF5722] hover:text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <ShoppingCart className="w-3.5 h-3.5" />
                       <span>Add to Cart</span>
@@ -1963,14 +2205,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 ))}
               </div>
 
-              {/* Floating "↓ More below" pill button matching screenshot */}
+              {/* Floating "↓ More below" pill button */}
               <div className="flex justify-center mt-3">
                 <button
                   type="button"
                   onClick={() => switchTab('categories')}
-                  className="px-4 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 hover:shadow-lg active:scale-95 transition-all cursor-pointer"
+                  className="px-4 py-1.5 rounded-full bg-white dark:bg-[#211A17] border border-orange-200 dark:border-stone-700 shadow-md text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 hover:shadow-lg active:scale-95 transition-all cursor-pointer"
                 >
-                  <span className="text-blue-600 font-black">↓</span>
+                  <span className="text-[#FF5722] font-black">↓</span>
                   <span>More below</span>
                 </button>
               </div>
@@ -1987,9 +2229,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         {/* TAB 2: FLIPKART-STYLE 2-PANE CATEGORIES EXPLORER                  */}
         {/* ================================================================= */}
         {activeTab === 'categories' && (
-          <div className="flex-1 flex overflow-hidden bg-white dark:bg-[#120F26]">
-            {/* Left Vertical Category Rail (Flipkart signature) */}
-            <aside className="w-20 sm:w-24 shrink-0 overflow-y-auto no-scrollbar border-r border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-[#120F26] divide-y divide-slate-100 dark:divide-slate-800/60">
+          <div className="flex-1 flex overflow-hidden bg-[#FFFDF9] dark:bg-[#120E0C]">
+            {/* Left Vertical Category Rail */}
+            <aside className="w-20 sm:w-24 shrink-0 overflow-y-auto no-scrollbar border-r border-orange-100/80 dark:border-stone-800 bg-[#FFF8F1] dark:bg-[#181311] divide-y divide-orange-100/60 dark:divide-stone-800/60">
               {/* All Products Option */}
               <button
                 type="button"
@@ -1999,14 +2241,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 }}
                 className={`w-full py-3 px-1.5 flex flex-col items-center text-center transition-all cursor-pointer ${
                   selectedCategory === 'All'
-                    ? 'bg-white dark:bg-[#1A1633] text-[#2418D8] dark:text-[#7B73FF] font-black border-l-4 border-[#2418D8] shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800/40 font-medium'
+                    ? 'bg-[#FFF4E8] dark:bg-[#2E1A12] text-[#FF5722] dark:text-[#FF8A65] font-black ring-1 ring-[#FF5722]/30 shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-orange-50/70 dark:hover:bg-stone-800/40 font-medium'
                 }`}
               >
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-1 text-base ${
                   selectedCategory === 'All'
-                    ? 'bg-[#2418D8] text-white shadow-xs'
-                    : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    ? 'bg-[#FF5722] text-white shadow-xs'
+                    : 'bg-orange-100/80 dark:bg-stone-800 text-slate-700 dark:text-slate-300'
                 }`}>
                   <LayoutGrid className="w-5 h-5 stroke-[2.2]" />
                 </div>
@@ -2027,12 +2269,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     }}
                     className={`w-full py-3 px-1 flex flex-col items-center text-center transition-all cursor-pointer ${
                       isCatActive
-                        ? 'bg-white dark:bg-[#1A1633] text-[#2418D8] dark:text-[#7B73FF] font-black border-l-4 border-[#2418D8] shadow-2xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800/40 font-medium'
+                        ? 'bg-[#FFF4E8] dark:bg-[#2E1A12] text-[#FF5722] dark:text-[#FF8A65] font-black ring-1 ring-[#FF5722]/30 shadow-2xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-orange-50/70 dark:hover:bg-stone-800/40 font-medium'
                     }`}
                   >
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-1 transition-transform ${
-                      isCatActive ? 'scale-105 shadow-xs ring-2 ring-[#2418D8]/20' : ''
+                      isCatActive ? 'scale-105 shadow-xs ring-2 ring-[#FF5722]/25' : ''
                     } ${cat.color}`}>
                       <IconComponent className="w-5 h-5 stroke-[2.2]" />
                     </div>
@@ -2047,7 +2289,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             {/* Right Pane: Subcategories & Product Cards Grid */}
             <div className="flex-1 overflow-y-auto p-2.5 pb-24 no-scrollbar space-y-2.5">
               {/* Category Header Banner */}
-              <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-[#1A1633] border border-slate-100 dark:border-slate-800/70">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#FFF4E8] dark:bg-[#211A17] border border-orange-100 dark:border-stone-800/70">
                 <div>
                   <h3 className="font-display font-black text-xs text-slate-900 dark:text-white uppercase tracking-wider">
                     {selectedCategory === 'All' ? 'All Collections' : selectedCategory}
@@ -2056,12 +2298,18 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     {filteredProducts.length} items available
                   </span>
                 </div>
-                <span className="text-[9px] font-black text-[#2418D8] dark:text-[#7B73FF] bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-900/60">
-                  ⚡ Express
-                </span>
+                {selectedCategory !== 'All' && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategory('All')}
+                    className="text-[10px] font-bold text-[#FF5722] dark:text-[#FF8A65] hover:underline cursor-pointer"
+                  >
+                    Show All
+                  </button>
+                )}
               </div>
 
-              {/* Products Listing Grid (2-column Flipkart layout) */}
+              {/* Products Listing Grid */}
               {filteredProducts.length > 0 ? (
                 <div className="grid grid-cols-2 gap-2">
                   {filteredProducts.map((product) => (
@@ -2071,10 +2319,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         haptics.light();
                         setSelectedProduct(product);
                       }}
-                      className="bg-white dark:bg-[#1A1633] rounded-2xl p-2 border border-slate-100 dark:border-slate-800/80 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group active:scale-[0.98]"
+                      className="bg-white dark:bg-[#211A17] rounded-2xl p-2 border border-orange-100/80 dark:border-stone-800/80 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group active:scale-[0.98]"
                     >
                       {/* Product Image Zone */}
-                      <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 mb-1.5">
+                      <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#FFF9F2] dark:bg-stone-900 mb-1.5">
                         <img
                           src={product.image}
                           alt={product.name}
@@ -2097,7 +2345,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           className={`absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 active:scale-75 shadow-xs z-10 cursor-pointer ${
                             wishlist.includes(product.id)
                               ? 'bg-rose-50 dark:bg-rose-950/90 text-rose-500 scale-105'
-                              : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs text-slate-400 dark:text-slate-300 hover:text-rose-500'
+                              : 'bg-white/90 dark:bg-stone-900/90 backdrop-blur-xs text-slate-400 dark:text-slate-300 hover:text-rose-500'
                           }`}
                         >
                           <Heart
@@ -2113,14 +2361,13 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       {/* Info Zone */}
                       <div className="flex-1 flex flex-col justify-between">
                         <div>
-                          <span className="text-[9px] font-black text-[#2418D8] dark:text-[#7B73FF] uppercase tracking-wider block">
+                          <span className="text-[9px] font-black text-[#FF5722] dark:text-[#FF8A65] uppercase tracking-wider block">
                             {product.category}
                           </span>
                           <h4 className="text-[11px] font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
                             {product.name}
                           </h4>
 
-                          {/* Ratings + Assured badge */}
                           <div className="flex items-center gap-1 my-1">
                             {product.reviewsCount > 0 ? (
                               <span className="flex items-center gap-0.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded">
@@ -2137,7 +2384,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             </span>
                           </div>
 
-                          {/* Price Row */}
                           <div className="flex items-baseline gap-1.5">
                             <span className="text-xs font-black text-slate-900 dark:text-white">
                               ₹{product.price.toLocaleString('en-IN')}
@@ -2153,14 +2399,13 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           </span>
                         </div>
 
-                        {/* Add to Cart Button */}
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             addToCart(product);
                           }}
-                          className="mt-2 w-full py-1.5 bg-[#2418D8] hover:bg-[#1A10B3] text-white text-[11px] font-extrabold rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-all shadow-2xs cursor-pointer"
+                          className="mt-2 w-full py-1.5 bg-[#FF5722] hover:bg-[#E64A19] text-white text-[11px] font-extrabold rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-all shadow-2xs cursor-pointer"
                         >
                           <ShoppingCart className="w-3 h-3" />
                           <span>Add to Cart</span>
@@ -2170,8 +2415,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="py-12 px-3 text-center bg-slate-50 dark:bg-[#1A1633] rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                  <div className="w-10 h-10 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-2">
+                <div className="py-12 px-3 text-center bg-[#FFF4E8] dark:bg-[#211A17] rounded-2xl border border-dashed border-orange-200 dark:border-stone-800">
+                  <div className="w-10 h-10 mx-auto rounded-full bg-orange-100/70 dark:bg-stone-800 flex items-center justify-center text-[#FF5722] mb-2">
                     <Search className="w-5 h-5" />
                   </div>
                   <h4 className="font-bold text-xs text-slate-800 dark:text-white mb-1">
@@ -2183,7 +2428,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   <button
                     type="button"
                     onClick={() => setSelectedCategory('All')}
-                    className="px-3 py-1.5 bg-[#2418D8] text-white text-xs font-bold rounded-xl"
+                    className="px-3 py-1.5 bg-[#FF5722] text-white text-xs font-bold rounded-xl cursor-pointer"
                   >
                     View All Products
                   </button>
@@ -2199,14 +2444,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         {activeTab === 'offers' && (
           <div className="flex-1 flex flex-col p-3 pb-6 space-y-3.5">
             {/* Live Lightning Deal Header with countdown */}
-            <div className="rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 p-4 text-white shadow-md">
+            <div className="rounded-2xl bg-gradient-to-r from-[#FF7043] via-[#FF5722] to-[#E64A19] p-4 text-white shadow-md">
               <div className="flex items-center justify-between mb-2">
                 <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-wider backdrop-blur-xs">
-                  <Flame className="w-3.5 h-3.5 text-yellow-300 fill-yellow-300 animate-pulse" />
+                  <Flame className="w-3.5 h-3.5 text-amber-200 fill-amber-200 animate-pulse" />
                   Flash Lightning Sale
                 </span>
-                <div className="flex items-center gap-1 text-xs font-mono font-bold bg-black/30 px-2 py-0.5 rounded-lg">
-                  <Clock className="w-3.5 h-3.5 text-yellow-300" />
+                <div className="flex items-center gap-1 text-xs font-mono font-bold bg-black/25 px-2 py-0.5 rounded-lg">
+                  <Clock className="w-3.5 h-3.5 text-amber-200" />
                   <span>
                     {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:
                     {String(timeLeft.seconds).padStart(2, '0')}
@@ -2217,21 +2462,21 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               <h3 className="font-display font-black text-xl leading-tight">
                 Up to 75% OFF Clearance
               </h3>
-              <p className="text-xs text-rose-100 mt-1">
-                Extra 10% instant discount with HDFC, ICICI &amp; UPI
+              <p className="text-xs text-orange-100 mt-1">
+                Extra instant savings on eligible bank cards &amp; UPI
               </p>
             </div>
 
             {/* Coupons Section */}
-            <div className="bg-white dark:bg-[#1A1633] rounded-2xl p-3 border border-slate-100 dark:border-slate-800/80 shadow-xs">
-              <h4 className="font-display font-bold text-xs text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-1.5">
-                <Tag className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF]" />
+            <div className="bg-white dark:bg-[#211A17] rounded-2xl p-3 border border-orange-100 dark:border-stone-800 shadow-xs space-y-2">
+              <h4 className="font-display font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <Tag className="w-4 h-4 text-[#FF5722]" />
                 <span>Available Coupons</span>
               </h4>
 
-              <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/50 flex items-center justify-between">
+              <div className="p-2.5 rounded-xl bg-[#FFF4E8] dark:bg-orange-950/30 border border-orange-200/80 dark:border-orange-900/50 flex items-center justify-between gap-2">
                 <div>
-                  <span className="font-mono font-black text-xs text-[#2418D8] dark:text-purple-300 tracking-wider bg-white dark:bg-[#130F29] px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800">
+                  <span className="font-mono font-black text-xs text-[#E64A19] dark:text-orange-300 tracking-wider bg-white dark:bg-[#181311] px-2 py-0.5 rounded border border-orange-200 dark:border-orange-800">
                     AARVO200
                   </span>
                   <p className="text-[10px] text-slate-600 dark:text-slate-300 mt-1">
@@ -2239,13 +2484,55 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => {
-                    setCouponApplied(true);
-                    showToast('Coupon AARVO200 Applied!');
+                    haptics.selection();
+                    if (appliedCouponCode === 'AARVO200') {
+                      setAppliedCouponCode(null);
+                      showToast('Coupon AARVO200 removed');
+                    } else {
+                      setAppliedCouponCode('AARVO200');
+                      showToast('Coupon AARVO200 applied to Cart!');
+                    }
                   }}
-                  className="px-3 py-1 bg-[#2418D8] text-white text-[11px] font-bold rounded-lg shadow-xs hover:bg-[#1A10B3] active:scale-95 transition-all"
+                  className={`px-3 py-1.5 text-[11px] font-bold rounded-lg shadow-xs active:scale-95 transition-all cursor-pointer ${
+                    appliedCouponCode === 'AARVO200'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-[#FF5722] hover:bg-[#E64A19] text-white'
+                  }`}
                 >
-                  Apply
+                  {appliedCouponCode === 'AARVO200' ? 'Applied ✓' : 'Apply'}
+                </button>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-[#FFF4E8] dark:bg-orange-950/30 border border-orange-200/80 dark:border-orange-900/50 flex items-center justify-between gap-2">
+                <div>
+                  <span className="font-mono font-black text-xs text-[#E64A19] dark:text-orange-300 tracking-wider bg-white dark:bg-[#181311] px-2 py-0.5 rounded border border-orange-200 dark:border-orange-800">
+                    WELCOME100
+                  </span>
+                  <p className="text-[10px] text-slate-600 dark:text-slate-300 mt-1">
+                    Save flat ₹100 on orders above ₹499
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.selection();
+                    if (appliedCouponCode === 'WELCOME100') {
+                      setAppliedCouponCode(null);
+                      showToast('Coupon WELCOME100 removed');
+                    } else {
+                      setAppliedCouponCode('WELCOME100');
+                      showToast('Coupon WELCOME100 applied to Cart!');
+                    }
+                  }}
+                  className={`px-3 py-1.5 text-[11px] font-bold rounded-lg shadow-xs active:scale-95 transition-all cursor-pointer ${
+                    appliedCouponCode === 'WELCOME100'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-[#FF5722] hover:bg-[#E64A19] text-white'
+                  }`}
+                >
+                  {appliedCouponCode === 'WELCOME100' ? 'Applied ✓' : 'Apply'}
                 </button>
               </div>
             </div>
@@ -2263,12 +2550,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       haptics.light();
                       setSelectedProduct(product);
                     }}
-                    className="bg-white dark:bg-[#1A1633] rounded-2xl p-2.5 border border-slate-100 dark:border-slate-800/80 shadow-xs flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group"
+                    className="bg-white dark:bg-[#211A17] rounded-2xl p-2.5 border border-orange-100/80 dark:border-stone-800 shadow-xs flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group"
                   >
-                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 mb-2">
+                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-orange-50/40 dark:bg-[#181311] mb-2">
                       <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
                       {product.originalPrice > product.price && (
-                        <span className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                        <span className="absolute top-1.5 left-1.5 bg-[#FF5722] text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
                           {product.discount}
                         </span>
                       )}
@@ -2285,7 +2572,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         className={`absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 active:scale-75 shadow-xs z-10 cursor-pointer ${
                           wishlist.includes(product.id)
                             ? 'bg-rose-50 dark:bg-rose-950/90 text-rose-500 scale-105'
-                            : 'bg-white/85 dark:bg-slate-900/85 backdrop-blur-xs text-slate-400 dark:text-slate-300 hover:text-rose-500 hover:bg-white dark:hover:bg-slate-800'
+                            : 'bg-white/85 dark:bg-stone-900/85 backdrop-blur-xs text-slate-400 dark:text-slate-300 hover:text-rose-500 hover:bg-white dark:hover:bg-stone-800'
                         }`}
                       >
                         <Heart
@@ -2296,7 +2583,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           }`}
                         />
                       </button>
-
                     </div>
 
                     <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
@@ -2315,11 +2601,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     </div>
 
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         addToCart(product);
                       }}
-                      className="w-full py-1.5 bg-[#2418D8] hover:bg-[#1A10B3] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-xs"
+                      className="w-full py-1.5 bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-xs cursor-pointer"
                     >
                       <ShoppingCart className="w-3.5 h-3.5" />
                       <span>Claim Deal</span>
@@ -2349,13 +2636,13 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               <button
                 type="button"
                 onClick={handleViewMyOrders}
-                className="shrink-0 px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200/90 dark:border-purple-800 text-[#2418D8] dark:text-[#7B73FF] font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
+                className="shrink-0 px-3 py-1.5 rounded-xl bg-[#FFF4E8] dark:bg-orange-950/40 hover:bg-orange-100 dark:hover:bg-orange-900/60 border border-orange-200/90 dark:border-orange-800/60 text-[#E64A19] dark:text-orange-300 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
                 title="View your previous orders and live delivery tracking"
               >
                 <Package className="w-3.5 h-3.5" />
                 <span>View My Orders</span>
                 {orders.length > 0 && (
-                  <span className="ml-0.5 px-1.5 py-0.2 bg-[#2418D8] text-white text-[9px] font-black rounded-full">
+                  <span className="ml-0.5 px-1.5 py-0.2 bg-[#FF5722] text-white text-[9px] font-black rounded-full">
                     {orders.length}
                   </span>
                 )}
@@ -2364,27 +2651,27 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
             {cartItems.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-20 h-20 bg-purple-50 dark:bg-purple-950/40 text-[#2418D8] dark:text-[#7B73FF] rounded-full flex items-center justify-center mb-4">
+                <div className="w-20 h-20 bg-[#FFF4E8] dark:bg-orange-950/30 text-[#FF5722] rounded-full flex items-center justify-center mb-4">
                   <ShoppingCart className="w-10 h-10 stroke-[1.5]" />
                 </div>
                 <h3 className="font-display font-bold text-base text-slate-800 dark:text-slate-200">
                   Your cart is empty!
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mt-1 mb-5">
-                  Explore millions of quality products across categories and save with exclusive drops.
+                  Explore quality products across categories and save with exclusive offers.
                 </p>
                 <div className="flex items-center gap-2.5 flex-wrap justify-center">
                   <button
                     type="button"
                     onClick={() => setActiveTab('home')}
-                    className="px-5 py-2.5 bg-[#2418D8] text-white font-bold text-xs rounded-xl shadow-md hover:bg-[#1B11AB] active:scale-95 transition-all cursor-pointer"
+                    className="px-5 py-2.5 bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold text-xs rounded-xl shadow-md active:scale-95 transition-all cursor-pointer"
                   >
                     Explore Products
                   </button>
                   <button
                     type="button"
                     onClick={handleViewMyOrders}
-                    className="px-5 py-2.5 bg-white dark:bg-[#1A1633] border border-[#2418D8]/30 dark:border-purple-700/60 text-[#2418D8] dark:text-[#7B73FF] font-bold text-xs rounded-xl shadow-xs hover:bg-purple-50/50 dark:hover:bg-purple-950/40 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                    className="px-5 py-2.5 bg-white dark:bg-[#211A17] border border-[#FF5722]/30 dark:border-orange-800/60 text-[#FF5722] dark:text-orange-300 font-bold text-xs rounded-xl shadow-xs hover:bg-[#FFF4E8] dark:hover:bg-orange-950/40 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
                   >
                     <Package className="w-4 h-4" />
                     <span>View My Orders ({orders.length})</span>
@@ -2394,19 +2681,23 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             ) : (
               <div className="space-y-3.5">
                 {/* Delivery Address Bar */}
-                <div className="p-3 bg-purple-50/70 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50 rounded-2xl flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF] shrink-0" />
-                    <div>
-                      <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
-                        Deliver to Saurav Paswan - 110001
+                <div className="p-3 bg-[#FFF4E8] dark:bg-orange-950/25 border border-orange-200/70 dark:border-orange-900/50 rounded-2xl flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <MapPin className="w-4 h-4 text-[#FF5722] shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 block truncate">
+                        Deliver to {activeAddressObj?.fullName || userProfile.name} - {activeAddressObj?.pincode || '800001'}
                       </span>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                        Standard Delivery in 2-3 business days
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                        {activeAddressObj ? `${activeAddressObj.addressLine}, ${activeAddressObj.city}` : activeAddressString}
                       </p>
                     </div>
                   </div>
-                  <button className="text-[11px] font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddressModalOpen(true)}
+                    className="text-[11px] font-bold text-[#FF5722] hover:underline shrink-0 cursor-pointer"
+                  >
                     Change
                   </button>
                 </div>
@@ -2416,10 +2707,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   {cartItems.map((item) => (
                     <div
                       key={item.product.id}
-                      className="bg-white dark:bg-[#1A1633] rounded-2xl p-3 border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-2.5"
+                      className="bg-white dark:bg-[#211A17] rounded-2xl p-3 border border-orange-100/80 dark:border-stone-800 shadow-2xs space-y-2.5"
                     >
                       <div className="flex gap-3">
-                        <div className="w-20 h-20 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-900 shrink-0 border border-slate-100 dark:border-slate-800">
+                        <div className="w-20 h-20 rounded-xl overflow-hidden bg-orange-50/40 dark:bg-[#181311] shrink-0 border border-orange-100/70 dark:border-stone-800">
                           <img
                             src={item.product.image}
                             alt={item.product.name}
@@ -2497,7 +2788,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                               toggleWishlist(item.product.id, item.product.name);
                               showToast(`Saved ${item.product.name} for later! ❤️`);
                             }}
-                            className="text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:text-[#2418D8] dark:hover:text-[#7B73FF] cursor-pointer"
+                            className="text-[11px] font-bold text-slate-600 dark:text-slate-400 hover:text-[#FF5722] cursor-pointer"
                           >
                             Save for later
                           </button>
@@ -2519,10 +2810,65 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   ))}
                 </div>
 
+                {/* Apply Promo / Coupon Bar */}
+                <div className="bg-white dark:bg-[#211A17] rounded-2xl p-3 border border-orange-100/80 dark:border-stone-800 shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-[#FF5722]" />
+                      <span>Apply Coupon</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCouponsModalOpen(true)}
+                      className="text-[11px] font-bold text-[#FF5722] hover:underline cursor-pointer"
+                    >
+                      View Offers
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponInputCode}
+                      onChange={(e) => setCouponInputCode(e.target.value.toUpperCase())}
+                      placeholder="Enter AARVO200 or WELCOME100"
+                      className="flex-1 text-xs px-3 py-2 bg-[#FFF4E8]/60 dark:bg-[#181311] border border-orange-200/80 dark:border-stone-700 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:border-[#FF5722] font-mono uppercase"
+                    />
+                    {appliedCouponCode ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAppliedCouponCode(null);
+                          setCouponInputCode('');
+                          showToast('Coupon removed');
+                        }}
+                        className="px-3 py-2 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 text-xs font-bold rounded-xl cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const code = couponInputCode.trim().toUpperCase();
+                          if (code === 'AARVO200' || code === 'WELCOME100') {
+                            setAppliedCouponCode(code);
+                            showToast(`Coupon ${code} applied!`);
+                          } else {
+                            showToast('Try AARVO200 (orders ₹999+) or WELCOME100 (orders ₹499+)');
+                          }
+                        }}
+                        className="px-4 py-2 bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+                      >
+                        Apply
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 {/* Quick Link Card to View My Orders */}
-                <div className="p-3 bg-white dark:bg-[#1A1633] border border-slate-100 dark:border-slate-800/80 rounded-2xl flex items-center justify-between shadow-xs">
+                <div className="p-3 bg-white dark:bg-[#211A17] border border-orange-100/80 dark:border-stone-800 rounded-2xl flex items-center justify-between shadow-xs">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-[#2418D8] dark:text-[#7B73FF] flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-xl bg-[#FFF4E8] dark:bg-orange-950/40 text-[#FF5722] flex items-center justify-center">
                       <Package className="w-4 h-4" />
                     </div>
                     <div>
@@ -2544,7 +2890,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   <button
                     type="button"
                     onClick={handleViewMyOrders}
-                    className="px-3 py-1.5 bg-[#2418D8] hover:bg-[#1B11AB] text-white text-xs font-bold rounded-xl shadow-xs active:scale-95 transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                    className="px-3 py-1.5 bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-bold rounded-xl shadow-xs active:scale-95 transition-all flex items-center gap-1 cursor-pointer shrink-0"
                   >
                     <span>View My Orders</span>
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -2552,9 +2898,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 </div>
 
                 {/* Price Details Breakdown */}
-                <div className="bg-white dark:bg-[#1A1633] rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/80 shadow-xs space-y-2">
-                  <h4 className="font-display font-bold text-xs text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-2">
-                    PRICE DETAILS ({cartItems.length} Items)
+                <div className="bg-white dark:bg-[#211A17] rounded-2xl p-3.5 border border-orange-100/80 dark:border-stone-800 shadow-xs space-y-2">
+                  <h4 className="font-display font-bold text-xs text-slate-900 dark:text-white border-b border-orange-100/70 dark:border-stone-800 pb-2">
+                    PRICE DETAILS ({totalCartCount} Item{totalCartCount !== 1 ? 's' : ''})
                   </h4>
 
                   <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
@@ -2567,9 +2913,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     <span>-₹{totalDiscount.toLocaleString('en-IN')}</span>
                   </div>
 
-                  {couponApplied && (
+                  {appliedCouponCode && couponDiscount > 0 && (
                     <div className="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400">
-                      <span>Coupon Discount (AARVO200)</span>
+                      <span>Coupon Discount ({appliedCouponCode})</span>
                       <span>-₹{couponDiscount.toLocaleString('en-IN')}</span>
                     </div>
                   )}
@@ -2584,18 +2930,18 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     <span>₹{platformFee}</span>
                   </div>
 
-                  <div className="flex items-center justify-between text-sm font-black text-slate-900 dark:text-white border-t border-slate-100 dark:border-slate-800 pt-2">
+                  <div className="flex items-center justify-between text-sm font-black text-slate-900 dark:text-white border-t border-orange-100/70 dark:border-stone-800 pt-2">
                     <span>Total Amount</span>
                     <span>₹{finalPayable.toLocaleString('en-IN')}</span>
                   </div>
 
                   <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold pt-1">
-                    🎉 You will save ₹{(totalDiscount + couponDiscount).toLocaleString('en-IN')} on this order!
+                    You will save ₹{(totalDiscount + couponDiscount).toLocaleString('en-IN')} on this order
                   </p>
                 </div>
 
                 {/* Interactive Payment Method Toggle & Selector */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 space-y-3 shadow-xs">
+                <div className="bg-white dark:bg-[#211A17] border border-orange-100/80 dark:border-stone-800 rounded-2xl p-3.5 space-y-3 shadow-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
                       Payment Method
@@ -2603,14 +2949,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowAddPaymentModal(true)}
-                      className="text-[11px] font-bold text-[#2418D8] dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] font-bold text-[#FF5722] hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <span>+ Add Method</span>
                     </button>
                   </div>
 
                   {/* Segmented Payment Toggle */}
-                  <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl gap-1">
+                  <div className="grid grid-cols-2 p-1 bg-[#FFF4E8] dark:bg-[#181311] rounded-xl gap-1">
                     <button
                       type="button"
                       onClick={() => {
@@ -2635,7 +2981,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       }}
                       className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                         paymentMethodSelection === 'UPI'
-                          ? 'bg-[#2418D8] text-white shadow-sm'
+                          ? 'bg-[#FF5722] text-white shadow-sm'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                       }`}
                     >
@@ -2663,13 +3009,13 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
                   {/* Online UPI Details & App selector */}
                   {paymentMethodSelection === 'UPI' && (
-                    <div className="space-y-2.5 p-3 bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200/70 dark:border-indigo-800/40 rounded-xl">
+                    <div className="space-y-2.5 p-3 bg-[#FFF4E8] dark:bg-orange-950/25 border border-orange-200/70 dark:border-orange-900/50 rounded-xl">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-indigo-950 dark:text-indigo-300">
+                        <span className="text-[11px] font-bold text-slate-900 dark:text-orange-200">
                           Select Instant UPI App:
                         </span>
-                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full">
-                          Extra ₹50 Off
+                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full">
+                          Instant Verification
                         </span>
                       </div>
                       <div className="grid grid-cols-4 gap-1.5">
@@ -2683,8 +3029,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             }}
                             className={`py-1.5 px-1 rounded-lg text-[10px] font-bold border transition-all text-center cursor-pointer ${
                               selectedUpiApp === app
-                                ? 'bg-[#2418D8] text-white border-[#2418D8] shadow-xs'
-                                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-indigo-400'
+                                ? 'bg-[#FF5722] text-white border-[#FF5722] shadow-xs'
+                                : 'bg-white dark:bg-[#181311] text-slate-700 dark:text-slate-300 border-orange-100 dark:border-stone-700 hover:border-[#FF5722]'
                             }`}
                           >
                             {app === 'Google Pay' ? 'GPay' : app === 'PhonePe' ? 'PhonePe' : app === 'Paytm' ? 'Paytm' : 'UPI ID'}
@@ -2699,7 +3045,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             value={customUpiId}
                             onChange={(e) => setCustomUpiId(e.target.value)}
                             placeholder="e.g. yourname@okhdfcbank"
-                            className="w-full text-xs px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:border-[#2418D8]"
+                            className="w-full text-xs px-3 py-2 bg-white dark:bg-[#181311] border border-orange-200/80 dark:border-stone-700 rounded-lg text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:border-[#FF5722]"
                           />
                         </div>
                       )}
@@ -2707,8 +3053,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   )}
                 </div>
 
-                {/* Flipkart-Style Sticky Checkout Bottom Bar */}
-                <div className="sticky bottom-14 left-0 right-0 z-30 -mx-3 -mb-6 p-3 bg-white/95 dark:bg-[#14112B]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800 flex items-center justify-between shadow-xl">
+                {/* Sticky Checkout Bottom Bar */}
+                <div className="sticky bottom-14 left-0 right-0 z-30 -mx-3 -mb-6 p-3 bg-white/95 dark:bg-[#181311]/95 backdrop-blur-md border-t border-orange-100 dark:border-stone-800 flex items-center justify-between shadow-xl">
                   <div>
                     <span className="text-base font-black text-slate-900 dark:text-white font-display block">
                       ₹{finalPayable.toLocaleString('en-IN')}
@@ -2716,7 +3062,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     <button
                       type="button"
                       onClick={() => showToast(`Total Savings: ₹${(totalDiscount + couponDiscount).toLocaleString('en-IN')}`)}
-                      className="text-[10px] font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline cursor-pointer"
+                      className="text-[10px] font-bold text-[#FF5722] hover:underline cursor-pointer"
                     >
                       View price details
                     </button>
@@ -2741,7 +3087,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         trackingNumber: `AARVO-EXP-${Math.floor(1000000 + Math.random() * 9000000)}`,
                         carrier: 'AARVO Express FastTrack',
                         paymentMethod: chosenPayment,
-                        deliveryAddress: 'Flat 402, Green Glen Heights, Outer Ring Road, Bangalore - 560103',
+                        deliveryAddress: activeAddressString,
                         items: cartItems.map((ci) => ({
                           id: ci.product.id,
                           name: ci.product.name,
@@ -2760,8 +3106,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       setOrders((prev) => [newOrder, ...prev]);
                       setOrderSuccessModal(orderId);
                       setCartItems([]);
+                      setAppliedCouponCode(null);
+                      setCouponInputCode('');
                     }}
-                    className="py-3 px-6 bg-[#2418D8] hover:bg-[#1A10B3] text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="py-3 px-6 bg-[#FF5722] hover:bg-[#E64A19] text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <span>Place Order</span>
                     <ChevronRight className="w-4 h-4" />
@@ -2780,37 +3128,44 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         {/* ================================================================= */}
         {activeTab === 'account' && (
           <div className="flex-1 flex flex-col p-3 pb-24 space-y-3.5 no-scrollbar overflow-y-auto">
-            {/* 1. Flipkart-style Profile Header Card */}
-            <div className="rounded-2xl bg-gradient-to-r from-[#2418D8] via-[#3B28E6] to-[#601FE0] p-4 text-white shadow-md flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-13 h-13 rounded-full bg-white/20 border-2 border-white/80 flex items-center justify-center font-display font-black text-lg shadow-xs">
-                  SP
+            {/* 1. AARVO Warm Orange Profile Header Card (No Fake Badges / No Fake SuperCoins) */}
+            <div className="rounded-2xl bg-gradient-to-r from-[#FF7043] via-[#FF5722] to-[#E64A19] p-4 text-white shadow-md flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-full bg-white/20 border-2 border-white/80 flex items-center justify-center font-display font-black text-base shadow-xs shrink-0">
+                  {(userProfile.name || 'AR')
+                    .split(' ')
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((n) => n[0].toUpperCase())
+                    .join('')}
                 </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="font-display font-black text-sm sm:text-base">Saurav Paswan</h3>
-                    <span className="bg-[#FFC200] text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded-sm shadow-2xs">
-                      PLUS
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-purple-200">+91 9876543210</p>
-                  <p className="text-[10px] text-emerald-300 font-bold flex items-center gap-1 mt-0.5">
-                    <ShieldCheck className="w-3 h-3 text-emerald-300" />
-                    <span>Verified AARVO Member</span>
+                <div className="min-w-0">
+                  <h3 className="font-display font-black text-sm sm:text-base truncate">
+                    {userProfile.name}
+                  </h3>
+                  <p className="text-[11px] text-orange-100 truncate">{userProfile.phone}</p>
+                  <p className="text-[10px] text-white/85 truncate mt-0.5">
+                    {activeAddressObj ? `${activeAddressObj.city} - ${activeAddressObj.pincode}` : 'AARVO Account'}
                   </p>
                 </div>
               </div>
 
-              {/* SuperCoins Badge in Profile */}
-              <div className="bg-white/15 backdrop-blur-md px-3 py-2 rounded-xl text-center border border-white/20">
-                <span className="text-[10px] text-amber-300 font-extrabold uppercase block">
-                  🪙 SuperCoins
-                </span>
-                <span className="text-sm font-black text-white">240</span>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.selection();
+                  setProfileDraftName(userProfile.name);
+                  setProfileDraftPhone(userProfile.phone);
+                  setIsEditProfileOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-white text-[#E64A19] text-[11px] font-extrabold shadow-xs hover:bg-orange-50 active:scale-95 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+              >
+                <Edit2 className="w-3 h-3" />
+                <span>Edit</span>
+              </button>
             </div>
 
-            {/* 2. Flipkart 4-Action Quick Tiles (Orders, Wishlist, Coupons, Help Center) */}
+            {/* 2. 4-Action Quick Tiles (Orders, Wishlist, Coupons, Help Center) */}
             <div className="grid grid-cols-2 gap-2.5">
               {/* Tile 1: Orders */}
               <button
@@ -2819,10 +3174,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   haptics.selection();
                   setIsOrdersViewOpen(true);
                 }}
-                className="p-3.5 bg-white dark:bg-[#1A1633] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-sm active:scale-95 transition-all text-left flex items-start justify-between cursor-pointer group"
+                className="p-3.5 bg-white dark:bg-[#211A17] rounded-2xl border border-orange-100/80 dark:border-stone-800 shadow-2xs hover:shadow-sm active:scale-95 transition-all text-left flex items-start justify-between cursor-pointer group"
               >
                 <div>
-                  <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#2418D8] dark:text-[#7B73FF] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <div className="w-8 h-8 rounded-xl bg-[#FFF4E8] dark:bg-orange-950/50 text-[#FF5722] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                     <Package className="w-4 h-4 stroke-[2.2]" />
                   </div>
                   <h4 className="text-xs font-black text-slate-900 dark:text-white">Orders</h4>
@@ -2840,9 +3195,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 type="button"
                 onClick={() => {
                   haptics.selection();
-                  showToast(`You have ${wishlist.length} item(s) in your Wishlist ❤️`);
+                  setIsWishlistModalOpen(true);
                 }}
-                className="p-3.5 bg-white dark:bg-[#1A1633] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-sm active:scale-95 transition-all text-left flex items-start justify-between cursor-pointer group"
+                className="p-3.5 bg-white dark:bg-[#211A17] rounded-2xl border border-orange-100/80 dark:border-stone-800 shadow-2xs hover:shadow-sm active:scale-95 transition-all text-left flex items-start justify-between cursor-pointer group"
               >
                 <div>
                   <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
@@ -2850,7 +3205,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   </div>
                   <h4 className="text-xs font-black text-slate-900 dark:text-white">Wishlist</h4>
                   <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                    {wishlist.length} items saved
+                    {wishlist.length} item{wishlist.length !== 1 ? 's' : ''} saved
                   </span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400 mt-1" />
@@ -2861,9 +3216,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 type="button"
                 onClick={() => {
                   haptics.selection();
-                  showToast('Coupon code AARVO200 available for ₹200 instant off! 🏷️');
+                  setIsCouponsModalOpen(true);
                 }}
-                className="p-3.5 bg-white dark:bg-[#1A1633] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-sm active:scale-95 transition-all text-left flex items-start justify-between cursor-pointer group"
+                className="p-3.5 bg-white dark:bg-[#211A17] rounded-2xl border border-orange-100/80 dark:border-stone-800 shadow-2xs hover:shadow-sm active:scale-95 transition-all text-left flex items-start justify-between cursor-pointer group"
               >
                 <div>
                   <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
@@ -2871,7 +3226,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   </div>
                   <h4 className="text-xs font-black text-slate-900 dark:text-white">Coupons</h4>
                   <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                    2 Active Offers
+                    {appliedCouponCode ? `Applied: ${appliedCouponCode}` : 'Tap to apply promo'}
                   </span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400 mt-1" />
@@ -2882,96 +3237,102 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 type="button"
                 onClick={() => {
                   haptics.selection();
-                  showToast('AARVO 24x7 Helpdesk: Call 1800-202-9898 or chat with support.');
+                  setIsHelpModalOpen(true);
                 }}
-                className="p-3.5 bg-white dark:bg-[#1A1633] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-sm active:scale-95 transition-all text-left flex items-start justify-between cursor-pointer group"
+                className="p-3.5 bg-white dark:bg-[#211A17] rounded-2xl border border-orange-100/80 dark:border-stone-800 shadow-2xs hover:shadow-sm active:scale-95 transition-all text-left flex items-start justify-between cursor-pointer group"
               >
                 <div>
                   <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                    <Store className="w-4 h-4 stroke-[2.2]" />
+                    <HelpCircle className="w-4 h-4 stroke-[2.2]" />
                   </div>
                   <h4 className="text-xs font-black text-slate-900 dark:text-white">Help Center</h4>
                   <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                    24x7 Assistance
+                    {supportTickets.length > 0 ? `${supportTickets.length} Ticket(s)` : 'FAQs & Support'}
                   </span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400 mt-1" />
               </button>
             </div>
 
-            {/* 3. Flipkart-style Credit Options (Pay Later & Co-branded Card) */}
-            <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1A1633] border border-slate-200/90 dark:border-slate-800 space-y-3 shadow-2xs">
+            {/* 3. Payment & UPI Options */}
+            <div className="p-3.5 rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100/80 dark:border-stone-800 space-y-2.5 shadow-2xs">
               <h4 className="font-display font-black text-xs uppercase tracking-wider text-slate-900 dark:text-white">
-                Credit Options
+                Payments &amp; Preferences
               </h4>
 
-              <div className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
-                {/* Pay Later */}
+              <div className="divide-y divide-orange-100/70 dark:divide-stone-800 text-xs">
                 <div className="py-2 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-[#2418D8] dark:text-[#7B73FF] flex items-center justify-center font-bold">
+                    <div className="w-8 h-8 rounded-xl bg-[#FFF4E8] dark:bg-orange-950/40 text-[#FF5722] flex items-center justify-center font-bold">
                       💳
                     </div>
                     <div>
                       <span className="font-extrabold text-slate-900 dark:text-white block">
-                        AARVO Pay Later
+                        Saved Cards &amp; UPI
                       </span>
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                        Pre-approved limit ₹15,000
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                        Manage quick UPI &amp; payment methods
                       </span>
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => showToast('AARVO Pay Later is active for your account!')}
-                    className="text-[11px] font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline cursor-pointer"
+                    onClick={() => setShowAddPaymentModal(true)}
+                    className="text-[11px] font-bold text-[#FF5722] hover:underline cursor-pointer"
                   >
-                    View Limit &gt;
+                    Manage &gt;
                   </button>
                 </div>
 
-                {/* Co-branded Credit Card */}
                 <div className="py-2 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-[#2418D8] dark:text-[#7B73FF] flex items-center justify-center font-bold">
-                      ⚡
+                    <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                      🏷️
                     </div>
                     <div>
                       <span className="font-extrabold text-slate-900 dark:text-white block">
-                        AARVO Axis Bank Credit Card
+                        Promo Coupons
                       </span>
                       <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                        5% Unlimited Cashback on every purchase
+                        Use AARVO200 or WELCOME100 at checkout
                       </span>
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => showToast('Application status: Eligible! Instant approval available.')}
-                    className="text-[11px] font-bold text-[#2418D8] dark:text-[#7B73FF] hover:underline cursor-pointer"
+                    onClick={() => setIsCouponsModalOpen(true)}
+                    className="text-[11px] font-bold text-[#FF5722] hover:underline cursor-pointer"
                   >
-                    Apply Now &gt;
+                    View &gt;
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* 4. Flipkart-style Account Settings List */}
-            <div className="bg-white dark:bg-[#1A1633] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs divide-y divide-slate-100 dark:divide-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 overflow-hidden">
+            {/* 4. Account Settings List */}
+            <div className="bg-white dark:bg-[#211A17] rounded-2xl border border-orange-100/80 dark:border-stone-800 shadow-2xs divide-y divide-orange-100/70 dark:divide-stone-800 text-xs font-semibold text-slate-700 dark:text-slate-200 overflow-hidden">
               <h4 className="px-4 pt-3 pb-1 font-display font-black text-xs uppercase tracking-wider text-slate-900 dark:text-white">
                 Account Settings
               </h4>
 
               <button
                 type="button"
-                onClick={() => showToast('Saved address: 24B, Model Town, Phase 2, Patna - 800001')}
-                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 flex items-center justify-between transition-colors cursor-pointer"
+                onClick={() => {
+                  haptics.selection();
+                  setIsAddressModalOpen(true);
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-[#FFF4E8]/60 dark:hover:bg-stone-800/40 flex items-center justify-between gap-2 transition-colors cursor-pointer"
               >
-                <div className="flex items-center gap-3">
-                  <MapPin className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF]" />
-                  <span>Saved Delivery Addresses</span>
+                <div className="flex items-center gap-3 min-w-0">
+                  <MapPin className="w-4 h-4 text-[#FF5722] shrink-0" />
+                  <div className="min-w-0">
+                    <span className="block">Saved Delivery Addresses ({savedAddresses.length})</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal block truncate">
+                      {activeAddressString}
+                    </span>
+                  </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-400" />
+                <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
               </button>
 
               <button
@@ -2980,10 +3341,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   setSellerModalTab('overview');
                   setIsSellerModalOpen(true);
                 }}
-                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 flex items-center justify-between transition-colors cursor-pointer"
+                className="w-full px-4 py-3 text-left hover:bg-[#FFF4E8]/60 dark:hover:bg-stone-800/40 flex items-center justify-between transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3">
-                  <Store className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <Store className="w-4 h-4 text-[#FF5722]" />
                   <div className="flex items-center gap-1.5">
                     <span>Seller Hub &amp; Catalog Management</span>
                     {allProducts.filter((p) => (p.stockQuantity ?? 10) < 5).length > 0 && (
@@ -2994,7 +3355,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold">
+                  <span className="text-[10px] bg-orange-100 dark:bg-orange-950/60 text-[#E64A19] dark:text-orange-300 px-2 py-0.5 rounded-full font-bold">
                     Seller Panel
                   </span>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -3005,7 +3366,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               {onToggleTheme && (
                 <div className="w-full px-4 py-2.5 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/50 text-[#2418D8] dark:text-[#7B73FF] flex items-center justify-center">
+                    <div className="w-7 h-7 rounded-lg bg-[#FFF4E8] dark:bg-orange-950/50 text-[#FF5722] flex items-center justify-center">
                       {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                     </div>
                     <div>
@@ -3016,7 +3377,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   <button
                     type="button"
                     onClick={onToggleTheme}
-                    className="px-2.5 py-1 bg-[#2418D8] text-white text-[10px] font-bold rounded-lg shadow-2xs active:scale-95 transition-transform cursor-pointer"
+                    className="px-2.5 py-1 bg-[#FF5722] hover:bg-[#E64A19] text-white text-[10px] font-bold rounded-lg shadow-2xs active:scale-95 transition-transform cursor-pointer"
                   >
                     Toggle
                   </button>
@@ -3042,7 +3403,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         {/* ================================================================= */}
         {/* 7. BOTTOM NAVIGATION BAR                                          */}
         {/* ================================================================= */}
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[440px] bg-white dark:bg-[#120F26] border-t border-slate-200/90 dark:border-slate-800 py-1.5 px-2 flex items-center justify-around shadow-2xl z-40 transition-colors duration-300">
+        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[440px] bg-white dark:bg-[#181311] border-t border-orange-100 dark:border-stone-800 py-1.5 px-2 flex items-center justify-around shadow-2xl z-40 transition-colors duration-300">
           {/* 1. Home */}
           <button
             type="button"
@@ -3077,7 +3438,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             <span className="whitespace-nowrap">Categories</span>
           </button>
 
-          {/* 3. Cart with live badge 2 */}
+          {/* 3. Cart with live badge */}
           <button
             type="button"
             onClick={() => {
@@ -3092,9 +3453,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           >
             <ShoppingCart className="w-5 h-5 stroke-[2.2]" />
             <span className="whitespace-nowrap">Cart</span>
-            {(cartItems.length > 0 || true) && (
-              <span className="absolute -top-1 right-1.5 px-1 min-w-[16px] h-4 bg-red-600 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center shadow-xs">
-                {cartItems.reduce((acc, item) => acc + item.quantity, 0) || 2}
+            {totalCartCount > 0 && (
+              <span className="absolute -top-1 right-1.5 px-1 min-w-[16px] h-4 bg-[#FF5722] text-white text-[9px] font-extrabold rounded-full flex items-center justify-center shadow-xs">
+                {totalCartCount}
               </span>
             )}
           </button>
@@ -3147,22 +3508,22 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
             />
 
-            <div className="relative w-72 max-w-[80%] bg-white dark:bg-[#14112B] text-slate-800 dark:text-slate-100 h-full shadow-2xl flex flex-col justify-between p-5 z-10 transition-colors">
+            <div className="relative w-72 max-w-[80%] bg-[#FFFDF9] dark:bg-[#181311] text-slate-800 dark:text-slate-100 h-full shadow-2xl flex flex-col justify-between p-5 pt-[max(1.25rem,env(safe-area-inset-top))] z-10 transition-colors">
               <div>
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between pb-4 border-b border-orange-100 dark:border-stone-800">
                   <div className="flex items-center gap-2">
                     <img
                       src="/src/assets/aarvo/aarvo_logo_transparent.png"
                       alt="AARVO Logo"
                       className="w-7 h-7 object-contain"
                     />
-                    <span className="text-xl font-black font-display text-[#2418D8] dark:text-white">
+                    <span className="text-xl font-black font-display text-[#FF5722]">
                       AARVO
                     </span>
                   </div>
                   <button
                     onClick={() => setIsSidebarOpen(false)}
-                    className="p-1 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg"
+                    className="p-1 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg cursor-pointer"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -3170,12 +3531,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
                 {/* Theme Switcher inside Drawer */}
                 {onToggleTheme && (
-                  <div className="my-3 p-3 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 flex items-center justify-between">
+                  <div className="my-3 p-3 rounded-xl bg-[#FFF4E8] dark:bg-orange-950/30 border border-orange-200/70 dark:border-orange-900/40 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       {theme === 'dark' ? (
-                        <Moon className="w-4 h-4 text-purple-400" />
+                        <Moon className="w-4 h-4 text-orange-400" />
                       ) : (
-                        <Sun className="w-4 h-4 text-amber-500" />
+                        <Sun className="w-4 h-4 text-[#FF5722]" />
                       )}
                       <div>
                         <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
@@ -3188,7 +3549,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     </div>
                     <button
                       onClick={onToggleTheme}
-                      className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-[#2418D8] text-white shadow-xs active:scale-95 transition-transform"
+                      className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-[#FF5722] hover:bg-[#E64A19] text-white shadow-xs active:scale-95 transition-transform cursor-pointer"
                     >
                       Toggle
                     </button>
@@ -3201,9 +3562,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       setIsSidebarOpen(false);
                       setActiveTab('home');
                     }}
-                    className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:text-[#2418D8] dark:hover:text-[#7B73FF] transition-colors flex items-center gap-3"
+                    className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-[#FFF4E8] dark:hover:bg-orange-950/30 hover:text-[#FF5722] transition-colors flex items-center gap-3 cursor-pointer"
                   >
-                    <Home className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF]" />
+                    <Home className="w-4 h-4 text-[#FF5722]" />
                     <span>Home Marketplace</span>
                   </button>
 
@@ -3212,9 +3573,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       setIsSidebarOpen(false);
                       setActiveTab('categories');
                     }}
-                    className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:text-[#2418D8] dark:hover:text-[#7B73FF] transition-colors flex items-center gap-3"
+                    className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-[#FFF4E8] dark:hover:bg-orange-950/30 hover:text-[#FF5722] transition-colors flex items-center gap-3 cursor-pointer"
                   >
-                    <LayoutGrid className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF]" />
+                    <LayoutGrid className="w-4 h-4 text-[#FF5722]" />
                     <span>All Categories</span>
                   </button>
 
@@ -3223,9 +3584,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       setIsSidebarOpen(false);
                       setActiveTab('offers');
                     }}
-                    className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:text-[#2418D8] dark:hover:text-[#7B73FF] transition-colors flex items-center gap-3"
+                    className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-[#FFF4E8] dark:hover:bg-orange-950/30 hover:text-[#FF5722] transition-colors flex items-center gap-3 cursor-pointer"
                   >
-                    <Tag className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF]" />
+                    <Tag className="w-4 h-4 text-[#FF5722]" />
                     <span>Deals &amp; Offers</span>
                   </button>
 
@@ -3235,14 +3596,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       setIsSidebarOpen(false);
                       setIsOrdersViewOpen(true);
                     }}
-                    className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-[#2418D8] dark:hover:text-[#7B73FF] transition-colors flex items-center justify-between cursor-pointer"
+                    className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-[#FFF4E8] dark:hover:bg-orange-950/30 hover:text-[#FF5722] transition-colors flex items-center justify-between cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <Package className="w-4 h-4 text-[#2418D8] dark:text-[#7B73FF]" />
+                      <Package className="w-4 h-4 text-[#FF5722]" />
                       <span>Orders &amp; Delivery</span>
                     </div>
                     {orders.length > 0 && (
-                      <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-950 text-[#2418D8] dark:text-[#7B73FF] px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-bold bg-orange-100 dark:bg-orange-950 text-[#E64A19] dark:text-orange-300 px-2 py-0.5 rounded-full">
                         {orders.length}
                       </span>
                     )}
@@ -3251,9 +3612,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   <button
                     onClick={() => {
                       setIsSidebarOpen(false);
-                      showToast(`You have ${wishlist.length} item(s) in your Wishlist ❤️`);
+                      setIsWishlistModalOpen(true);
                     }}
-                    className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 transition-colors flex items-center justify-between"
+                    className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 transition-colors flex items-center justify-between cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
                       <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
@@ -3271,7 +3632,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       setIsSidebarOpen(false);
                       setIsSellerModalOpen(true);
                     }}
-                    className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-800 dark:hover:text-amber-300 transition-colors flex items-center gap-3"
+                    className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-800 dark:hover:text-amber-300 transition-colors flex items-center gap-3 cursor-pointer"
                   >
                     <Store className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                     <span>Seller Onboarding Hub</span>
@@ -3279,18 +3640,18 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+              <div className="pt-4 border-t border-orange-100 dark:border-stone-800">
                 <button
                   onClick={() => {
                     setIsSidebarOpen(false);
                     if (onLogout) onLogout();
                   }}
-                  className="w-full py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors text-center"
+                  className="w-full py-2.5 px-3 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors text-center cursor-pointer"
                 >
                   Logout / Switch Account
                 </button>
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center mt-2">
-                  AARVO v2.0 &bull; Shop Smart, Live Better
+                  AARVO &bull; Shop Smart, Live Better
                 </p>
               </div>
             </div>
@@ -3306,10 +3667,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               onClick={() => setIsVoiceModalOpen(false)}
               className="fixed inset-0 bg-black/60 backdrop-blur-xs"
             />
-            <div className="relative w-full max-w-sm bg-white dark:bg-[#181436] text-slate-900 dark:text-slate-100 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-2xl z-10 text-center flex flex-col items-center">
+            <div className="relative w-full max-w-sm bg-white dark:bg-[#211A17] text-slate-900 dark:text-slate-100 border border-orange-100 dark:border-stone-800 rounded-3xl p-6 shadow-2xl z-10 text-center flex flex-col items-center">
               <button
                 onClick={() => setIsVoiceModalOpen(false)}
-                className="absolute top-4 right-4 p-1 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg"
+                className="absolute top-4 right-4 p-1 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -3322,15 +3683,15 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     startVoiceSearch();
                   }
                 }}
-                className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 relative transition-all active:scale-95 ${
+                className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 relative transition-all active:scale-95 cursor-pointer ${
                   isVoiceListening
-                    ? 'bg-gradient-to-tr from-[#2418D8] to-indigo-500 text-white shadow-lg shadow-indigo-500/30'
-                    : 'bg-blue-50 dark:bg-blue-950/40 text-[#2418D8] dark:text-[#7B73FF]'
+                    ? 'bg-gradient-to-tr from-[#FF5722] to-[#FF8A65] text-white shadow-lg shadow-orange-500/30'
+                    : 'bg-[#FFF4E8] dark:bg-orange-950/40 text-[#FF5722]'
                 }`}
                 title={isVoiceListening ? "Tap to stop listening" : "Tap to speak"}
               >
                 {isVoiceListening && (
-                  <div className="absolute inset-0 rounded-full border-4 border-[#2418D8] animate-ping opacity-35" />
+                  <div className="absolute inset-0 rounded-full border-4 border-[#FF5722] animate-ping opacity-35" />
                 )}
                 <Mic className="w-9 h-9" />
               </button>
@@ -3355,7 +3716,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 </div>
               )}
 
-              <div className="w-full pt-2 border-t border-slate-100 dark:border-slate-800/80">
+              <div className="w-full pt-2 border-t border-orange-100/70 dark:border-stone-800">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
                   Or Quick Voice Prompts
                 </p>
@@ -3367,7 +3728,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         setSearchQuery(sample);
                         setIsVoiceModalOpen(false);
                       }}
-                      className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors"
+                      className="px-2.5 py-1 bg-[#FFF4E8] dark:bg-[#181311] hover:bg-orange-100 dark:hover:bg-stone-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                     >
                       {sample}
                     </button>
@@ -3387,40 +3748,42 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               onClick={() => setIsNotificationModalOpen(false)}
               className="fixed inset-0 bg-black/60 backdrop-blur-xs"
             />
-            <div className="relative w-full max-w-sm bg-white dark:bg-[#181436] text-slate-900 dark:text-slate-100 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 shadow-2xl z-10">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3">
+            <div className="relative w-full max-w-sm bg-white dark:bg-[#211A17] text-slate-900 dark:text-slate-100 border border-orange-100 dark:border-stone-800 rounded-3xl p-5 shadow-2xl z-10">
+              <div className="flex items-center justify-between pb-3 border-b border-orange-100/70 dark:border-stone-800 mb-3">
                 <div className="flex items-center gap-2">
-                  <Bell className="w-5 h-5 text-[#2418D8] dark:text-[#7B73FF]" />
+                  <Bell className="w-5 h-5 text-[#FF5722]" />
                   <h3 className="font-display font-black text-sm text-slate-900 dark:text-white">
                     Notifications
                   </h3>
                 </div>
                 <button
                   onClick={() => setIsNotificationModalOpen(false)}
-                  className="p-1 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg"
+                  className="p-1 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="space-y-2.5">
-                <div className="p-3 bg-blue-50/60 dark:bg-blue-950/40 rounded-xl border border-blue-100 dark:border-blue-900/50">
-                  <span className="text-[10px] font-bold text-[#2418D8] dark:text-[#7B73FF]">
-                    MEGA SALE IS LIVE
+                <div className="p-3 bg-[#FFF4E8] dark:bg-orange-950/30 rounded-xl border border-orange-200/70 dark:border-orange-900/50">
+                  <span className="text-[10px] font-bold text-[#FF5722]">
+                    SEASONAL DEALS LIVE
                   </span>
                   <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
-                    Exclusive discounts on electronics &amp; fashion up to 70% off.
+                    Save flat ₹200 with AARVO200 on orders above ₹999.
                   </p>
-                  <span className="text-[9px] text-slate-400 dark:text-slate-500 mt-1 block">10 mins ago</span>
+                  <span className="text-[9px] text-slate-400 dark:text-slate-500 mt-1 block">Just now</span>
                 </div>
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
+                <div className="p-3 bg-stone-50 dark:bg-[#181311] rounded-xl border border-orange-100/60 dark:border-stone-800">
                   <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                    DELIVERY UPDATE
+                    ORDER STATUS
                   </span>
                   <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
-                    Your shipment #ARV-88219 is out for delivery.
+                    {orders.length > 0
+                      ? `Latest order ${orders[0].id} is currently ${orders[0].status}.`
+                      : 'Place an order to receive live shipping notifications.'}
                   </p>
-                  <span className="text-[9px] text-slate-400 dark:text-slate-500 mt-1 block">2 hours ago</span>
+                  <span className="text-[9px] text-slate-400 dark:text-slate-500 mt-1 block">Updated live</span>
                 </div>
               </div>
             </div>
@@ -3436,7 +3799,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               onClick={() => setOrderSuccessModal(null)}
               className="fixed inset-0 bg-black/60 backdrop-blur-xs"
             />
-            <div className="relative w-full max-w-sm bg-white dark:bg-[#181436] text-slate-900 dark:text-slate-100 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-2xl z-10 text-center">
+            <div className="relative w-full max-w-sm bg-white dark:bg-[#211A17] text-slate-900 dark:text-slate-100 border border-orange-100 dark:border-stone-800 rounded-3xl p-6 shadow-2xl z-10 text-center">
               <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-3">
                 <CheckCircle2 className="w-10 h-10 stroke-[2.5]" />
               </div>
@@ -3446,8 +3809,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Order ID: <strong className="text-slate-900 dark:text-white font-mono">{orderSuccessModal}</strong>
               </p>
-              <p className="text-xs text-slate-600 dark:text-slate-300 mt-2 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                Your order is confirmed and verified. We will send tracking updates to +91 9876543210.
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-2 bg-[#FFF4E8] dark:bg-[#181311] p-2.5 rounded-xl border border-orange-100 dark:border-stone-800">
+                Your order is confirmed. Tracking updates will be sent to {userProfile.phone}.
               </p>
 
               <div className="flex flex-col gap-2 mt-4">
@@ -3457,7 +3820,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     setOrderSuccessModal(null);
                     setIsOrdersViewOpen(true);
                   }}
-                  className="w-full py-3 bg-[#2418D8] text-white font-bold text-xs rounded-xl shadow-md hover:bg-[#1A10B3] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3 bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold text-xs rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Truck className="w-4 h-4" />
                   <span>Track Order in My Orders</span>
@@ -3468,7 +3831,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     setOrderSuccessModal(null);
                     setActiveTab('home');
                   }}
-                  className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl active:scale-95 transition-all cursor-pointer"
+                  className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl active:scale-95 transition-all cursor-pointer"
                 >
                   Continue Shopping
                 </button>
@@ -3490,10 +3853,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 onClick={() => setIsSellerModalOpen(false)}
                 className="fixed inset-0 bg-black/60 backdrop-blur-xs"
               />
-              <div className="relative w-full max-w-md max-h-[92vh] overflow-y-auto bg-white dark:bg-[#181436] text-slate-900 dark:text-slate-100 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 shadow-2xl z-10">
+              <div className="relative w-full max-w-md max-h-[92vh] overflow-y-auto bg-white dark:bg-[#211A17] text-slate-900 dark:text-slate-100 border border-orange-100 dark:border-stone-800 rounded-3xl p-5 shadow-2xl z-10">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-xl bg-[#FFF4E8] dark:bg-orange-950/40 text-[#FF5722] flex items-center justify-center">
                       <Store className="w-5 h-5" />
                     </div>
                     <div>
@@ -3513,14 +3876,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   </button>
                 </div>
 
-                {/* Tabs: Seller Overview, Luxury Add Product & Merchant Registration */}
-                <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl mb-3.5 gap-1">
+                {/* Tabs: Seller Overview, Add Product & Merchant Registration */}
+                <div className="flex bg-[#FFF4E8] dark:bg-[#181311] p-1 rounded-xl mb-3.5 gap-1">
                   <button
                     type="button"
                     onClick={() => setSellerModalTab('overview')}
                     className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                       sellerModalTab === 'overview'
-                        ? 'bg-white dark:bg-[#2418D8] text-slate-900 dark:text-white shadow-xs'
+                        ? 'bg-white dark:bg-[#FF5722] text-slate-900 dark:text-white shadow-xs'
                         : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
                     }`}
                   >
@@ -3531,11 +3894,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     onClick={() => setSellerModalTab('add-product')}
                     className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 ${
                       sellerModalTab === 'add-product'
-                        ? 'bg-gradient-to-r from-[#2418D8] to-purple-700 text-white shadow-xs font-black'
-                        : 'text-amber-600 dark:text-amber-400 font-bold hover:text-slate-900'
+                        ? 'bg-gradient-to-r from-[#FF5722] to-[#E64A19] text-white shadow-xs font-black'
+                        : 'text-[#E64A19] dark:text-orange-400 font-bold hover:text-slate-900'
                     }`}
                   >
-                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    <Sparkles className="w-3 h-3" />
                     <span>Add Product</span>
                   </button>
                   <button
@@ -3543,7 +3906,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     onClick={() => setSellerModalTab('register')}
                     className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                       sellerModalTab === 'register'
-                        ? 'bg-white dark:bg-[#2418D8] text-slate-900 dark:text-white shadow-xs'
+                        ? 'bg-white dark:bg-[#FF5722] text-slate-900 dark:text-white shadow-xs'
                         : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
                     }`}
                   >
@@ -3558,9 +3921,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       <button
                         type="button"
                         onClick={() => setSellerModalTab('add-product')}
-                        className="w-full py-2.5 px-3 bg-gradient-to-r from-[#2418D8] via-purple-700 to-indigo-800 text-white font-extrabold text-xs rounded-xl shadow-md hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-400/30"
+                        className="w-full py-2.5 px-3 bg-gradient-to-r from-[#FF7043] via-[#FF5722] to-[#E64A19] text-white font-extrabold text-xs rounded-xl shadow-md hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                       >
-                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        <Sparkles className="w-4 h-4 text-amber-200" />
                         <span>+ Add Single Product with Custom Sizes</span>
                       </button>
 
@@ -3568,17 +3931,17 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         <button
                           type="button"
                           onClick={downloadSellerCsvTemplate}
-                          className="py-2 px-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-[11px] rounded-xl border border-slate-200 dark:border-slate-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                          className="py-2 px-2.5 bg-[#FFF4E8] hover:bg-orange-100 dark:bg-[#181311] dark:hover:bg-stone-800 text-slate-800 dark:text-slate-200 font-bold text-[11px] rounded-xl border border-orange-200/70 dark:border-stone-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                         >
-                          <Download className="w-3.5 h-3.5 text-[#2418D8] dark:text-[#7B73FF]" />
+                          <Download className="w-3.5 h-3.5 text-[#FF5722]" />
                           <span>CSV Template</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => bulkCsvInputRef.current?.click()}
-                          className="py-2 px-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-purple-900/60 dark:hover:bg-purple-800/80 text-white font-bold text-[11px] rounded-xl shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                          className="py-2 px-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-[#FF5722] dark:hover:bg-[#E64A19] text-white font-bold text-[11px] rounded-xl shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                         >
-                          <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                          <Upload className="w-3.5 h-3.5 text-emerald-400 dark:text-white" />
                           <span>Bulk Upload (CSV)</span>
                         </button>
                         <input
@@ -3690,7 +4053,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             <button
                               type="button"
                               onClick={() => restockProduct(product.id, 10)}
-                              className="px-2.5 py-1 bg-[#2418D8] hover:bg-[#1A10B3] text-white text-[10px] font-bold rounded-lg shadow-xs active:scale-95 transition-all shrink-0 cursor-pointer"
+                              className="px-2.5 py-1 bg-[#FF5722] hover:bg-[#E64A19] text-white text-[10px] font-bold rounded-lg shadow-xs active:scale-95 transition-all shrink-0 cursor-pointer"
                             >
                               +10 Restock
                             </button>
@@ -3698,7 +4061,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         ))}
 
                         {lowStockCount === 0 && (
-                          <div className="p-3 text-center text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 rounded-xl">
+                          <div className="p-3 text-center text-xs text-slate-500 dark:text-slate-400 bg-stone-50 dark:bg-[#181311] rounded-xl">
                             All products are well-stocked. No replenishment needed!
                           </div>
                         )}
@@ -3706,10 +4069,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     </div>
 
                     {/* Link to Dedicated Web Seller Central */}
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                    <div className="pt-2 border-t border-orange-100/70 dark:border-stone-800">
                       <a
                         href="/seller-panel/index.html"
-                        className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-purple-700 dark:hover:bg-purple-600 text-white font-bold text-xs shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+                        className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-[#FF5722] dark:hover:bg-[#E64A19] text-white font-bold text-xs shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
                       >
                         <Store className="w-3.5 h-3.5" />
                         <span>Open Web Seller Central Dashboard</span>
@@ -3790,23 +4153,23 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     }}
                     className="space-y-3.5 animate-in fade-in duration-200"
                   >
-                    {/* Luxury Header Banner */}
-                    <div className="p-3 rounded-2xl bg-gradient-to-r from-[#180E4B] via-[#2418D8] to-purple-800 text-white border border-amber-400/40 shadow-sm">
+                    {/* Header Banner */}
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-[#FF7043] via-[#FF5722] to-[#E64A19] text-white shadow-sm">
                       <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        <Sparkles className="w-4 h-4 text-amber-200" />
                         <h4 className="font-display font-black text-xs sm:text-sm">
                           AARVO Merchant Product Studio
                         </h4>
                       </div>
-                      <p className="text-[10px] text-purple-200 mt-0.5">
-                        Publish catalog products with Flipkart &amp; Meesho standard sizing, colors, and live customer reviews.
+                      <p className="text-[10px] text-orange-100 mt-0.5">
+                        Publish catalog products with standard sizing, colors, and live customer reviews.
                       </p>
                     </div>
 
                     {/* Product Name */}
                     <div>
                       <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                        Product Title (Luxury Branding)
+                        Product Title
                       </label>
                       <input
                         type="text"
@@ -3814,7 +4177,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         placeholder="e.g. Pure Mulberry Silk Hand-Embroidered Kurta Set"
                         value={newProductName}
                         onChange={(e) => setNewProductName(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                        className="w-full px-3 py-2 text-xs bg-[#FFF4E8]/60 dark:bg-[#181311] text-slate-900 dark:text-white border border-orange-200/70 dark:border-stone-700 rounded-xl outline-none focus:border-[#FF5722]"
                       />
                     </div>
 
@@ -3845,12 +4208,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                               }}
                               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                                 isSelected
-                                  ? 'bg-[#2418D8] text-white shadow-xs font-black'
-                                  : 'bg-[#F7F5FF] dark:bg-[#120F26] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#2418D8]'
+                                  ? 'bg-[#FF5722] text-white shadow-xs font-black'
+                                  : 'bg-[#FFF4E8]/70 dark:bg-[#181311] text-slate-700 dark:text-slate-300 border border-orange-200/70 dark:border-stone-700 hover:border-[#FF5722]'
                               }`}
                             >
                               {cat}
-                              {isSelected && <span className="ml-1 text-[10px] text-amber-300">✓</span>}
+                              {isSelected && <span className="ml-1 text-[10px] text-amber-200">✓</span>}
                             </button>
                           );
                         })}
@@ -3859,7 +4222,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       {/* Custom Category Input if "Other" is selected */}
                       {newProductCategory === 'Other' && (
                         <div className="pt-1 animate-in fade-in">
-                          <label className="text-[10px] font-bold text-[#2418D8] dark:text-[#7B73FF] block mb-1">
+                          <label className="text-[10px] font-bold text-[#FF5722] block mb-1">
                             Specify Custom Category Name
                           </label>
                           <input
@@ -3868,7 +4231,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             placeholder="e.g. Traditional Handcrafts, Books, Jewelry, Luggage..."
                             value={customCategory}
                             onChange={(e) => setCustomCategory(e.target.value)}
-                            className="w-full px-3 py-2 text-xs bg-white dark:bg-[#120F26] text-slate-900 dark:text-white border-2 border-[#2418D8] rounded-xl outline-none"
+                            className="w-full px-3 py-2 text-xs bg-white dark:bg-[#181311] text-slate-900 dark:text-white border-2 border-[#FF5722] rounded-xl outline-none"
                           />
                         </div>
                       )}
@@ -3886,7 +4249,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           placeholder="e.g. 1999"
                           value={newProductPrice}
                           onChange={(e) => setNewProductPrice(e.target.value)}
-                          className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                          className="w-full px-3 py-2 text-xs bg-[#FFF4E8]/60 dark:bg-[#181311] text-slate-900 dark:text-white border border-orange-200/70 dark:border-stone-700 rounded-xl outline-none focus:border-[#FF5722]"
                         />
                       </div>
                       <div>
@@ -3898,24 +4261,24 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           placeholder="e.g. 3999"
                           value={newProductMRP}
                           onChange={(e) => setNewProductMRP(e.target.value)}
-                          className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                          className="w-full px-3 py-2 text-xs bg-[#FFF4E8]/60 dark:bg-[#181311] text-slate-900 dark:text-white border border-orange-200/70 dark:border-stone-700 rounded-xl outline-none focus:border-[#FF5722]"
                         />
                       </div>
                     </div>
 
-                    {/* SIZES SPECIFICATION (Meesho & Flipkart Style Variants: Zero Size, XS, M, L, XL, XXL, Free Size, Footwear) */}
-                    <div className="p-3 rounded-2xl bg-[#F7F5FF] dark:bg-[#120F26] border border-purple-100 dark:border-slate-700 space-y-2">
+                    {/* SIZES SPECIFICATION */}
+                    <div className="p-3 rounded-2xl bg-[#FFF4E8]/60 dark:bg-[#181311] border border-orange-200/70 dark:border-stone-700 space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1">
-                            <Tag className="w-3.5 h-3.5 text-[#2418D8]" />
+                            <Tag className="w-3.5 h-3.5 text-[#FF5722]" />
                             <span>Available Size Variants</span>
                           </span>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400">
                             Select standard apparel sizes or footwear dimensions
                           </p>
                         </div>
-                        <span className="text-[9px] bg-purple-100 dark:bg-purple-900/60 text-[#2418D8] dark:text-purple-300 px-2 py-0.5 rounded font-black">
+                        <span className="text-[9px] bg-orange-100 dark:bg-orange-950/60 text-[#E64A19] dark:text-orange-300 px-2 py-0.5 rounded font-black">
                           {selectedSizes.length} SELECTED
                         </span>
                       </div>
@@ -3951,12 +4314,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                               }}
                               className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                                 isSelected
-                                  ? 'bg-[#2418D8] text-white shadow-xs font-black'
-                                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#2418D8]'
+                                  ? 'bg-[#FF5722] text-white shadow-xs font-black'
+                                  : 'bg-white dark:bg-[#211A17] text-slate-700 dark:text-slate-300 border border-orange-200/70 dark:border-stone-700 hover:border-[#FF5722]'
                               }`}
                             >
                               <span>{size}</span>
-                              {isSelected && <span className="ml-1 text-[10px] text-amber-300">✓</span>}
+                              {isSelected && <span className="ml-1 text-[10px] text-amber-200">✓</span>}
                             </button>
                           );
                         })}
@@ -3972,24 +4335,24 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           placeholder="e.g. Chest 42 in, Slim Tailored Fit, 32 Waist"
                           value={customSizeText}
                           onChange={(e) => setCustomSizeText(e.target.value)}
-                          className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#1A1638] text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                          className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#211A17] text-slate-900 dark:text-white border border-orange-200/70 dark:border-stone-700 rounded-xl outline-none focus:border-[#FF5722]"
                         />
                       </div>
                     </div>
 
-                    {/* COLOUR VARIANTS (Meesho & Flipkart Style Color Swatches) */}
-                    <div className="p-3 rounded-2xl bg-[#F7F5FF] dark:bg-[#120F26] border border-purple-100 dark:border-slate-700 space-y-2">
+                    {/* COLOUR VARIANTS */}
+                    <div className="p-3 rounded-2xl bg-[#FFF4E8]/60 dark:bg-[#181311] border border-orange-200/70 dark:border-stone-700 space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1">
-                            <Sparkles className="w-3.5 h-3.5 text-[#2418D8]" />
+                            <Sparkles className="w-3.5 h-3.5 text-[#FF5722]" />
                             <span>Available Colour Variants</span>
                           </span>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400">
                             Select color options available for customer selection
                           </p>
                         </div>
-                        <span className="text-[9px] bg-purple-100 dark:bg-purple-900/60 text-[#2418D8] dark:text-purple-300 px-2 py-0.5 rounded font-black">
+                        <span className="text-[9px] bg-orange-100 dark:bg-orange-950/60 text-[#E64A19] dark:text-orange-300 px-2 py-0.5 rounded font-black">
                           {selectedColors.length} SELECTED
                         </span>
                       </div>
@@ -3999,7 +4362,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         {[
                           { name: 'Black', hex: '#0F172A' },
                           { name: 'White', hex: '#FFFFFF', border: true },
-                          { name: 'Royal Blue', hex: '#2418D8' },
+                          { name: 'Royal Blue', hex: '#2563EB' },
                           { name: 'Navy Blue', hex: '#1E293B' },
                           { name: 'Red', hex: '#DC2626' },
                           { name: 'Maroon', hex: '#881337' },
@@ -4025,8 +4388,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                               }}
                               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                                 isSelected
-                                  ? 'bg-[#2418D8] text-white shadow-xs font-black'
-                                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-[#2418D8]'
+                                  ? 'bg-[#FF5722] text-white shadow-xs font-black'
+                                  : 'bg-white dark:bg-[#211A17] text-slate-700 dark:text-slate-300 border border-orange-200/70 dark:border-stone-700 hover:border-[#FF5722]'
                               }`}
                             >
                               <span
@@ -4036,7 +4399,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                                 style={{ backgroundColor: col.hex }}
                               />
                               <span>{col.name}</span>
-                              {isSelected && <span className="text-[10px] text-amber-300">✓</span>}
+                              {isSelected && <span className="text-[10px] text-amber-200">✓</span>}
                             </button>
                           );
                         })}
@@ -4052,7 +4415,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           placeholder="e.g. Dual Tone Pastel Blue, Gold Embroidered"
                           value={customColorText}
                           onChange={(e) => setCustomColorText(e.target.value)}
-                          className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#1A1638] text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                          className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#211A17] text-slate-900 dark:text-white border border-orange-200/70 dark:border-stone-700 rounded-xl outline-none focus:border-[#FF5722]"
                         />
                       </div>
                     </div>
@@ -4066,7 +4429,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         <select
                           value={selectedFabric}
                           onChange={(e) => setSelectedFabric(e.target.value)}
-                          className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                          className="w-full px-3 py-2 text-xs bg-[#FFF4E8]/60 dark:bg-[#181311] text-slate-900 dark:text-white border border-orange-200/70 dark:border-stone-700 rounded-xl outline-none focus:border-[#FF5722]"
                         >
                           <option value="Pure Cotton">Pure Cotton</option>
                           <option value="Mulberry Silk">Mulberry Silk</option>
@@ -4086,7 +4449,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         <select
                           value={selectedReturnPolicy}
                           onChange={(e) => setSelectedReturnPolicy(e.target.value)}
-                          className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                          className="w-full px-3 py-2 text-xs bg-[#FFF4E8]/60 dark:bg-[#181311] text-slate-900 dark:text-white border border-orange-200/70 dark:border-stone-700 rounded-xl outline-none focus:border-[#FF5722]"
                         >
                           <option value="7 Days Return">7 Days Return</option>
                           <option value="10 Days Replacement">10 Days Replacement</option>
@@ -4101,7 +4464,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         haptics.selection();
                         setCodAllowed(!codAllowed);
                       }}
-                      className="p-3 bg-white dark:bg-[#1A1638] rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between cursor-pointer"
+                      className="p-3 bg-white dark:bg-[#181311] rounded-xl border border-orange-200/70 dark:border-stone-700 flex items-center justify-between cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
                         <Banknote className="w-4 h-4 text-emerald-600" />
@@ -4116,7 +4479,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       </div>
                       <div
                         className={`w-10 h-5 rounded-full p-0.5 transition-colors ${
-                          codAllowed ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-600'
+                          codAllowed ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-stone-600'
                         }`}
                       >
                         <div
@@ -4137,10 +4500,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         placeholder="https://..."
                         value={newProductImage}
                         onChange={(e) => setNewProductImage(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                        className="w-full px-3 py-2 text-xs bg-[#FFF4E8]/60 dark:bg-[#181311] text-slate-900 dark:text-white border border-orange-200/70 dark:border-stone-700 rounded-xl outline-none focus:border-[#FF5722]"
                       />
                       {newProductImage && (
-                        <div className="mt-2 flex items-center gap-2.5 p-2 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                        <div className="mt-2 flex items-center gap-2.5 p-2 bg-[#FFF4E8]/50 dark:bg-[#181311] rounded-xl border border-orange-200/70 dark:border-stone-800">
                           <img
                             src={newProductImage}
                             alt="Preview"
@@ -4166,7 +4529,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         placeholder="25"
                         value={newProductStock}
                         onChange={(e) => setNewProductStock(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                        className="w-full px-3 py-2 text-xs bg-[#FFF4E8]/60 dark:bg-[#181311] text-slate-900 dark:text-white border border-orange-200/70 dark:border-stone-700 rounded-xl outline-none focus:border-[#FF5722]"
                       />
                     </div>
 
@@ -4180,24 +4543,24 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         placeholder="Describe fabric, finish, and packaging details..."
                         value={newProductDescription}
                         onChange={(e) => setNewProductDescription(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                        className="w-full px-3 py-2 text-xs bg-[#FFF4E8]/60 dark:bg-[#181311] text-slate-900 dark:text-white border border-orange-200/70 dark:border-stone-700 rounded-xl outline-none focus:border-[#FF5722]"
                       />
                     </div>
 
-                    {/* Genuine Rating Note (No Fake Badges) */}
-                    <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-100 dark:border-blue-900/60 text-[10px] text-blue-800 dark:text-blue-300 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#2418D8] shrink-0" />
+                    {/* Genuine Rating Note */}
+                    <div className="p-2.5 bg-[#FFF4E8] dark:bg-orange-950/30 rounded-xl border border-orange-200/80 dark:border-orange-900/50 text-[10px] text-[#E64A19] dark:text-orange-300 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#FF5722] shrink-0" />
                       <span>
-                        <strong>AARVO Verified Policy:</strong> Real rating starts at 0.0 with no fake reviews. Customer ratings and reviews will automatically display when real buyers review your product.
+                        <strong>Honest Rating Policy:</strong> Ratings start cleanly from real buyer feedback with zero pre-filled reviews.
                       </span>
                     </div>
 
                     {/* Submit Button */}
                     <button
                       type="submit"
-                      className="w-full py-3 bg-[#2418D8] hover:bg-[#1D12B8] text-white font-extrabold text-xs rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full py-3 bg-[#FF5722] hover:bg-[#E64A19] text-white font-extrabold text-xs rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <Sparkles className="w-4 h-4 text-amber-200" />
                       <span>Publish Product to AARVO Catalog</span>
                     </button>
                   </form>
@@ -4223,7 +4586,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         placeholder="e.g. Royal Apparel Ltd."
                         value={sellerForm.business}
                         onChange={(e) => setSellerForm({ ...sellerForm, business: e.target.value })}
-                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                        className="w-full px-3 py-2 text-xs bg-[#FFF4E8]/60 dark:bg-[#181311] text-slate-900 dark:text-white border border-orange-200/70 dark:border-stone-700 rounded-xl outline-none focus:border-[#FF5722]"
                       />
                     </div>
 
@@ -4234,7 +4597,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       <select
                         value={sellerForm.category}
                         onChange={(e) => setSellerForm({ ...sellerForm, category: e.target.value })}
-                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8]"
+                        className="w-full px-3 py-2 text-xs bg-[#FFF4E8]/60 dark:bg-[#181311] text-slate-900 dark:text-white border border-orange-200/70 dark:border-stone-700 rounded-xl outline-none focus:border-[#FF5722]"
                       >
                         <option value="Fashion">Fashion &amp; Apparel</option>
                         <option value="Mobiles">Mobiles &amp; Gadgets</option>
@@ -4255,13 +4618,13 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         placeholder="10-digit mobile number"
                         value={sellerForm.phone}
                         onChange={(e) => setSellerForm({ ...sellerForm, phone: e.target.value })}
-                        className="w-full px-3 py-2 text-xs bg-[#F7F5FF] dark:bg-[#120F26] text-slate-900 dark:text-white border border-purple-100 dark:border-slate-700 rounded-xl outline-none focus:border-[#2418D8] font-mono"
+                        className="w-full px-3 py-2 text-xs bg-[#FFF4E8]/60 dark:bg-[#181311] text-slate-900 dark:text-white border border-orange-200/70 dark:border-stone-700 rounded-xl outline-none focus:border-[#FF5722] font-mono"
                       />
                     </div>
 
                     <button
                       type="submit"
-                      className="w-full py-2.5 rounded-xl bg-[#2418D8] hover:bg-[#1A10B3] text-white font-bold text-xs shadow-md mt-2 transition-all active:scale-95"
+                      className="w-full py-2.5 rounded-xl bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold text-xs shadow-md mt-2 transition-all active:scale-95 cursor-pointer"
                     >
                       Submit Seller Application
                     </button>
@@ -4273,14 +4636,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       Application Received!
                     </h4>
                     <p className="text-xs text-slate-600 dark:text-slate-300">
-                      Welcome <strong className="text-[#2418D8] dark:text-[#7B73FF]">{sellerForm.business || 'Merchant'}</strong>! Our verification team will review your GST &amp; inventory within 24 hours.
+                      Welcome <strong className="text-[#FF5722]">{sellerForm.business || 'Merchant'}</strong>! Our verification team will review your GST &amp; inventory within 24 hours.
                     </p>
                     <button
                       onClick={() => {
                         setSellerRegistered(false);
                         setIsSellerModalOpen(false);
                       }}
-                      className="mt-3 px-4 py-1.5 rounded-xl bg-slate-900 dark:bg-purple-600 text-white text-xs font-bold"
+                      className="mt-3 px-4 py-1.5 rounded-xl bg-[#FF5722] text-white text-xs font-bold cursor-pointer"
                     >
                       Close
                     </button>
@@ -4316,6 +4679,24 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             setSelectedProduct(null);
             switchTab('account');
             setIsOrdersViewOpen(true);
+          }}
+          savedAddress={activeAddressString}
+          customerName={userProfile.name}
+          onUpdateAddress={(newAddr) => {
+            if (!activeAddressObj) return;
+            const pincodeMatch = newAddr.match(/\b\d{6}\b/);
+            setSavedAddresses((prev) =>
+              prev.map((a) =>
+                a.id === activeAddressObj.id
+                  ? {
+                      ...a,
+                      addressLine: newAddr,
+                      pincode: pincodeMatch ? pincodeMatch[0] : a.pincode,
+                    }
+                  : a
+              )
+            );
+            showToast('Delivery address updated!');
           }}
           onPlaceOrder={(newOrder) => {
             setOrders((prev) => {
@@ -4424,10 +4805,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         {/* ================================================================= */}
         {showAddPaymentModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-            <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="w-full max-w-md bg-white dark:bg-[#211A17] rounded-3xl p-5 border border-orange-100 dark:border-stone-800 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-orange-100/70 dark:border-stone-800 pb-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-[#2418D8] flex items-center justify-center font-bold">
+                  <div className="w-8 h-8 rounded-full bg-[#FFF4E8] dark:bg-orange-950/50 text-[#FF5722] flex items-center justify-center font-bold">
                     💳
                   </div>
                   <h3 className="font-black text-slate-900 dark:text-white text-base">
@@ -4454,7 +4835,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     onChange={(e) => setNewCardNumber(e.target.value)}
                     placeholder="4532 •••• •••• 9821"
                     maxLength={19}
-                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#2418D8]"
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-orange-200/70 dark:border-stone-700 bg-[#FFF4E8]/50 dark:bg-[#181311] text-slate-900 dark:text-white focus:outline-hidden focus:border-[#FF5722]"
                   />
                 </div>
 
@@ -4469,7 +4850,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       onChange={(e) => setNewCardExpiry(e.target.value)}
                       placeholder="MM/YY"
                       maxLength={5}
-                      className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#2418D8]"
+                      className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-orange-200/70 dark:border-stone-700 bg-[#FFF4E8]/50 dark:bg-[#181311] text-slate-900 dark:text-white focus:outline-hidden focus:border-[#FF5722]"
                     />
                   </div>
                   <div>
@@ -4480,7 +4861,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       type="password"
                       maxLength={3}
                       placeholder="•••"
-                      className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#2418D8]"
+                      className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-orange-200/70 dark:border-stone-700 bg-[#FFF4E8]/50 dark:bg-[#181311] text-slate-900 dark:text-white focus:outline-hidden focus:border-[#FF5722]"
                     />
                   </div>
                 </div>
@@ -4493,12 +4874,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     type="text"
                     value={newCardHolder}
                     onChange={(e) => setNewCardHolder(e.target.value)}
-                    placeholder="e.g. Saurav Paswan"
-                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#2418D8]"
+                    placeholder={`e.g. ${userProfile.name}`}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-orange-200/70 dark:border-stone-700 bg-[#FFF4E8]/50 dark:bg-[#181311] text-slate-900 dark:text-white focus:outline-hidden focus:border-[#FF5722]"
                   />
                 </div>
 
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                <div className="p-3 bg-[#FFF4E8] dark:bg-[#181311] rounded-xl flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>256-bit encrypted bank grade transaction security</span>
                 </div>
@@ -4508,7 +4889,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddPaymentModal(false)}
-                  className="flex-1 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
+                  className="flex-1 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 bg-stone-100 dark:bg-stone-800 rounded-xl hover:bg-stone-200 dark:hover:bg-stone-700 transition cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -4516,15 +4897,560 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   type="button"
                   onClick={() => {
                     haptics.success();
-                    showToast('Card saved securely to payment options!');
+                    showToast('Payment method saved securely!');
                     setPaymentMethodSelection('UPI');
                     setShowAddPaymentModal(false);
                   }}
-                  className="flex-1 py-2.5 text-xs font-bold text-white bg-[#2418D8] rounded-xl hover:opacity-90 shadow-md transition cursor-pointer"
+                  className="flex-1 py-2.5 text-xs font-bold text-white bg-[#FF5722] hover:bg-[#E64A19] rounded-xl shadow-md transition cursor-pointer"
                 >
-                  Save & Use
+                  Save &amp; Use
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 17. EDIT PROFILE MODAL */}
+        {isEditProfileOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!profileDraftName.trim() || !profileDraftPhone.trim()) return;
+                haptics.success();
+                setUserProfile({ name: profileDraftName.trim(), phone: profileDraftPhone.trim() });
+                setIsEditProfileOpen(false);
+                showToast('Profile updated!');
+              }}
+              className="w-full max-w-sm bg-white dark:bg-[#211A17] rounded-3xl p-5 border border-orange-100 dark:border-stone-800 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-orange-100/70 dark:border-stone-800 pb-3">
+                <h3 className="font-display font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <Edit2 className="w-4 h-4 text-[#FF5722]" />
+                  <span>Edit Profile</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsEditProfileOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={profileDraftName}
+                    onChange={(e) => setProfileDraftName(e.target.value)}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-orange-200/70 dark:border-stone-700 bg-[#FFF4E8]/50 dark:bg-[#181311] text-slate-900 dark:text-white outline-none focus:border-[#FF5722]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                    Mobile Number
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={profileDraftPhone}
+                    onChange={(e) => setProfileDraftPhone(e.target.value)}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-orange-200/70 dark:border-stone-700 bg-[#FFF4E8]/50 dark:bg-[#181311] text-slate-900 dark:text-white outline-none focus:border-[#FF5722]"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditProfileOpen(false)}
+                  className="flex-1 py-2.5 text-xs font-bold bg-stone-100 dark:bg-stone-800 text-slate-700 dark:text-slate-300 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 text-xs font-bold bg-[#FF5722] hover:bg-[#E64A19] text-white rounded-xl shadow-md cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* 18. SAVED DELIVERY ADDRESSES MODAL */}
+        {isAddressModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="w-full max-w-md max-h-[88vh] overflow-y-auto bg-white dark:bg-[#211A17] rounded-3xl p-5 border border-orange-100 dark:border-stone-800 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-orange-100/70 dark:border-stone-800 pb-3">
+                <h3 className="font-display font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#FF5722]" />
+                  <span>Saved Delivery Addresses</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddressModalOpen(false);
+                    setEditingAddressId(null);
+                  }}
+                  className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-2.5">
+                {savedAddresses.map((addr) => {
+                  const isActive = addr.id === activeAddressObj?.id;
+                  return (
+                    <div
+                      key={addr.id}
+                      onClick={() => {
+                        haptics.selection();
+                        setActiveAddressId(addr.id);
+                        showToast(`Active address set to ${addr.label}`);
+                      }}
+                      className={`p-3 rounded-2xl border cursor-pointer transition-all ${
+                        isActive
+                          ? 'bg-[#FFF4E8] dark:bg-orange-950/30 border-[#FF5722]'
+                          : 'bg-stone-50 dark:bg-[#181311] border-orange-100/70 dark:border-stone-800'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="px-2 py-0.5 text-[10px] font-black rounded bg-[#FF5722] text-white">
+                            {addr.label}
+                          </span>
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">
+                            {addr.fullName}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isActive && (
+                            <span className="text-[10px] font-bold text-[#E64A19] dark:text-orange-300">
+                              Selected ✓
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingAddressId(addr.id);
+                              setAddressDraft({
+                                label: addr.label,
+                                fullName: addr.fullName,
+                                phone: addr.phone,
+                                addressLine: addr.addressLine,
+                                city: addr.city,
+                                pincode: addr.pincode,
+                              });
+                            }}
+                            className="text-[11px] font-bold text-[#FF5722] hover:underline cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          {savedAddresses.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSavedAddresses((prev) => prev.filter((a) => a.id !== addr.id));
+                                showToast('Address removed');
+                              }}
+                              className="text-[11px] font-bold text-rose-500 hover:underline cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1.5">
+                        {addr.addressLine}, {addr.city} - {addr.pincode}
+                      </p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        {addr.phone}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!addressDraft.fullName.trim() || !addressDraft.addressLine.trim() || !addressDraft.pincode.trim()) return;
+                  haptics.success();
+                  if (editingAddressId) {
+                    setSavedAddresses((prev) =>
+                      prev.map((a) => (a.id === editingAddressId ? { id: a.id, ...addressDraft } : a))
+                    );
+                    setEditingAddressId(null);
+                    showToast('Address updated!');
+                  } else {
+                    const newId = `addr-${Date.now()}`;
+                    setSavedAddresses((prev) => [...prev, { id: newId, ...addressDraft }]);
+                    setActiveAddressId(newId);
+                    showToast('New address added!');
+                  }
+                  setAddressDraft({
+                    label: 'Home',
+                    fullName: userProfile.name,
+                    phone: userProfile.phone,
+                    addressLine: '',
+                    city: '',
+                    pincode: '',
+                  });
+                }}
+                className="p-3 rounded-2xl bg-[#FFF4E8]/60 dark:bg-[#181311] border border-orange-200/70 dark:border-stone-800 space-y-2"
+              >
+                <p className="text-xs font-black text-slate-900 dark:text-white">
+                  {editingAddressId ? 'Edit Address' : '+ Add New Address'}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Label (Home / Work)"
+                    value={addressDraft.label}
+                    onChange={(e) => setAddressDraft({ ...addressDraft, label: e.target.value })}
+                    className="text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
+                  />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Full Name"
+                    value={addressDraft.fullName}
+                    onChange={(e) => setAddressDraft({ ...addressDraft, fullName: e.target.value })}
+                    className="text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
+                  />
+                </div>
+                <input
+                  type="text"
+                  required
+                  placeholder="House / Street / Area"
+                  value={addressDraft.addressLine}
+                  onChange={(e) => setAddressDraft({ ...addressDraft, addressLine: e.target.value })}
+                  className="w-full text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="City"
+                    value={addressDraft.city}
+                    onChange={(e) => setAddressDraft({ ...addressDraft, city: e.target.value })}
+                    className="text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
+                  />
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    placeholder="Pincode"
+                    value={addressDraft.pincode}
+                    onChange={(e) => setAddressDraft({ ...addressDraft, pincode: e.target.value.replace(/\D/g, '') })}
+                    className="text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Phone"
+                    value={addressDraft.phone}
+                    onChange={(e) => setAddressDraft({ ...addressDraft, phone: e.target.value })}
+                    className="text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-2 bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  {editingAddressId ? 'Update Address' : 'Save Address'}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* 19. WISHLIST MODAL */}
+        {isWishlistModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="w-full max-w-md max-h-[85vh] overflow-y-auto bg-white dark:bg-[#211A17] rounded-3xl p-5 border border-orange-100 dark:border-stone-800 shadow-2xl space-y-3.5">
+              <div className="flex items-center justify-between border-b border-orange-100/70 dark:border-stone-800 pb-3">
+                <h3 className="font-display font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+                  <span>My Wishlist ({wishlist.length})</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsWishlistModalOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {allProducts.filter((p) => wishlist.includes(p.id)).length === 0 ? (
+                <div className="py-10 text-center space-y-2">
+                  <Heart className="w-10 h-10 text-slate-300 mx-auto" />
+                  <p className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                    Your wishlist is empty
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    Tap the heart icon on any product to save it here.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {allProducts
+                    .filter((p) => wishlist.includes(p.id))
+                    .map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-2.5 rounded-2xl bg-[#FFF4E8]/40 dark:bg-[#181311] border border-orange-100 dark:border-stone-800 flex items-center gap-3"
+                      >
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          onClick={() => {
+                            setIsWishlistModalOpen(false);
+                            setSelectedProduct(item);
+                          }}
+                          className="w-14 h-14 rounded-xl object-cover shrink-0 cursor-pointer"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h4
+                            onClick={() => {
+                              setIsWishlistModalOpen(false);
+                              setSelectedProduct(item);
+                            }}
+                            className="text-xs font-bold text-slate-900 dark:text-white truncate cursor-pointer"
+                          >
+                            {item.name}
+                          </h4>
+                          <p className="text-xs font-black text-[#FF5722] mt-0.5">
+                            ₹{item.price.toLocaleString('en-IN')}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <button
+                              type="button"
+                              onClick={() => addToCart(item)}
+                              className="px-2.5 py-1 bg-[#FF5722] hover:bg-[#E64A19] text-white text-[10px] font-bold rounded-lg cursor-pointer"
+                            >
+                              Add to Cart
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleWishlist(item.id, item.name)}
+                              className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 20. COUPONS MODAL */}
+        {isCouponsModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="w-full max-w-sm bg-white dark:bg-[#211A17] rounded-3xl p-5 border border-orange-100 dark:border-stone-800 shadow-2xl space-y-3.5">
+              <div className="flex items-center justify-between border-b border-orange-100/70 dark:border-stone-800 pb-3">
+                <h3 className="font-display font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-[#FF5722]" />
+                  <span>Available Coupons</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsCouponsModalOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {(
+                [
+                  { code: 'AARVO200', desc: 'Flat ₹200 off on orders above ₹999' },
+                  { code: 'WELCOME100', desc: 'Flat ₹100 off on orders above ₹499' },
+                ] as const
+              ).map((c) => {
+                const isApplied = appliedCouponCode === c.code;
+                return (
+                  <div
+                    key={c.code}
+                    className="p-3 rounded-2xl bg-[#FFF4E8] dark:bg-[#181311] border border-orange-200/80 dark:border-stone-800 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-black text-xs text-[#E64A19] dark:text-orange-300 bg-white dark:bg-[#211A17] px-2.5 py-0.5 rounded border border-orange-200 dark:border-stone-700">
+                        {c.code}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(c.code).catch(() => {});
+                          showToast(`Copied ${c.code}`);
+                        }}
+                        className="text-[10px] font-bold text-slate-500 hover:text-[#FF5722] flex items-center gap-1 cursor-pointer"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>Copy</span>
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300">{c.desc}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.selection();
+                        setAppliedCouponCode(isApplied ? null : c.code);
+                        showToast(isApplied ? `Removed ${c.code}` : `Applied ${c.code} to your Cart!`);
+                      }}
+                      className={`w-full py-1.5 text-xs font-bold rounded-xl cursor-pointer ${
+                        isApplied
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-[#FF5722] hover:bg-[#E64A19] text-white'
+                      }`}
+                    >
+                      {isApplied ? 'Applied to Cart ✓ (Tap to Remove)' : 'Apply to Cart'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 21. HELP CENTER MODAL */}
+        {isHelpModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="w-full max-w-md max-h-[88vh] overflow-y-auto bg-white dark:bg-[#211A17] rounded-3xl p-5 border border-orange-100 dark:border-stone-800 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-orange-100/70 dark:border-stone-800 pb-3">
+                <h3 className="font-display font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4 text-[#FF5722]" />
+                  <span>AARVO Help Center</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsHelpModalOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsHelpModalOpen(false);
+                  setIsOrdersViewOpen(true);
+                }}
+                className="w-full p-3 rounded-2xl bg-[#FFF4E8] dark:bg-orange-950/30 border border-orange-200/80 dark:border-orange-900/50 flex items-center justify-between text-left cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Package className="w-4 h-4 text-[#FF5722]" />
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white">
+                      Need help with a recent order?
+                    </p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Track shipments or manage returns ({orders.length} order{orders.length !== 1 ? 's' : ''})
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[#FF5722]" />
+              </button>
+
+              <div className="space-y-1.5 text-xs">
+                <p className="font-black text-slate-900 dark:text-white text-[11px] uppercase tracking-wider">
+                  Quick FAQs
+                </p>
+                <div className="p-2.5 rounded-xl bg-stone-50 dark:bg-[#181311] border border-orange-100/60 dark:border-stone-800">
+                  <p className="font-bold text-slate-800 dark:text-slate-200">How do returns work?</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Eligible products offer 7-day easy pickup directly from your saved address.
+                  </p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-stone-50 dark:bg-[#181311] border border-orange-100/60 dark:border-stone-800">
+                  <p className="font-bold text-slate-800 dark:text-slate-200">What payment modes are accepted?</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    UPI (GPay, PhonePe, Paytm), Cards, and Cash On Delivery (COD).
+                  </p>
+                </div>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!ticketMessage.trim()) return;
+                  haptics.success();
+                  const newTicket = {
+                    id: `TKT-${Math.floor(10000 + Math.random() * 90000)}`,
+                    subject: ticketSubject,
+                    message: ticketMessage.trim(),
+                    status: 'Open',
+                    createdAt: 'Just now',
+                  };
+                  setSupportTickets((prev) => [newTicket, ...prev]);
+                  setTicketMessage('');
+                  showToast(`Support ticket ${newTicket.id} submitted!`);
+                }}
+                className="space-y-2 pt-2 border-t border-orange-100/70 dark:border-stone-800"
+              >
+                <p className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5 text-[#FF5722]" />
+                  <span>Raise a Support Ticket</span>
+                </p>
+                <select
+                  value={ticketSubject}
+                  onChange={(e) => setTicketSubject(e.target.value)}
+                  className="w-full text-xs px-3 py-2 rounded-xl bg-[#FFF4E8]/60 dark:bg-[#181311] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
+                >
+                  <option value="Order & Delivery Inquiry">Order &amp; Delivery Inquiry</option>
+                  <option value="Refund & Return Request">Refund &amp; Return Request</option>
+                  <option value="Payment / UPI Issue">Payment / UPI Issue</option>
+                  <option value="Seller / Product Feedback">Seller / Product Feedback</option>
+                </select>
+                <textarea
+                  rows={2}
+                  required
+                  value={ticketMessage}
+                  onChange={(e) => setTicketMessage(e.target.value)}
+                  placeholder="Describe your issue..."
+                  className="w-full text-xs px-3 py-2 rounded-xl bg-[#FFF4E8]/60 dark:bg-[#181311] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
+                />
+                <button
+                  type="submit"
+                  className="w-full py-2.5 bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+                >
+                  Submit Ticket
+                </button>
+              </form>
+
+              {supportTickets.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase">
+                    Your Support Tickets
+                  </p>
+                  {supportTickets.map((t) => (
+                    <div
+                      key={t.id}
+                      className="p-2.5 rounded-xl bg-[#FFF4E8]/40 dark:bg-[#181311] border border-orange-100 dark:border-stone-800 text-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-[#FF5722]">{t.id}</span>
+                        <span className="text-[10px] font-bold text-emerald-600">{t.status}</span>
+                      </div>
+                      <p className="font-bold text-slate-800 dark:text-slate-200 mt-0.5">{t.subject}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{t.message}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
