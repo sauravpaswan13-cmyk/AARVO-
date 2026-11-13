@@ -919,30 +919,31 @@ private fun JSONArray.toProductList(): List<Product> = buildList {
     val seenIds = mutableSetOf<Int>()
     for (i in 0 until length()) {
         val o = optJSONObject(i) ?: continue
-        val id = o.optLong("id", 0L).toInt()
-        if (id <= 0 || !seenIds.add(id)) continue
-        val pricePaise = o.optLong("price_paise", 0L)
-        val originalPricePaise = o.optLong("original_price_paise", pricePaise)
-        val reviewsCount = o.optInt("reviews_count", o.optInt("reviewsCount", 0))
-        add(
+        runCatching {
+            val id = o.optLong("id", 0L).toInt()
+            if (id <= 0 || !seenIds.add(id)) return@runCatching null
+            val pricePaise = o.getLong("price_paise")
+            if (pricePaise < 0L) return@runCatching null
+            val originalPricePaise = o.optLong("original_price_paise", pricePaise).coerceAtLeast(0L)
+            val reviewsCount = o.optInt("reviews_count", o.optInt("reviewsCount", 0)).coerceAtLeast(0)
             Product(
                 id = id,
                 sellerId = o.optString("seller_id", ""),
                 sellerName = o.optString("seller_name", "AARVO Seller"),
-                name = o.optString("name", "Product"),
-                category = o.optString("category", "General"),
+                name = o.optString("name", "Product").ifBlank { "Product" },
+                category = o.optString("category", "General").ifBlank { "General" },
                 price = (pricePaise / 100L).toInt(),
-                rating = o.optDouble("rating", 0.0),
+                rating = o.optDouble("rating", 0.0).coerceIn(0.0, 5.0),
                 emoji = "🛍️",
                 description = o.optString("description", ""),
-                stockQuantity = o.optInt("stock_quantity", 0),
+                stockQuantity = o.optInt("stock_quantity", 0).coerceAtLeast(0),
                 isPublished = o.optBoolean("is_published", true),
                 pricePaise = pricePaise,
                 imageUrl = o.optString("image_url").takeIf { it.startsWith("https://") || it.startsWith("http://") },
                 originalPricePaise = originalPricePaise,
                 reviewsCount = reviewsCount
             )
-        )
+        }.getOrNull()?.let(::add)
     }
 }
 
