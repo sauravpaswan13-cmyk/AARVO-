@@ -79,20 +79,7 @@ else
   echo "Successfully pushed changes to GitHub!"
 fi
 
-echo "4. Checking workflow dispatch (${WORKFLOW_FILE})..."
-RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-  -X POST \
-  -H "Accept: application/vnd.github.v3+json" \
-  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-  "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches" \
-  -d "{\"ref\":\"${BRANCH}\"}")
-
-if [ "$RESPONSE" = "204" ]; then
-  echo "Workflow '${WORKFLOW_FILE}' triggered."
-else
-  echo "Push to '${BRANCH}' triggers CI workflows automatically (dispatch status: ${RESPONSE})."
-fi
-
+echo "4. GitHub Actions CI & APK build workflows triggered automatically by push to '${BRANCH}'."
 echo "Monitor build: https://github.com/${REPO_OWNER}/${REPO_NAME}/actions"
 rm -rf "${TMP_REPO}"
 

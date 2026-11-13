@@ -2994,7 +2994,7 @@ private fun ProductDetailsScreen(
                                     border = BorderStroke(1.dp, dividerColor),
                                     modifier = Modifier.size(84.dp)
                                 ) {
-                                    if (product.imageUrl.isNotBlank()) {
+                                    if (!product.imageUrl.isNullOrBlank()) {
                                         AsyncImage(
                                             model = product.imageUrl,
                                             contentDescription = product.name,
@@ -3394,7 +3394,7 @@ private fun ProductDetailsScreen(
                                             color = if (isDarkTheme) Color(0xFF2B221D) else Color(0xFFF8FAFC),
                                             modifier = Modifier.size(48.dp)
                                         ) {
-                                            if (product.imageUrl.isNotBlank()) {
+                                            if (!product.imageUrl.isNullOrBlank()) {
                                                 AsyncImage(
                                                     model = product.imageUrl,
                                                     contentDescription = product.name,
