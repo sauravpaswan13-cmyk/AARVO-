@@ -869,10 +869,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
               {onAddToCart && (
                 <button
                   type="button"
-                  onClick={() => {
-                    haptics.success();
-                    onAddToCart(product);
-                  }}
+                  onClick={() => onAddToCart(product)}
                   className="px-3 py-2 bg-[#211A17] hover:bg-[#2C221E] text-[#FF8A65] border border-[#FF5722]/40 font-bold text-xs rounded-xl flex items-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
                 >
                   <ShoppingCart className="w-3.5 h-3.5" />
@@ -884,7 +881,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    haptics.success();
+                    haptics.impact();
                     onBuyNow(product);
                   }}
                   className="px-4 py-2 bg-gradient-to-r from-[#FF5722] to-[#E64A19] hover:from-[#F4511E] hover:to-[#D84315] text-white font-black text-xs rounded-xl shadow-lg shadow-orange-500/25 flex items-center gap-1.5 active:scale-95 transition-transform cursor-pointer"

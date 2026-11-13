@@ -336,7 +336,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   ];
 
   const handleShare = () => {
-    haptics.light();
+    haptics.saved();
     if (typeof navigator !== 'undefined' && navigator.share) {
       navigator.share({
         title: product.name,
@@ -351,7 +351,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   // Real Cash on Delivery Order Placement
   const handleConfirmOrder = () => {
-    haptics.success();
+    haptics.orderComplete();
     const orderId = `AARVO-COD-${Math.floor(10000 + Math.random() * 90000)}`;
     const trackingNo = `AARVO-EXP-${Math.floor(100000 + Math.random() * 900000)}`;
 
@@ -415,7 +415,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const handleSubmitReview = (e: React.FormEvent) => {
     e.preventDefault();
     if (!product || !reviewComment.trim()) return;
-    haptics.success();
+    haptics.saved();
     const newRev: ReviewItem = {
       id: `rev-${Date.now()}`,
       userName: reviewerName.trim() || 'Verified Buyer',
@@ -504,10 +504,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             {/* Wishlist toggle button */}
             <button
               type="button"
-              onClick={() => {
-                haptics.light();
-                onToggleWishlist(product.id, product.name);
-              }}
+              onClick={() => onToggleWishlist(product.id, product.name)}
               aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
               className={`p-1.5 rounded-full transition-all active:scale-75 cursor-pointer ${
                 isWishlisted
@@ -526,8 +523,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <button
               type="button"
               onClick={() => {
-                haptics.selection();
                 if (onOpenCart) {
+                  haptics.selection();
                   onClose();
                   onOpenCart();
                 } else {
@@ -1039,7 +1036,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       setPincode(cleaned);
                       setIsPincodeValid(true);
                       setIsEditingPincode(false);
-                      haptics.success();
+                      haptics.saved();
                     } else {
                       setIsPincodeValid(false);
                       haptics.warning();
@@ -1434,10 +1431,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           {/* Add to Cart Button (White with orange border) */}
           <button
             type="button"
-            onClick={() => {
-              haptics.success();
-              onAddToCart(product, selectedQty);
-            }}
+            onClick={() => onAddToCart(product, selectedQty)}
             className="flex-1 py-3 px-3 rounded-xl bg-white dark:bg-[#211A17] hover:bg-orange-50/60 dark:hover:bg-white/5 text-[#FF5722] font-black text-xs sm:text-sm flex items-center justify-center gap-2 border-2 border-[#FF5722] active:scale-95 transition-all shadow-xs cursor-pointer"
           >
             <ShoppingCart className="w-4 h-4 text-[#FF5722] stroke-[2.2]" />
@@ -1493,7 +1487,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     type="button"
                     onClick={() => {
                       if (isEditingAddress && onUpdateAddress && deliveryAddress.trim()) {
+                        haptics.saved();
                         onUpdateAddress(deliveryAddress.trim());
+                      } else {
+                        haptics.light();
                       }
                       setIsEditingAddress(!isEditingAddress);
                     }}

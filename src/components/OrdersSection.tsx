@@ -132,9 +132,9 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
   if (!isOpen || !order) return null;
 
   const handleCopyTracking = () => {
-    haptics.light();
     if (navigator.clipboard) {
       navigator.clipboard.writeText(order.trackingNumber);
+      haptics.saved();
       setCopiedTracking(true);
       setTimeout(() => setCopiedTracking(false), 2000);
       onShowToast(`Tracking number ${order.trackingNumber} copied! 📋`);
@@ -142,17 +142,17 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
   };
 
   const handleDownloadInvoice = () => {
-    haptics.success();
+    haptics.subtle();
     onShowToast(`Invoice for ${order.id} downloaded successfully! 📄`);
   };
 
   const totalItemsCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleReorderAll = () => {
-    haptics.success();
     if (onReorderAll) {
       onReorderAll(order.items);
     } else {
+      haptics.addToCart();
       order.items.forEach((item) => onReorder(item));
       onShowToast(`Reordered! ${totalItemsCount} product${totalItemsCount > 1 ? 's' : ''} added to your cart 🛒`);
     }
@@ -479,7 +479,6 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      haptics.success();
                       onReorder(item);
                       onShowToast(`Added ${item.name.slice(0, 18)}... to cart!`);
                     }}
@@ -672,12 +671,13 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
       setSpeedKmh(Math.floor(28 + Math.random() * 8));
       setIsRefreshing(false);
       setLastUpdated('Updated just now');
+      haptics.subtle();
       onShowToast('Live Rider GPS location refreshed! 📡');
     }, 600);
   };
 
   const handleCopyOtp = () => {
-    haptics.success();
+    haptics.saved();
     if (navigator.clipboard) {
       navigator.clipboard.writeText('4829');
     }
@@ -1096,8 +1096,8 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
   };
 
   const handleDownloadCSV = () => {
-    haptics.success();
     if (filteredOrders.length === 0) {
+      haptics.warning();
       onShowToast('No orders found to export in current view.');
       return;
     }
@@ -1160,6 +1160,7 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
+    haptics.subtle();
     onShowToast(`Exported ${filteredOrders.length} order(s) to CSV! 📊`);
   };
 
@@ -1767,7 +1768,6 @@ export const OrdersSection: React.FC<OrdersSectionProps> = ({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              haptics.success();
                               onReorder(item);
                               onShowToast(`Added ${item.name.slice(0, 18)}... to cart!`);
                             }}

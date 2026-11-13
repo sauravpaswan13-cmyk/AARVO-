@@ -353,7 +353,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   }, [supportTickets]);
 
   const downloadSellerCsvTemplate = () => {
-    haptics.selection();
     const headers = ['Name*', 'Category*', 'Price_INR*', 'Stock*', 'Sizes', 'Colours', 'COD', 'Fabric', 'Description', 'Length_cm', 'Breadth_cm', 'Height_cm', 'Weight_kg'];
     const samples = [
       ['Pure Cotton Slim Fit Kurta', 'Fashion', '899', '40', 'M, L, XL, XXL', 'Royal Blue, White, Black', 'Yes', 'Pure Cotton', 'Authentic breathable cotton ethnic daily wear kurta.', '25', '20', '4', '0.35'],
@@ -374,6 +373,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    haptics.subtle();
     showToast('⬇ CSV template downloaded!');
   };
 
@@ -388,6 +388,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         const text = String(event.target?.result || '');
         const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
         if (lines.length < 2) {
+          haptics.warning();
           showToast('CSV is empty or only has headers.');
           return;
         }
@@ -475,12 +476,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
         if (importedProducts.length > 0) {
           setAllProducts((prev) => [...importedProducts, ...prev]);
-          haptics.success();
+          haptics.saved();
           showToast(`✓ Bulk imported ${importedProducts.length} product(s) with variants!`);
         } else {
+          haptics.warning();
           showToast('No valid product rows found in CSV.');
         }
       } catch (err: any) {
+        haptics.warning();
         showToast(`CSV error: ${err.message}`);
       }
     };
@@ -626,7 +629,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         showToast('Removed from Wishlist');
         return prev.filter((id) => id !== productId);
       } else {
-        haptics.success();
+        haptics.saved();
         showToast(productName ? `Added ${productName.slice(0, 18)}... to Wishlist ❤️` : 'Added to Wishlist ❤️');
         return [...prev, productId];
       }
@@ -682,7 +685,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       setShowOfflineNotice(false);
       setIsOfflineDismissed(false);
       setReconnectNotice(true);
-      haptics.success();
+      haptics.subtle();
 
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
@@ -715,14 +718,15 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   }, []);
 
   const retryConnection = () => {
-    haptics.light();
     if (typeof navigator !== 'undefined' && navigator.onLine) {
+      haptics.subtle();
       setIsOnline(true);
       setShowOfflineNotice(false);
       setReconnectNotice(true);
       setTimeout(() => setReconnectNotice(false), 3000);
       showToast('Internet connection restored!');
     } else {
+      haptics.warning();
       setShowOfflineNotice(false);
       setTimeout(() => setShowOfflineNotice(true), 150);
       showToast('Still offline. Please check your network.');
@@ -1016,7 +1020,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         item.id === id ? { ...item, stockQuantity: (item.stockQuantity ?? 0) + amount } : item
       )
     );
-    haptics.success();
+    haptics.subtle();
     showToast(`Restocked +${amount} units successfully!`);
   };
 
@@ -1046,16 +1050,17 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     },
   ]);
 
-  const addToCart = (product: Product) => {
-    haptics.success();
+  const addToCart = (product: Product, quantity: number = 1) => {
+    const qtyToAdd = Math.max(1, quantity);
+    haptics.addToCart();
     setCartItems((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
         return prev.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.product.id === product.id ? { ...item, quantity: item.quantity + qtyToAdd } : item
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity: qtyToAdd }];
     });
     showToast(`Added ${product.name.slice(0, 24)}... to Cart!`);
   };
@@ -1369,7 +1374,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               showToast(`Added ${item.name.slice(0, 20)}... to Cart!`);
             }}
             onReorderAll={(items) => {
-              haptics.success();
+              haptics.addToCart();
               setCartItems((prev) => {
                 const nextCart = [...prev];
                 items.forEach((orderItem) => {
@@ -2108,7 +2113,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          haptics.success();
                           addToCart(product);
                         }}
                         className="p-1.5 rounded-lg bg-orange-50 dark:bg-stone-800 hover:bg-[#FF5722] text-[#FF5722] hover:text-white transition-colors cursor-pointer"
@@ -2193,7 +2197,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        haptics.success();
                         addToCart(product);
                       }}
                       className="mt-2 w-full py-1.5 bg-orange-50 dark:bg-stone-800 hover:bg-[#FF5722] text-[#FF5722] hover:text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
@@ -2755,10 +2758,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
                             <button
                               type="button"
-                              onClick={() => {
-                                haptics.light();
-                                updateCartQuantity(item.product.id, -1);
-                              }}
+                              onClick={() => updateCartQuantity(item.product.id, -1)}
                               className="w-5 h-5 rounded flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
                             >
                               <Minus className="w-3 h-3" />
@@ -2768,10 +2768,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             </span>
                             <button
                               type="button"
-                              onClick={() => {
-                                haptics.light();
-                                updateCartQuantity(item.product.id, 1);
-                              }}
+                              onClick={() => updateCartQuantity(item.product.id, 1)}
                               className="w-5 h-5 rounded flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
                             >
                               <Plus className="w-3 h-3" />
@@ -2784,7 +2781,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           <button
                             type="button"
                             onClick={() => {
-                              haptics.selection();
                               toggleWishlist(item.product.id, item.product.name);
                               showToast(`Saved ${item.product.name} for later! ❤️`);
                             }}
@@ -2795,10 +2791,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           <span className="text-slate-300 dark:text-slate-700">|</span>
                           <button
                             type="button"
-                            onClick={() => {
-                              haptics.light();
-                              removeFromCart(item.product.id);
-                            }}
+                            onClick={() => removeFromCart(item.product.id)}
                             className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer flex items-center gap-1"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -2819,7 +2812,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     </span>
                     <button
                       type="button"
-                      onClick={() => setIsCouponsModalOpen(true)}
+                      onClick={() => {
+                        haptics.light();
+                        setIsCouponsModalOpen(true);
+                      }}
                       className="text-[11px] font-bold text-[#FF5722] hover:underline cursor-pointer"
                     >
                       View Offers
@@ -2837,6 +2833,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       <button
                         type="button"
                         onClick={() => {
+                          haptics.warning();
                           setAppliedCouponCode(null);
                           setCouponInputCode('');
                           showToast('Coupon removed');
@@ -2851,9 +2848,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         onClick={() => {
                           const code = couponInputCode.trim().toUpperCase();
                           if (code === 'AARVO200' || code === 'WELCOME100') {
+                            haptics.saved();
                             setAppliedCouponCode(code);
                             showToast(`Coupon ${code} applied!`);
                           } else {
+                            haptics.warning();
                             showToast('Try AARVO200 (orders ₹999+) or WELCOME100 (orders ₹499+)');
                           }
                         }}
@@ -2948,7 +2947,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     </span>
                     <button
                       type="button"
-                      onClick={() => setShowAddPaymentModal(true)}
+                      onClick={() => {
+                        haptics.light();
+                        setShowAddPaymentModal(true);
+                      }}
                       className="text-[11px] font-bold text-[#FF5722] hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <span>+ Add Method</span>
@@ -3072,7 +3074,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      haptics.impact();
                       const orderId = `ARV-${Math.floor(100000 + Math.random() * 900000)}`;
                       const chosenPayment = paymentMethodSelection === 'COD'
                         ? 'Cash On Delivery (COD)'
@@ -3103,6 +3104,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           { status: 'Delivered', time: 'Expected in 2-3 days', description: 'Doorstep delivery with OTP verification', completed: false },
                         ],
                       };
+                      haptics.orderComplete();
                       setOrders((prev) => [newOrder, ...prev]);
                       setOrderSuccessModal(orderId);
                       setCartItems([]);
@@ -3277,7 +3279,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setShowAddPaymentModal(true)}
+                    onClick={() => {
+                      haptics.selection();
+                      setShowAddPaymentModal(true);
+                    }}
                     className="text-[11px] font-bold text-[#FF5722] hover:underline cursor-pointer"
                   >
                     Manage &gt;
@@ -3300,7 +3305,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setIsCouponsModalOpen(true)}
+                    onClick={() => {
+                      haptics.selection();
+                      setIsCouponsModalOpen(true);
+                    }}
                     className="text-[11px] font-bold text-[#FF5722] hover:underline cursor-pointer"
                   >
                     View &gt;
@@ -3338,6 +3346,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  haptics.selection();
                   setSellerModalTab('overview');
                   setIsSellerModalOpen(true);
                 }}
@@ -3389,6 +3398,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             <button
               type="button"
               onClick={() => {
+                haptics.light();
                 if (onLogout) onLogout();
               }}
               className="w-full py-3 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/60 text-rose-600 dark:text-rose-400 font-bold text-xs rounded-2xl transition-colors text-center cursor-pointer shadow-2xs"
@@ -3828,6 +3838,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
                 <button
                   onClick={() => {
+                    haptics.light();
                     setOrderSuccessModal(null);
                     setActiveTab('home');
                   }}
@@ -4083,7 +4094,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      haptics.success();
+                      haptics.saved();
                       const parsedPrice = parseInt(newProductPrice) || 1499;
                       const parsedMRP = parseInt(newProductMRP) || Math.round(parsedPrice * 1.6);
                       const discountPercent = Math.max(5, Math.round(((parsedMRP - parsedPrice) / parsedMRP) * 100));
@@ -4568,6 +4579,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
+                      haptics.saved();
                       setSellerRegistered(true);
                     }}
                     className="space-y-3"
@@ -4662,10 +4674,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           isOpen={!!selectedProduct}
           onClose={() => setSelectedProduct(null)}
           onAddToCart={(prod, qty) => {
-            const count = qty || 1;
-            for (let i = 0; i < count; i++) {
-              addToCart(prod);
-            }
+            addToCart(prod, qty || 1);
           }}
           isWishlisted={selectedProduct ? wishlist.includes(selectedProduct.id) : false}
           onToggleWishlist={toggleWishlist}
@@ -4726,10 +4735,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             showToast('Order confirmed via Cash on Delivery!');
           }}
           onBuyNow={(prod, qty) => {
-            const count = qty || 1;
-            for (let i = 0; i < count; i++) {
-              addToCart(prod);
-            }
+            addToCart(prod, qty || 1);
             setSelectedProduct(null);
             switchTab('cart');
           }}
@@ -4896,7 +4902,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    haptics.success();
+                    haptics.saved();
                     showToast('Payment method saved securely!');
                     setPaymentMethodSelection('UPI');
                     setShowAddPaymentModal(false);
@@ -4917,7 +4923,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               onSubmit={(e) => {
                 e.preventDefault();
                 if (!profileDraftName.trim() || !profileDraftPhone.trim()) return;
-                haptics.success();
+                haptics.saved();
                 setUserProfile({ name: profileDraftName.trim(), phone: profileDraftPhone.trim() });
                 setIsEditProfileOpen(false);
                 showToast('Profile updated!');
@@ -5039,6 +5045,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              haptics.light();
                               setEditingAddressId(addr.id);
                               setAddressDraft({
                                 label: addr.label,
@@ -5058,6 +5065,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                haptics.warning();
                                 setSavedAddresses((prev) => prev.filter((a) => a.id !== addr.id));
                                 showToast('Address removed');
                               }}
@@ -5083,7 +5091,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (!addressDraft.fullName.trim() || !addressDraft.addressLine.trim() || !addressDraft.pincode.trim()) return;
-                  haptics.success();
+                  haptics.saved();
                   if (editingAddressId) {
                     setSavedAddresses((prev) =>
                       prev.map((a) => (a.id === editingAddressId ? { id: a.id, ...addressDraft } : a))
@@ -5213,6 +5221,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           src={item.image}
                           alt={item.name}
                           onClick={() => {
+                            haptics.light();
                             setIsWishlistModalOpen(false);
                             setSelectedProduct(item);
                           }}
@@ -5221,6 +5230,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         <div className="flex-1 min-w-0">
                           <h4
                             onClick={() => {
+                              haptics.light();
                               setIsWishlistModalOpen(false);
                               setSelectedProduct(item);
                             }}
@@ -5293,6 +5303,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       <button
                         type="button"
                         onClick={() => {
+                          haptics.saved();
                           navigator.clipboard?.writeText(c.code).catch(() => {});
                           showToast(`Copied ${c.code}`);
                         }}
@@ -5306,7 +5317,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        haptics.selection();
+                        if (isApplied) {
+                          haptics.warning();
+                        } else {
+                          haptics.saved();
+                        }
                         setAppliedCouponCode(isApplied ? null : c.code);
                         showToast(isApplied ? `Removed ${c.code}` : `Applied ${c.code} to your Cart!`);
                       }}
@@ -5346,6 +5361,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  haptics.selection();
                   setIsHelpModalOpen(false);
                   setIsOrdersViewOpen(true);
                 }}
@@ -5387,7 +5403,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (!ticketMessage.trim()) return;
-                  haptics.success();
+                  haptics.saved();
                   const newTicket = {
                     id: `TKT-${Math.floor(10000 + Math.random() * 90000)}`,
                     subject: ticketSubject,

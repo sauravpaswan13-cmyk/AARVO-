@@ -603,10 +603,7 @@ export const ProductImageZoomModal: React.FC<ProductImageZoomModalProps> = ({
             {onAddToCart && (
               <button
                 type="button"
-                onClick={() => {
-                  haptics.success();
-                  onAddToCart(product);
-                }}
+                onClick={() => onAddToCart(product)}
                 className="px-3.5 py-2.5 rounded-xl bg-[#211A17] hover:bg-[#2C221E] active:scale-95 text-[#FF8A65] text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-[#FF5722]/40"
               >
                 <ShoppingCart className="w-3.5 h-3.5" />
@@ -618,7 +615,7 @@ export const ProductImageZoomModal: React.FC<ProductImageZoomModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  haptics.success();
+                  haptics.impact();
                   onClose();
                   onBuyNow(product);
                 }}

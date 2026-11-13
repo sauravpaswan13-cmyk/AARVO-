@@ -2,76 +2,97 @@
 # ==============================================================================
 # AARVO GitHub Auto-Push & Build Trigger Script
 # ==============================================================================
-# This script automatically commits changes, pushes to the GitHub repository,
-# and triggers the GitHub Actions workflow for building the APK.
-# ==============================================================================
 
-set -e
+set -euo pipefail
 
-REPO_URL="https://github.com/sauravpaswan13-cmyk/AARVO-.git"
+WORKSPACE_DIR="$(pwd)"
 REPO_OWNER="sauravpaswan13-cmyk"
 REPO_NAME="AARVO-"
-WORKFLOW_FILE="aarvo-build-trigger.yml"
+REPO_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}.git"
+WORKFLOW_FILE="build-apk.yml"
 BRANCH="main"
+TMP_REPO="/tmp/aarvo_repo"
 
-COMMIT_MSG="${1:-Auto sync and build trigger from AI Studio}"
+COMMIT_MSG="${1:-Sync AARVO Android UI and web preview updates}"
 
 echo "=================================================="
 echo "  AARVO GitHub Auto-Push & Build Trigger"
 echo "=================================================="
 
 # Check if GITHUB_TOKEN is available
-if [ -z "$GITHUB_TOKEN" ]; then
-  # Try reading from .env if present
-  if [ -f .env ]; then
-    export $(grep -v '^#' .env | grep -E '^GITHUB_TOKEN=' | xargs 2>/dev/null || true)
+if [ -z "${GITHUB_TOKEN:-}" ] && [ -f "${WORKSPACE_DIR}/.env" ]; then
+  TOKEN_LINE="$(grep -E '^GITHUB_TOKEN=' "${WORKSPACE_DIR}/.env" | tail -n 1 || true)"
+  if [ -n "$TOKEN_LINE" ]; then
+    GITHUB_TOKEN="${TOKEN_LINE#GITHUB_TOKEN=}"
+    GITHUB_TOKEN="${GITHUB_TOKEN%\"}"
+    GITHUB_TOKEN="${GITHUB_TOKEN#\"}"
+    GITHUB_TOKEN="${GITHUB_TOKEN%\'}"
+    GITHUB_TOKEN="${GITHUB_TOKEN#\'}"
+    export GITHUB_TOKEN
   fi
 fi
 
-if [ -z "$GITHUB_TOKEN" ]; then
-  echo "⚠️  GITHUB_TOKEN is not set."
-  echo ""
-  echo "To allow automatic push and workflow triggering:"
-  echo "1. Create a GitHub Personal Access Token at https://github.com/settings/tokens/new with 'repo' scope."
-  echo "2. Run this command with your token:"
-  echo "   GITHUB_TOKEN=\"ghp_your_token\" ./scripts/sync-to-github.sh"
-  echo "   or add GITHUB_TOKEN=ghp_your_token to your .env file."
-  echo "=================================================="
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+  echo "GITHUB_TOKEN is not set."
+  echo "Set GITHUB_TOKEN in environment or .env, then run:"
+  echo "  bash scripts/sync-to-github.sh"
   exit 1
 fi
 
-echo "📦 1. Preparing files and commit..."
-cd /tmp/aarvo_repo 2>/dev/null || cd .
+AUTH_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO_OWNER}/${REPO_NAME}.git"
 
+echo "1. Preparing clean clone in ${TMP_REPO}..."
+rm -rf "${TMP_REPO}"
+GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "${BRANCH}" "${AUTH_URL}" "${TMP_REPO}" >/dev/null 2>&1
+
+echo "2. Syncing workspace files into ${TMP_REPO}..."
+tar -C "${WORKSPACE_DIR}" \
+  --exclude='.git' \
+  --exclude='node_modules' \
+  --exclude='dist' \
+  --exclude='build' \
+  --exclude='.gradle' \
+  --exclude='.aistudio' \
+  --exclude='.env' \
+  --exclude='.env.local' \
+  --exclude='.env.*.local' \
+  --exclude='public/downloads' \
+  --exclude='*.apk' \
+  --exclude='*.jks' \
+  --exclude='*.keystore' \
+  -cf - . | tar -C "${TMP_REPO}" --no-same-owner -xf -
+
+git config --global --add safe.directory "${TMP_REPO}" 2>/dev/null || true
+cd "${TMP_REPO}"
+git remote set-url origin "${REPO_URL}"
 git config user.name "sauravpaswan13"
 git config user.email "sauravpaswan13@gmail.com"
 
 git add -A
-if git diff-index --quiet HEAD --; then
-  echo "ℹ️  No new changes to commit. Proceeding to trigger build..."
+if git diff --cached --quiet; then
+  echo "No file changes detected relative to ${BRANCH}."
 else
-  git commit -m "$COMMIT_MSG"
-  echo "✅ Changes committed: $COMMIT_MSG"
+  git commit -m "${COMMIT_MSG}"
+  echo "Committed: ${COMMIT_MSG}"
+  echo "3. Pushing to GitHub (${REPO_OWNER}/${REPO_NAME} -> ${BRANCH})..."
+  GIT_TERMINAL_PROMPT=0 git push "${AUTH_URL}" "${BRANCH}" >/dev/null 2>&1
+  echo "Successfully pushed changes to GitHub!"
 fi
 
-echo "🚀 2. Pushing to GitHub (origin/$BRANCH)..."
-git push "https://${GITHUB_TOKEN}@github.com/${REPO_OWNER}/${REPO_NAME}.git" "$BRANCH"
-echo "✅ Successfully pushed changes to GitHub!"
-
-echo "⚙️ 3. Triggering GitHub Actions Workflow..."
+echo "4. Checking workflow dispatch (${WORKFLOW_FILE})..."
 RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
   -X POST \
   -H "Accept: application/vnd.github.v3+json" \
-  -H "Authorization: token ${GITHUB_TOKEN}" \
+  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
   "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches" \
   -d "{\"ref\":\"${BRANCH}\"}")
 
 if [ "$RESPONSE" = "204" ]; then
-  echo "🎉 Success! GitHub Actions workflow '${WORKFLOW_FILE}' has been triggered."
-  echo "👉 Monitor your build here: https://github.com/${REPO_OWNER}/${REPO_NAME}/actions"
+  echo "Workflow '${WORKFLOW_FILE}' triggered."
 else
-  echo "ℹ️  Push succeeded. Workflow will trigger automatically via GitHub push event."
-  echo "👉 Check Actions tab: https://github.com/${REPO_OWNER}/${REPO_NAME}/actions"
+  echo "Push to '${BRANCH}' triggers CI workflows automatically (dispatch status: ${RESPONSE})."
 fi
 
-echo "=================================================="
+echo "Monitor build: https://github.com/${REPO_OWNER}/${REPO_NAME}/actions"
+rm -rf "${TMP_REPO}"
+

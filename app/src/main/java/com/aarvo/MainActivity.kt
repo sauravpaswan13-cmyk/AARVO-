@@ -99,6 +99,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -333,6 +334,12 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     onToggleTheme: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }; var accountSection by remember { mutableStateOf("account") }; var query by remember { mutableStateOf("") }; var category by remember { mutableStateOf("All") }; var sortMode by remember { mutableStateOf("Relevance") }; var minRating by remember { mutableStateOf(0.0) }; var maxPrice by remember { mutableStateOf<Long?>(null) }; var inStockOnly by remember { mutableStateOf(false) }; var showFilters by remember { mutableStateOf(false) }; var showNotifications by remember { mutableStateOf(false) }
+    var appliedCouponCode by remember { mutableStateOf<String?>(null) }
+    var couponDiscountPaise by remember { mutableStateOf(0L) }
+    var showCouponsModal by remember { mutableStateOf(false) }
+    var showHelpModal by remember { mutableStateOf(false) }
+    var defaultAddressLine by remember { mutableStateOf("Tap Change to select delivery address") }
+    var defaultPincode by remember { mutableStateOf("800001") }
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
     val voiceSpeechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -366,6 +373,19 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                 userOrderCount = ord.length()
             } catch (_: Throwable) {
                 userOrderCount = 0
+            }
+            runCatching {
+                val addrs = api.addresses()
+                if (addrs.length() > 0) {
+                    val list = buildList { for (i in 0 until addrs.length()) add(addrs.getJSONObject(i)) }
+                    val def = list.firstOrNull { it.optBoolean("is_default", false) || it.optBoolean("isDefault", false) } ?: list.first()
+                    val formatted = listOf(def.optString("line1"), def.optString("city"), def.optString("state"))
+                        .filter { it.isNotBlank() }
+                        .joinToString(", ")
+                    if (formatted.isNotBlank()) defaultAddressLine = formatted
+                    val pin = def.optString("postal_code", def.optString("postalCode"))
+                    if (pin.isNotBlank()) defaultPincode = pin
+                }
             }
         } else {
             userOrderCount = 0
@@ -429,7 +449,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     val availableCategories = remember(allProducts) { listOf("All") + allProducts.map { it.category.trim() }.filter { it.isNotBlank() }.distinct().sorted() }
     if (showFilters) ProductFilterDialog(sortMode, minRating, maxPrice, inStockOnly, { sortMode = it; showFilters = false }, { minRating = it }, { maxPrice = it }, { inStockOnly = it }, { showFilters = false })
     selectedProduct?.let { product ->
-        ProductDetailsScreen(
+        PreviewProductDetailsScreen(
             product = product,
             isSaved = product.id in wishlist,
             onBack = { selectedProduct = null },
@@ -448,14 +468,41 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
             cartBadgeCount = cartBadgeCount,
             onOpenCart = {
                 selectedProduct = null
-                selectedTab = 3
-            }
+                selectedTab = 2
+            },
+            isDarkTheme = isDarkTheme
         )
         return
     }
+    if (showCouponsModal) {
+        CouponsModalDialog(
+            api = api,
+            subtotalPaise = cartItems.sumOf { it.pricePaise },
+            appliedCouponCode = appliedCouponCode,
+            onApplyCoupon = { code, discount ->
+                appliedCouponCode = code
+                couponDiscountPaise = discount
+            },
+            onRemoveCoupon = {
+                appliedCouponCode = null
+                couponDiscountPaise = 0L
+            },
+            isDarkTheme = isDarkTheme,
+            onDismiss = { showCouponsModal = false }
+        )
+    }
+    if (showHelpModal) {
+        HelpCenterModalDialog(
+            api = api,
+            orderCount = userOrderCount,
+            onOpenOrders = { selectedTab = 3 },
+            isDarkTheme = isDarkTheme,
+            onDismiss = { showHelpModal = false }
+        )
+    }
     if (showLoginRequired) LoginRequiredDialog({ showLoginRequired = false; onLogin() }, { showLoginRequired = false })
     if (showNotifications) { NotificationsScreen(PaddingValues(0.dp), api) { showNotifications = false }; return }
-    if (showCheckout) CheckoutDialog(api, cartItems.sumOf { it.pricePaise }, checkoutLoading, checkoutMessage, { if (!checkoutLoading) showCheckout = false }) { fullName, phone, line1, city, state, postalCode, paymentMethod ->
+    if (showCheckout) CheckoutDialog(api, (cartItems.sumOf { it.pricePaise } - couponDiscountPaise).coerceAtLeast(0L), checkoutLoading, checkoutMessage, { if (!checkoutLoading) showCheckout = false }) { fullName, phone, line1, city, state, postalCode, paymentMethod ->
         checkoutLoading = true; checkoutMessage = "Creating secure order..."; scope.launch { try {
             val items = JSONArray().apply { cartViewModel.distinctItems().forEach { product -> put(JSONObject().put("productId", product.id).put("quantity", cartViewModel.quantity(product.id))) } }
             val address = JSONObject().apply { put("fullName", fullName.trim()); put("phone", phone.trim()); put("line1", line1.trim()); put("line2", ""); put("city", city.trim()); put("state", state.trim()); put("postalCode", postalCode.trim()); put("country", "IN") }
@@ -595,10 +642,11 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         textColor = itemTextColor,
                         onClick = {
                             scope.launch { drawerState.close() }
-                            selectedTab = 2
+                            selectedTab = 5
                         }
                     )
 
+                    // 4. Orders & Delivery
                     DrawerNavRow(
                         icon = "📦",
                         label = "Orders & Delivery",
@@ -608,8 +656,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         textColor = itemTextColor,
                         onClick = {
                             scope.launch { drawerState.close() }
-                            accountSection = "orders"
-                            selectedTab = 4
+                            selectedTab = 3
                         }
                     )
 
@@ -628,7 +675,32 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         }
                     )
 
-                    // 6. Seller Business Onboarding
+                    // 6. Coupons & Promos
+                    DrawerNavRow(
+                        icon = "🎟️",
+                        label = "Coupons & Promos",
+                        badge = appliedCouponCode,
+                        badgeColor = Color(0xFFECFDF5),
+                        badgeTextColor = Color(0xFF059669),
+                        textColor = itemTextColor,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            showCouponsModal = true
+                        }
+                    )
+
+                    // 7. Help & Support
+                    DrawerNavRow(
+                        icon = "🎧",
+                        label = "Help & 24/7 Support",
+                        textColor = itemTextColor,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            showHelpModal = true
+                        }
+                    )
+
+                    // 8. Seller Business Onboarding
                     DrawerNavRow(
                         icon = "🏪",
                         label = "Seller Business Onboarding",
@@ -672,149 +744,38 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         Scaffold(
             containerColor = if (isDarkTheme) Color(0xFF120E0C) else Color(0xFFFFFDF9),
             topBar = {
-                val topIconTint = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF1F1612)
-                val headerBrush = if (isDarkTheme) {
-                    Brush.verticalGradient(listOf(Color(0xFF26160C), Color(0xFF1B120E), Color(0xFF181311)))
-                } else {
-                    Brush.verticalGradient(listOf(Color(0xFFFFE5CC), Color(0xFFFFF4E8), Color(0xFFFFFFFF)))
-                }
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(headerBrush)
-                        .padding(bottom = 12.dp)
-                ) {
-                    // Top Bar: Hamburger Menu, AARVO Brand Logo + Name, Notifications and Cart
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, "Menu", tint = topIconTint)
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { selectedTab = 0; accountSection = "account" }
-                        ) {
-                            androidx.compose.foundation.Image(
-                                painter = coil3.compose.rememberAsyncImagePainter(model = R.drawable.aarvo_brand_logo),
-                                contentDescription = "AARVO logo",
-                                modifier = Modifier.size(32.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "AARVO",
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFFFF5722),
-                                fontSize = 22.sp
-                            )
-                        }
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (unreadNotificationCount > 0) {
-                                BadgedBox(badge = { Badge(containerColor = Color(0xFFFF5722), contentColor = Color.White) { Text(unreadNotificationCount.toString()) } }) {
-                                    IconButton(onClick = { showNotifications = true }) {
-                                        Icon(Icons.Default.Notifications, "Notifications", tint = topIconTint)
-                                    }
-                                }
-                            } else {
-                                IconButton(onClick = { showNotifications = true }) {
-                                    Icon(Icons.Default.Notifications, "Notifications", tint = topIconTint)
-                                }
+                AarvoPreviewTopBar(
+                    query = query,
+                    onQueryChange = {
+                        query = it
+                        if (selectedTab != 0 && selectedTab != 1) selectedTab = 0
+                    },
+                    onMenuClick = { scope.launch { drawerState.open() } },
+                    onVoiceClick = {
+                        try {
+                            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to search products on AARVO...")
                             }
-                            if (cartBadgeCount > 0) {
-                                BadgedBox(badge = { Badge(containerColor = Color(0xFFFF5722), contentColor = Color.White) { Text(cartBadgeCount.toString()) } }) {
-                                    IconButton(onClick = { selectedTab = 3 }) {
-                                        Icon(Icons.Default.ShoppingCart, "Cart", tint = topIconTint)
-                                    }
-                                }
-                            } else {
-                                IconButton(onClick = { selectedTab = 3 }) {
-                                    Icon(Icons.Default.ShoppingCart, "Cart", tint = topIconTint)
-                                }
-                            }
+                            voiceSpeechLauncher.launch(intent)
+                        } catch (_: Exception) {
+                            Toast.makeText(activity, "Voice search is not supported on this device", Toast.LENGTH_SHORT).show()
                         }
+                    },
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = onToggleTheme,
+                    unreadNotificationCount = unreadNotificationCount,
+                    onNotificationsClick = { showNotifications = true },
+                    cartBadgeCount = cartBadgeCount,
+                    onCartClick = { selectedTab = 2 },
+                    onLogoClick = { selectedTab = 0; accountSection = "account" },
+                    departments = listOf("All", "Electronics", "Fashion", "Mobiles", "Home & Living", "Grocery", "Beauty & Care", "Appliances", "Sports", "Toys & Kids"),
+                    selectedCategory = category,
+                    onSelectCategory = { cat ->
+                        category = cat
+                        if (selectedTab != 0 && selectedTab != 1) selectedTab = 0
                     }
-
-                    // Search Bar inside Warm Peach Header
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp)
-                            .height(48.dp),
-                        shape = CircleShape,
-                        color = if (isDarkTheme) Color(0xFF211A17) else Color.White,
-                        border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF4A3B34) else Color(0xFFFFDFC4)),
-                        shadowElevation = 2.dp
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Search,
-                                contentDescription = "Search",
-                                tint = Color(0xFFFF5722),
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Box(modifier = Modifier.weight(1f)) {
-                                if (query.isEmpty()) {
-                                    Text(
-                                        "Search for products, brands and more...",
-                                        color = if (isDarkTheme) Color(0xFFA8988F) else Color(0xFF9E8E84),
-                                        fontSize = 13.sp,
-                                        maxLines = 1
-                                    )
-                                }
-                                androidx.compose.foundation.text.BasicTextField(
-                                    value = query,
-                                    onValueChange = {
-                                        query = it
-                                        if (selectedTab != 0 && selectedTab != 1) selectedTab = 0
-                                    },
-                                    singleLine = true,
-                                    textStyle = androidx.compose.ui.text.TextStyle(
-                                        color = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF1F1612),
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                            if (query.isNotEmpty()) {
-                                IconButton(onClick = { query = "" }, modifier = Modifier.size(24.dp)) {
-                                    Text("✕", fontSize = 12.sp, color = Color(0xFF9E8E84))
-                                }
-                            }
-                            IconButton(
-                                onClick = {
-                                    try {
-                                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to search products on AARVO...")
-                                        }
-                                        voiceSpeechLauncher.launch(intent)
-                                    } catch (_: Exception) {
-                                        Toast.makeText(activity, "Voice search is not supported on this device", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Text(
-                                    "🎙️",
-                                    fontSize = 16.sp
-                                )
-                            }
-                        }
-                    }
-                }
+                )
             },
             bottomBar = {
                 val navBarColor = if (isDarkTheme) Color(0xFF181311) else Color.White
@@ -830,20 +791,18 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     NavigationBarItem(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        icon = { Text("🔲", fontSize = 18.sp) },
+                        icon = {
+                            GridVectorIcon(
+                                tint = if (selectedTab == 1) Color(0xFFFF5722) else navUnselected,
+                                modifier = Modifier.size(21.dp)
+                            )
+                        },
                         label = { Text("Categories", fontSize = 10.sp, maxLines = 1) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFFFF5722), selectedTextColor = Color(0xFFFF5722), unselectedIconColor = navUnselected, unselectedTextColor = navUnselected, indicatorColor = Color.Transparent)
                     )
                     NavigationBarItem(
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
-                        icon = { Text("🏷️", fontSize = 18.sp) },
-                        label = { Text("Offers", fontSize = 10.sp, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFFFF5722), selectedTextColor = Color(0xFFFF5722), unselectedIconColor = navUnselected, unselectedTextColor = navUnselected, indicatorColor = Color.Transparent)
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 3,
-                        onClick = { selectedTab = 3 },
                         icon = {
                             if (cartBadgeCount > 0) {
                                 BadgedBox(badge = { Badge(containerColor = Color(0xFFFF5722), contentColor = Color.White) { Text(cartBadgeCount.toString()) } }) {
@@ -857,6 +816,18 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFFFF5722), selectedTextColor = Color(0xFFFF5722), unselectedIconColor = navUnselected, unselectedTextColor = navUnselected, indicatorColor = Color.Transparent)
                     )
                     NavigationBarItem(
+                        selected = selectedTab == 3,
+                        onClick = { selectedTab = 3 },
+                        icon = {
+                            PackageVectorIcon(
+                                tint = if (selectedTab == 3) Color(0xFFFF5722) else navUnselected,
+                                modifier = Modifier.size(21.dp)
+                            )
+                        },
+                        label = { Text("Orders", fontSize = 10.sp, maxLines = 1) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFFFF5722), selectedTextColor = Color(0xFFFF5722), unselectedIconColor = navUnselected, unselectedTextColor = navUnselected, indicatorColor = Color.Transparent)
+                    )
+                    NavigationBarItem(
                         selected = selectedTab == 4,
                         onClick = { accountSection = "account"; selectedTab = 4 },
                         icon = { Icon(Icons.Default.Person, "Account") },
@@ -867,10 +838,112 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
             }
         ) { padding ->
             when (selectedTab) {
-                0 -> HomeScreen(padding, api, query, { query = it }, availableCategories, category, { category = it }, visibleProducts, recentlyViewed, loading, error, cartViewModel::add, { selectedProduct = it }, wishlist, { id -> wishlist = wishlistStore.toggle(id) }, { showFilters = true }, sortMode, minRating, maxPrice, inStockOnly, { activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java)) }, { selectedTab = 2 })
-                1 -> CategoriesGridScreen(padding, availableCategories) { category = it; selectedTab = 0 }
-                2 -> OffersScreen(padding, api, allProducts) { selectedProduct = it }
-                3 -> CartScreen(padding, cartItems, allProducts, saveForLater, { product -> cartViewModel.increment(product); syncAuthenticatedCart() }, { product -> cartViewModel.decrement(product); syncAuthenticatedCart() }, { id -> cartViewModel.removeAll(id); syncAuthenticatedCart() }, cartViewModel::quantity, { cartViewModel.clear(); if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } } }, { product -> cartViewModel.removeAll(product.id); saveForLater = saveForLaterStore.toggle(product.id); syncAuthenticatedCart() }, { product -> saveForLater = saveForLaterStore.remove(product.id); cartViewModel.add(product); syncAuthenticatedCart() }, { id -> saveForLater = saveForLaterStore.remove(id) }, { if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" } }, onOpenOrders = { accountSection = "orders"; selectedTab = 4 })
+                0 -> PreviewHomeScreen(
+                    padding = padding,
+                    api = api,
+                    query = query,
+                    onQueryChange = { query = it },
+                    categories = availableCategories,
+                    selectedCategory = category,
+                    onCategoryChange = { category = it },
+                    products = visibleProducts,
+                    allProducts = allProducts,
+                    recentlyViewed = recentlyViewed,
+                    loading = loading,
+                    error = error,
+                    onAdd = { p -> cartViewModel.add(p); syncAuthenticatedCart() },
+                    onOpen = { selectedProduct = it },
+                    wishlist = wishlist,
+                    onToggleWishlist = { id -> wishlist = wishlistStore.toggle(id) },
+                    onFilter = { showFilters = true },
+                    sortMode = sortMode,
+                    minRating = minRating,
+                    maxPrice = maxPrice,
+                    inStockOnly = inStockOnly,
+                    onOpenSeller = { activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java)) },
+                    onOpenOffers = { selectedTab = 5 },
+                    onOpenCategories = { selectedTab = 1 },
+                    isDarkTheme = isDarkTheme
+                )
+                1 -> PreviewCategoriesExplorerScreen(
+                    padding = padding,
+                    allProducts = allProducts,
+                    selectedCategory = category,
+                    onSelectCategory = { category = it },
+                    wishlist = wishlist,
+                    onToggleWishlist = { id -> wishlist = wishlistStore.toggle(id) },
+                    onAdd = { p -> cartViewModel.add(p); syncAuthenticatedCart() },
+                    onOpenProduct = { selectedProduct = it },
+                    isDarkTheme = isDarkTheme
+                )
+                2 -> CartScreen(
+                    padding = padding,
+                    items = cartItems,
+                    allProducts = allProducts,
+                    saveForLater = saveForLater,
+                    onIncrement = { product -> cartViewModel.increment(product); syncAuthenticatedCart() },
+                    onDecrement = { product -> cartViewModel.decrement(product); syncAuthenticatedCart() },
+                    onRemoveAll = { id -> cartViewModel.removeAll(id); syncAuthenticatedCart() },
+                    quantityOf = cartViewModel::quantity,
+                    onClear = {
+                        cartViewModel.clear()
+                        if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } }
+                    },
+                    onSaveForLater = { product ->
+                        cartViewModel.removeAll(product.id)
+                        saveForLater = saveForLaterStore.toggle(product.id)
+                        syncAuthenticatedCart()
+                    },
+                    onMoveToCart = { product ->
+                        saveForLater = saveForLaterStore.remove(product.id)
+                        cartViewModel.add(product)
+                        syncAuthenticatedCart()
+                    },
+                    onRemoveSaved = { id -> saveForLater = saveForLaterStore.remove(id) },
+                    onCheckout = {
+                        if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" }
+                    },
+                    onOpenOrders = { selectedTab = 3 },
+                    api = api,
+                    userName = userName,
+                    deliveryAddressLine = defaultAddressLine,
+                    deliveryPincode = defaultPincode,
+                    userOrderCount = userOrderCount,
+                    appliedCouponCode = appliedCouponCode,
+                    couponDiscountPaise = couponDiscountPaise,
+                    onApplyCoupon = { code, discount ->
+                        appliedCouponCode = code
+                        couponDiscountPaise = discount
+                    },
+                    onRemoveCoupon = {
+                        appliedCouponCode = null
+                        couponDiscountPaise = 0L
+                    },
+                    onOpenCoupons = { showCouponsModal = true },
+                    onChangeAddress = { activity.startActivity(Intent(activity, AddressBookActivity::class.java)) },
+                    onExploreProducts = { selectedTab = 0 },
+                    isDarkTheme = isDarkTheme
+                )
+                3 -> OrdersScreen(padding, api) { selectedTab = 0 }
+                5 -> PreviewOffersScreen(
+                    padding = padding,
+                    api = api,
+                    products = allProducts,
+                    appliedCouponCode = appliedCouponCode,
+                    onApplyCoupon = { code, discount ->
+                        appliedCouponCode = code
+                        couponDiscountPaise = discount
+                    },
+                    onRemoveCoupon = {
+                        appliedCouponCode = null
+                        couponDiscountPaise = 0L
+                    },
+                    wishlist = wishlist,
+                    onToggleWishlist = { id -> wishlist = wishlistStore.toggle(id) },
+                    onAdd = { p -> cartViewModel.add(p); syncAuthenticatedCart() },
+                    onOpenProduct = { selectedProduct = it },
+                    isDarkTheme = isDarkTheme
+                )
                 else -> AccountScreen(
                     padding = padding,
                     userName = userName,
@@ -891,7 +964,12 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     onAddToCart = { product -> cartViewModel.add(product); syncAuthenticatedCart() },
                     userOrderCount = userOrderCount,
                     section = accountSection,
-                    onSectionChange = { accountSection = it }
+                    onSectionChange = { accountSection = it },
+                    appliedCouponCode = appliedCouponCode,
+                    onOpenCoupons = { showCouponsModal = true },
+                    onOpenHelp = { showHelpModal = true },
+                    defaultAddressSummary = "$defaultAddressLine - $defaultPincode",
+                    onOpenOrdersTab = { selectedTab = 3 }
                 )
             }
         }
@@ -2641,137 +2719,723 @@ private fun ProductDetailsScreen(
     onMoveToCart: (Product) -> Unit,
     onRemoveSaved: (Int) -> Unit,
     onCheckout: () -> Unit,
-    onOpenOrders: (() -> Unit)? = null
+    onOpenOrders: (() -> Unit)? = null,
+    api: AarvoApiClient? = null,
+    userName: String = "Shopper",
+    deliveryAddressLine: String = "Select delivery address",
+    deliveryPincode: String = "800001",
+    userOrderCount: Int = 0,
+    appliedCouponCode: String? = null,
+    couponDiscountPaise: Long = 0L,
+    onApplyCoupon: (String, Long) -> Unit = { _, _ -> },
+    onRemoveCoupon: () -> Unit = {},
+    onOpenCoupons: () -> Unit = {},
+    onChangeAddress: () -> Unit = {},
+    onExploreProducts: () -> Unit = {},
+    isDarkTheme: Boolean = false
 ) {
-    val totalPaise = items.sumOf { product -> product.pricePaise * quantityOf(product.id) }
+    val haptics = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
     val groupedItems = items.distinctBy { it.id }
+    val totalQty = groupedItems.sumOf { quantityOf(it.id) }
+    val totalSellingPaise = groupedItems.sumOf { product -> product.pricePaise * quantityOf(product.id) }
+    val totalMrpPaise = groupedItems.sumOf { product ->
+        val mrpEach = if (product.originalPricePaise > product.pricePaise) product.originalPricePaise else product.pricePaise
+        mrpEach * quantityOf(product.id)
+    }
+    val totalMrpDiscountPaise = (totalMrpPaise - totalSellingPaise).coerceAtLeast(0L)
+    val effectiveCouponPaise = if (appliedCouponCode != null) couponDiscountPaise.coerceAtMost(totalSellingPaise) else 0L
+    val finalPayablePaise = (totalSellingPaise - effectiveCouponPaise).coerceAtLeast(0L)
+    val totalSavedPaise = totalMrpDiscountPaise + effectiveCouponPaise
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+    var couponInput by remember(appliedCouponCode) { mutableStateOf(appliedCouponCode ?: "") }
+    var couponBusy by remember { mutableStateOf(false) }
+    var couponFeedback by remember { mutableStateOf("") }
+    var couponFeedbackError by remember { mutableStateOf(false) }
+
+    val cardBg = if (isDarkTheme) Color(0xFF181311) else Color.White
+    val cardBorder = if (isDarkTheme) Color(0xFF332620) else Color(0xFFFFDFC4)
+    val softOrangeBg = if (isDarkTheme) Color(0xFF211A17) else Color(0xFFFFF4E8)
+    val headingColor = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF0F172A)
+    val mutedColor = if (isDarkTheme) Color(0xFFCBBDB4) else Color(0xFF64748B)
+    val dividerColor = if (isDarkTheme) Color(0xFF2B1F1A) else Color(0xFFF1F5F9)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
     ) {
-        item {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Your Cart",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (onOpenOrders != null) {
-                        OutlinedButton(
-                            onClick = onOpenOrders,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Text("📦 View My Orders", fontSize = 11.sp, color = Color(0xFFFF5722), fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(Modifier.width(6.dp))
-                    }
-                    if (items.isNotEmpty()) {
-                        TextButton(onClick = onClear) { Text("Clear") }
-                    }
-                }
-            }
-        }
-        if (groupedItems.isEmpty()) {
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header with View My Orders pill + badge matching Screenshot_20261113-085440
             item {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Your cart is empty. Add something you like from Home.")
-                    if (onOpenOrders != null) {
-                        Spacer(Modifier.height(12.dp))
-                        Button(
-                            onClick = onOpenOrders,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
-                        ) {
-                            Text("📦 View My Orders", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Shopping Cart (${groupedItems.size})",
+                            fontSize = 19.sp,
+                            fontWeight = FontWeight.Black,
+                            color = headingColor
+                        )
+                        Text(
+                            text = "All items are directly verified for quality and doorstep delivery",
+                            fontSize = 11.sp,
+                            color = mutedColor,
+                            lineHeight = 15.sp
+                        )
                     }
-                }
-            }
-        } else {
-            items(groupedItems, key = { it.id }) { product ->
-                val quantity = quantityOf(product.id)
-                Card(Modifier.fillMaxWidth()) {
-                    Column(
-                        Modifier.fillMaxWidth().padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(product.name, fontWeight = FontWeight.SemiBold)
-                                Text(product.displayPrice)
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(onClick = { onSaveForLater(product) }) {
-                                    Text("Save for later")
+                    Spacer(Modifier.width(8.dp))
+                    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (onOpenOrders != null) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = softOrangeBg,
+                                border = BorderStroke(1.dp, Color(0xFFFED7AA)),
+                                modifier = Modifier.clickable {
+                                    triggerHaptic(haptics)
+                                    onOpenOrders()
                                 }
-                                IconButton(onClick = { onRemoveAll(product.id) }) {
-                                    Icon(Icons.Default.Delete, "Remove all")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    PackageVectorIcon(tint = Color(0xFFFF5722), modifier = Modifier.size(15.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        "View My Orders",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFFFF5722),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (userOrderCount > 0) {
+                                        Spacer(Modifier.width(6.dp))
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = Color(0xFFFF5722)
+                                        ) {
+                                            Text(
+                                                text = userOrderCount.toString(),
+                                                color = Color.White,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Black,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(
-                                onClick = { onDecrement(product) },
-                                enabled = quantity > 0
-                            ) { Text("−", style = MaterialTheme.typography.titleLarge) }
+                        if (items.isNotEmpty()) {
                             Text(
-                                quantity.toString(),
-                                Modifier.padding(horizontal = 12.dp),
-                                fontWeight = FontWeight.Bold
+                                text = "Clear Cart",
+                                fontSize = 11.sp,
+                                color = Color(0xFFE11D48),
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable {
+                                    triggerHaptic(haptics)
+                                    onClear()
+                                }
                             )
-                            IconButton(
-                                onClick = { onIncrement(product) },
-                                enabled = quantity < product.stockQuantity
-                            ) { Text("+") }
                         }
-                        Text("Subtotal: ${formatPaise(product.pricePaise * quantity)}")
                     }
                 }
             }
-        }
 
-        item {
-            Text(
-                "Saved for later",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            val savedProducts = allProducts.filter { it.id in saveForLater }
-            if (savedProducts.isEmpty()) {
-                Text("No saved items yet.")
-            } else {
-                savedProducts.forEach { product ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
+            // Delivery Address Strip
+            item {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = softOrangeBg,
+                    border = BorderStroke(1.dp, cardBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        MapPinVectorIcon(tint = Color(0xFFFF5722), modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Deliver to ${userName.ifBlank { "Shopper" }} - $deliveryPincode",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = headingColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = deliveryAddressLine,
+                                fontSize = 11.sp,
+                                color = mutedColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Change",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFF5722),
+                            modifier = Modifier.clickable {
+                                triggerHaptic(haptics)
+                                onChangeAddress()
+                            }
+                        )
+                    }
+                }
+            }
+
+            if (groupedItems.isEmpty()) {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = cardBg,
+                        border = BorderStroke(1.dp, cardBorder),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 28.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(product.name, fontWeight = FontWeight.SemiBold)
-                                Text(product.displayPrice)
+                            Surface(
+                                shape = CircleShape,
+                                color = softOrangeBg,
+                                modifier = Modifier.size(64.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.ShoppingCart,
+                                        contentDescription = "Empty Cart",
+                                        tint = Color(0xFFFF5722),
+                                        modifier = Modifier.size(30.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                "Your cart is empty!",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Black,
+                                color = headingColor
+                            )
+                            Text(
+                                "Add items that fit your style and daily needs from our verified catalog.",
+                                fontSize = 12.sp,
+                                color = mutedColor,
+                                textAlign = TextAlign.Center
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(
+                                    onClick = {
+                                        triggerHaptic(haptics)
+                                        onExploreProducts()
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
+                                ) {
+                                    Text("Explore Products", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                                if (onOpenOrders != null) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            triggerHaptic(haptics)
+                                            onOpenOrders()
+                                        },
+                                        shape = RoundedCornerShape(10.dp),
+                                        border = BorderStroke(1.dp, cardBorder)
+                                    ) {
+                                        Text(
+                                            "View My Orders ($userOrderCount)",
+                                            color = Color(0xFFFF5722),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                items(groupedItems, key = { it.id }) { product ->
+                    val quantity = quantityOf(product.id)
+                    val linePricePaise = product.pricePaise * quantity
+                    val lineMrpPaise = (if (product.originalPricePaise > product.pricePaise) product.originalPricePaise else product.pricePaise) * quantity
+
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = cardBg,
+                        border = BorderStroke(1.dp, cardBorder),
+                        shadowElevation = 1.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isDarkTheme) Color(0xFF261E1A) else Color(0xFFF8FAFC),
+                                    border = BorderStroke(1.dp, dividerColor),
+                                    modifier = Modifier.size(84.dp)
+                                ) {
+                                    if (product.imageUrl.isNotBlank()) {
+                                        AsyncImage(
+                                            model = product.imageUrl,
+                                            contentDescription = product.name,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(product.emoji, fontSize = 30.sp)
+                                        }
+                                    }
+                                }
+
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = product.name,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = headingColor,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "Seller: ${product.sellerName.ifBlank { "AARVO Certified Store" }}",
+                                        fontSize = 11.sp,
+                                        color = mutedColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = formatPaise(linePricePaise),
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = headingColor
+                                        )
+                                        if (product.hasDiscount && lineMrpPaise > linePricePaise) {
+                                            Text(
+                                                text = formatPaise(lineMrpPaise),
+                                                fontSize = 11.sp,
+                                                color = mutedColor,
+                                                textDecoration = TextDecoration.LineThrough
+                                            )
+                                            Text(
+                                                text = "${product.discountPercent}% OFF",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF059669)
+                                            )
+                                        }
+                                    }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                    ) {
+                                        TruckVectorIcon(tint = Color(0xFF059669), modifier = Modifier.size(14.dp))
+                                        Text(
+                                            text = "Delivery by Tomorrow | FREE",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color(0xFF059669)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Box(Modifier.fillMaxWidth().height(1.dp).background(dividerColor))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        "QTY:",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = mutedColor
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = cardBg,
+                                        border = BorderStroke(1.dp, cardBorder)
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            IconButton(
+                                                onClick = {
+                                                    triggerHaptic(haptics)
+                                                    onDecrement(product)
+                                                },
+                                                enabled = quantity > 0,
+                                                modifier = Modifier.size(30.dp)
+                                            ) {
+                                                Text("−", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = headingColor)
+                                            }
+                                            Text(
+                                                quantity.toString(),
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 13.sp,
+                                                color = headingColor
+                                            )
+                                            IconButton(
+                                                onClick = {
+                                                    triggerHaptic(haptics)
+                                                    onIncrement(product)
+                                                },
+                                                enabled = quantity < product.stockQuantity,
+                                                modifier = Modifier.size(30.dp)
+                                            ) {
+                                                Text("+", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = headingColor)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    TextButton(
+                                        onClick = {
+                                            triggerHaptic(haptics)
+                                            onSaveForLater(product)
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            "Save for later",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = headingColor
+                                        )
+                                    }
+                                    Text("|", color = dividerColor, fontSize = 12.sp)
+                                    TextButton(
+                                        onClick = {
+                                            triggerHaptic(haptics)
+                                            onRemoveAll(product.id)
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "Remove all",
+                                            tint = Color(0xFFE11D48),
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            "Remove",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFE11D48)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Apply Coupon Card
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = cardBg,
+                        border = BorderStroke(1.dp, cardBorder),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    TagVectorIcon(tint = Color(0xFFFF5722), modifier = Modifier.size(17.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Apply Coupon", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = headingColor)
+                                }
                                 Text(
-                                    "Saved for later",
-                                    style = MaterialTheme.typography.bodySmall
+                                    "View Offers",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFFF5722),
+                                    modifier = Modifier.clickable {
+                                        triggerHaptic(haptics)
+                                        onOpenCoupons()
+                                    }
                                 )
                             }
-                            TextButton(onClick = { onMoveToCart(product) }) {
-                                Text("Move to cart")
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedTextField(
+                                    value = couponInput,
+                                    onValueChange = { couponInput = it.uppercase(); couponFeedback = "" },
+                                    singleLine = true,
+                                    placeholder = { Text("Enter promo code (e.g. AARVO200)", fontSize = 12.sp) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Button(
+                                    onClick = {
+                                        val code = couponInput.trim().uppercase()
+                                        if (appliedCouponCode != null && appliedCouponCode.equals(code, ignoreCase = true)) {
+                                            triggerHaptic(haptics)
+                                            onRemoveCoupon()
+                                            couponFeedback = "Coupon removed"
+                                            couponFeedbackError = false
+                                        } else if (code.isNotBlank()) {
+                                            couponBusy = true
+                                            couponFeedback = ""
+                                            scope.launch {
+                                                try {
+                                                    val res = api?.validateOffer(code, totalSellingPaise)
+                                                    val discount = res?.optLong("discountPaise", res.optLong("discount_paise", 0L))
+                                                        ?: when (code) {
+                                                            "AARVO200" -> 20000L
+                                                            "WELCOME100" -> 10000L
+                                                            else -> 0L
+                                                        }
+                                                    if (discount > 0L) {
+                                                        triggerHaptic(haptics, strong = true)
+                                                        onApplyCoupon(code, discount)
+                                                        couponFeedback = "$code applied! Saving ${formatPaise(discount)}"
+                                                        couponFeedbackError = false
+                                                    } else {
+                                                        couponFeedback = "Coupon not applicable to current subtotal"
+                                                        couponFeedbackError = true
+                                                    }
+                                                } catch (t: Throwable) {
+                                                    couponFeedback = t.message ?: "Invalid or expired coupon code"
+                                                    couponFeedbackError = true
+                                                } finally {
+                                                    couponBusy = false
+                                                }
+                                            }
+                                        }
+                                    },
+                                    enabled = !couponBusy && couponInput.trim().isNotBlank(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (appliedCouponCode != null && appliedCouponCode.equals(couponInput.trim(), ignoreCase = true)) Color(0xFF059669) else Color(0xFFFF5722)
+                                    ),
+                                    modifier = Modifier.height(50.dp)
+                                ) {
+                                    if (couponBusy) {
+                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                                    } else {
+                                        Text(
+                                            if (appliedCouponCode != null && appliedCouponCode.equals(couponInput.trim(), ignoreCase = true)) "Remove" else "Apply",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
                             }
-                            IconButton(onClick = { onRemoveSaved(product.id) }) {
-                                Icon(Icons.Default.Delete, "Remove saved item")
+                            if (couponFeedback.isNotBlank()) {
+                                Text(
+                                    text = couponFeedback,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (couponFeedbackError) Color(0xFFE11D48) else Color(0xFF059669)
+                                )
+                            } else if (appliedCouponCode != null && effectiveCouponPaise > 0L) {
+                                Text(
+                                    text = "Applied $appliedCouponCode • Extra ${formatPaise(effectiveCouponPaise)} off",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF059669)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Price Details Card
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = cardBg,
+                        border = BorderStroke(1.dp, cardBorder),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "PRICE DETAILS ($totalQty Items)",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Black,
+                                color = mutedColor
+                            )
+                            Box(Modifier.fillMaxWidth().height(1.dp).background(dividerColor))
+
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Total MRP", fontSize = 13.sp, color = headingColor)
+                                Text(formatPaise(totalMrpPaise), fontSize = 13.sp, color = headingColor, fontWeight = FontWeight.SemiBold)
+                            }
+                            if (totalMrpDiscountPaise > 0L) {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Discount on MRP", fontSize = 13.sp, color = headingColor)
+                                    Text("- ${formatPaise(totalMrpDiscountPaise)}", fontSize = 13.sp, color = Color(0xFF059669), fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            if (appliedCouponCode != null && effectiveCouponPaise > 0L) {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Coupon ($appliedCouponCode)", fontSize = 13.sp, color = headingColor)
+                                    Text("- ${formatPaise(effectiveCouponPaise)}", fontSize = 13.sp, color = Color(0xFF059669), fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Delivery Charges", fontSize = 13.sp, color = headingColor)
+                                Text("FREE", fontSize = 13.sp, color = Color(0xFF059669), fontWeight = FontWeight.Bold)
+                            }
+
+                            Box(Modifier.fillMaxWidth().height(1.dp).background(dividerColor))
+
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Total Amount", fontSize = 15.sp, fontWeight = FontWeight.Black, color = headingColor)
+                                Text(formatPaise(finalPayablePaise), fontSize = 16.sp, fontWeight = FontWeight.Black, color = headingColor)
+                            }
+
+                            if (totalSavedPaise > 0L) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFFECFDF5),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "You will save ${formatPaise(totalSavedPaise)} on this order",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF047857),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Saved for later section
+            val savedProducts = allProducts.filter { it.id in saveForLater }
+            item {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = cardBg,
+                    border = BorderStroke(1.dp, cardBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            "Saved for later (${savedProducts.size})",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black,
+                            color = headingColor
+                        )
+                        if (savedProducts.isEmpty()) {
+                            Text(
+                                "No saved items yet. Tap 'Save for later' on any cart item.",
+                                fontSize = 12.sp,
+                                color = mutedColor
+                            )
+                        } else {
+                            savedProducts.forEach { product ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (isDarkTheme) Color(0xFF211A17) else Color(0xFFFFFBF7),
+                                    border = BorderStroke(1.dp, dividerColor),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isDarkTheme) Color(0xFF2B221D) else Color(0xFFF8FAFC),
+                                            modifier = Modifier.size(48.dp)
+                                        ) {
+                                            if (product.imageUrl.isNotBlank()) {
+                                                AsyncImage(
+                                                    model = product.imageUrl,
+                                                    contentDescription = product.name,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            } else {
+                                                Box(contentAlignment = Alignment.Center) { Text(product.emoji, fontSize = 20.sp) }
+                                            }
+                                        }
+                                        Spacer(Modifier.width(10.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(
+                                                product.name,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp,
+                                                color = headingColor,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                product.displayPrice,
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 12.sp,
+                                                color = Color(0xFFFF5722)
+                                            )
+                                        }
+                                        TextButton(onClick = {
+                                            triggerHaptic(haptics)
+                                            onMoveToCart(product)
+                                        }) {
+                                            Text("Move to cart", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF5722))
+                                        }
+                                        IconButton(onClick = {
+                                            triggerHaptic(haptics)
+                                            onRemoveSaved(product.id)
+                                        }) {
+                                            Icon(Icons.Default.Delete, "Remove saved item", tint = Color(0xFFE11D48), modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -2779,18 +3443,45 @@ private fun ProductDetailsScreen(
             }
         }
 
-        item {
-            Text(
-                "Total: ${formatPaise(totalPaise)}",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-            Button(
-                onClick = onCheckout,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = items.isNotEmpty()
+        if (groupedItems.isNotEmpty()) {
+            Surface(
+                color = cardBg,
+                shadowElevation = 6.dp,
+                border = BorderStroke(1.dp, cardBorder),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Proceed to secure checkout")
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            formatPaise(finalPayablePaise),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Black,
+                            color = headingColor
+                        )
+                        Text(
+                            if (totalSavedPaise > 0L) "Total saved ${formatPaise(totalSavedPaise)}" else "Proceed to secure checkout",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF059669)
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            triggerHaptic(haptics, strong = true)
+                            onCheckout()
+                        },
+                        enabled = items.isNotEmpty(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722)),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
+                    ) {
+                        Text("Place Order ›", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                }
             }
         }
     }
@@ -3071,8 +3762,14 @@ private fun ProductDetailsScreen(
     onAddToCart: (Product) -> Unit = {},
     userOrderCount: Int = 0,
     section: String = "account",
-    onSectionChange: (String) -> Unit = {}
+    onSectionChange: (String) -> Unit = {},
+    appliedCouponCode: String? = null,
+    onOpenCoupons: () -> Unit = {},
+    onOpenHelp: () -> Unit = {},
+    defaultAddressSummary: String = "",
+    onOpenOrdersTab: () -> Unit = { onSectionChange("orders") }
 ) {
+    val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
     var showProfile by remember { mutableStateOf(false) }
     var showSupport by remember { mutableStateOf(false) }
@@ -3242,75 +3939,155 @@ private fun ProductDetailsScreen(
                     }
                 }
 
-                // 2. Quick Actions Grid (My Orders & Saved Wishlist - Real Metrics Only)
+                // 2. 2x2 Quick Action Tiles Grid (Orders, Wishlist, Coupons, Help Center)
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        // Card 1: My Orders
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { onSectionChange("orders") },
-                            shape = RoundedCornerShape(16.dp),
-                            color = cardBg,
-                            border = BorderStroke(1.dp, cardBorder),
-                            shadowElevation = 1.dp
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Column(Modifier.padding(12.dp)) {
-                                Text(
-                                    "MY ORDERS",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = mutedColor
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    "📦 $userOrderCount Orders",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = headingColor
-                                )
-                                Text(
-                                    "Track & Manage",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFFFF5722)
-                                )
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        triggerHaptic(haptics)
+                                        onOpenOrdersTab()
+                                    },
+                                shape = RoundedCornerShape(16.dp),
+                                color = cardBg,
+                                border = BorderStroke(1.dp, cardBorder),
+                                shadowElevation = 1.dp
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isDarkTheme) Color(0xFF2B1A12) else Color(0xFFFFF4E8),
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            PackageVectorIcon(tint = Color(0xFFFF5722), modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    Column {
+                                        Text("Orders", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = headingColor)
+                                        Text("$userOrderCount Total Orders", fontSize = 10.sp, color = Color(0xFFFF5722), fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
+
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        triggerHaptic(haptics)
+                                        onSectionChange("wishlist")
+                                    },
+                                shape = RoundedCornerShape(16.dp),
+                                color = cardBg,
+                                border = BorderStroke(1.dp, cardBorder),
+                                shadowElevation = 1.dp
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isDarkTheme) Color(0xFF2B1A12) else Color(0xFFFFF4E8),
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Default.Favorite, contentDescription = "Wishlist", tint = Color(0xFFE11D48), modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    Column {
+                                        Text("Wishlist", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = headingColor)
+                                        Text("${wishlist.size} items saved", fontSize = 10.sp, color = mutedColor, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
                             }
                         }
 
-                        // Card 2: Saved Wishlist
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { onSectionChange("wishlist") },
-                            shape = RoundedCornerShape(16.dp),
-                            color = cardBg,
-                            border = BorderStroke(1.dp, cardBorder),
-                            shadowElevation = 1.dp
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Column(Modifier.padding(12.dp)) {
-                                Text(
-                                    "SAVED WISHLIST",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = mutedColor
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    "❤️ ${wishlist.size} Items",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = headingColor
-                                )
-                                Text(
-                                    "View Saved",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFFFF5722)
-                                )
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        triggerHaptic(haptics)
+                                        onOpenCoupons()
+                                    },
+                                shape = RoundedCornerShape(16.dp),
+                                color = cardBg,
+                                border = BorderStroke(1.dp, cardBorder),
+                                shadowElevation = 1.dp
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isDarkTheme) Color(0xFF2B1A12) else Color(0xFFFFF4E8),
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            TagVectorIcon(tint = Color(0xFFFF5722), modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    Column {
+                                        Text("Coupons", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = headingColor)
+                                        Text(
+                                            text = appliedCouponCode?.let { "Applied: $it" } ?: "Tap to apply promo",
+                                            fontSize = 10.sp,
+                                            color = if (appliedCouponCode != null) Color(0xFF059669) else Color(0xFFFF5722),
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        triggerHaptic(haptics)
+                                        onOpenHelp()
+                                    },
+                                shape = RoundedCornerShape(16.dp),
+                                color = cardBg,
+                                border = BorderStroke(1.dp, cardBorder),
+                                shadowElevation = 1.dp
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isDarkTheme) Color(0xFF2B1A12) else Color(0xFFFFF4E8),
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            HelpVectorIcon(tint = Color(0xFFFF5722), modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    Column {
+                                        Text("Help Center", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = headingColor)
+                                        Text("FAQs & Support", fontSize = 10.sp, color = mutedColor, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
                             }
                         }
                     }
@@ -3358,7 +4135,10 @@ private fun ProductDetailsScreen(
                                 }
                             }
                             Button(
-                                onClick = onToggleTheme,
+                                onClick = {
+                                    triggerHaptic(haptics)
+                                    onToggleTheme()
+                                },
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722)),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
@@ -3400,7 +4180,7 @@ private fun ProductDetailsScreen(
                                 subtitle = "Live status, tracking & history",
                                 badgeText = if (userOrderCount > 0) "$userOrderCount" else "Orders",
                                 isDarkTheme = isDarkTheme,
-                                onClick = { onSectionChange("orders") }
+                                onClick = onOpenOrdersTab
                             )
                             Box(Modifier.fillMaxWidth().height(0.5.dp).background(dividerColor))
 
@@ -3415,9 +4195,19 @@ private fun ProductDetailsScreen(
                             Box(Modifier.fillMaxWidth().height(0.5.dp).background(dividerColor))
 
                             AccountMenuRow(
+                                emoji = "🎟️",
+                                title = "Coupons & Promo Codes",
+                                subtitle = appliedCouponCode?.let { "Currently applied: $it" } ?: "Browse & apply promo discounts",
+                                badgeText = appliedCouponCode ?: "Offers",
+                                isDarkTheme = isDarkTheme,
+                                onClick = onOpenCoupons
+                            )
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(dividerColor))
+
+                            AccountMenuRow(
                                 emoji = "📍",
                                 title = "Saved Delivery Addresses",
-                                subtitle = "Manage doorstep delivery pins",
+                                subtitle = defaultAddressSummary.ifBlank { "Manage doorstep delivery pins" },
                                 isDarkTheme = isDarkTheme,
                                 onClick = { activity.startActivity(Intent(activity, AddressBookActivity::class.java)) }
                             )
@@ -3448,7 +4238,16 @@ private fun ProductDetailsScreen(
                             AccountMenuRow(
                                 emoji = "🎧",
                                 title = "Help & 24/7 Support",
-                                subtitle = "Instant resolution & tickets",
+                                subtitle = "FAQs, delivery & instant resolution",
+                                isDarkTheme = isDarkTheme,
+                                onClick = onOpenHelp
+                            )
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(dividerColor))
+
+                            AccountMenuRow(
+                                emoji = "✉️",
+                                title = "Raise a Support Ticket",
+                                subtitle = "Submit issue directly to AARVO support",
                                 isDarkTheme = isDarkTheme,
                                 onClick = { showSupport = true }
                             )
