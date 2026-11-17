@@ -484,16 +484,16 @@ fun PreviewHomeScreen(
                 }
             }
 
-            // 3. "Great Deals On Top Brands" Orange Promo Banner with promo_gadgets_trio
+            // 3. "Great Deals On Top Brands" Promo Banner with promo_gadgets_trio
             item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(142.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .height(114.dp)
+                        .clip(RoundedCornerShape(14.dp))
                         .background(
                             Brush.horizontalGradient(
-                                listOf(Color(0xFFFF9800), Color(0xFFFB8C00), Color(0xFFFF5722))
+                                listOf(Color(0xFFFDE047), Color(0xFFFBBF24), Color(0xFFF59E0B))
                             )
                         )
                         .clickable {
@@ -506,43 +506,56 @@ fun PreviewHomeScreen(
                         contentDescription = "Top Brands Deals",
                         modifier = Modifier
                             .fillMaxHeight()
-                            .fillMaxWidth(0.46f)
-                            .align(Alignment.BottomEnd),
+                            .fillMaxWidth(0.50f)
+                            .align(Alignment.CenterEnd),
                         contentScale = ContentScale.Crop
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(0.62f)
+                            .align(Alignment.CenterStart)
+                            .background(
+                                Brush.horizontalGradient(
+                                    0.0f to Color(0xFFFDE047),
+                                    0.72f to Color(0xFFFBBF24).copy(alpha = 0.88f),
+                                    1.0f to Color.Transparent
+                                )
+                            )
                     )
                     Column(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
-                            .fillMaxWidth(0.60f)
+                            .fillMaxWidth(0.58f)
                             .padding(start = 16.dp),
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
                             "Great Deals",
-                            fontSize = 18.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Black,
-                            color = Color.White,
-                            lineHeight = 21.sp
+                            color = Color(0xFF0F172A),
+                            lineHeight = 19.sp
                         )
                         Text(
                             "On Top Brands",
-                            fontSize = 18.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Black,
-                            color = Color.White,
-                            lineHeight = 21.sp
+                            color = Color(0xFF0F172A),
+                            lineHeight = 19.sp
                         )
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(8.dp))
                         Surface(
                             shape = CircleShape,
-                            color = Color(0xFF020617),
+                            color = Color(0xFF0F172A),
                             shadowElevation = 2.dp
                         ) {
                             Text(
                                 "Shop Now >",
                                 color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                             )
                         }
                     }

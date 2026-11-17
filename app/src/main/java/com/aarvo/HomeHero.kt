@@ -83,17 +83,17 @@ fun LiveHero(
                 id = "preview_savings",
                 titlePrimary = "Big Savings",
                 titleSecondary = "Big Smiles",
-                subtitle = "Top Deals • Guaranteed Authenticity",
+                subtitle = "",
                 ctaText = "Shop Now",
                 ctaTarget = "offers",
-                gradientColors = listOf(Color(0xFF2874F0), Color(0xFF1D4ED8), Color(0xFF1E40AF)),
+                gradientColors = listOf(Color(0xFF1E40AF), Color(0xFF2563EB), Color(0xFF3B82F6)),
                 drawableRes = R.drawable.hero_big_savings_woman
             ),
             HeroBannerSlide(
                 id = "preview_gadgets",
                 titlePrimary = "Smart Gadgets",
                 titleSecondary = "Up to 60% OFF",
-                subtitle = "Wireless Audio • Smartwatches & Tech",
+                subtitle = "Audio & Wearables",
                 ctaText = "Shop Electronics",
                 ctaTarget = "categories:Electronics",
                 gradientColors = listOf(Color(0xFFFFA726), Color(0xFFFB8C00), Color(0xFFEF6C00)),
@@ -156,8 +156,8 @@ fun LiveHero(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(192.dp)
-            .clip(RoundedCornerShape(18.dp))
+            .height(148.dp)
+            .clip(RoundedCornerShape(14.dp))
             .background(Brush.horizontalGradient(activeSlide.gradientColors))
             .pointerInput(combinedSlides.size) {
                 var accum = 0f
@@ -212,9 +212,22 @@ fun LiveHero(
                             contentDescription = s.titlePrimary,
                             modifier = Modifier
                                 .fillMaxHeight()
-                                .fillMaxWidth(0.50f)
+                                .fillMaxWidth(0.48f)
                                 .align(Alignment.BottomEnd),
                             contentScale = ContentScale.Crop
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(0.56f)
+                                .align(Alignment.CenterStart)
+                                .background(
+                                    Brush.horizontalGradient(
+                                        0.0f to s.gradientColors.first(),
+                                        0.72f to s.gradientColors[1].copy(alpha = 0.85f),
+                                        1.0f to Color.Transparent
+                                    )
+                                )
                         )
                     }
                 }
@@ -225,16 +238,16 @@ fun LiveHero(
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .fillMaxWidth(0.62f)
-                .padding(start = 18.dp, end = 8.dp, bottom = 14.dp),
+                .fillMaxWidth(0.56f)
+                .padding(start = 16.dp, end = 6.dp, bottom = 10.dp),
             verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = activeSlide.titlePrimary,
                 color = Color.White,
-                fontSize = 21.sp,
+                fontSize = 19.sp,
                 fontWeight = FontWeight.Black,
-                lineHeight = 24.sp,
+                lineHeight = 22.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -242,25 +255,25 @@ fun LiveHero(
                 Text(
                     text = activeSlide.titleSecondary,
                     color = Color.White,
-                    fontSize = 21.sp,
+                    fontSize = 19.sp,
                     fontWeight = FontWeight.Black,
-                    lineHeight = 24.sp,
+                    lineHeight = 22.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
             if (activeSlide.subtitle.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(3.dp))
                 Text(
                     text = activeSlide.subtitle,
                     color = Color.White.copy(alpha = 0.90f),
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(9.dp))
             Surface(
                 shape = CircleShape,
                 color = Color(0xFFFFD700),
@@ -273,9 +286,9 @@ fun LiveHero(
                 Text(
                     text = "${activeSlide.ctaText} >",
                     color = Color(0xFF0F172A),
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Black,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp)
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp)
                 )
             }
         }
@@ -285,16 +298,16 @@ fun LiveHero(
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 combinedSlides.indices.forEach { index ->
                     val active = index == selected
                     Box(
                         modifier = Modifier
-                            .height(6.dp)
-                            .width(if (active) 18.dp else 6.dp)
+                            .height(5.dp)
+                            .width(if (active) 14.dp else 5.dp)
                             .clip(CircleShape)
                             .background(if (active) Color(0xFFFFD700) else Color.White.copy(alpha = 0.55f))
                             .clickable {

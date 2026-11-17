@@ -55,7 +55,8 @@ import { MainScreenSkeleton } from './MainScreenSkeleton';
 import { ProductDetailModal, Product } from './ProductDetailModal';
 import { Product360ViewerModal } from './Product360ViewerModal';
 import { ProductImageZoomModal } from './ProductImageZoomModal';
-import { OrdersSection, Order, OrderItem } from './OrdersSection';
+import { Order, OrderItem } from './OrdersSection';
+import { Orders } from './Orders';
 import { AarvoAnimatedLogo } from './AarvoAnimatedLogo';
 import { haptics } from '../utils/haptics';
 import catFashionBagImg from '../assets/images/cat_fashion_bag_1794533648322.jpg';
@@ -516,7 +517,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             name: 'Puma Men Running Shoes (Black, UK 9)',
             price: 1599,
             quantity: 2,
-            image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop&q=80',
+            image: prodWhiteSneakersImg,
             category: 'Footwear',
           },
         ],
@@ -544,7 +545,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             name: 'OnePlus Nord CE4 5G (8GB RAM, 128GB Storage)',
             price: 19999,
             quantity: 1,
-            image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=500&auto=format&fit=crop&q=80',
+            image: catMobilesPhoneImg,
             category: 'Mobiles',
           },
         ],
@@ -572,7 +573,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             name: 'Pure Cotton Embroidered Anarkali Kurta Set',
             price: 1299,
             quantity: 1,
-            image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=500&auto=format&fit=crop&q=80',
+            image: catFashionBagImg,
             category: 'Fashion',
           },
           {
@@ -580,7 +581,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             name: 'Sony WH-CH520 Wireless Bluetooth Headphones',
             price: 3990,
             quantity: 1,
-            image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&auto=format&fit=crop&q=80',
+            image: promoGadgetsTrioImg,
             category: 'Electronics',
           },
         ],
@@ -1347,8 +1348,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         )}
 
         {isOrdersViewOpen ? (
-          <OrdersSection
+          <Orders
             orders={orders}
+            onOrdersLoaded={(loaded) => {
+              if (loaded.length > 0) setOrders(loaded);
+            }}
             onBack={() => setIsOrdersViewOpen(false)}
             customerName={userProfile.name}
             customerPhone={userProfile.phone}
@@ -1837,19 +1841,19 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             {/* ================================================================= */}
             {/* 1. HERO BANNER CAROUSEL                                           */}
             {/* ================================================================= */}
-            <section className="px-3.5 pt-2.5 pb-2">
+            <section className="px-3.5 pt-2.5 pb-1.5">
               {(() => {
                 const activeSlide = slides[currentSlide] || slides[0];
                 return (
-                  <div className={`relative aspect-[16/9] w-full rounded-2xl overflow-hidden shadow-md bg-gradient-to-r ${activeSlide.bgGradient} flex items-center justify-between p-4 sm:p-5 text-white transition-all duration-300`}>
-                    <div className="max-w-[58%] z-10 flex flex-col justify-center">
-                      <h2 className="text-xl sm:text-2xl font-black font-display tracking-tight text-white leading-tight">
+                  <div className={`relative h-[148px] sm:h-[164px] w-full rounded-2xl overflow-hidden shadow-md bg-gradient-to-r ${activeSlide.bgGradient} flex items-center justify-between px-4 py-3 sm:px-5 text-white transition-all duration-300`}>
+                    <div className="max-w-[56%] z-10 flex flex-col justify-center pb-2">
+                      <h2 className="text-lg sm:text-xl font-black font-display tracking-tight text-white leading-tight">
                         {activeSlide.titlePrimary}
                       </h2>
-                      <h3 className="text-xl sm:text-2xl font-black font-display tracking-tight text-white leading-tight">
+                      <h3 className="text-lg sm:text-xl font-black font-display tracking-tight text-white leading-tight">
                         {activeSlide.titleSecondary}
                       </h3>
-                      {activeSlide.subtitle && (
+                      {activeSlide.subtitle && !activeSlide.isGraphicBanner && (
                         <p className="text-[10px] text-white/90 font-medium mt-1 line-clamp-1">
                           {activeSlide.subtitle}
                         </p>
@@ -1865,7 +1869,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             switchTab('categories');
                           }
                         }}
-                        className="mt-3 w-fit px-4 py-1.5 bg-[#FFD700] hover:bg-[#FACC15] text-slate-950 font-black text-xs rounded-full shadow-sm flex items-center gap-1 active:scale-95 transition-transform cursor-pointer"
+                        className="mt-2.5 w-fit px-3.5 py-1 bg-[#FFD700] hover:bg-[#FACC15] text-slate-950 font-black text-[11px] rounded-full shadow-sm flex items-center gap-1 active:scale-95 transition-transform cursor-pointer whitespace-nowrap"
                       >
                         <span>{activeSlide.ctaText}</span>
                         <span className="font-bold">&gt;</span>
@@ -1879,6 +1883,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           alt={`${activeSlide.titlePrimary} ${activeSlide.titleSecondary}`}
                           className="h-full w-full object-cover object-top filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.28)]"
                         />
+                        <div className="absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-[#2563EB] to-transparent" />
                       </div>
                     )}
 
@@ -1891,7 +1896,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           aria-label={`Slide ${idx + 1}`}
                           onClick={() => setCurrentSlide(idx)}
                           className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                            currentSlide === idx ? 'w-4 bg-[#FFD700]' : 'w-1.5 bg-white/60 hover:bg-white/90'
+                            currentSlide === idx ? 'w-3.5 bg-[#FFD700]' : 'w-1.5 bg-white/60 hover:bg-white/90'
                           }`}
                         />
                       ))}
@@ -1984,21 +1989,21 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             </section>
 
             {/* ================================================================= */}
-            {/* 3. WARM ORANGE PROMO BANNER: "Great Deals On Top Brands"          */}
+            {/* 3. WARM GOLDEN PROMO BANNER: "Great Deals On Top Brands"          */}
             {/* ================================================================= */}
-            <section className="px-3.5 py-2">
-              <div className="relative aspect-[21/9] w-full rounded-2xl overflow-hidden shadow-sm bg-gradient-to-r from-[#FF9800] via-[#FB8C00] to-[#FF5722] p-4 flex items-center justify-between text-white">
-                <div className="max-w-[58%] z-10">
-                  <h3 className="text-base sm:text-lg font-black font-display tracking-tight text-white leading-tight">
+            <section className="px-3.5 py-1.5">
+              <div className="relative h-[114px] sm:h-[124px] w-full rounded-2xl overflow-hidden shadow-sm bg-gradient-to-r from-[#FDE047] via-[#FBBF24] to-[#F59E0B] px-4 py-3 flex items-center justify-between">
+                <div className="max-w-[56%] z-10">
+                  <h3 className="text-base sm:text-lg font-black font-display tracking-tight text-slate-950 leading-tight">
                     Great Deals
                   </h3>
-                  <h4 className="text-base sm:text-lg font-black font-display tracking-tight text-white leading-tight">
+                  <h4 className="text-base sm:text-lg font-black font-display tracking-tight text-slate-950 leading-tight">
                     On Top Brands
                   </h4>
                   <button
                     type="button"
                     onClick={() => switchTab('offers')}
-                    className="mt-2 px-3.5 py-1 bg-slate-950 hover:bg-black text-white font-black text-[11px] rounded-full shadow-xs flex items-center gap-1 active:scale-95 transition-transform cursor-pointer"
+                    className="mt-2 px-3 py-1 bg-slate-950 hover:bg-black text-white font-bold text-[10px] rounded-full shadow-xs inline-flex items-center gap-1 active:scale-95 transition-transform cursor-pointer whitespace-nowrap"
                   >
                     <span>Shop Now</span>
                     <span className="font-bold">&gt;</span>
@@ -2006,12 +2011,13 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 </div>
 
                 {/* Right Gadgets Image */}
-                <div className="absolute right-0 bottom-0 h-full w-[44%] flex items-center justify-end pointer-events-none">
+                <div className="absolute right-0 bottom-0 h-full w-[50%] flex items-center justify-end pointer-events-none">
                   <img
                     src={promoGadgetsTrioImg}
                     alt="Top Brands Deals"
-                    className="h-full w-full object-cover object-center filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.2)]"
+                    className="h-full w-full object-cover object-center"
                   />
+                  <div className="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-[#FBBF24] to-transparent" />
                 </div>
               </div>
             </section>
