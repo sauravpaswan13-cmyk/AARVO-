@@ -428,7 +428,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         } else recentlyViewed = emptyList()
     }
     LaunchedEffect(query, category, api) { loading = true; error = ""; try { products = api.products(query, category).toProductList().distinctBy { it.id } } catch (t: Throwable) { products = emptyList(); error = t.message ?: "Unable to load products." } finally { loading = false } }
-    val visibleProducts = remember(products, sortMode, minRating, maxPrice, inStockOnly) { val maxPriceCap = maxPrice; products.filter { (minRating <= 0.0 || it.rating >= minRating) && (maxPriceCap == null || it.pricePaise <= maxPriceCap) && (!inStockOnly || it.stockQuantity > 0) }.let { list -> when (sortMode) { "Price: Low to High" -> list.sortedBy { it.pricePaise }; "Price: High to Low" -> list.sortedByDescending { it.pricePaise }; "Rating: High to Low" -> list.sortedByDescending { it.rating }; else -> list } } }
+    val visibleProducts = remember(products, sortMode, minRating, maxPrice, inStockOnly, query) { val maxPriceCap = maxPrice; val filtered = products.filter { (minRating <= 0.0 || it.rating >= minRating) && (maxPriceCap == null || it.pricePaise <= maxPriceCap) && (!inStockOnly || it.stockQuantity > 0) }; sortProductsByMode(filtered, sortMode, query) }
     fun syncAuthenticatedCart() {
         if (guestMode || role != "BUYER") return
         scope.launch {
@@ -857,6 +857,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     onToggleWishlist = { id -> wishlist = wishlistStore.toggle(id) },
                     onFilter = { showFilters = true },
                     sortMode = sortMode,
+                    onSortChange = { sortMode = it },
                     minRating = minRating,
                     maxPrice = maxPrice,
                     inStockOnly = inStockOnly,
@@ -874,6 +875,8 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     onToggleWishlist = { id -> wishlist = wishlistStore.toggle(id) },
                     onAdd = { p -> cartViewModel.add(p); syncAuthenticatedCart() },
                     onOpenProduct = { selectedProduct = it },
+                    sortMode = sortMode,
+                    onSortChange = { sortMode = it },
                     isDarkTheme = isDarkTheme
                 )
                 2 -> CartScreen(
@@ -991,7 +994,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 
 @Composable private fun LoginRequiredDialog(onLogin: () -> Unit, onDismiss: () -> Unit) { AlertDialog(onDismissRequest = onDismiss, title = { Text("Login Required") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("To complete your purchase, please login or create an account."); Text("You can still browse and add to cart.", style = MaterialTheme.typography.bodySmall) } }, confirmButton = { Button(onClick = onLogin) { Text("Login / Sign Up") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Continue Browsing") } }) }
 
-@Composable private fun ProductFilterDialog(sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean, onSort: (String) -> Unit, onRating: (Double) -> Unit, onMaxPrice: (Long?) -> Unit, onStock: (Boolean) -> Unit, onClose: () -> Unit) { var priceText by remember(maxPrice) { mutableStateOf(maxPrice?.let { (it / 100).toString() } ?: "") }; AlertDialog(onDismissRequest = onClose, title = { Text("Filters & Sorting") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Sort", fontWeight = FontWeight.Bold); listOf("Relevance", "Price: Low to High", "Price: High to Low", "Rating: High to Low").forEach { option -> TextButton(onClick = { onSort(option) }) { Text(if (sortMode == option) "✓ $option" else option) } }; Text("Minimum rating: ${if (minRating == 0.0) "Any" else "${minRating}★"}", fontWeight = FontWeight.Bold); Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { listOf(0.0, 3.0, 4.0, 4.5).forEach { r -> TextButton(onClick = { onRating(r) }) { Text(if (minRating == r) "✓ ${if (r == 0.0) "Any" else r.toString()}★" else if (r == 0.0) "Any" else "${r}★") } } }; OutlinedTextField(priceText, { priceText = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Maximum price ₹ (optional)") }); TextButton(onClick = { onMaxPrice(priceText.trim().toLongOrNull()?.times(100)); onClose() }) { Text("Apply price") }; TextButton(onClick = { onStock(!inStockOnly) }) { Text(if (inStockOnly) "✓ In stock only" else "In stock only") } } }, confirmButton = { Button(onClick = onClose) { Text("Done") } }) }
+@Composable private fun ProductFilterDialog(sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean, onSort: (String) -> Unit, onRating: (Double) -> Unit, onMaxPrice: (Long?) -> Unit, onStock: (Boolean) -> Unit, onClose: () -> Unit) { var priceText by remember(maxPrice) { mutableStateOf(maxPrice?.let { (it / 100).toString() } ?: "") }; AlertDialog(onDismissRequest = onClose, title = { Text("Filters & Sorting") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Sort", fontWeight = FontWeight.Bold); listOf("Relevance", "Price: Low to High", "Price: High to Low", "Rating: High to Low", "Discount").forEach { option -> TextButton(onClick = { onSort(option) }) { Text(if (sortMode == option) "✓ $option" else option) } }; Text("Minimum rating: ${if (minRating == 0.0) "Any" else "${minRating}★"}", fontWeight = FontWeight.Bold); Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { listOf(0.0, 3.0, 4.0, 4.5).forEach { r -> TextButton(onClick = { onRating(r) }) { Text(if (minRating == r) "✓ ${if (r == 0.0) "Any" else r.toString()}★" else if (r == 0.0) "Any" else "${r}★") } } }; OutlinedTextField(priceText, { priceText = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Maximum price ₹ (optional)") }); TextButton(onClick = { onMaxPrice(priceText.trim().toLongOrNull()?.times(100)); onClose() }) { Text("Apply price") }; TextButton(onClick = { onStock(!inStockOnly) }) { Text(if (inStockOnly) "✓ In stock only" else "In stock only") } } }, confirmButton = { Button(onClick = onClose) { Text("Done") } }) }
 
 private fun JSONArray.toProductList(): List<Product> = buildList {
     val seenIds = mutableSetOf<Int>()

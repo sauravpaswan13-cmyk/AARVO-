@@ -87,6 +87,95 @@ fun matchesCategoryFilter(productCat: String, selectedCat: String): Boolean {
     }
 }
 
+fun countKeywordOccurrences(text: String, keyword: String): Int {
+    if (text.isEmpty() || keyword.isEmpty()) return 0
+    var count = 0
+    var index = 0
+    while (index <= text.length - keyword.length) {
+        val foundAt = text.indexOf(keyword, index)
+        if (foundAt == -1) break
+        count += 1
+        index = foundAt + keyword.length
+    }
+    return count
+}
+
+private fun hasWholeWordMatch(text: String, keyword: String): Boolean {
+    if (text.isEmpty() || keyword.isEmpty()) return false
+    val pattern = Regex("(^|[^a-z0-9])${Regex.escape(keyword)}([^a-z0-9]|$)", RegexOption.IGNORE_CASE)
+    return pattern.containsMatchIn(text)
+}
+
+fun computeKeywordRelevanceScore(product: Product, query: String): Double {
+    val fullQuery = query.trim().lowercase()
+    if (fullQuery.isEmpty()) return 0.0
+    val tokens = fullQuery.split(Regex("\\s+")).filter { it.isNotBlank() }.distinct()
+    if (tokens.isEmpty()) return 0.0
+
+    val name = product.name.lowercase()
+    val category = product.category.lowercase()
+    val seller = product.sellerName.lowercase()
+    val description = product.description.lowercase()
+
+    var score = 0.0
+
+    if (name == fullQuery) score += 60.0
+    else if (name.startsWith(fullQuery)) score += 30.0
+    else if (name.contains(fullQuery)) score += 20.0
+
+    if (category.contains(fullQuery)) score += 12.0
+    if (description.contains(fullQuery)) score += 8.0
+
+    var distinctTokenHits = 0
+    for (token in tokens) {
+        val nameFreq = countKeywordOccurrences(name, token)
+        val catFreq = countKeywordOccurrences(category, token)
+        val sellerFreq = countKeywordOccurrences(seller, token)
+        val descFreq = countKeywordOccurrences(description, token).coerceAtMost(12)
+
+        if (nameFreq > 0 || catFreq > 0 || sellerFreq > 0 || descFreq > 0) {
+            distinctTokenHits += 1
+        }
+
+        score += nameFreq * 10.0
+        score += catFreq * 6.0
+        score += sellerFreq * 4.0
+        score += descFreq * 3.0
+
+        if (hasWholeWordMatch(name, token)) score += 5.0
+        if (hasWholeWordMatch(category, token)) score += 3.0
+    }
+
+    score += distinctTokenHits * 15.0
+    if (distinctTokenHits == tokens.size) score += 20.0
+    score += product.rating * 0.5
+
+    return score
+}
+
+fun sortProductsByMode(products: List<Product>, sortMode: String, query: String): List<Product> {
+    return when (sortMode) {
+        "Price: Low to High" -> products.sortedBy { it.pricePaise }
+        "Price: High to Low" -> products.sortedByDescending { it.pricePaise }
+        "Rating: High to Low" -> products.sortedWith(
+            compareByDescending<Product> { it.rating }.thenByDescending { it.reviewsCount }
+        )
+        "Discount" -> products.sortedByDescending { it.discountPercent }
+        else -> {
+            val trimmed = query.trim()
+            if (trimmed.isEmpty()) {
+                products
+            } else {
+                products.sortedWith(
+                    compareByDescending<Product> { computeKeywordRelevanceScore(it, trimmed) }
+                        .thenByDescending { it.rating }
+                        .thenByDescending { it.reviewsCount }
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun PreviewHomeScreen(
     padding: PaddingValues,
@@ -107,6 +196,7 @@ fun PreviewHomeScreen(
     onToggleWishlist: (Int) -> Unit,
     onFilter: () -> Unit,
     sortMode: String,
+    onSortChange: (String) -> Unit = {},
     minRating: Double,
     maxPrice: Long?,
     inStockOnly: Boolean,
@@ -128,20 +218,30 @@ fun PreviewHomeScreen(
     // Precompute query-matched products for Search Results "Refine by Category" counts
     val queryMatched = remember(allProducts, query) {
         val q = query.trim().lowercase()
-        if (q.isEmpty()) allProducts
-        else {
-            val tokens = q.split(Regex("\\s+")).filter { it.isNotBlank() }
-            allProducts.filter { p ->
+        if (q.isEmpty()) {
+            allProducts
+        } else {
+            val tokens = q.split(Regex("\\s+")).filter { it.isNotBlank() }.distinct()
+            val allTokensMatched = allProducts.filter { p ->
                 val hay = "${p.name} ${p.category} ${p.sellerName} ${p.description}".lowercase()
                 tokens.all { hay.contains(it) }
+            }
+            if (allTokensMatched.isNotEmpty() || tokens.size <= 1) {
+                allTokensMatched
+            } else {
+                allProducts.filter { p ->
+                    val hay = "${p.name} ${p.category} ${p.sellerName} ${p.description}".lowercase()
+                    tokens.any { hay.contains(it) }
+                }
             }
         }
     }
 
-    val searchProducts = remember(queryMatched, products, selectedCategory, query) {
-        if (query.isBlank()) products
+    val searchProducts = remember(queryMatched, products, selectedCategory, query, sortMode) {
+        val base = if (query.isBlank()) products
         else if (selectedCategory.equals("All", true)) queryMatched
         else queryMatched.filter { matchesCategoryFilter(it.category, selectedCategory) }
+        sortProductsByMode(base, sortMode, query)
     }
 
     LazyColumn(
@@ -276,6 +376,45 @@ fun PreviewHomeScreen(
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            // Inline Sort Selector Row ("Relevance" uses keyword frequency matching)
+            item {
+                val sortOptions = listOf("Relevance", "Price: Low to High", "Price: High to Low", "Rating: High to Low", "Discount")
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Sort:",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = mutedColor,
+                        modifier = Modifier.padding(end = 2.dp)
+                    )
+                    sortOptions.forEach { option ->
+                        val active = sortMode == option
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (active) Color(0xFF0F172A) else cardBg,
+                            border = if (active) null else BorderStroke(1.dp, cardBorder),
+                            modifier = Modifier.clickable {
+                                triggerHaptic(haptics)
+                                onSortChange(option)
+                            }
+                        ) {
+                            Text(
+                                text = option,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (active) Color.White else textColor,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                maxLines = 1
+                            )
                         }
                     }
                 }
@@ -930,6 +1069,8 @@ fun PreviewCategoriesExplorerScreen(
     onToggleWishlist: (Int) -> Unit,
     onAdd: (Product) -> Unit,
     onOpenProduct: (Product) -> Unit,
+    sortMode: String = "Relevance",
+    onSortChange: (String) -> Unit = {},
     isDarkTheme: Boolean = false
 ) {
     val context = LocalContext.current
@@ -956,9 +1097,10 @@ fun PreviewCategoriesExplorerScreen(
         )
     }
 
-    val filteredProducts = remember(allProducts, selectedCategory) {
-        if (selectedCategory.equals("All", true)) allProducts
+    val filteredProducts = remember(allProducts, selectedCategory, sortMode) {
+        val list = if (selectedCategory.equals("All", true)) allProducts
         else allProducts.filter { matchesCategoryFilter(it.category, selectedCategory) }
+        sortProductsByMode(list, sortMode, "")
     }
 
     Row(
@@ -1059,6 +1201,37 @@ fun PreviewCategoriesExplorerScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFFF5722),
                                 modifier = Modifier.clickable { onSelectCategory("All") }
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                val catSortOptions = listOf("Relevance", "Price: Low to High", "Price: High to Low", "Rating: High to Low", "Discount")
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    catSortOptions.forEach { option ->
+                        val active = sortMode == option
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (active) Color(0xFF0F172A) else activeBg,
+                            border = if (active) null else BorderStroke(1.dp, borderCol),
+                            modifier = Modifier.clickable {
+                                triggerHaptic(haptics)
+                                onSortChange(option)
+                            }
+                        ) {
+                            Text(
+                                text = option,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (active) Color.White else textColor,
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                                maxLines = 1
                             )
                         }
                     }

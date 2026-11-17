@@ -68,6 +68,12 @@ import heroBigSavingsWomanImg from '../assets/images/hero_big_savings_woman_1794
 import promoGadgetsTrioImg from '../assets/images/promo_gadgets_trio_1794533651323.jpg';
 import prodWhiteSneakersImg from '../assets/images/prod_white_sneakers_1794533652181.jpg';
 import prodNavyBackpackImg from '../assets/images/prod_navy_backpack_1794533651856.jpg';
+import {
+  PRODUCT_SORT_OPTIONS,
+  ProductSortOption,
+  matchAndScoreProducts,
+  sortProducts,
+} from '../utils/productSearchSort';
 
 interface MainScreenProps {
   onLogout?: () => void;
@@ -105,6 +111,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     setActiveTab(tab);
   };
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<ProductSortOption>('relevance');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -1175,27 +1182,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   ];
 
   // Products that match the active text search query (before category refinement)
-  const queryMatchedProducts = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    const queryTokens = query ? query.split(/\s+/).filter(Boolean) : [];
-
-    if (queryTokens.length === 0) return allProducts;
-
-    return allProducts.filter((p) => {
-      const name = (p.name || '').toLowerCase();
-      const category = (p.category || '').toLowerCase();
-      const seller = (p.seller || '').toLowerCase();
-      const description = (p.description || '').toLowerCase();
-
-      return queryTokens.every(
-        (token) =>
-          name.includes(token) ||
-          category.includes(token) ||
-          seller.includes(token) ||
-          description.includes(token)
-      );
-    });
-  }, [allProducts, searchQuery]);
+  const queryMatchedProducts = useMemo(
+    () => matchAndScoreProducts(allProducts, searchQuery),
+    [allProducts, searchQuery]
+  );
 
   const matchesCategory = useCallback((productCat: string, selectedCat: string) => {
     if (!selectedCat || selectedCat === 'All' || selectedCat === 'More') return true;
@@ -1247,13 +1237,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     });
   }, [queryMatchedProducts, matchesCategory]);
 
-  // Real-time filtered products matching both search and selected category chip
+  // Real-time filtered & sorted products matching search, category, and selected sort order
   const filteredProducts = useMemo(() => {
-    if (selectedCategory === 'All' || selectedCategory === 'More') {
-      return queryMatchedProducts;
-    }
-    return queryMatchedProducts.filter((p) => matchesCategory(p.category, selectedCategory));
-  }, [queryMatchedProducts, selectedCategory, matchesCategory]);
+    const categoryFiltered =
+      selectedCategory === 'All' || selectedCategory === 'More'
+        ? queryMatchedProducts
+        : queryMatchedProducts.filter((p) => matchesCategory(p.category, selectedCategory));
+    return sortProducts(categoryFiltered, sortBy, searchQuery);
+  }, [queryMatchedProducts, selectedCategory, matchesCategory, sortBy, searchQuery]);
 
   if (isLoading) {
     return (
@@ -1667,6 +1658,33 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       );
                     })}
                   </div>
+                </div>
+
+                {/* Sort Selector Row */}
+                <div className="mb-3 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5" role="group" aria-label="Sort search results">
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 shrink-0 mr-1">
+                    Sort:
+                  </span>
+                  {PRODUCT_SORT_OPTIONS.map((opt) => {
+                    const active = sortBy === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          haptics.selection();
+                          setSortBy(opt.id);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                          active
+                            ? 'bg-slate-900 text-white dark:bg-[#FF5722] dark:text-white shadow-2xs'
+                            : 'bg-white dark:bg-[#211A17] text-slate-700 dark:text-slate-300 border border-orange-200/70 dark:border-stone-700 hover:border-[#FF5722]/60'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {filteredProducts.length > 0 ? (
@@ -2316,6 +2334,33 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     Show All
                   </button>
                 )}
+              </div>
+
+              {/* Sort Bar for Categories */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5" role="group" aria-label="Sort category products">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 shrink-0 mr-0.5">
+                  Sort:
+                </span>
+                {PRODUCT_SORT_OPTIONS.map((opt) => {
+                  const active = sortBy === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        haptics.selection();
+                        setSortBy(opt.id);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                        active
+                          ? 'bg-slate-900 text-white dark:bg-[#FF5722] dark:text-white shadow-2xs'
+                          : 'bg-white dark:bg-[#211A17] text-slate-700 dark:text-slate-300 border border-orange-200/70 dark:border-stone-700 hover:border-[#FF5722]/60'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Products Listing Grid */}
