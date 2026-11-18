@@ -117,8 +117,20 @@ class AarvoApiClient(
     suspend fun sellerOrders(): JSONArray = get("/v1/seller/orders")
     suspend fun updateOrderTracking(orderId: String, status: String, trackingCode: String = "", carrier: String = "", note: String = ""): JSONObject { require(orderId.trim().isNotBlank()) { "Order ID is required" }; require(status.trim().isNotBlank()) { "Tracking status is required" }; return post("/v1/orders/${orderId.trim()}/tracking", JSONObject().put("status", status.trim().uppercase()).put("trackingCode", trackingCode.trim()).put("carrier", carrier.trim()).put("note", note.trim())) }
 
+    suspend fun checkPincodeServiceability(deliveryPincode: String, productId: Int? = null, cod: Boolean? = null): JSONObject {
+        val cleanPin = deliveryPincode.filter(Char::isDigit).take(6)
+        require(Regex("^[1-9][0-9]{5}$").matches(cleanPin)) { "Enter a valid 6-digit pincode" }
+        val params = buildList {
+            add("deliveryPincode=${URLEncoder.encode(cleanPin, "UTF-8")}")
+            if (productId != null && productId > 0) add("productId=$productId")
+            if (cod != null) add("cod=${if (cod) "1" else "0"}")
+        }.joinToString("&")
+        return getObject("/v1/delivery/serviceability?$params")
+    }
+
     suspend fun profile(): JSONObject = getObject("/v1/profile")
     suspend fun updateProfile(displayName: String, email: String): JSONObject = put("/v1/profile", JSONObject().put("displayName",displayName.trim()).put("email",email.trim()))
+    suspend fun deleteAccount(): JSONObject = delete("/v1/account")
     suspend fun adminSellerOnboarding(status: String = ""): JSONArray = get("/v1/admin/sellers/onboarding" + if (status.isBlank()) "" else "?status=" + status.trim().uppercase())
     suspend fun adminReviewSellerOnboarding(sellerId: String, decision: String, reason: String = ""): JSONObject = post("/v1/admin/sellers/".plus(sellerId.trim()).plus("/onboarding/review"), JSONObject().put("decision", decision.trim().uppercase()).put("reason", reason.trim()))
     suspend fun adminSellers(): JSONArray = get("/v1/admin/sellers")

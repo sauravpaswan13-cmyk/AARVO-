@@ -224,8 +224,8 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
   onShowToast,
   onNavigateToCart,
   onTrackRider,
-  customerName = 'Saurav Paswan',
-  customerPhone = '+91 9876543210',
+  customerName = 'AARVO Customer',
+  customerPhone = '',
   onOpenSupport,
 }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);

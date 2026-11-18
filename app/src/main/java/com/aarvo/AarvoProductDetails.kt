@@ -1,5 +1,6 @@
 package com.aarvo
 
+import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
@@ -45,6 +46,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +68,41 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.aarvo.data.Product
+import com.aarvo.network.AarvoApiClient
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+private fun inferAndroidZoneEstimate(deliveryPin: String, codAllowed: Boolean): JSONObject? {
+    val clean = deliveryPin.filter(Char::isDigit).take(6)
+    if (!Regex("^[1-9][0-9]{5}$").matches(clean)) return null
+    val pickupPin = "800001"
+    val metroPrefixes = setOf("110", "122", "201", "302", "400", "411", "500", "560", "600", "700", "800")
+    val remotePrefixes = setOf("19", "74", "79")
+    val (minDays, maxDays, zoneLabel) = when {
+        clean.take(3) == pickupPin.take(3) -> Triple(1, 2, "Local City Hub")
+        clean.take(2) == pickupPin.take(2) -> Triple(2, 3, "Intra-State Network")
+        remotePrefixes.contains(clean.take(2)) || clean.startsWith("744") -> Triple(5, 7, "Extended Zone")
+        clean[0] == pickupPin[0] -> Triple(3, 4, "Regional Zone")
+        metroPrefixes.contains(clean.take(3)) -> Triple(3, 4, "Metro Air Express")
+        else -> Triple(3, 5, "National Surface / Air")
+    }
+    val etaMs = System.currentTimeMillis() + maxDays * 24L * 60L * 60L * 1000L
+    val etd = SimpleDateFormat("d MMM yyyy", Locale("en", "IN")).format(Date(etaMs))
+    return JSONObject()
+        .put("serviceable", true)
+        .put("deliveryPincode", clean)
+        .put("minDays", minDays)
+        .put("maxDays", maxDays)
+        .put("estimatedDays", maxDays)
+        .put("estimatedDaysText", "$minDays-$maxDays days")
+        .put("etd", etd)
+        .put("courierName", "Shiprocket Partner Courier")
+        .put("codAvailable", codAllowed)
+        .put("zoneLabel", zoneLabel)
+        .put("source", "shiprocket_zone_estimate")
+}
 
 @Composable
 fun PreviewProductDetailsScreen(
@@ -77,18 +114,23 @@ fun PreviewProductDetailsScreen(
     onBuyNow: (Product) -> Unit,
     cartBadgeCount: Int,
     onOpenCart: () -> Unit,
-    isDarkTheme: Boolean = false
+    isDarkTheme: Boolean = false,
+    api: AarvoApiClient? = null
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
+    val appPrefs = remember(context) { context.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
 
     var activeImageIndex by remember(product.id) { mutableIntStateOf(0) }
     var showZoomDialog by remember { mutableStateOf(false) }
     var show360Dialog by remember { mutableStateOf(false) }
     var showAllOffers by remember { mutableStateOf(false) }
-    var deliveryPincode by remember { mutableStateOf("800001") }
+    val initialPin = remember {
+        appPrefs.getString("delivery_pincode", null)?.takeIf { it.matches(Regex("^[1-9][0-9]{5}$")) } ?: "800001"
+    }
+    var deliveryPincode by remember { mutableStateOf(initialPin) }
     var showPincodeDialog by remember { mutableStateOf(false) }
-    var tempPincode by remember { mutableStateOf("800001") }
+    var tempPincode by remember { mutableStateOf(initialPin) }
 
     // Conditional Sizes & Colours parsed strictly from product description tags
     val parsedSizes = remember(product.description) { extractParsedSizes(product.description) }
@@ -99,6 +141,34 @@ fun PreviewProductDetailsScreen(
 
     val codAllowed = remember(product.description) { extractCodAllowed(product.description) }
     val cleanDesc = remember(product.description) { cleanProductDescription(product.description) }
+
+    var serviceability by remember(product.id, deliveryPincode) {
+        mutableStateOf(inferAndroidZoneEstimate(deliveryPincode, codAllowed))
+    }
+    var checkingPincode by remember(product.id, deliveryPincode) { mutableStateOf(false) }
+
+    LaunchedEffect(product.id, deliveryPincode, api) {
+        val cleanPin = deliveryPincode.filter(Char::isDigit).take(6)
+        if (!Regex("^[1-9][0-9]{5}$").matches(cleanPin)) return@LaunchedEffect
+        if (api != null) {
+            checkingPincode = true
+            val live = runCatching {
+                api.checkPincodeServiceability(cleanPin, product.id, codAllowed)
+            }.getOrNull()
+            if (live != null) {
+                serviceability = live
+            }
+            checkingPincode = false
+        }
+    }
+
+    val isServiceable = serviceability?.optBoolean("serviceable", true) ?: true
+    val etaDaysText = serviceability?.optString("estimatedDaysText")?.takeIf { it.isNotBlank() } ?: "3-5 days"
+    val etaDateText = serviceability?.optString("etd")?.takeIf { it.isNotBlank() && it != "null" }
+    val courierName = serviceability?.optString("courierName")?.takeIf { it.isNotBlank() && it != "null" } ?: "Shiprocket Partner Courier"
+    val zoneLabel = serviceability?.optString("zoneLabel")?.takeIf { it.isNotBlank() && it != "null" }
+    val freightCharge = serviceability?.optDouble("freightCharge", 0.0)?.takeIf { !it.isNaN() && it > 0.0 } ?: 0.0
+    val codEligibleAtPin = codAllowed && (serviceability?.optBoolean("codAvailable", true) ?: true)
 
     // Genuine review states (zero fake inflated review counts)
     var currentRating by remember(product.id) { mutableStateOf(product.rating) }
@@ -251,13 +321,14 @@ fun PreviewProductDetailsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        if (tempPincode.length == 6) {
+                        if (tempPincode.matches(Regex("^[1-9][0-9]{5}$"))) {
                             deliveryPincode = tempPincode
+                            appPrefs.edit().putString("delivery_pincode", tempPincode).apply()
                             showPincodeDialog = false
                             triggerHaptic(haptics)
-                            Toast.makeText(context, "Delivery PIN updated to $deliveryPincode", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Checking Shiprocket ETA for PIN $deliveryPincode", Toast.LENGTH_SHORT).show()
                         } else {
-                            Toast.makeText(context, "Please enter a valid 6-digit PIN", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Please enter a valid 6-digit Indian PIN", Toast.LENGTH_SHORT).show()
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
@@ -701,8 +772,22 @@ fun PreviewProductDetailsScreen(
                                 Text("✓", color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp)
                             }
                             Column {
-                                Text("Free Delivery", fontSize = 13.sp, fontWeight = FontWeight.Black, color = textColor)
-                                Text("Delivery by Tomorrow", fontSize = 11.sp, color = mutedColor)
+                                Text(
+                                    if (freightCharge > 0.0) "Delivery Charge ₹${freightCharge.toInt()}" else "Free Delivery",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = textColor
+                                )
+                                Text(
+                                    when {
+                                        checkingPincode -> "Checking Shiprocket rider ETA for $deliveryPincode…"
+                                        !isServiceable -> "Not serviceable at PIN $deliveryPincode"
+                                        etaDateText != null -> "Delivery in $etaDaysText (by $etaDateText)"
+                                        else -> "Delivery in $etaDaysText"
+                                    },
+                                    fontSize = 11.sp,
+                                    color = mutedColor
+                                )
                             }
                         }
                     }
@@ -876,9 +961,35 @@ fun PreviewProductDetailsScreen(
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TruckVectorIcon(tint = Color(0xFFFF5722), modifier = Modifier.size(16.dp))
-                            Text("Delivery by Tomorrow, 9 PM", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textColor)
-                            Text("FREE", fontSize = 12.sp, fontWeight = FontWeight.Black, color = Color(0xFF059669))
+                            Text(
+                                text = when {
+                                    checkingPincode -> "Checking Shiprocket rider ETA…"
+                                    !isServiceable -> "Not serviceable at PIN $deliveryPincode"
+                                    etaDateText != null -> "Delivery in $etaDaysText • By $etaDateText"
+                                    else -> "Delivery in $etaDaysText"
+                                },
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isServiceable) textColor else Color(0xFFDC2626),
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (isServiceable) {
+                                Text(
+                                    if (freightCharge > 0.0) "₹${freightCharge.toInt()}" else "FREE",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFF059669)
+                                )
+                            }
                         }
+                        Text(
+                            text = buildString {
+                                append(courierName)
+                                if (!zoneLabel.isNullOrBlank()) append(" • $zoneLabel")
+                            },
+                            fontSize = 10.sp,
+                            color = mutedColor
+                        )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -899,7 +1010,7 @@ fun PreviewProductDetailsScreen(
                                 }
                             )
                         }
-                        if (codAllowed) {
+                        if (codEligibleAtPin) {
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(10.dp),
@@ -913,7 +1024,7 @@ fun PreviewProductDetailsScreen(
                                 ) {
                                     Column(Modifier.weight(1f)) {
                                         Text("Cash On Delivery Available", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isDarkTheme) Color(0xFFFCD34D) else Color(0xFF92400E))
-                                        Text("Pay cash at doorstep with 100% purchase protection.", fontSize = 10.sp, color = mutedColor)
+                                        Text("Pay cash at your doorstep for PIN $deliveryPincode.", fontSize = 10.sp, color = mutedColor)
                                     }
                                     Text("✓", color = Color(0xFF059669), fontWeight = FontWeight.Black, fontSize = 15.sp)
                                 }
@@ -930,7 +1041,7 @@ fun PreviewProductDetailsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     listOf(
-                        Triple("Free Delivery", "Fast doorstep", "truck"),
+                        Triple("Free Delivery", "$etaDaysText ETA", "truck"),
                         Triple("7 Days Return", "Easy replacement", "return"),
                         Triple("Verified Quality", "Brand checked", "shield")
                     ).forEach { (title, sub, kind) ->
@@ -970,7 +1081,7 @@ fun PreviewProductDetailsScreen(
                         Text("PRODUCT DETAILS & HIGHLIGHTS", fontSize = 12.sp, fontWeight = FontWeight.Black, color = textColor)
                         listOf(
                             "100% Original and Brand-Certified Product",
-                            "Free Express Doorstep Delivery",
+                            "Tracked Shiprocket Courier Delivery ($etaDaysText to $deliveryPincode)",
                             if (codAllowed) "Cash On Delivery (COD) Eligible" else "Prepaid Express Order",
                             "7 Days Easy Replacement & Refund Guarantee"
                         ).forEach { bullet ->

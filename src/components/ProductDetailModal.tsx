@@ -27,6 +27,10 @@ import { haptics } from '../utils/haptics';
 import { Product360ViewerModal } from './Product360ViewerModal';
 import { ProductImageZoomModal } from './ProductImageZoomModal';
 import { Order } from './OrdersSection';
+import {
+  checkShiprocketServiceability,
+  ShiprocketServiceabilityResult,
+} from '../utils/shiprocketServiceability';
 
 export interface ReviewItem {
   id: string;
@@ -97,7 +101,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onOpenOrders,
   onOpenImageZoom,
   savedAddress,
-  customerName = 'Saurav Paswan',
+  customerName = 'AARVO Customer',
   onUpdateAddress,
 }) => {
   // Image slider state
@@ -135,6 +139,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [pincodeInput, setPincodeInput] = useState('');
   const [isPincodeValid, setIsPincodeValid] = useState(true);
   const [orderConfirmed, setOrderConfirmed] = useState<Order | null>(null);
+  const [serviceability, setServiceability] = useState<ShiprocketServiceabilityResult | null>(null);
+  const [checkingPincode, setCheckingPincode] = useState(false);
 
   // Swipe / Drag gesture tracking for image carousel
   const touchStartX = useRef<number>(0);
@@ -255,6 +261,33 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     };
   }, [isOpen, product, onClose, isCheckoutOpen, orderConfirmed]);
 
+  useEffect(() => {
+    if (!isOpen || !product) return;
+    const cleanPin = pincode.replace(/\D/g, '').slice(0, 6);
+    if (!/^[1-9]\d{5}$/.test(cleanPin)) {
+      setServiceability(null);
+      return;
+    }
+    const controller = new AbortController();
+    setCheckingPincode(true);
+    checkShiprocketServiceability(cleanPin, {
+      productId: product.id,
+      cod: product.codAvailable !== false,
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!controller.signal.aborted) {
+          setServiceability(res);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setCheckingPincode(false);
+        }
+      });
+    return () => controller.abort();
+  }, [isOpen, product?.id, product?.codAvailable, pincode]);
+
   if (!isOpen || !product) return null;
 
   const totalImages = productImages.length;
@@ -329,8 +362,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   const defaultHighlights = product.highlights || [
     '100% Original and Brand-Certified Product',
-    'Free Express Doorstep Delivery within 24-48 Hours',
-    'Cash On Delivery (COD) Eligible with Zero Extra Fee',
+    'Tracked Shiprocket Courier Delivery to Your Pincode',
+    'Cash On Delivery (COD) Eligible on Serviceable Pincodes',
     '7 Days Easy Replacement & Refund Guarantee',
     'GST Invoice and 1 Year Manufacturer Warranty Included',
   ];
@@ -355,15 +388,19 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     const orderId = `AARVO-COD-${Math.floor(10000 + Math.random() * 90000)}`;
     const trackingNo = `AARVO-EXP-${Math.floor(100000 + Math.random() * 900000)}`;
 
+    const etaText = serviceability?.serviceable
+      ? `${serviceability.estimatedDaysText}${serviceability.etd ? ` (by ${serviceability.etd})` : ''}`
+      : 'Updating after courier pickup';
+
     const newOrder: Order = {
       id: orderId,
       date: 'Today, ' + new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
       total: totalPrice,
       status: 'Processing',
       statusStep: 1,
-      estimatedDelivery: 'Tomorrow by 9:00 PM',
+      estimatedDelivery: etaText,
       trackingNumber: trackingNo,
-      carrier: 'AARVO Express Surface • AWB ' + trackingNo.slice(-6),
+      carrier: serviceability?.courierName || 'Shiprocket Partner Courier',
       paymentMethod: paymentMethod === 'COD' ? 'Cash on Delivery (Pay at doorstep)' : paymentMethod === 'UPI' ? 'UPI' : 'Card',
       deliveryAddress: deliveryAddress,
       items: [
@@ -378,27 +415,27 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       ],
       timeline: [
         {
-          status: 'Order Placed (Cash on Delivery)',
+          status: 'Order Placed',
           time: 'Just now',
-          description: `Order confirmed for ₹${totalPrice.toLocaleString('en-IN')}. Please keep exact cash ready upon delivery.`,
+          description: `Order confirmed for ₹${totalPrice.toLocaleString('en-IN')}.`,
           completed: true,
         },
         {
           status: 'Seller Packaging',
           time: 'Preparing',
-          description: `${product.seller} is packing your item with verified seal.`,
+          description: `${product.seller} is packing your item for Shiprocket courier pickup.`,
           completed: false,
         },
         {
           status: 'Out for Delivery',
-          time: 'Tomorrow, by 9:00 AM',
-          description: 'AARVO delivery agent will arrive at your address with the package.',
+          time: 'Pending dispatch',
+          description: 'Shiprocket courier partner will deliver with OTP verification.',
           completed: false,
         },
         {
-          status: 'Delivered & Cash Collected',
-          time: 'Tomorrow, by 9:00 PM',
-          description: 'Cash payment will be verified and collected at your doorstep.',
+          status: 'Delivered',
+          time: serviceability?.etd ? `Est. ${serviceability.etd}` : 'Pending',
+          description: 'Shipment handed over at your doorstep.',
           completed: false,
         },
       ],
@@ -792,10 +829,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs sm:text-[13px] font-black text-slate-900 dark:text-white leading-tight">
-                  Free Delivery
+                  {serviceability?.freightCharge && serviceability.freightCharge > 0
+                    ? `Delivery Charge ₹${Math.round(serviceability.freightCharge)}`
+                    : 'Free Delivery'}
                 </h4>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium mt-0.5">
-                  Delivery by 7–10 Nov
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium mt-0.5 tabular-nums">
+                  {checkingPincode
+                    ? `Checking Shiprocket rider ETA for ${pincode}…`
+                    : serviceability
+                    ? serviceability.serviceable
+                      ? `Delivery in ${serviceability.estimatedDaysText}${serviceability.etd ? ` (by ${serviceability.etd})` : ''}`
+                      : `Currently unserviceable for PIN ${pincode}`
+                    : 'Enter delivery pincode below to check ETA'}
                 </p>
               </div>
             </div>
@@ -995,16 +1040,35 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           {/* CASH ON DELIVERY & FREE DELIVERY ASSURANCE                       */}
           {/* =============================================================== */}
           <div className="p-3.5 rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100 dark:border-orange-950/60 space-y-2.5">
-            {/* Delivery time */}
-            <div className="flex items-center gap-2.5">
-              <Truck className="w-4 h-4 text-[#FF5722] shrink-0" />
-              <div className="text-xs">
-                <span className="font-bold text-slate-900 dark:text-white">
-                  Delivery by Tomorrow, 9 PM
-                </span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-extrabold ml-1.5">
-                  FREE
-                </span>
+            {/* Live Shiprocket Rider / Courier Pincode ETA */}
+            <div className="flex items-start gap-2.5">
+              <Truck className="w-4 h-4 text-[#FF5722] shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0 text-xs">
+                <div className="flex items-center flex-wrap gap-1.5">
+                  <span className="font-bold text-slate-900 dark:text-white tabular-nums">
+                    {checkingPincode
+                      ? `Checking Shiprocket rider ETA for ${pincode}…`
+                      : serviceability
+                      ? serviceability.serviceable
+                        ? `Delivery in ${serviceability.estimatedDaysText}${serviceability.etd ? ` • By ${serviceability.etd}` : ''}`
+                        : `Not serviceable at PIN ${pincode}`
+                      : 'Check your pincode for courier ETA'}
+                  </span>
+                  {serviceability?.serviceable !== false && (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">
+                      {serviceability?.freightCharge && serviceability.freightCharge > 0
+                        ? `₹${Math.round(serviceability.freightCharge)}`
+                        : 'FREE'}
+                    </span>
+                  )}
+                </div>
+                {serviceability && (
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                    {serviceability.courierName || 'Shiprocket Partner Courier'}
+                    {serviceability.zoneLabel ? ` • ${serviceability.zoneLabel}` : ''}
+                    {serviceability.source === 'shiprocket_live' ? ' • Live Courier ETA' : ' • Estimated Transit'}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1013,7 +1077,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
                   <MapPin className="w-3.5 h-3.5 text-[#FF5722]" />
-                  <span>Deliver to: <strong className="text-slate-900 dark:text-white">{pincode}</strong></span>
+                  <span>Deliver to: <strong className="text-slate-900 dark:text-white tabular-nums">{pincode}</strong></span>
                 </div>
                 <button
                   type="button"
@@ -1032,10 +1096,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   onSubmit={(e) => {
                     e.preventDefault();
                     const cleaned = pincodeInput.replace(/\D/g, '').slice(0, 6);
-                    if (cleaned.length === 6) {
+                    if (/^[1-9]\d{5}$/.test(cleaned)) {
                       setPincode(cleaned);
                       setIsPincodeValid(true);
                       setIsEditingPincode(false);
+                      onUpdateAddress?.(cleaned);
                       haptics.saved();
                     } else {
                       setIsPincodeValid(false);
@@ -1053,26 +1118,26 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       setPincodeInput(e.target.value.replace(/\D/g, '').slice(0, 6));
                       setIsPincodeValid(true);
                     }}
-                    placeholder="6-digit pincode"
-                    className="flex-1 px-2.5 py-1.5 rounded-lg text-xs bg-[#FFF4E8] dark:bg-[#181311] text-slate-900 dark:text-white border border-orange-200 dark:border-orange-900/60 outline-none focus:border-[#FF5722]"
+                    placeholder="Enter 6-digit pincode"
+                    className="flex-1 px-2.5 py-1.5 rounded-lg text-xs tabular-nums bg-[#FFF4E8] dark:bg-[#181311] text-slate-900 dark:text-white border border-orange-200 dark:border-orange-900/60 outline-none focus:border-[#FF5722]"
                   />
                   <button
                     type="submit"
                     className="px-3 py-1.5 rounded-lg bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold text-xs cursor-pointer"
                   >
-                    Check
+                    Check ETA
                   </button>
                 </form>
               )}
               {!isPincodeValid && (
                 <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">
-                  Please enter a valid 6-digit delivery pincode.
+                  Please enter a valid 6-digit Indian delivery pincode.
                 </p>
               )}
             </div>
 
             {/* Cash on Delivery Banner */}
-            {product.codAvailable !== false && (
+            {product.codAvailable !== false && (serviceability ? serviceability.codAvailable : true) && (
               <div className="flex items-center gap-2 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60">
                 <Banknote className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
                 <div className="flex-1 text-[11px] leading-tight">
@@ -1080,7 +1145,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     Cash On Delivery Available
                   </span>
                   <span className="text-amber-800/80 dark:text-amber-400/80 text-[10px]">
-                    Pay cash at your doorstep with 100% purchase protection.
+                    Pay cash at your doorstep for PIN {pincode}.
                   </span>
                 </div>
                 <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />

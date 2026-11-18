@@ -79,6 +79,10 @@ import {
   matchAndScoreProducts,
   sortProducts,
 } from '../utils/productSearchSort';
+import {
+  checkShiprocketServiceability,
+  ShiprocketServiceabilityResult,
+} from '../utils/shiprocketServiceability';
 
 interface MainScreenProps {
   onLogout?: () => void;
@@ -259,7 +263,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     } catch {
       // safe fallback
     }
-    return { name: 'Saurav Paswan', phone: '+91 9876543210' };
+    return { name: 'AARVO Shopper', phone: '' };
   });
 
   useEffect(() => {
@@ -294,20 +298,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       {
         id: 'addr-1',
         label: 'Home',
-        fullName: 'Saurav Paswan',
-        phone: '+91 9876543210',
-        addressLine: '24B, Model Town, Phase 2',
+        fullName: 'AARVO Shopper',
+        phone: '',
+        addressLine: 'Select or add your doorstep address',
         city: 'Patna',
         pincode: '800001',
-      },
-      {
-        id: 'addr-2',
-        label: 'Work',
-        fullName: 'Saurav Paswan',
-        phone: '+91 9876543210',
-        addressLine: 'Flat 402, Green Glen Heights, Outer Ring Road',
-        city: 'Bangalore',
-        pincode: '560103',
       },
     ];
   });
@@ -333,7 +328,25 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     savedAddresses.find((a) => a.id === activeAddressId) || savedAddresses[0];
   const activeAddressString = activeAddressObj
     ? `${activeAddressObj.fullName}, ${activeAddressObj.addressLine}, ${activeAddressObj.city} - ${activeAddressObj.pincode}`
-    : '24B, Model Town, Phase 2, Patna - 800001';
+    : 'Patna - 800001';
+
+  useEffect(() => {
+    const pin = (activeAddressObj?.pincode || '').replace(/\D/g, '').slice(0, 6);
+    if (!/^[1-9]\d{5}$/.test(pin)) {
+      setCartServiceability(null);
+      return;
+    }
+    const controller = new AbortController();
+    setIsCheckingCartEta(true);
+    checkShiprocketServiceability(pin, { signal: controller.signal })
+      .then((res) => {
+        if (!controller.signal.aborted) setCartServiceability(res);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsCheckingCartEta(false);
+      });
+    return () => controller.abort();
+  }, [activeAddressObj?.pincode]);
 
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [profileDraftName, setProfileDraftName] = useState('');
@@ -354,6 +367,13 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [isWishlistModalOpen, setIsWishlistModalOpen] = useState(false);
   const [isCouponsModalOpen, setIsCouponsModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [cartServiceability, setCartServiceability] = useState<ShiprocketServiceabilityResult | null>(null);
+  const [isCheckingCartEta, setIsCheckingCartEta] = useState(false);
   const [ticketSubject, setTicketSubject] = useState('Order & Delivery Inquiry');
   const [ticketMessage, setTicketMessage] = useState('');
   const [supportTickets, setSupportTickets] = useState<
@@ -514,107 +534,18 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     reader.readAsText(file);
   };
 
-  // Orders purchase history state with realistic data
+  // Orders purchase history state (no pre-seeded fake sample orders)
   const [orders, setOrders] = useState<Order[]>(() => {
     try {
       const saved = localStorage.getItem('aarvo_orders');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch {
       // safe fallback
     }
-    return [
-      {
-        id: 'ARV-984320',
-        date: 'Today, Oct 30, 2026',
-        total: 3198,
-        status: 'Processing',
-        statusStep: 1,
-        estimatedDelivery: 'Preparing dispatch, arrives Nov 02',
-        trackingNumber: 'SHIPROCKET-992014',
-        carrier: 'Shiprocket Surface &bull; AWB 992014',
-        paymentMethod: 'UPI (Paytm)',
-        deliveryAddress: 'Flat 402, Green Glen Heights, Outer Ring Road, Bangalore - 560103',
-        items: [
-          {
-            id: 'p4',
-            name: 'Puma Men Running Shoes (Black, UK 9)',
-            price: 1599,
-            quantity: 2,
-            image: prodWhiteSneakersImg,
-            category: 'Footwear',
-          },
-        ],
-        timeline: [
-          { status: 'Order Placed & Verified', time: '09:30 AM', description: 'Order confirmed with Instant UPI Payment', completed: true },
-          { status: 'Seller Packaging', time: '11:00 AM', description: 'Seller is packing items at warehouse', completed: true },
-          { status: 'Courier Pickup Scheduled', time: 'Expected Today', description: 'Courier partner scheduled to pick up package', completed: false },
-          { status: 'Out for Delivery', time: 'Nov 02', description: 'Final doorstep delivery with OTP', completed: false },
-        ],
-      },
-      {
-        id: 'ARV-924180',
-        date: 'Oct 27, 2026',
-        total: 19999,
-        status: 'Shipped',
-        statusStep: 2,
-        estimatedDelivery: 'Arriving Tomorrow, by 8 PM',
-        trackingNumber: 'BLUEDART-89124018',
-        carrier: 'BlueDart Express &bull; AWB 89124018',
-        paymentMethod: 'UPI (Google Pay)',
-        deliveryAddress: 'Flat 402, Green Glen Heights, Outer Ring Road, Bangalore - 560103',
-        items: [
-          {
-            id: 'p1',
-            name: 'OnePlus Nord CE4 5G (8GB RAM, 128GB Storage)',
-            price: 19999,
-            quantity: 1,
-            image: catMobilesPhoneImg,
-            category: 'Mobiles',
-          },
-        ],
-        timeline: [
-          { status: 'Order Placed & Verified', time: '10:15 AM', description: 'Order confirmed with Instant UPI Payment', completed: true },
-          { status: 'Packed & Dispatched', time: '02:30 PM', description: 'Package inspected and handed to courier', completed: true },
-          { status: 'In Transit', time: '05:45 PM', description: 'Shipment arrived at Bangalore Sorting Hub', completed: true },
-          { status: 'Out for Delivery', time: 'Tomorrow', description: 'Courier partner will deliver with OTP confirmation', completed: false },
-        ],
-      },
-      {
-        id: 'ARV-814205',
-        date: 'Oct 24, 2026',
-        total: 5289,
-        status: 'Delivered',
-        statusStep: 3,
-        estimatedDelivery: 'Delivered on Oct 25, 2026',
-        trackingNumber: 'DELHIVERY-7740192',
-        carrier: 'Delhivery Surface &bull; AWB 7740192',
-        paymentMethod: 'HDFC Credit Card (Ending in 4092)',
-        deliveryAddress: 'Flat 402, Green Glen Heights, Outer Ring Road, Bangalore - 560103',
-        items: [
-          {
-            id: 'p2',
-            name: 'Pure Cotton Embroidered Anarkali Kurta Set',
-            price: 1299,
-            quantity: 1,
-            image: catFashionBagImg,
-            category: 'Fashion',
-          },
-          {
-            id: 'p3',
-            name: 'Sony WH-CH520 Wireless Bluetooth Headphones',
-            price: 3990,
-            quantity: 1,
-            image: promoGadgetsTrioImg,
-            category: 'Electronics',
-          },
-        ],
-        timeline: [
-          { status: 'Order Confirmed', time: 'Oct 24, 09:00 AM', description: 'Payment verified via HDFC Card', completed: true },
-          { status: 'Dispatched from Hub', time: 'Oct 24, 01:20 PM', description: 'Picked up by Delhivery Logistics', completed: true },
-          { status: 'Delivered Successfully', time: 'Oct 25, 03:45 PM', description: 'Package handed over to resident', completed: true },
-        ],
-      },
-    ];
+    return [];
   });
 
   // Sync orders with localStorage
@@ -3110,11 +3041,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               >
                 <Package className="w-3.5 h-3.5" />
                 <span>View My Orders</span>
-                {orders.length > 0 && (
-                  <span className="ml-0.5 px-1.5 py-0.2 bg-[#FF5722] text-white text-[9px] font-black rounded-full">
-                    {orders.length}
-                  </span>
-                )}
               </button>
             </div>
 
@@ -3143,7 +3069,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     className="px-5 py-2.5 bg-white dark:bg-[#211A17] border border-[#FF5722]/30 dark:border-orange-800/60 text-[#FF5722] dark:text-orange-300 font-bold text-xs rounded-xl shadow-xs hover:bg-[#FFF4E8] dark:hover:bg-orange-950/40 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
                   >
                     <Package className="w-4 h-4" />
-                    <span>View My Orders ({orders.length})</span>
+                    <span>View My Orders</span>
                   </button>
                 </div>
               </div>
@@ -3209,9 +3135,15 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">
-                            <Truck className="w-3 h-3 text-emerald-600" />
-                            <span>Delivery by Tomorrow | FREE</span>
+                          <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 tabular-nums">
+                            <Truck className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span>
+                              {isCheckingCartEta
+                                ? 'Checking Shiprocket courier ETA…'
+                                : cartServiceability?.serviceable
+                                ? `Delivery in ${cartServiceability.estimatedDaysText}${cartServiceability.etd ? ` (by ${cartServiceability.etd})` : ''} | FREE`
+                                : `Delivery to ${activeAddressObj?.pincode || '800001'} calculated at checkout`}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -3544,15 +3476,18 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       const chosenPayment = paymentMethodSelection === 'COD'
                         ? 'Cash On Delivery (COD)'
                         : `Online UPI (${selectedUpiApp}${selectedUpiApp === 'Custom UPI' && customUpiId ? `: ${customUpiId}` : ''})`;
+                      const etaSummary = cartServiceability?.serviceable
+                        ? `${cartServiceability.estimatedDaysText}${cartServiceability.etd ? ` (by ${cartServiceability.etd})` : ''}`
+                        : 'Updating after Shiprocket courier pickup';
                       const newOrder: Order = {
                         id: orderId,
                         date: 'Today, Just now',
                         total: finalPayable,
                         status: 'Processing',
                         statusStep: 1,
-                        estimatedDelivery: 'Arriving in 2-3 Business Days',
-                        trackingNumber: `AARVO-EXP-${Math.floor(1000000 + Math.random() * 9000000)}`,
-                        carrier: 'AARVO Express FastTrack',
+                        estimatedDelivery: etaSummary,
+                        trackingNumber: `PENDING-AWB-${orderId.slice(-6)}`,
+                        carrier: cartServiceability?.courierName || 'Shiprocket Partner Courier',
                         paymentMethod: chosenPayment,
                         deliveryAddress: activeAddressString,
                         items: cartItems.map((ci) => ({
@@ -3565,9 +3500,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         })),
                         timeline: [
                           { status: 'Order Verified', time: 'Just now', description: `Order verified via ${chosenPayment}`, completed: true },
-                          { status: 'Processing at Warehouse', time: 'In progress', description: 'Seller preparing package for courier handover', completed: false },
-                          { status: 'Shipped', time: 'Pending', description: 'Will dispatch to local distribution center', completed: false },
-                          { status: 'Delivered', time: 'Expected in 2-3 days', description: 'Doorstep delivery with OTP verification', completed: false },
+                          { status: 'Processing at Warehouse', time: 'In progress', description: 'Seller preparing package for Shiprocket courier pickup', completed: false },
+                          { status: 'Shipped', time: 'Pending', description: 'Will dispatch via Shiprocket courier network', completed: false },
+                          { status: 'Delivered', time: cartServiceability?.etd ? `Est. ${cartServiceability.etd}` : 'Pending', description: 'Doorstep delivery with verification', completed: false },
                         ],
                       };
                       haptics.orderComplete();
@@ -3837,6 +3772,48 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 </div>
               </button>
 
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.selection();
+                  setIsPolicyModalOpen(true);
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-[#FFF4E8]/60 dark:hover:bg-stone-800/40 flex items-center justify-between transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="w-4 h-4 text-[#FF5722]" />
+                  <div>
+                    <span className="block">Privacy Policy, Terms &amp; Returns</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal block">
+                      7-day return window &amp; data protection disclosures
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.warning();
+                  setDeleteConfirmText('');
+                  setDeleteAccountError(null);
+                  setIsDeleteAccountOpen(true);
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-rose-50/70 dark:hover:bg-rose-950/30 flex items-center justify-between transition-colors cursor-pointer text-rose-600 dark:text-rose-400"
+              >
+                <div className="flex items-center gap-3">
+                  <Trash2 className="w-4 h-4 shrink-0" />
+                  <div>
+                    <span className="block font-bold">Delete My Account</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal block">
+                      Permanently remove your profile &amp; saved addresses
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-rose-400" />
+              </button>
+
               {/* Theme Toggle Card in Account */}
               {onToggleTheme && (
                 <div className="w-full px-4 py-2.5 flex items-center justify-between">
@@ -4078,11 +4055,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       <Package className="w-4 h-4 text-[#FF5722]" />
                       <span>Orders &amp; Delivery</span>
                     </div>
-                    {orders.length > 0 && (
-                      <span className="text-[10px] font-bold bg-orange-100 dark:bg-orange-950 text-[#E64A19] dark:text-orange-300 px-2 py-0.5 rounded-full">
-                        {orders.length}
-                      </span>
-                    )}
                   </button>
 
                   <button
@@ -5159,19 +5131,21 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           customerName={userProfile.name}
           onUpdateAddress={(newAddr) => {
             if (!activeAddressObj) return;
-            const pincodeMatch = newAddr.match(/\b\d{6}\b/);
+            const trimmed = newAddr.trim();
+            const isOnlyPin = /^\d{6}$/.test(trimmed);
+            const pincodeMatch = trimmed.match(/\b\d{6}\b/);
             setSavedAddresses((prev) =>
               prev.map((a) =>
                 a.id === activeAddressObj.id
                   ? {
                       ...a,
-                      addressLine: newAddr,
+                      addressLine: isOnlyPin ? a.addressLine : trimmed,
                       pincode: pincodeMatch ? pincodeMatch[0] : a.pincode,
                     }
                   : a
               )
             );
-            showToast('Delivery address updated!');
+            showToast(isOnlyPin ? `Delivery pincode updated to ${trimmed}` : 'Delivery address updated!');
           }}
           onPlaceOrder={(newOrder) => {
             setOrders((prev) => {
@@ -5505,38 +5479,34 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   />
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       const cleanPin = quickPincodeInput.trim();
-                      if (!/^\d{6}$/.test(cleanPin)) {
-                        setPincodeStatusMessage('Please enter a valid 6-digit pincode.');
+                      if (!/^[1-9]\d{5}$/.test(cleanPin)) {
+                        setPincodeStatusMessage('Please enter a valid 6-digit Indian pincode.');
                         showToast('Enter a valid 6-digit pincode', 'error');
                         return;
                       }
                       haptics.saved();
+                      setPincodeStatusMessage(`Checking Shiprocket serviceability for PIN ${cleanPin}…`);
+                      const res = await checkShiprocketServiceability(cleanPin);
                       const existingMatch = savedAddresses.find((a) => a.pincode === cleanPin);
                       if (existingMatch) {
                         setActiveAddressId(existingMatch.id);
-                        setPincodeStatusMessage(
-                          `Delivery available in 2-3 days to ${existingMatch.city} (${cleanPin})`
-                        );
-                        showToast(
-                          `Delivering to ${existingMatch.city} - ${cleanPin}`,
-                          { title: 'Location Updated', variant: 'success' }
-                        );
                       } else if (activeAddressObj) {
                         setSavedAddresses((prev) =>
                           prev.map((a) =>
                             a.id === activeAddressObj.id ? { ...a, pincode: cleanPin } : a
                           )
                         );
-                        setPincodeStatusMessage(
-                          `Express delivery available in 2-4 days for PIN ${cleanPin}`
-                        );
-                        showToast(`Delivery pincode set to ${cleanPin}`, {
-                          title: 'Pincode Applied',
-                          variant: 'success',
-                        });
                       }
+                      const msg = res
+                        ? res.riderMessage
+                        : `Delivery pincode updated to ${cleanPin}`;
+                      setPincodeStatusMessage(msg);
+                      showToast(msg, {
+                        title: 'Shiprocket Pincode Updated',
+                        variant: res && !res.serviceable ? 'warning' : 'success',
+                      });
                     }}
                     className="px-3.5 py-2 rounded-xl bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-black cursor-pointer shrink-0"
                   >
@@ -6215,6 +6185,152 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* 22. PRIVACY POLICY, TERMS & RETURN POLICY MODAL */}
+        {isPolicyModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="w-full max-w-md max-h-[85vh] overflow-y-auto bg-white dark:bg-[#211A17] rounded-3xl p-5 border border-orange-100 dark:border-stone-800 shadow-2xl space-y-3.5 text-xs">
+              <div className="flex items-center justify-between border-b border-orange-100/70 dark:border-stone-800 pb-3">
+                <h3 className="font-display font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#FF5722]" />
+                  <span>Privacy, Terms &amp; Return Policy</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsPolicyModalOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-3 text-slate-600 dark:text-slate-300 leading-relaxed">
+                <div className="p-3 rounded-2xl bg-[#FFF4E8]/50 dark:bg-[#181311] border border-orange-100 dark:border-stone-800">
+                  <p className="font-black text-slate-900 dark:text-white mb-1">Privacy &amp; Data Protection</p>
+                  <p>AARVO collects only the mobile number, delivery address, and order details necessary to fulfill purchases and Shiprocket courier deliveries. We never sell personal data to third parties. You can permanently delete your account anytime from Account Settings.</p>
+                </div>
+                <div className="p-3 rounded-2xl bg-[#FFF4E8]/50 dark:bg-[#181311] border border-orange-100 dark:border-stone-800">
+                  <p className="font-black text-slate-900 dark:text-white mb-1">Shipping &amp; Delivery Terms</p>
+                  <p>Estimated delivery timelines shown on product pages are calculated live from Shiprocket courier serviceability for the selected pickup &amp; destination pincodes.</p>
+                </div>
+                <div className="p-3 rounded-2xl bg-[#FFF4E8]/50 dark:bg-[#181311] border border-orange-100 dark:border-stone-800">
+                  <p className="font-black text-slate-900 dark:text-white mb-1">7-Day Replacement &amp; Refund Policy</p>
+                  <p>Damaged, defective, or wrong items can be requested for return within 7 days of delivery from My Orders. Approved refunds are processed back to your original payment method within 5–7 business days.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPolicyModalOpen(false)}
+                className="w-full py-2.5 bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 23. DELETE ACCOUNT CONFIRMATION MODAL (PLAY STORE COMPLIANCE) */}
+        {isDeleteAccountOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="w-full max-w-sm bg-white dark:bg-[#211A17] rounded-3xl p-5 border border-rose-200 dark:border-rose-900/60 shadow-2xl space-y-3.5 text-xs">
+              <div className="flex items-center justify-between border-b border-rose-100 dark:border-stone-800 pb-3">
+                <h3 className="font-display font-black text-sm text-rose-600 dark:text-rose-400 flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete AARVO Account</span>
+                </h3>
+                <button
+                  type="button"
+                  disabled={isDeletingAccount}
+                  onClick={() => setIsDeleteAccountOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                This will permanently deactivate your account, clear your saved cart and delivery addresses, and sign you out. Completed order invoices remain archived for statutory GST compliance.
+              </p>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">
+                  Type <strong>DELETE</strong> to confirm:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="DELETE"
+                  className="w-full px-3 py-2 rounded-xl bg-rose-50/40 dark:bg-[#181311] border border-rose-200 dark:border-stone-700 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-rose-500"
+                />
+              </div>
+              {deleteAccountError && (
+                <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                  {deleteAccountError}
+                </p>
+              )}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={isDeletingAccount}
+                  onClick={() => setIsDeleteAccountOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-slate-700 dark:text-slate-300 font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeletingAccount || deleteConfirmText.trim().toUpperCase() !== 'DELETE'}
+                  onClick={async () => {
+                    setIsDeletingAccount(true);
+                    setDeleteAccountError(null);
+                    try {
+                      const token =
+                        localStorage.getItem('aarvo_auth_token') ||
+                        localStorage.getItem('aarvo_token');
+                      if (token) {
+                        const apiBase = (
+                          (import.meta as unknown as { env?: Record<string, string> }).env
+                            ?.VITE_API_BASE_URL || 'https://aarvo-api.onrender.com'
+                        ).replace(/\/$/, '');
+                        const resp = await fetch(`${apiBase}/v1/account`, {
+                          method: 'DELETE',
+                          headers: { Authorization: `Bearer ${token}` },
+                        });
+                        if (!resp.ok && resp.status !== 401) {
+                          const errJson = await resp.json().catch(() => ({}));
+                          throw new Error(
+                            errJson.message || errJson.error || 'Unable to delete account'
+                          );
+                        }
+                      }
+                      [
+                        'aarvo_profile',
+                        'aarvo_addresses',
+                        'aarvo_active_address_id',
+                        'aarvo_cart',
+                        'aarvo_wishlist',
+                        'aarvo_orders',
+                        'aarvo_support_tickets',
+                        'aarvo_auth_token',
+                        'aarvo_token',
+                      ].forEach((k) => localStorage.removeItem(k));
+                      setIsDeleteAccountOpen(false);
+                      showToast('Your AARVO account has been deleted.', 'info');
+                      onLogout?.();
+                    } catch (err) {
+                      setDeleteAccountError(
+                        err instanceof Error ? err.message : 'Unable to delete account'
+                      );
+                    } finally {
+                      setIsDeletingAccount(false);
+                    }
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold cursor-pointer"
+                >
+                  {isDeletingAccount ? 'Deleting…' : 'Confirm Delete'}
+                </button>
+              </div>
             </div>
           </div>
         )}

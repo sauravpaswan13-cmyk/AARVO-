@@ -781,7 +781,8 @@ private fun AarvoFloatingToastBanner(
                 selectedProduct = null
                 selectedTab = 2
             },
-            isDarkTheme = isDarkTheme
+            isDarkTheme = isDarkTheme,
+            api = api
         )
         return
     }
@@ -961,9 +962,7 @@ private fun AarvoFloatingToastBanner(
                     DrawerNavRow(
                         icon = "📦",
                         label = "Orders & Delivery",
-                        badge = if (userOrderCount > 0) "$userOrderCount" else null,
-                        badgeColor = Color(0xFFFFEDE0),
-                        badgeTextColor = Color(0xFFFF5722),
+                        badge = null,
                         textColor = itemTextColor,
                         onClick = {
                             scope.launch { drawerState.close() }
@@ -1700,16 +1699,26 @@ private fun LocationPickerDialog(
                                 onToast("Enter a valid 6-digit pincode", "WARNING")
                             } else {
                                 formError = ""
-                                val (c, s) = inferCityStateForPincode(clean)
-                                onSelectActive("$c, $s", clean)
-                                onDismiss()
+                                scope.launch {
+                                    busy = true
+                                    val (c, s) = inferCityStateForPincode(clean)
+                                    val live = runCatching { api.checkPincodeServiceability(clean) }.getOrNull()
+                                    val riderMsg = live?.optString("riderMessage")?.takeIf { it.isNotBlank() && it != "null" }
+                                    onSelectActive("$c, $s", clean)
+                                    busy = false
+                                    if (!riderMsg.isNullOrBlank()) {
+                                        onToast(riderMsg, if (live.optBoolean("serviceable", true)) "SUCCESS" else "WARNING")
+                                    }
+                                    onDismiss()
+                                }
                             }
                         },
+                        enabled = !busy,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722)),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.height(48.dp)
                     ) {
-                        Text("Apply", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(if (busy) "..." else "Apply", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
 
@@ -3162,7 +3171,7 @@ private fun ProductDetailsScreen(
                         Text("🚚", fontSize = 18.sp)
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            "Delivery by Tomorrow, 9 PM",
+                            "Shiprocket Courier • PIN $deliveryPincode",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF0F172A)
@@ -3332,8 +3341,8 @@ private fun ProductDetailsScreen(
 
                     listOf(
                         "100% Original and Brand-Certified Product",
-                        "Free Express Doorstep Delivery within 24-48 Hours",
-                        "Cash On Delivery (COD) Eligible with Zero Extra Fee",
+                        "Tracked Shiprocket Doorstep Delivery by Verified Courier",
+                        "Cash On Delivery (COD) Eligible on Serviceable Pincodes",
                         "7 Days Easy Replacement & Refund Guarantee",
                         "GST Invoice and 1 Year Manufacturer Warranty Included"
                     ).forEach { bullet ->
@@ -3697,6 +3706,34 @@ private fun ProductDetailsScreen(
     var couponFeedback by remember { mutableStateOf("") }
     var couponFeedbackError by remember { mutableStateOf(false) }
 
+    var cartServiceability by remember(deliveryPincode) { mutableStateOf<JSONObject?>(null) }
+    var checkingCartEta by remember(deliveryPincode) { mutableStateOf(false) }
+
+    LaunchedEffect(deliveryPincode, api) {
+        val cleanPin = deliveryPincode.filter(Char::isDigit).take(6)
+        if (api != null && cleanPin.matches(Regex("^[1-9][0-9]{5}$"))) {
+            checkingCartEta = true
+            cartServiceability = runCatching { api.checkPincodeServiceability(cleanPin) }.getOrNull()
+            checkingCartEta = false
+        } else {
+            cartServiceability = null
+        }
+    }
+
+    val cartEtaSummary = when {
+        checkingCartEta -> "Checking Shiprocket ETA for $deliveryPincode…"
+        cartServiceability != null && !cartServiceability!!.optBoolean("serviceable", true) ->
+            "Currently unserviceable at PIN $deliveryPincode"
+        cartServiceability != null -> {
+            val daysText = cartServiceability!!.optString("estimatedDaysText").takeIf { it.isNotBlank() } ?: "3-5 days"
+            val etd = cartServiceability!!.optString("etd").takeIf { it.isNotBlank() && it != "null" }
+            val freight = cartServiceability!!.optDouble("freightCharge", 0.0).takeIf { !it.isNaN() && it > 0.0 } ?: 0.0
+            val shipLabel = if (freight > 0.0) "₹${freight.toInt()}" else "FREE"
+            if (etd != null) "Delivery in $daysText (by $etd) | $shipLabel" else "Delivery in $daysText | $shipLabel"
+        }
+        else -> "Shiprocket ETA calculated at checkout"
+    }
+
     val cardBg = if (isDarkTheme) Color(0xFF181311) else Color.White
     val cardBorder = if (isDarkTheme) Color(0xFF332620) else Color(0xFFFFDFC4)
     val softOrangeBg = if (isDarkTheme) Color(0xFF211A17) else Color(0xFFFFF4E8)
@@ -3759,21 +3796,6 @@ private fun ProductDetailsScreen(
                                         color = Color(0xFFFF5722),
                                         fontWeight = FontWeight.Bold
                                     )
-                                    if (userOrderCount > 0) {
-                                        Spacer(Modifier.width(6.dp))
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = Color(0xFFFF5722)
-                                        ) {
-                                            Text(
-                                                text = userOrderCount.toString(),
-                                                color = Color.White,
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Black,
-                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                            )
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -3899,7 +3921,7 @@ private fun ProductDetailsScreen(
                                         border = BorderStroke(1.dp, cardBorder)
                                     ) {
                                         Text(
-                                            "View My Orders ($userOrderCount)",
+                                            "View My Orders",
                                             color = Color(0xFFFF5722),
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 12.sp
@@ -4002,7 +4024,7 @@ private fun ProductDetailsScreen(
                                     ) {
                                         TruckVectorIcon(tint = Color(0xFF059669), modifier = Modifier.size(14.dp))
                                         Text(
-                                            text = "Delivery by Tomorrow | FREE",
+                                            text = cartEtaSummary,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = Color(0xFF059669)
@@ -4716,9 +4738,15 @@ private fun ProductDetailsScreen(
 ) {
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var showProfile by remember { mutableStateOf(false) }
     var showSupport by remember { mutableStateOf(false) }
     var showPaymentSecurityInfo by remember { mutableStateOf(false) }
+    var showPoliciesDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
+    var deleteConfirmInput by remember { mutableStateOf("") }
+    var deleteBusy by remember { mutableStateOf(false) }
+    var deleteError by remember { mutableStateOf("") }
 
     val cardBg = if (isDarkTheme) Color(0xFF181311) else Color.White
     val cardBorder = if (isDarkTheme) Color(0xFF332620) else Color(0xFFFFDFC4)
@@ -4731,13 +4759,13 @@ private fun ProductDetailsScreen(
     if (showPaymentSecurityInfo) {
         AlertDialog(
             onDismissRequest = { showPaymentSecurityInfo = false },
-            title = { Text("Payment & Security", fontWeight = FontWeight.Bold, color = Color(0xFF1F1612)) },
+            title = { Text("Payment & Security", fontWeight = FontWeight.Bold, color = headingColor) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("• Cash On Delivery (COD) with zero pre-payment required.", fontSize = 12.sp, color = Color(0xFF4A3B34))
-                    Text("• Instant UPI with Google Pay, PhonePe & Paytm.", fontSize = 12.sp, color = Color(0xFF4A3B34))
-                    Text("• 256-bit bank grade encryption for debit and credit cards.", fontSize = 12.sp, color = Color(0xFF4A3B34))
-                    Text("• 100% Money Back and Easy Replacement Guarantee.", fontSize = 12.sp, color = Color(0xFF4A3B34))
+                    Text("• Cash On Delivery (COD) on serviceable pincodes.", fontSize = 12.sp, color = mutedColor)
+                    Text("• Instant UPI with Google Pay, PhonePe & Paytm.", fontSize = 12.sp, color = mutedColor)
+                    Text("• 256-bit bank grade encryption via Razorpay.", fontSize = 12.sp, color = mutedColor)
+                    Text("• 7-Day Easy Replacement & Refund Guarantee.", fontSize = 12.sp, color = mutedColor)
                 }
             },
             confirmButton = {
@@ -4745,6 +4773,99 @@ private fun ProductDetailsScreen(
                     onClick = { showPaymentSecurityInfo = false },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
                 ) { Text("Got it", color = Color.White) }
+            }
+        )
+    }
+    if (showPoliciesDialog) {
+        AlertDialog(
+            onDismissRequest = { showPoliciesDialog = false },
+            title = { Text("Privacy, Terms & Returns", fontWeight = FontWeight.Bold, color = headingColor) },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text("Privacy & Data Protection", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = headingColor)
+                    Text(
+                        "AARVO collects only the mobile number, delivery address, and order records required to fulfill purchases and Shiprocket courier deliveries. We do not sell personal data. You can permanently delete your account from Account Settings at any time.",
+                        fontSize = 11.sp,
+                        color = mutedColor
+                    )
+                    Text("Shipping & Delivery", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = headingColor)
+                    Text(
+                        "Delivery estimates are computed dynamically by pincode via Shiprocket courier serviceability.",
+                        fontSize = 11.sp,
+                        color = mutedColor
+                    )
+                    Text("7-Day Replacement & Refund Policy", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = headingColor)
+                    Text(
+                        "Damaged, defective, or wrong items are eligible for return within 7 days of delivery inside My Orders. Refunds are processed to the original payment method within 5–7 business days.",
+                        fontSize = 11.sp,
+                        color = mutedColor
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showPoliciesDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
+                ) { Text("Close", color = Color.White) }
+            }
+        )
+    }
+    if (showDeleteAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!deleteBusy) showDeleteAccountDialog = false },
+            title = { Text("Delete AARVO Account", fontWeight = FontWeight.Bold, color = Color(0xFFE11D48)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "This permanently deactivates your AARVO account, removes your saved addresses and cart, and signs you out. Completed invoices are retained solely for statutory GST compliance.",
+                        fontSize = 12.sp,
+                        color = mutedColor
+                    )
+                    OutlinedTextField(
+                        value = deleteConfirmInput,
+                        onValueChange = { deleteConfirmInput = it; deleteError = "" },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Type DELETE to confirm") }
+                    )
+                    if (deleteError.isNotBlank()) {
+                        Text(deleteError, color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            deleteBusy = true
+                            deleteError = ""
+                            try {
+                                if (!guestMode) {
+                                    api.deleteAccount()
+                                }
+                                showDeleteAccountDialog = false
+                                Toast.makeText(context, "Your AARVO account has been deleted.", Toast.LENGTH_LONG).show()
+                                onSignOut()
+                            } catch (t: Throwable) {
+                                deleteError = t.message ?: "Unable to delete account right now"
+                            } finally {
+                                deleteBusy = false
+                            }
+                        }
+                    },
+                    enabled = !deleteBusy && deleteConfirmInput.trim().equals("DELETE", ignoreCase = true),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE11D48))
+                ) {
+                    Text(if (deleteBusy) "Deleting..." else "Confirm Delete", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAccountDialog = false }, enabled = !deleteBusy) {
+                    Text("Cancel")
+                }
             }
         )
     }
@@ -4919,7 +5040,12 @@ private fun ProductDetailsScreen(
                                     Spacer(Modifier.width(10.dp))
                                     Column {
                                         Text("Orders", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = headingColor)
-                                        Text("$userOrderCount Total Orders", fontSize = 10.sp, color = Color(0xFFFF5722), fontWeight = FontWeight.SemiBold)
+                                        Text(
+                                            if (userOrderCount > 0) "$userOrderCount Order(s)" else "Track purchases",
+                                            fontSize = 10.sp,
+                                            color = Color(0xFFFF5722),
+                                            fontWeight = FontWeight.SemiBold
+                                        )
                                     }
                                 }
                             }
@@ -5122,8 +5248,8 @@ private fun ProductDetailsScreen(
                             AccountMenuRow(
                                 emoji = "📦",
                                 title = "Orders & Delivery Tracking",
-                                subtitle = "Live status, tracking & history",
-                                badgeText = if (userOrderCount > 0) "$userOrderCount" else "Orders",
+                                subtitle = "Live Shiprocket status, tracking & history",
+                                badgeText = null,
                                 isDarkTheme = isDarkTheme,
                                 onClick = onOpenOrdersTab
                             )
@@ -5196,6 +5322,29 @@ private fun ProductDetailsScreen(
                                 isDarkTheme = isDarkTheme,
                                 onClick = { showSupport = true }
                             )
+                            Box(Modifier.fillMaxWidth().height(0.5.dp).background(dividerColor))
+
+                            AccountMenuRow(
+                                emoji = "📜",
+                                title = "Privacy Policy, Terms & Returns",
+                                subtitle = "7-day return rules & user data disclosure",
+                                isDarkTheme = isDarkTheme,
+                                onClick = { showPoliciesDialog = true }
+                            )
+                            if (!guestMode) {
+                                Box(Modifier.fillMaxWidth().height(0.5.dp).background(dividerColor))
+                                AccountMenuRow(
+                                    emoji = "🗑️",
+                                    title = "Delete My Account",
+                                    subtitle = "Permanently remove profile & saved data",
+                                    isDarkTheme = isDarkTheme,
+                                    onClick = {
+                                        deleteConfirmInput = ""
+                                        deleteError = ""
+                                        showDeleteAccountDialog = true
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -5348,240 +5497,93 @@ private fun ProductDetailsScreen(
 @Composable private fun OrdersScreen(padding: PaddingValues, api: AarvoApiClient, onBack: () -> Unit) { var orders by remember { mutableStateOf<List<JSONObject>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); fun reload() { scope.launch { loading = true; error = ""; try { val a = api.orders(); orders = buildList { for (i in 0 until a.length()) add(a.getJSONObject(i)) } } catch (t: Throwable) { error = t.message ?: "Unable to load orders" } finally { loading = false } } }; LaunchedEffect(Unit) { reload() }; Box(modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding())) { Scaffold(topBar = { TopAppBar(title = { Text("My Orders") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } }) }) { inner -> LazyColumn(Modifier.fillMaxSize().padding(inner), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 48.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { if (loading) item { CircularProgressIndicator() }; if (error.isNotBlank()) item { Text(error, color = MaterialTheme.colorScheme.error) }; if (!loading && orders.isEmpty()) item { Text("No orders yet.") }; itemsIndexed(orders, key = { index, order -> "order_${index}_${order.optString("id")}" }) { _, order -> OrderCard(order, api, ::reload) }; item { Spacer(Modifier.height(32.dp)) } } } } }
 
 @Composable
-private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismiss: () -> Unit) {
+private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, api: AarvoApiClient, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    var etaMinutes by remember { mutableIntStateOf(12) }
-    var speedKmh by remember { mutableIntStateOf(32) }
-    var distanceKm by remember { mutableStateOf("1.4") }
-    val otpCode = "4829"
+    var events by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var errorMsg by remember { mutableStateOf("") }
+
+    LaunchedEffect(orderId) {
+        loading = true
+        errorMsg = ""
+        try {
+            val arr = api.orderTracking(orderId)
+            events = buildList { for (i in 0 until arr.length()) add(arr.getJSONObject(i)) }
+        } catch (t: Throwable) {
+            errorMsg = t.message ?: "Unable to fetch latest courier events"
+        } finally {
+            loading = false
+        }
+    }
+
+    val trackingObj = order.optJSONObject("tracking_json")
+    val currentStatus = trackingObj?.optString("status")?.takeIf { it.isNotBlank() && it != "null" }
+        ?: order.optString("status", "PROCESSING")
+    val carrier = trackingObj?.optString("carrier")?.takeIf { it.isNotBlank() && it != "null" }
+        ?: "Shiprocket Courier"
+    val awbCode = trackingObj?.optString("trackingCode")?.takeIf { it.isNotBlank() && it != "null" }
+        ?: trackingObj?.optString("awb")?.takeIf { it.isNotBlank() && it != "null" }
+        ?: ""
+    val etd = trackingObj?.optString("etd")?.takeIf { it.isNotBlank() && it != "null" }
+    val trackingUrl = trackingObj?.optString("trackingUrl")?.takeIf { it.startsWith("https://") }
+        ?: if (awbCode.isNotBlank()) "https://shiprocket.co/tracking/${Uri.encode(awbCode)}" else ""
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("🛵 Live Rider GPS Tracking", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF0F172A))
-            }
+            Text("🚚 Shipment & Courier Tracking", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF0F172A))
         },
         text = {
             Column(
                 modifier = Modifier
-                    .heightIn(max = 480.dp)
+                    .heightIn(max = 460.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Live Status Banner
                 Surface(
                     color = Color(0xFFFFF4E8),
                     shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(1.dp, Color(0xFFFFDFC4)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(Modifier.padding(12.dp)) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Delivery in Transit", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE64A19))
+                            Text(currentStatus, fontSize = 12.sp, fontWeight = FontWeight.Black, color = Color(0xFFE64A19))
                             Text("Order #$orderId", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFF64748B))
                         }
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            "Arriving in ~$etaMinutes mins • $distanceKm km away",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFF1E293B)
-                        )
-                        Text(
-                            "Rider speed: $speedKmh km/h • Vehicle: TVS iQube EV (KA-03-EM-8821)",
-                            fontSize = 11.sp,
-                            color = Color(0xFF475569)
-                        )
+                        Text("Courier: $carrier", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                        if (awbCode.isNotBlank()) {
+                            Text("AWB / Tracking ID: $awbCode", fontSize = 11.sp, color = Color(0xFF334155))
+                        } else {
+                            Text("AWB will be generated once the seller packs & schedules pickup.", fontSize = 11.sp, color = Color(0xFF64748B))
+                        }
+                        if (etd != null) {
+                            Text("Estimated Delivery: $etd", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF059669))
+                        }
                     }
                 }
 
-                // Interactive Order Tracking Map Canvas
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF0F172A))
-                ) {
-                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
-                        val w = size.width
-                        val h = size.height
-
-                        // Draw street network / grid
-                        val gridColor = Color(0xFF334155).copy(alpha = 0.35f)
-                        var gx = 0f
-                        while (gx < w) {
-                            drawLine(gridColor, Offset(gx, 0f), Offset(gx, h), 1f)
-                            gx += 40f
-                        }
-                        var gy = 0f
-                        while (gy < h) {
-                            drawLine(gridColor, Offset(0f, gy), Offset(w, gy), 1f)
-                            gy += 35f
-                        }
-
-                        // Draw arterial express roads
-                        val roadColor = Color(0xFF334155)
-                        drawLine(roadColor, Offset(35f, h * 0.85f), Offset(w * 0.42f, h * 0.55f), 10f, StrokeCap.Round)
-                        drawLine(roadColor, Offset(w * 0.42f, h * 0.55f), Offset(w * 0.68f, h * 0.38f), 10f, StrokeCap.Round)
-                        drawLine(roadColor, Offset(w * 0.68f, h * 0.38f), Offset(w - 35f, h * 0.22f), 10f, StrokeCap.Round)
-
-                        // Draw active delivery route polyline (AARVO Orange glowing path)
-                        val routeColor = Color(0xFFFF5722)
-                        drawLine(routeColor, Offset(35f, h * 0.85f), Offset(w * 0.42f, h * 0.55f), 4.5f, StrokeCap.Round)
-                        drawLine(routeColor, Offset(w * 0.42f, h * 0.55f), Offset(w * 0.68f, h * 0.38f), 4.5f, StrokeCap.Round)
-                        drawLine(routeColor, Offset(w * 0.68f, h * 0.38f), Offset(w - 35f, h * 0.22f), 4.5f, StrokeCap.Round)
-
-                        // Draw Hub Point (Warehouse)
-                        drawCircle(Color(0xFF475569), radius = 10f, center = Offset(35f, h * 0.85f))
-                        drawCircle(Color.White, radius = 5f, center = Offset(35f, h * 0.85f))
-
-                        // Draw Rider Current Position (calculated along route)
-                        val rx = w * 0.52f
-                        val ry = h * 0.48f
-                        drawCircle(Color(0xFFFF5722).copy(alpha = 0.3f), radius = 24f, center = Offset(rx, ry))
-                        drawCircle(Color(0xFFFF5722), radius = 11f, center = Offset(rx, ry))
-                        drawCircle(Color.White, radius = 5f, center = Offset(rx, ry))
-
-                        // Draw Customer Doorstep Pin
-                        drawCircle(Color(0xFF059669).copy(alpha = 0.35f), radius = 20f, center = Offset(w - 35f, h * 0.22f))
-                        drawCircle(Color(0xFF059669), radius = 11f, center = Offset(w - 35f, h * 0.22f))
-                        drawCircle(Color.White, radius = 4f, center = Offset(w - 35f, h * 0.22f))
-                    }
-
-                    // Map overlay chips
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(8.dp)
-                            .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text("🏬 AARVO Hub", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .background(Color(0xFF059669).copy(alpha = 0.9f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text("📍 Your Gate", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(bottom = 26.dp)
-                            .background(Color(0xFFFF5722), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 7.dp, vertical = 3.dp)
-                    ) {
-                        Text("🛵 Rahul (Rider)", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(8.dp)
-                            .background(Color(0xFF065F46).copy(alpha = 0.85f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text("Traffic: Clear Route", color = Color(0xFFA7F3D0), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                // Delivery OTP Card
-                Surface(
-                    color = Color(0xFFF0FDF4),
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text("DELIVERY VERIFICATION OTP", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color(0xFF166534))
-                            Text("Share with rider upon arrival", fontSize = 10.sp, color = Color(0xFF15803D))
-                        }
-                        Surface(
-                            color = Color.White,
-                            shape = RoundedCornerShape(6.dp),
-                            border = BorderStroke(1.5.dp, Color(0xFF059669)),
-                            modifier = Modifier.clickable {
-                                Toast.makeText(context, "Delivery OTP $otpCode copied to clipboard!", Toast.LENGTH_SHORT).show()
+                if (trackingUrl.isNotBlank()) {
+                    Button(
+                        onClick = {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(trackingUrl)))
+                            }.onFailure {
+                                Toast.makeText(context, "Unable to open tracking link", Toast.LENGTH_SHORT).show()
                             }
-                        ) {
-                            Text(
-                                otpCode,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFF047857),
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                letterSpacing = 2.sp
-                            )
-                        }
-                    }
-                }
-
-                // Rider Profile Card
-                Surface(
-                    color = Color.White,
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(
-                                shape = CircleShape,
-                                color = Color(0xFFFFEDE0),
-                                modifier = Modifier.size(42.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text("🛵", fontSize = 20.sp)
-                                }
-                            }
-                            Spacer(Modifier.width(10.dp))
-                            Column {
-                                Text("Rahul Sharma", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF1F1612))
-                                Text("AARVO Express Fleet Executive", fontSize = 10.sp, color = Color(0xFF6B5B53))
-                            }
-                        }
-
-                        // Call button
-                        Button(
-                            onClick = {
-                                runCatching {
-                                    val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:+919876543210"))
-                                    context.startActivity(dialIntent)
-                                }.onFailure {
-                                    Toast.makeText(context, "Unable to open phone dialer", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Text("📞 Call", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        }
+                        Text("Open Live Shiprocket Tracking", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
 
-                // Delivery Milestones Timeline
                 Surface(
                     color = Color(0xFFF8FAFC),
                     shape = RoundedCornerShape(10.dp),
@@ -5589,42 +5591,34 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("ROUTE MILESTONES", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("✓ ", color = Color(0xFF059669), fontWeight = FontWeight.Black)
-                            Text("Order packed at fulfillment hub (08:45 AM)", fontSize = 11.sp, color = Color(0xFF334155))
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("✓ ", color = Color(0xFF059669), fontWeight = FontWeight.Black)
-                            Text("Picked up by Rahul Sharma (09:12 AM)", fontSize = 11.sp, color = Color(0xFF334155))
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("● ", color = Color(0xFFFF5722), fontWeight = FontWeight.Black)
-                            Text("On The Way • Live GPS tracking active (Now)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF5722))
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("○ ", color = Color(0xFF94A3B8), fontWeight = FontWeight.Bold)
-                            Text("Doorstep arrival & cash handover", fontSize = 11.sp, color = Color(0xFF64748B))
+                        Text("SHIPMENT TIMELINE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+                        if (loading) {
+                            CircularProgressIndicator(modifier = Modifier.size(22.dp))
+                        } else if (errorMsg.isNotBlank()) {
+                            Text(errorMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                        } else if (events.isEmpty()) {
+                            Text("No courier scan updates yet. Updates appear automatically after Shiprocket pickup.", fontSize = 11.sp, color = Color(0xFF64748B))
+                        } else {
+                            events.forEach { ev ->
+                                val evStatus = ev.optString("status", "UPDATE")
+                                val evNote = ev.optString("note", "").takeIf { it.isNotBlank() && it != "null" } ?: ev.optString("carrier", "")
+                                val evTime = ev.optString("created_at", "").take(16).replace("T", " ")
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text("✓ $evStatus", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                                    if (evNote.isNotBlank()) {
+                                        Text(evNote, fontSize = 10.sp, color = Color(0xFF475569))
+                                    }
+                                    if (evTime.isNotBlank()) {
+                                        Text(evTime, fontSize = 9.sp, color = Color(0xFF94A3B8))
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    etaMinutes = (etaMinutes - 1).coerceAtLeast(2)
-                    speedKmh = (28..38).random()
-                    val nextDist = ((distanceKm.toDoubleOrNull() ?: 1.4) - 0.2).coerceAtLeast(0.4)
-                    distanceKm = String.format(java.util.Locale.US, "%.1f", nextDist)
-                    Toast.makeText(context, "GPS Telemetry refreshed from rider unit", Toast.LENGTH_SHORT).show()
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
-            ) {
-                Text("🔄 Refresh GPS", fontSize = 12.sp, color = Color.White)
-            }
-        },
-        dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Close")
             }
@@ -5646,7 +5640,7 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
     val paymentMethod = order.optString("payment_method", "RAZORPAY")
     val id = order.optString("id")
 
-    if (riderTrackingOpen) LiveRiderTrackingDialog(id, order) { riderTrackingOpen = false }
+    if (riderTrackingOpen) LiveRiderTrackingDialog(id, order, api) { riderTrackingOpen = false }
     if (reviewOpen) ReviewDialog(api, id, detail, { reviewOpen = false; reload() })
     if (disputeOpen) DisputeDialog(api, id, { disputeOpen = false; reload() })
     if (returnOpen) ReturnDialog(api, id, { returnOpen = false; reload() })
@@ -5666,7 +5660,7 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, onDismis
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                     modifier = Modifier.height(28.dp)
                 ) {
-                    Text("🛵 Track Rider", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("🚚 Track Shipment", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
             Text(formatPaise(order.optLong("total_paise", 0L)), style = MaterialTheme.typography.titleLarge)

@@ -309,8 +309,8 @@ export const Orders: React.FC<OrdersProps> = ({
   onReorderAll,
   onShowToast,
   onNavigateToCart,
-  customerName = 'Saurav Paswan',
-  customerPhone = '+91 9876543210',
+  customerName = 'AARVO Customer',
+  customerPhone = '',
   onOpenSupport,
 }) => {
   const [trackedOrders, setTrackedOrders] = useState<TrackedOrder[]>(() => {
@@ -561,7 +561,11 @@ export const Orders: React.FC<OrdersProps> = ({
                     ? `Delivered on ${formatReadableDate(String(detailRow.updated_at || ''))}`
                     : statusInfo.status === 'Cancelled'
                     ? 'Order cancelled'
-                    : 'Arriving within 2–3 business days',
+                    : trackingJson.etd
+                    ? `Estimated by ${String(trackingJson.etd)}`
+                    : trackingJson.estimatedDays
+                    ? `Estimated in ${String(trackingJson.estimatedDays)} days`
+                    : 'Awaiting Shiprocket courier dispatch',
                 itemEvents: timeline.map((ev) => ({
                   label: ev.status,
                   timestamp: ev.time,
@@ -608,7 +612,11 @@ export const Orders: React.FC<OrdersProps> = ({
                   ? `Delivered (${formatReadableDate(String(detailRow.updated_at || ''))})`
                   : statusInfo.status === 'Cancelled'
                   ? 'Cancelled'
-                  : 'Estimated delivery in 2–3 business days',
+                  : trackingJson.etd
+                  ? `Estimated delivery by ${String(trackingJson.etd)}`
+                  : trackingJson.estimatedDays
+                  ? `Estimated delivery in ${String(trackingJson.estimatedDays)} days`
+                  : 'Updating after Shiprocket carrier pickup',
               trackingNumber: trackingCode,
               carrier: carrierName,
               paymentMethod: String(detailRow.payment_method || row.payment_method || 'Online'),

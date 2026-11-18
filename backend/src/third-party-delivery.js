@@ -20,8 +20,48 @@ const shiprocketPath={
   pickup:'/v1/external/courier/generate/pickup',
   listPickups:'/v1/external/settings/company/pickup',
   addPickup:'/v1/external/settings/company/addpickup',
-  track:'/v1/external/courier/track/awb/'
+  track:'/v1/external/courier/track/awb/',
+  serviceability:'/v1/external/courier/serviceability/'
 };
+const serviceabilityCache=new Map();
+const SERVICEABILITY_CACHE_TTL_MS=15*60*1000;
+const METRO_PIN_PREFIXES=new Set(['110','122','201','302','400','411','500','560','600','700','800']);
+const REMOTE_PIN_PREFIXES=new Set(['19','74','79']);
+
+function formatEtaDateFromDays(days){
+  const target=new Date(Date.now()+Math.max(1,Number(days)||1)*24*60*60*1000);
+  return target.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+}
+
+function estimateZoneTransit(pickupPin,deliveryPin,codAllowed=true){
+  const p=clean(pickupPin||'800001',6);
+  const d=clean(deliveryPin,6);
+  if(!/^[1-9]\d{5}$/.test(d))return null;
+  const pClean=/^[1-9]\d{5}$/.test(p)?p:'800001';
+  let minDays=3,maxDays=5,zoneLabel='National Surface / Air';
+  if(pClean.slice(0,3)===d.slice(0,3)){minDays=1;maxDays=2;zoneLabel='Local City Hub';}
+  else if(pClean.slice(0,2)===d.slice(0,2)){minDays=2;maxDays=3;zoneLabel='Intra-State Network';}
+  else if(REMOTE_PIN_PREFIXES.has(d.slice(0,2))||d.startsWith('744')){minDays=5;maxDays=7;zoneLabel='Extended Zone';}
+  else if(pClean[0]===d[0]){minDays=3;maxDays=4;zoneLabel='Regional Zone';}
+  else if(METRO_PIN_PREFIXES.has(pClean.slice(0,3))&&METRO_PIN_PREFIXES.has(d.slice(0,3))){minDays=3;maxDays=4;zoneLabel='Metro Air Express';}
+  return {
+    serviceable:true,
+    pickupPincode:pClean,
+    deliveryPincode:d,
+    minDays,
+    maxDays,
+    estimatedDays:maxDays,
+    estimatedDaysText:minDays===maxDays?`${minDays} days`:`${minDays}-${maxDays} days`,
+    etd:formatEtaDateFromDays(maxDays),
+    courierName:'Shiprocket Partner Courier',
+    provider:'shiprocket',
+    codAvailable:Boolean(codAllowed),
+    freightCharge:null,
+    zoneLabel,
+    source:'shiprocket_zone_estimate',
+    riderMessage:`Estimated ${minDays}-${maxDays} days delivery to PIN ${d} (${zoneLabel})`
+  };
+}
 
 async function readResponse(r){
   const t=await r.text(); let data={}; try{data=t?JSON.parse(t):{}}catch{data={raw:t}}
@@ -328,4 +368,136 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
   // provider-specific route for existing integrations and expose this neutral URL.
   app.post('/v1/webhooks/delivery/events',(request,reply)=>handleDeliveryWebhook(request,reply,provider()));
   app.post('/v1/webhooks/delivery/:provider',(request,reply)=>handleDeliveryWebhook(request,reply,request.params.provider));
+
+  const checkServiceabilityHandler=async(request,reply)=>{
+    const query=request.query||{};
+    const deliveryPin=clean(query.deliveryPincode||query.pincode||query.delivery_postcode||'',6).replace(/\D/g,'');
+    if(!/^[1-9]\d{5}$/.test(deliveryPin)){
+      return reply.code(400).send({error:'INVALID_DELIVERY_PINCODE',message:'Enter a valid 6-digit Indian pincode.'});
+    }
+    const productId=Number(query.productId||0);
+    let pickupPin=clean(query.pickupPincode||query.pickup_postcode||'',6).replace(/\D/g,'');
+    let weightKg=Number(query.weightKg||query.weight||0);
+    let lengthCm=Number(query.length||0);
+    let breadthCm=Number(query.breadth||0);
+    let heightCm=Number(query.height||0);
+    let codAllowed=query.cod===undefined?true:!['0','false','no'].includes(String(query.cod).toLowerCase());
+    let deliveryFeePaise=0;
+
+    if(pool){
+      if(Number.isInteger(productId)&&productId>0){
+        const prodQ=await pool.query(
+          `SELECT p.cod_enabled,p.delivery_fee_paise,p.package_weight_kg,p.package_length_cm,p.package_breadth_cm,p.package_height_cm,
+           sp.pickup_postal_code,sp.pickup_city,sp.pickup_state
+           FROM products p LEFT JOIN seller_profiles sp ON sp.seller_id=p.seller_id WHERE p.id=$1 LIMIT 1`,
+          [productId]
+        );
+        if(prodQ.rowCount){
+          const row=prodQ.rows[0];
+          if(!pickupPin&&/^[1-9]\d{5}$/.test(clean(row.pickup_postal_code||'',6))){
+            pickupPin=clean(row.pickup_postal_code,6);
+          }
+          if(!(weightKg>0)&&Number(row.package_weight_kg)>0)weightKg=Number(row.package_weight_kg);
+          if(!(lengthCm>0)&&Number(row.package_length_cm)>0)lengthCm=Number(row.package_length_cm);
+          if(!(breadthCm>0)&&Number(row.package_breadth_cm)>0)breadthCm=Number(row.package_breadth_cm);
+          if(!(heightCm>0)&&Number(row.package_height_cm)>0)heightCm=Number(row.package_height_cm);
+          if(row.cod_enabled===false)codAllowed=false;
+          deliveryFeePaise=Number(row.delivery_fee_paise||0);
+        }
+      }
+      if(!pickupPin){
+        const sellerPinQ=await pool.query("SELECT pickup_postal_code FROM seller_profiles WHERE pickup_postal_code ~ '^[1-9][0-9]{5}$' LIMIT 1").catch(()=>({rowCount:0}));
+        if(sellerPinQ.rowCount)pickupPin=clean(sellerPinQ.rows[0].pickup_postal_code,6);
+      }
+    }
+
+    if(!/^[1-9]\d{5}$/.test(pickupPin)){
+      pickupPin=clean(process.env.SHIPROCKET_DEFAULT_PICKUP_PINCODE||'800001',6);
+    }
+    const safeWeight=Number.isFinite(weightKg)&&weightKg>0?Math.min(100,weightKg):0.5;
+    const cacheKey=`${pickupPin}:${deliveryPin}:${safeWeight.toFixed(2)}:${codAllowed?1:0}`;
+    const cached=serviceabilityCache.get(cacheKey);
+    if(cached&&cached.expiresAt>Date.now()){
+      return {...cached.value,deliveryFeePaise,cached:true};
+    }
+
+    const canCallLive=enabled()&&provider()==='shiprocket'&&baseUrl()&&(staticToken()||(apiEmail()&&apiPassword()));
+    if(canCallLive){
+      try{
+        const qs=new URLSearchParams({
+          pickup_postcode:pickupPin,
+          delivery_postcode:deliveryPin,
+          weight:String(safeWeight),
+          cod:codAllowed?'1':'0'
+        });
+        if(lengthCm>0)qs.set('length',String(lengthCm));
+        if(breadthCm>0)qs.set('breadth',String(breadthCm));
+        if(heightCm>0)qs.set('height',String(heightCm));
+        const srData=await providerRequest(`${shiprocketPath.serviceability}?${qs.toString()}`,undefined,'GET');
+        const companies=Array.isArray(srData?.data?.available_courier_companies)?srData.data.available_courier_companies:[];
+        const recommendedId=Number(srData?.data?.recommended_courier_company_id||0);
+        if(!companies.length){
+          const unserviceable={
+            serviceable:false,
+            pickupPincode:pickupPin,
+            deliveryPincode:deliveryPin,
+            minDays:null,
+            maxDays:null,
+            estimatedDays:null,
+            estimatedDaysText:'Not serviceable',
+            etd:null,
+            courierName:null,
+            provider:'shiprocket',
+            codAvailable:false,
+            freightCharge:null,
+            source:'shiprocket_live',
+            riderMessage:`PIN ${deliveryPin} is currently not serviceable by Shiprocket couriers.`
+          };
+          serviceabilityCache.set(cacheKey,{value:unserviceable,expiresAt:Date.now()+SERVICEABILITY_CACHE_TTL_MS});
+          return {...unserviceable,deliveryFeePaise};
+        }
+        const sorted=[...companies].sort((a,b)=>{
+          const da=Number(a?.estimated_delivery_days)||99;
+          const db=Number(b?.estimated_delivery_days)||99;
+          if(da!==db)return da-db;
+          return (Number(a?.rate)||9999)-(Number(b?.rate)||9999);
+        });
+        const best=(recommendedId&&companies.find(c=>Number(c?.courier_company_id)===recommendedId))||sorted[0];
+        const rawDays=Number(best?.estimated_delivery_days);
+        const days=Number.isFinite(rawDays)&&rawDays>0?Math.round(rawDays):3;
+        const minDays=Math.max(1,days);
+        const maxDays=days;
+        const courierName=clean(best?.courier_name||'Shiprocket Partner',100);
+        const etd=clean(best?.etd||'',60)||formatEtaDateFromDays(days);
+        const codOk=codAllowed&&(best?.cod===1||best?.cod===true||String(best?.cod)==='1');
+        const result={
+          serviceable:true,
+          pickupPincode:pickupPin,
+          deliveryPincode:deliveryPin,
+          minDays,
+          maxDays,
+          estimatedDays:days,
+          estimatedDaysText:days===1?'1 day':`${days} days`,
+          etd,
+          courierName,
+          provider:'shiprocket',
+          codAvailable:codOk,
+          freightCharge:Number.isFinite(Number(best?.rate))?Number(best.rate):null,
+          source:'shiprocket_live',
+          riderMessage:`${courierName} (Shiprocket) delivers in ${days===1?'1 day':`${days} days`} (by ${etd}) to PIN ${deliveryPin}`
+        };
+        serviceabilityCache.set(cacheKey,{value:result,expiresAt:Date.now()+SERVICEABILITY_CACHE_TTL_MS});
+        return {...result,deliveryFeePaise};
+      }catch(error){
+        request.log.warn({err:error.code||error.message,pickupPin,deliveryPin},'Shiprocket serviceability lookup failed; using zone fallback');
+      }
+    }
+
+    const fallback=estimateZoneTransit(pickupPin,deliveryPin,codAllowed);
+    serviceabilityCache.set(cacheKey,{value:fallback,expiresAt:Date.now()+SERVICEABILITY_CACHE_TTL_MS});
+    return {...fallback,deliveryFeePaise};
+  };
+
+  app.get('/v1/delivery/serviceability',checkServiceabilityHandler);
+  app.get('/v1/delivery/check-pincode',checkServiceabilityHandler);
 }
