@@ -288,6 +288,44 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     return () => controller.abort();
   }, [isOpen, product?.id, product?.codAvailable, pincode]);
 
+  useEffect(() => {
+    if (!isOpen || !product) return;
+    const numericId = Number(product.id);
+    if (!Number.isInteger(numericId) || numericId <= 0) return;
+    const controller = new AbortController();
+    const apiBase = (
+      (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL ||
+      'https://aarvo-api.onrender.com'
+    ).replace(/\/$/, '');
+    fetch(`${apiBase}/v1/products/${numericId}/reviews`, { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => {
+        if (controller.signal.aborted || !Array.isArray(rows) || rows.length === 0) return;
+        const mapped: ReviewItem[] = rows.map((row: Record<string, unknown>, idx: number) => ({
+          id: String(row.id || `rev-${idx}`),
+          userName: String(row.display_name || 'Verified Buyer').trim() || 'Verified Buyer',
+          rating: Math.min(5, Math.max(1, Number(row.rating || 5))),
+          date: row.created_at
+            ? new Date(String(row.created_at)).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })
+            : 'Verified Purchase',
+          comment: String(row.review_text || '').trim() || 'Verified purchase rating',
+          verifiedBuyer: true,
+        }));
+        setLocalReviews((prev) => {
+          const seen = new Set(mapped.map((m) => m.id));
+          return [...mapped, ...prev.filter((p) => !seen.has(p.id))];
+        });
+      })
+      .catch(() => {
+        // Keep existing product reviews silently on network failure
+      });
+    return () => controller.abort();
+  }, [isOpen, product?.id]);
+
   if (!isOpen || !product) return null;
 
   const totalImages = productImages.length;

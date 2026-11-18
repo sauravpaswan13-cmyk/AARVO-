@@ -1957,6 +1957,8 @@ private fun JSONArray.toProductList(): List<Product> = buildList {
             if (pricePaise < 0L) return@runCatching null
             val originalPricePaise = o.optLong("original_price_paise", pricePaise).coerceAtLeast(0L)
             val reviewsCount = o.optInt("reviews_count", o.optInt("reviewsCount", 0)).coerceAtLeast(0)
+            val deliveryFeePaise = o.optLong("delivery_fee_paise", 0L).coerceAtLeast(0L)
+            val codEnabled = o.optBoolean("cod_enabled", true)
             Product(
                 id = id,
                 sellerId = o.optString("seller_id", ""),
@@ -1972,7 +1974,9 @@ private fun JSONArray.toProductList(): List<Product> = buildList {
                 pricePaise = pricePaise,
                 imageUrl = o.optString("image_url").takeIf { it.startsWith("https://") || it.startsWith("http://") },
                 originalPricePaise = originalPricePaise,
-                reviewsCount = reviewsCount
+                reviewsCount = reviewsCount,
+                deliveryFeePaise = deliveryFeePaise,
+                codEnabled = codEnabled
             )
         }.getOrNull()?.let(::add)
     }
@@ -2440,12 +2444,16 @@ private fun ProductDetailsScreen(
     onOpenCart: () -> Unit
 ) {
     val context = LocalContext.current
+    val appPrefs = remember(context) { context.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
+    val initialPin = remember {
+        appPrefs.getString("delivery_pincode", null)?.takeIf { it.matches(Regex("^[1-9][0-9]{5}$")) } ?: "800001"
+    }
     var activeSlideIndex by remember(product.id) { mutableIntStateOf(0) }
-    var deliveryPincode by remember { mutableStateOf("800001") }
+    var deliveryPincode by remember { mutableStateOf(initialPin) }
     var showPincodeDialog by remember { mutableStateOf(false) }
-    var tempPincode by remember { mutableStateOf("800001") }
+    var tempPincode by remember { mutableStateOf(initialPin) }
 
-    // Dynamic customer rating and review states
+    // Dynamic customer rating and review states (no pre-seeded fake reviews)
     var currentRating by remember(product.id) { mutableStateOf(product.rating) }
     var currentReviewsCount by remember(product.id) { mutableIntStateOf(product.reviewsCount) }
     var showRateDialog by remember { mutableStateOf(false) }
@@ -2453,13 +2461,7 @@ private fun ProductDetailsScreen(
     var reviewerName by remember { mutableStateOf("") }
     var reviewerComment by remember { mutableStateOf("") }
     var localReviews by remember(product.id) {
-        mutableStateOf<List<Triple<String, Int, String>>>(
-            if (product.reviewsCount > 0) {
-                listOf(
-                    Triple("Verified Buyer", 5, "Genuine authentic product with fast delivery and brand warranty.")
-                )
-            } else emptyList()
-        )
+        mutableStateOf<List<Triple<String, Int, String>>>(emptyList())
     }
 
     if (showRateDialog) {
@@ -2500,7 +2502,7 @@ private fun ProductDetailsScreen(
                         value = reviewerName,
                         onValueChange = { reviewerName = it },
                         label = { Text("Your Name") },
-                        placeholder = { Text("e.g. Saurav") },
+                        placeholder = { Text("e.g. Aarav") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -2564,10 +2566,13 @@ private fun ProductDetailsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        if (tempPincode.length == 6) {
+                        if (tempPincode.matches(Regex("^[1-9][0-9]{5}$"))) {
                             deliveryPincode = tempPincode
+                            appPrefs.edit().putString("delivery_pincode", tempPincode).apply()
                             showPincodeDialog = false
-                            Toast.makeText(context, "Delivery PIN code set to $deliveryPincode • COD Available!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Delivery PIN updated to $deliveryPincode", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Enter a valid 6-digit Indian PIN code", Toast.LENGTH_SHORT).show()
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
@@ -3178,7 +3183,7 @@ private fun ProductDetailsScreen(
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            "FREE",
+                            if (product.deliveryFeePaise <= 0L) "FREE" else "₹${product.deliveryFeePaise / 100}",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Black,
                             color = Color(0xFF059669)
@@ -3209,11 +3214,11 @@ private fun ProductDetailsScreen(
                         )
                     }
 
-                    // Inset Cash On Delivery Available Box
+                    // Payment eligibility summary based on product configuration
                     Surface(
-                        color = Color(0xFFFFFBEB),
+                        color = if (product.codEnabled) Color(0xFFFFFBEB) else Color(0xFFEFF6FF),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                        border = BorderStroke(1.dp, if (product.codEnabled) Color(0xFFFDE68A) else Color(0xFFBFDBFE)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -3227,19 +3232,20 @@ private fun ProductDetailsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("💵", fontSize = 20.sp)
+                                Text(if (product.codEnabled) "💵" else "💳", fontSize = 20.sp)
                                 Spacer(Modifier.width(10.dp))
                                 Column {
                                     Text(
-                                        "Cash On Delivery Available",
+                                        if (product.codEnabled) "Cash On Delivery Supported" else "Prepaid Online Checkout",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF92400E)
+                                        color = if (product.codEnabled) Color(0xFF92400E) else Color(0xFF1E40AF)
                                     )
                                     Text(
-                                        "Pay cash at your doorstep with 100% purchase protection.",
+                                        if (product.codEnabled) "Pay on delivery at serviceable PIN codes with purchase protection."
+                                        else "Instant UPI, Card & NetBanking protected by Razorpay.",
                                         fontSize = 10.sp,
-                                        color = Color(0xFFB45309),
+                                        color = if (product.codEnabled) Color(0xFFB45309) else Color(0xFF1D4ED8),
                                         lineHeight = 14.sp
                                     )
                                 }
@@ -4777,12 +4783,13 @@ private fun ProductDetailsScreen(
         )
     }
     if (showPoliciesDialog) {
+        val publicBaseUrl = BuildConfig.AARVO_API_BASE_URL.trimEnd('/')
         AlertDialog(
             onDismissRequest = { showPoliciesDialog = false },
             title = { Text("Privacy, Terms & Returns", fontWeight = FontWeight.Bold, color = headingColor) },
             text = {
                 Column(
-                    modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                    modifier = Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text("Privacy & Data Protection", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = headingColor)
@@ -4801,6 +4808,24 @@ private fun ProductDetailsScreen(
                     Text(
                         "Damaged, defective, or wrong items are eligible for return within 7 days of delivery inside My Orders. Refunds are processed to the original payment method within 5–7 business days.",
                         fontSize = 11.sp,
+                        color = mutedColor
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$publicBaseUrl/privacy-policy")))
+                            }
+                        }) { Text("Privacy Web Page", fontSize = 11.sp, color = Color(0xFFFF5722)) }
+                        TextButton(onClick = {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$publicBaseUrl/delete-account")))
+                            }
+                        }) { Text("Account Deletion Info", fontSize = 11.sp, color = Color(0xFFE11D48)) }
+                    }
+                    Text(
+                        "App Version: v${BuildConfig.VERSION_NAME}",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = mutedColor
                     )
                 }
@@ -5633,6 +5658,7 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, api: Aar
     var reviewOpen by remember { mutableStateOf(false) }
     var disputeOpen by remember { mutableStateOf(false) }
     var returnOpen by remember { mutableStateOf(false) }
+    var detailsDialogOpen by remember { mutableStateOf(false) }
     var riderTrackingOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val status = order.optString("status", "PENDING")
@@ -5644,6 +5670,9 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, api: Aar
     if (reviewOpen) ReviewDialog(api, id, detail, { reviewOpen = false; reload() })
     if (disputeOpen) DisputeDialog(api, id, { disputeOpen = false; reload() })
     if (returnOpen) ReturnDialog(api, id, { returnOpen = false; reload() })
+    if (detailsDialogOpen && detail != null) {
+        OrderDetailsDialog(order = order, detail = detail!!, onDismiss = { detailsDialogOpen = false })
+    }
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -5670,7 +5699,23 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, api: Aar
             if (actionError.isNotBlank()) Text(actionError, color = MaterialTheme.colorScheme.error)
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { scope.launch { busy = true; actionError = ""; try { detail = api.order(id) } catch (t: Throwable) { actionError = t.message ?: "Unable to load order details" } finally { busy = false } } }, enabled = !busy) { Text(if (busy) "Loading..." else "View details") }
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            busy = true
+                            actionError = ""
+                            try {
+                                detail = api.order(id)
+                                detailsDialogOpen = true
+                            } catch (t: Throwable) {
+                                actionError = t.message ?: "Unable to load order details"
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    },
+                    enabled = !busy
+                ) { Text(if (busy) "Loading..." else "View details") }
                 if (status !in setOf("CANCELLED", "DELIVERED")) TextButton(onClick = { scope.launch { busy = true; actionError = ""; try { api.cancelOrder(id); reload() } catch (t: Throwable) { actionError = t.message ?: "Unable to cancel order" } finally { busy = false } } }, enabled = !busy) { Text("Cancel") }
                 if (status == "DELIVERED") {
                     TextButton(onClick = { reviewOpen = true }, enabled = !busy) { Text("Review") }
@@ -5679,14 +5724,126 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, api: Aar
                 }
                 if (status != "CANCELLED") TextButton(onClick = { disputeOpen = true }, enabled = !busy) { Text("Report issue") }
             }
-
-            detail?.let { d ->
-                Text("Items: ${d.optJSONArray("items")?.length() ?: 0}")
-                Text("Delivery status: ${d.optJSONObject("tracking")?.optString("status", status) ?: status}")
-                d.optJSONArray("trackingEvents")?.let { events -> Text("Tracking events: ${events.length()}") }
-            }
         }
     }
+}
+
+@Composable
+private fun OrderDetailsDialog(order: JSONObject, detail: JSONObject, onDismiss: () -> Unit) {
+    val id = order.optString("id")
+    val status = order.optString("status", "PENDING")
+    val paymentMethod = order.optString("payment_method", "RAZORPAY")
+    val paymentStatus = order.optString("payment_status", "PENDING")
+    val createdAt = order.optString("created_at", "").take(10)
+    val items = detail.optJSONArray("items") ?: JSONArray()
+    val shipping = order.optJSONObject("shipping_address_json")
+        ?: detail.optJSONObject("order")?.optJSONObject("shipping_address_json")
+        ?: detail.optJSONObject("shippingAddress")
+    val tracking = detail.optJSONObject("tracking") ?: order.optJSONObject("tracking_json")
+    val subtotalPaise = order.optLong("subtotal_paise", detail.optJSONObject("order")?.optLong("subtotal_paise", 0L) ?: 0L)
+    val deliveryPaise = order.optLong("delivery_fee_paise", detail.optJSONObject("order")?.optLong("delivery_fee_paise", 0L) ?: 0L)
+    val totalPaise = order.optLong("total_paise", detail.optJSONObject("order")?.optLong("total_paise", 0L) ?: 0L)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Order #$id", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF0F172A)) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 460.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    color = Color(0xFFFFF4E8),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFFDFC4)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Status: $status", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE64A19))
+                        Text("Payment: $paymentMethod ($paymentStatus)", fontSize = 11.sp, color = Color(0xFF475569))
+                        if (createdAt.isNotBlank()) Text("Placed on: $createdAt", fontSize = 10.sp, color = Color(0xFF64748B))
+                        tracking?.let { tr ->
+                            val carrier = tr.optString("carrier", "")
+                            val awb = tr.optString("trackingCode", tr.optString("awb", ""))
+                            if (carrier.isNotBlank() || awb.isNotBlank()) {
+                                Text("Courier: ${carrier.ifBlank { "Shiprocket" }}${if (awb.isNotBlank()) " • AWB $awb" else ""}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF0F172A))
+                            }
+                        }
+                    }
+                }
+
+                if (shipping != null) {
+                    Surface(
+                        color = Color(0xFFF8FAFC),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("DELIVERY ADDRESS", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+                            val fullName = shipping.optString("fullName", shipping.optString("name", ""))
+                            val phone = shipping.optString("phone", "")
+                            val addrLine = listOf(
+                                shipping.optString("line1", ""),
+                                shipping.optString("line2", ""),
+                                shipping.optString("city", ""),
+                                shipping.optString("state", ""),
+                                shipping.optString("postalCode", "")
+                            ).filter { it.isNotBlank() && it != "null" }.joinToString(", ")
+                            if (fullName.isNotBlank()) Text(fullName, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                            if (addrLine.isNotBlank()) Text(addrLine, fontSize = 11.sp, color = Color(0xFF334155))
+                            if (phone.isNotBlank()) Text("Phone: $phone", fontSize = 11.sp, color = Color(0xFF475569))
+                        }
+                    }
+                }
+
+                Surface(
+                    color = Color.White,
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("ITEMS (${items.length()})", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+                        for (i in 0 until items.length()) {
+                            val item = items.optJSONObject(i) ?: continue
+                            val itemName = item.optString("product_name", item.optString("name", "Product"))
+                            val qty = item.optInt("quantity", 1).coerceAtLeast(1)
+                            val linePaise = item.optLong("line_total_paise", item.optLong("unit_price_paise", 0L) * qty)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("$itemName × $qty", fontSize = 11.sp, color = Color(0xFF0F172A), modifier = Modifier.weight(1f))
+                                Text(formatPaise(linePaise), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                            }
+                        }
+                        Box(Modifier.fillMaxWidth().height(0.5.dp).background(Color(0xFFE2E8F0)))
+                        if (subtotalPaise > 0L) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Items Subtotal", fontSize = 11.sp, color = Color(0xFF64748B))
+                                Text(formatPaise(subtotalPaise), fontSize = 11.sp, color = Color(0xFF334155))
+                            }
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Delivery Fee", fontSize = 11.sp, color = Color(0xFF64748B))
+                            Text(if (deliveryPaise <= 0L) "FREE" else formatPaise(deliveryPaise), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF059669))
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Total Amount", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                            Text(formatPaise(totalPaise), fontSize = 13.sp, fontWeight = FontWeight.Black, color = Color(0xFFFF5722))
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        }
+    )
 }
 
 @Composable private fun ReviewDialog(api: AarvoApiClient, orderId: String, detail: JSONObject?, onDone: () -> Unit) { var rating by remember { mutableIntStateOf(5) }; var text by remember { mutableStateOf("") }; var busy by remember { mutableStateOf(false) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); val items = detail?.optJSONArray("items"); val productId = items?.optJSONObject(0)?.optInt("product_id", items.optJSONObject(0)?.optInt("productId", 0) ?: 0) ?: 0; AlertDialog(onDismissRequest = { if (!busy) onDone() }, title = { Text("Rate your order") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Rating: ${"★".repeat(rating)}${"☆".repeat(5 - rating)}"); Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { (1..5).forEach { value -> TextButton(onClick = { rating = value }) { Text(value.toString()) } } }; OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), minLines = 3, label = { Text("Review (optional)") }); if (productId == 0) Text("Open order details first so AARVO can identify the purchased product.", color = MaterialTheme.colorScheme.error); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error) } }, confirmButton = { Button(onClick = { scope.launch { busy = true; error = ""; try { api.submitReview(orderId, productId, rating, text); onDone() } catch (t: Throwable) { error = t.message ?: "Unable to submit review" } finally { busy = false } } }, enabled = !busy && productId > 0) { if (busy) CircularProgressIndicator() else Text("Submit review") } }, dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text("Close") } }) }

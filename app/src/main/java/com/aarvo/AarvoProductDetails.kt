@@ -139,7 +139,9 @@ fun PreviewProductDetailsScreen(
     val parsedColors = remember(product.description) { extractParsedColors(product.description) }
     var selectedColor by remember(product.id, parsedColors) { mutableStateOf(parsedColors.firstOrNull() ?: "") }
 
-    val codAllowed = remember(product.description) { extractCodAllowed(product.description) }
+    val codAllowed = remember(product.description, product.codEnabled) {
+        product.codEnabled && extractCodAllowed(product.description)
+    }
     val cleanDesc = remember(product.description) { cleanProductDescription(product.description) }
 
     var serviceability by remember(product.id, deliveryPincode) {
@@ -179,6 +181,30 @@ fun PreviewProductDetailsScreen(
     var reviewerComment by remember { mutableStateOf("") }
     var localReviews by remember(product.id) {
         mutableStateOf<List<Triple<String, Int, String>>>(emptyList())
+    }
+
+    LaunchedEffect(product.id, api) {
+        if (api != null && product.id > 0) {
+            val arr = runCatching { api.productReviews(product.id) }.getOrNull()
+            if (arr != null && arr.length() > 0) {
+                val fetched = buildList {
+                    for (i in 0 until arr.length()) {
+                        val r = arr.optJSONObject(i) ?: continue
+                        val author = r.optString("display_name", "").ifBlank { "Verified Buyer" }
+                        val stars = r.optInt("rating", 5).coerceIn(1, 5)
+                        val body = r.optString("review_text", "").ifBlank { "Verified purchase review" }
+                        add(Triple(author, stars, body))
+                    }
+                }
+                if (fetched.isNotEmpty()) {
+                    localReviews = fetched
+                    currentReviewsCount = maxOf(currentReviewsCount, fetched.size)
+                    if (currentRating <= 0.0) {
+                        currentRating = fetched.map { it.second.toDouble() }.average()
+                    }
+                }
+            }
+        }
     }
 
     val images = remember(product) {
@@ -1040,8 +1066,13 @@ fun PreviewProductDetailsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    val deliveryBadgeTitle = when {
+                        freightCharge > 0.0 -> "Courier ₹${freightCharge.toInt()}"
+                        product.deliveryFeePaise > 0L -> "Delivery ₹${product.deliveryFeePaise / 100}"
+                        else -> "Free Delivery"
+                    }
                     listOf(
-                        Triple("Free Delivery", "$etaDaysText ETA", "truck"),
+                        Triple(deliveryBadgeTitle, "$etaDaysText ETA", "truck"),
                         Triple("7 Days Return", "Easy replacement", "return"),
                         Triple("Verified Quality", "Brand checked", "shield")
                     ).forEach { (title, sub, kind) ->

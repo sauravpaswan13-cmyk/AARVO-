@@ -17,7 +17,9 @@ data class Product(
     val pricePaise: Long = price.toLong() * 100L,
     val imageUrl: String? = null,
     val originalPricePaise: Long = pricePaise,
-    val reviewsCount: Int = 0
+    val reviewsCount: Int = 0,
+    val deliveryFeePaise: Long = 0L,
+    val codEnabled: Boolean = true
 ) {
     init {
         require(id > 0) { "Product ID must be positive" }

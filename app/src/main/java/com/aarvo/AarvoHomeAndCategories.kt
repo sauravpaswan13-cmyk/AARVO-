@@ -1349,10 +1349,10 @@ fun PreviewProductCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Free Delivery",
+                    if (product.deliveryFeePaise <= 0L) "Free Delivery" else "Delivery ₹${product.deliveryFeePaise / 100}",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF059669)
+                    color = if (product.deliveryFeePaise <= 0L) Color(0xFF059669) else Color(0xFF64748B)
                 )
                 Surface(
                     shape = RoundedCornerShape(8.dp),

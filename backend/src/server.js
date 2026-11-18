@@ -52,6 +52,102 @@ const normalizeStatus = (value) => String(value || '').trim().toUpperCase();
 app.get('/health', async () => ({ service: 'aarvo-api', status: 'ok', database: Boolean(pool), auth: Boolean(JWT_SECRET), payments: Boolean(razorpay), webhooks: Boolean(RAZORPAY_WEBHOOK_SECRET) }));
 app.get('/healthz', async (_request, reply) => reply.send({ service: 'aarvo-api', status: 'ok', database: Boolean(pool), auth: Boolean(JWT_SECRET), payments: Boolean(razorpay), webhooks: Boolean(RAZORPAY_WEBHOOK_SECRET) }));
 
+const renderPlayLegalPage = (title, heading, bodyHtml) => `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>${title} | AARVO</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: #FFFBF7; color: #1F1612; line-height: 1.65; }
+    .wrap { max-width: 780px; margin: 0 auto; padding: 28px 18px 48px; }
+    .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; color: #FF5722; letter-spacing: 0.5px; }
+    .card { background: #FFFFFF; border: 1px solid #FFE2CC; border-radius: 18px; padding: 24px; margin-top: 16px; box-shadow: 0 6px 24px rgba(255,87,34,0.06); }
+    h1 { margin: 0 0 8px; font-size: 24px; color: #1F1612; }
+    h2 { margin: 20px 0 8px; font-size: 16px; color: #E64A19; }
+    p, li { font-size: 14px; color: #4A3B34; }
+    ul { padding-left: 20px; }
+    .nav { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; font-size: 13px; }
+    .nav a { color: #FF5722; text-decoration: none; font-weight: 600; }
+    .meta { font-size: 12px; color: #8A766C; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">AARVO MARKETPLACE</div>
+    <div class="card">
+      <h1>${heading}</h1>
+      <div class="meta">Effective Date: November 2026 &bull; Operated by AARVO</div>
+      ${bodyHtml}
+      <div class="nav">
+        <a href="/privacy-policy">Privacy Policy</a>
+        <a href="/terms">Terms &amp; Conditions</a>
+        <a href="/refund-policy">7-Day Return &amp; Refund Policy</a>
+        <a href="/delete-account">Delete Account</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+app.get('/privacy-policy', async (_request, reply) => reply.type('text/html; charset=utf-8').send(renderPlayLegalPage(
+  'Privacy Policy',
+  'AARVO Privacy Policy',
+  `<p>AARVO respects your privacy and collects only the minimum personal information needed to operate our Indian shopping marketplace.</p>
+  <h2>1. Data We Collect</h2>
+  <ul>
+    <li><strong>Account &amp; Contact Information:</strong> Display name, mobile phone number (for OTP authentication), and optional email address.</li>
+    <li><strong>Delivery &amp; Order Details:</strong> Delivery addresses, 6-digit Indian PIN code, purchased items, and shipment tracking events.</li>
+    <li><strong>Payments:</strong> Online payments are processed securely by Razorpay. AARVO does not store raw card numbers, CVVs, or UPI PINs.</li>
+  </ul>
+  <h2>2. How Data Is Shared</h2>
+  <p>Delivery addresses, recipient name, phone number, and parcel details are shared strictly with verified sellers and Shiprocket courier partners to compute shipping rates, generate airway bills (AWB), and complete doorstep delivery. AARVO never sells user data to advertisers or third parties.</p>
+  <h2>3. Security &amp; Retention</h2>
+  <p>All API communications use HTTPS/TLS encryption. Completed order tax invoices are archived for statutory Indian GST compliance.</p>
+  <h2>4. Account Deletion &amp; Contact</h2>
+  <p>You can permanently delete your account anytime inside the AARVO app under <strong>Account &rarr; Delete My Account</strong> or via our <a href="/delete-account">Account Deletion page</a>. For privacy questions, contact <a href="mailto:support@aarvo.in">support@aarvo.in</a>.</p>`
+)));
+
+app.get('/terms', async (_request, reply) => reply.type('text/html; charset=utf-8').send(renderPlayLegalPage(
+  'Terms & Conditions',
+  'Terms & Conditions',
+  `<p>By accessing or placing orders on AARVO, you agree to the following marketplace terms.</p>
+  <h2>1. Orders &amp; Pricing</h2>
+  <p>All product prices are listed in Indian Rupees (INR) inclusive of applicable taxes. Exact delivery timelines are estimated dynamically via Shiprocket courier serviceability for your selected destination PIN code.</p>
+  <h2>2. Payments &amp; Cash on Delivery</h2>
+  <p>Buyers may pay via Razorpay (UPI, cards, netbanking) or Cash on Delivery (COD) where supported by the seller and destination PIN code.</p>
+  <h2>3. Account Conduct</h2>
+  <p>Users must provide accurate delivery contact details and refrain from fraudulent orders, false disputes, or automated scraping.</p>`
+)));
+
+app.get('/refund-policy', async (_request, reply) => reply.type('text/html; charset=utf-8').send(renderPlayLegalPage(
+  'Return & Refund Policy',
+  '7-Day Replacement & Refund Policy',
+  `<p>AARVO offers a transparent 7-day replacement and refund window from the date of confirmed delivery for damaged, defective, expired, or wrong items.</p>
+  <h2>1. How to Request a Return</h2>
+  <p>Open <strong>My Orders</strong> in the AARVO app or website, select the delivered order, and tap <strong>Return / Report Issue</strong> within 7 days of delivery.</p>
+  <h2>2. Refund Timeline</h2>
+  <p>Prepaid order refunds are credited back to the original payment method (UPI, bank account, or card) via Razorpay within 5&ndash;7 business days after pickup verification.</p>`
+)));
+
+app.get('/delete-account', async (_request, reply) => reply.type('text/html; charset=utf-8').send(renderPlayLegalPage(
+  'Delete Account',
+  'Delete Your AARVO Account',
+  `<p>AARVO provides instant self-service account deletion directly inside both the AARVO Android app and AARVO web app.</p>
+  <h2>How to Delete In-App (Recommended)</h2>
+  <ul>
+    <li>Open the <strong>AARVO</strong> app and sign in to your account.</li>
+    <li>Go to the <strong>Account</strong> tab.</li>
+    <li>Tap <strong>Delete My Account</strong>, type <strong>DELETE</strong> to confirm, and tap <strong>Confirm Delete</strong>.</li>
+  </ul>
+  <h2>What Data Is Deleted vs Retained</h2>
+  <ul>
+    <li><strong>Deleted Immediately:</strong> Your profile display name, email, verified phone login link, saved cart items, and saved delivery addresses are erased/anonymized via <code>DELETE /v1/account</code>.</li>
+    <li><strong>Statutory Retention:</strong> Completed GST order invoices and financial ledger records are retained solely for Indian tax compliance (and cannot be deleted while active paid/shipped orders are still in transit).</li>
+  </ul>
+  <p>If you no longer have the app installed and want manual assistance deleting your account, email <a href="mailto:support@aarvo.in?subject=Delete%20My%20AARVO%20Account">support@aarvo.in</a> from your registered details or mobile number.</p>`
+)));
+
 app.post('/v1/auth/register', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
   if (!pool) return reply.code(503).send({ error: 'DATABASE_NOT_CONFIGURED' });
   if (!JWT_SECRET) return reply.code(503).send({ error: 'AUTH_NOT_CONFIGURED' });

@@ -6219,6 +6219,30 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   <p className="font-black text-slate-900 dark:text-white mb-1">7-Day Replacement &amp; Refund Policy</p>
                   <p>Damaged, defective, or wrong items can be requested for return within 7 days of delivery from My Orders. Approved refunds are processed back to your original payment method within 5–7 business days.</p>
                 </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {(() => {
+                    const apiBase = (
+                      (import.meta as unknown as { env?: Record<string, string> }).env
+                        ?.VITE_API_BASE_URL || 'https://aarvo-api.onrender.com'
+                    ).replace(/\/$/, '');
+                    return [
+                      { label: 'Privacy Policy Web Page', href: `${apiBase}/privacy-policy` },
+                      { label: 'Terms of Use', href: `${apiBase}/terms` },
+                      { label: 'Refund Policy', href: `${apiBase}/refund-policy` },
+                      { label: 'Account Deletion Info', href: `${apiBase}/delete-account` },
+                    ].map((item) => (
+                      <a
+                        key={item.href}
+                        href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-orange-50 dark:bg-stone-800 border border-orange-200 dark:border-stone-700 text-[11px] font-bold text-[#FF5722] hover:underline"
+                      >
+                        {item.label} ↗
+                      </a>
+                    ));
+                  })()}
+                </div>
               </div>
               <button
                 type="button"
