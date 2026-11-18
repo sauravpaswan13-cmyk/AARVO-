@@ -12,9 +12,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,7 +66,9 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -102,6 +110,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -122,6 +131,7 @@ import android.net.Uri
 import com.razorpay.Checkout
 import com.razorpay.PaymentData
 import com.razorpay.PaymentResultWithDataListener
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -319,6 +329,189 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     }
 }
 
+private data class SavedDeliveryLocation(
+    val id: String,
+    val label: String,
+    val fullName: String,
+    val phone: String,
+    val line1: String,
+    val city: String,
+    val state: String,
+    val pincode: String,
+    val isDefault: Boolean = false
+) {
+    fun shortSummary(): String = listOf(line1, city, state).filter { it.isNotBlank() }.joinToString(", ")
+}
+
+private data class AarvoAppToast(
+    val id: Long,
+    val message: String,
+    val type: String = "SUCCESS"
+)
+
+private fun inferCityStateForPincode(pin: String): Pair<String, String> = when {
+    pin.startsWith("800") -> "Patna" to "Bihar"
+    pin.startsWith("110") -> "New Delhi" to "Delhi"
+    pin.startsWith("400") -> "Mumbai" to "Maharashtra"
+    pin.startsWith("560") -> "Bengaluru" to "Karnataka"
+    pin.startsWith("500") -> "Hyderabad" to "Telangana"
+    pin.startsWith("600") -> "Chennai" to "Tamil Nadu"
+    pin.startsWith("700") -> "Kolkata" to "West Bengal"
+    pin.startsWith("411") -> "Pune" to "Maharashtra"
+    pin.startsWith("302") -> "Jaipur" to "Rajasthan"
+    pin.startsWith("226") -> "Lucknow" to "Uttar Pradesh"
+    else -> "India" to "PIN $pin"
+}
+
+private fun loadSavedLocationsFromPrefs(prefs: android.content.SharedPreferences): List<SavedDeliveryLocation> {
+    val raw = prefs.getString("saved_locations_json", null)
+    if (!raw.isNullOrBlank()) {
+        val parsed = runCatching {
+            val arr = JSONArray(raw)
+            buildList {
+                for (i in 0 until arr.length()) {
+                    val o = arr.optJSONObject(i) ?: continue
+                    add(
+                        SavedDeliveryLocation(
+                            id = o.optString("id", "loc_$i"),
+                            label = o.optString("label", "Home"),
+                            fullName = o.optString("fullName", "AARVO Shopper"),
+                            phone = o.optString("phone", ""),
+                            line1 = o.optString("line1", ""),
+                            city = o.optString("city", ""),
+                            state = o.optString("state", ""),
+                            pincode = o.optString("pincode", ""),
+                            isDefault = o.optBoolean("isDefault", false)
+                        )
+                    )
+                }
+            }
+        }.getOrDefault(emptyList())
+        if (parsed.isNotEmpty()) return parsed
+    }
+    return listOf(
+        SavedDeliveryLocation(
+            id = "local_default_1",
+            label = "Home",
+            fullName = "AARVO Shopper",
+            phone = "",
+            line1 = "Boring Road Crossing",
+            city = "Patna",
+            state = "Bihar",
+            pincode = "800001",
+            isDefault = true
+        )
+    )
+}
+
+private fun saveLocationsToPrefs(
+    prefs: android.content.SharedPreferences,
+    locations: List<SavedDeliveryLocation>
+) {
+    val arr = JSONArray()
+    locations.forEach { loc ->
+        arr.put(
+            JSONObject()
+                .put("id", loc.id)
+                .put("label", loc.label)
+                .put("fullName", loc.fullName)
+                .put("phone", loc.phone)
+                .put("line1", loc.line1)
+                .put("city", loc.city)
+                .put("state", loc.state)
+                .put("pincode", loc.pincode)
+                .put("isDefault", loc.isDefault)
+        )
+    }
+    prefs.edit().putString("saved_locations_json", arr.toString()).apply()
+}
+
+@Composable
+private fun AarvoFloatingToastBanner(
+    toast: AarvoAppToast?,
+    isDarkTheme: Boolean,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AnimatedVisibility(
+        visible = toast != null,
+        enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
+        modifier = modifier
+    ) {
+        toast?.let { current ->
+            val (accent, badgeIcon, bgColor) = when (current.type.uppercase()) {
+                "ERROR" -> Triple(
+                    Color(0xFFE11D48),
+                    "!",
+                    if (isDarkTheme) Color(0xFF33141B) else Color(0xFFFFF1F2)
+                )
+                "WARNING" -> Triple(
+                    Color(0xFFD97706),
+                    "!",
+                    if (isDarkTheme) Color(0xFF2E210F) else Color(0xFFFFFBEB)
+                )
+                "INFO" -> Triple(
+                    Color(0xFFFF5722),
+                    "i",
+                    if (isDarkTheme) Color(0xFF281912) else Color(0xFFFFF7ED)
+                )
+                else -> Triple(
+                    Color(0xFF059669),
+                    "✓",
+                    if (isDarkTheme) Color(0xFF10281F) else Color(0xFFECFDF5)
+                )
+            }
+            val textColor = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF0F172A)
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = bgColor,
+                border = BorderStroke(1.dp, accent.copy(alpha = 0.45f)),
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(accent),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(badgeIcon, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                    }
+                    Text(
+                        text = current.message,
+                        color = textColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Dismiss notification",
+                            tint = accent,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable private fun AarvoApp(
     userName: String,
     role: String,
@@ -333,14 +526,49 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     isDarkTheme: Boolean = false,
     onToggleTheme: () -> Unit = {}
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }; var accountSection by remember { mutableStateOf("account") }; var query by remember { mutableStateOf("") }; var category by remember { mutableStateOf("All") }; var sortMode by remember { mutableStateOf("Relevance") }; var minRating by remember { mutableStateOf(0.0) }; var maxPrice by remember { mutableStateOf<Long?>(null) }; var inStockOnly by remember { mutableStateOf(false) }; var showFilters by remember { mutableStateOf(false) }; var showNotifications by remember { mutableStateOf(false) }
+    val appPrefs = remember { activity.applicationContext.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
+    var selectedTab by remember { mutableIntStateOf(0) }; var accountSection by remember { mutableStateOf("account") }; var query by remember { mutableStateOf("") }; var category by remember { mutableStateOf("All") }; var sortMode by remember { mutableStateOf("Relevance") }; var minRating by remember { mutableStateOf(0.0) }; var minPrice by remember { mutableStateOf<Long?>(null) }; var maxPrice by remember { mutableStateOf<Long?>(null) }; var inStockOnly by remember { mutableStateOf(false) }; var showFilters by remember { mutableStateOf(false) }; var showNotifications by remember { mutableStateOf(false) }
+    var showLocationModal by remember { mutableStateOf(false) }
+    var activeToast by remember { mutableStateOf<AarvoAppToast?>(null) }
+    var savedLocations by remember { mutableStateOf(loadSavedLocationsFromPrefs(appPrefs)) }
     var appliedCouponCode by remember { mutableStateOf<String?>(null) }
     var couponDiscountPaise by remember { mutableStateOf(0L) }
     var showCouponsModal by remember { mutableStateOf(false) }
     var showHelpModal by remember { mutableStateOf(false) }
-    var defaultAddressLine by remember { mutableStateOf("Tap Change to select delivery address") }
-    var defaultPincode by remember { mutableStateOf("800001") }
+    var defaultAddressLine by remember {
+        mutableStateOf(
+            appPrefs.getString("delivery_address_line", null)?.takeIf { it.isNotBlank() }
+                ?: savedLocations.firstOrNull { it.isDefault }?.shortSummary()
+                ?: "Patna, Bihar"
+        )
+    }
+    var defaultPincode by remember {
+        mutableStateOf(
+            appPrefs.getString("delivery_pincode", null)?.takeIf { it.isNotBlank() }
+                ?: savedLocations.firstOrNull { it.isDefault }?.pincode
+                ?: "800001"
+        )
+    }
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
+    fun showAppToast(message: String, type: String = "SUCCESS") {
+        activeToast = AarvoAppToast(id = System.currentTimeMillis(), message = message, type = type)
+    }
+    LaunchedEffect(activeToast?.id) {
+        if (activeToast != null) {
+            delay(2600L)
+            activeToast = null
+        }
+    }
+    fun selectDeliveryLocation(line: String, pin: String) {
+        val cleanLine = line.trim().ifBlank { "Selected Location" }
+        val cleanPin = pin.trim()
+        defaultAddressLine = cleanLine
+        defaultPincode = cleanPin
+        appPrefs.edit()
+            .putString("delivery_address_line", cleanLine)
+            .putString("delivery_pincode", cleanPin)
+            .apply()
+    }
     val voiceSpeechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -349,7 +577,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
             if (!spoken.isNullOrBlank()) {
                 query = spoken
                 if (selectedTab != 0 && selectedTab != 1) selectedTab = 0
-                Toast.makeText(activity, "Searching for: $spoken", Toast.LENGTH_SHORT).show()
+                showAppToast("Searching for \"$spoken\"", "INFO")
             }
         }
     }
@@ -377,14 +605,33 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
             runCatching {
                 val addrs = api.addresses()
                 if (addrs.length() > 0) {
-                    val list = buildList { for (i in 0 until addrs.length()) add(addrs.getJSONObject(i)) }
-                    val def = list.firstOrNull { it.optBoolean("is_default", false) || it.optBoolean("isDefault", false) } ?: list.first()
-                    val formatted = listOf(def.optString("line1"), def.optString("city"), def.optString("state"))
-                        .filter { it.isNotBlank() }
-                        .joinToString(", ")
-                    if (formatted.isNotBlank()) defaultAddressLine = formatted
-                    val pin = def.optString("postal_code", def.optString("postalCode"))
-                    if (pin.isNotBlank()) defaultPincode = pin
+                    val serverList = buildList {
+                        for (i in 0 until addrs.length()) {
+                            val o = addrs.getJSONObject(i)
+                            add(
+                                SavedDeliveryLocation(
+                                    id = o.optString("id", "srv_$i"),
+                                    label = o.optString("label", "Home").ifBlank { "Home" },
+                                    fullName = o.optString("full_name", o.optString("fullName", "AARVO Shopper")),
+                                    phone = o.optString("phone", ""),
+                                    line1 = o.optString("line1", ""),
+                                    city = o.optString("city", ""),
+                                    state = o.optString("state", ""),
+                                    pincode = o.optString("postal_code", o.optString("postalCode", "")),
+                                    isDefault = o.optBoolean("is_default", false) || o.optBoolean("isDefault", false)
+                                )
+                            )
+                        }
+                    }
+                    if (serverList.isNotEmpty()) {
+                        savedLocations = serverList
+                        saveLocationsToPrefs(appPrefs, serverList)
+                        val def = serverList.firstOrNull { it.isDefault } ?: serverList.first()
+                        val formatted = def.shortSummary()
+                        if (formatted.isNotBlank() || def.pincode.isNotBlank()) {
+                            selectDeliveryLocation(formatted.ifBlank { defaultAddressLine }, def.pincode.ifBlank { defaultPincode })
+                        }
+                    }
                 }
             }
         } else {
@@ -428,7 +675,17 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         } else recentlyViewed = emptyList()
     }
     LaunchedEffect(query, category, api) { loading = true; error = ""; try { products = api.products(query, category).toProductList().distinctBy { it.id } } catch (t: Throwable) { products = emptyList(); error = t.message ?: "Unable to load products." } finally { loading = false } }
-    val visibleProducts = remember(products, sortMode, minRating, maxPrice, inStockOnly, query) { val maxPriceCap = maxPrice; val filtered = products.filter { (minRating <= 0.0 || it.rating >= minRating) && (maxPriceCap == null || it.pricePaise <= maxPriceCap) && (!inStockOnly || it.stockQuantity > 0) }; sortProductsByMode(filtered, sortMode, query) }
+    val visibleProducts = remember(products, sortMode, minRating, minPrice, maxPrice, inStockOnly, query) {
+        val minPriceCap = minPrice
+        val maxPriceCap = maxPrice
+        val filtered = products.filter {
+            (minRating <= 0.0 || it.rating >= minRating) &&
+                (minPriceCap == null || it.pricePaise >= minPriceCap) &&
+                (maxPriceCap == null || it.pricePaise <= maxPriceCap) &&
+                (!inStockOnly || it.stockQuantity > 0)
+        }
+        sortProductsByMode(filtered, sortMode, query)
+    }
     fun syncAuthenticatedCart() {
         if (guestMode || role != "BUYER") return
         scope.launch {
@@ -447,17 +704,71 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         }
     }
     val availableCategories = remember(allProducts) { listOf("All") + allProducts.map { it.category.trim() }.filter { it.isNotBlank() }.distinct().sorted() }
-    if (showFilters) ProductFilterDialog(sortMode, minRating, maxPrice, inStockOnly, { sortMode = it; showFilters = false }, { minRating = it }, { maxPrice = it }, { inStockOnly = it }, { showFilters = false })
+    if (showFilters) {
+        ProductFilterDialog(
+            sortMode = sortMode,
+            minRating = minRating,
+            minPrice = minPrice,
+            maxPrice = maxPrice,
+            inStockOnly = inStockOnly,
+            isDarkTheme = isDarkTheme,
+            onSort = { sortMode = it },
+            onRating = { minRating = it },
+            onPriceRange = { mn, mx ->
+                minPrice = mn
+                maxPrice = mx
+            },
+            onStock = { inStockOnly = it },
+            onReset = {
+                sortMode = "Relevance"
+                minRating = 0.0
+                minPrice = null
+                maxPrice = null
+                inStockOnly = false
+                showAppToast("All filters reset", "INFO")
+                showFilters = false
+            },
+            onClose = {
+                showFilters = false
+            },
+            onApplyNotify = { msg -> showAppToast(msg, "INFO") }
+        )
+    }
+    if (showLocationModal) {
+        LocationPickerDialog(
+            api = api,
+            guestMode = guestMode,
+            role = role,
+            savedLocations = savedLocations,
+            activeSummary = defaultAddressLine,
+            activePincode = defaultPincode,
+            isDarkTheme = isDarkTheme,
+            onUpdateLocations = { updated ->
+                savedLocations = updated
+                saveLocationsToPrefs(appPrefs, updated)
+            },
+            onSelectActive = { line, pin ->
+                selectDeliveryLocation(line, pin)
+                showAppToast("Delivery set to $line - $pin", "SUCCESS")
+            },
+            onToast = ::showAppToast,
+            onDismiss = { showLocationModal = false }
+        )
+    }
     selectedProduct?.let { product ->
         PreviewProductDetailsScreen(
             product = product,
             isSaved = product.id in wishlist,
             onBack = { selectedProduct = null },
-            onToggleWishlist = { wishlist = wishlistStore.toggle(product.id) },
+            onToggleWishlist = {
+                val added = product.id !in wishlist
+                wishlist = wishlistStore.toggle(product.id)
+                showAppToast(if (added) "Saved to Wishlist" else "Removed from Wishlist", "INFO")
+            },
             onAdd = { p ->
                 cartViewModel.add(p)
                 syncAuthenticatedCart()
-                Toast.makeText(activity, "${p.name} added to Cart", Toast.LENGTH_SHORT).show()
+                showAppToast("${p.name} added to Cart", "SUCCESS")
             },
             onBuyNow = { p ->
                 cartViewModel.add(p)
@@ -759,11 +1070,13 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                             }
                             voiceSpeechLauncher.launch(intent)
                         } catch (_: Exception) {
-                            Toast.makeText(activity, "Voice search is not supported on this device", Toast.LENGTH_SHORT).show()
+                            showAppToast("Voice search is not supported on this device", "WARNING")
                         }
                     },
                     isDarkTheme = isDarkTheme,
-                    onToggleTheme = onToggleTheme,
+                    onLocationClick = { showLocationModal = true },
+                    deliverySummary = defaultAddressLine,
+                    deliveryPincode = defaultPincode,
                     unreadNotificationCount = unreadNotificationCount,
                     onNotificationsClick = { showNotifications = true },
                     cartBadgeCount = cartBadgeCount,
@@ -837,143 +1150,204 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                 }
             }
         ) { padding ->
-            when (selectedTab) {
-                0 -> PreviewHomeScreen(
-                    padding = padding,
-                    api = api,
-                    query = query,
-                    onQueryChange = { query = it },
-                    categories = availableCategories,
-                    selectedCategory = category,
-                    onCategoryChange = { category = it },
-                    products = visibleProducts,
-                    allProducts = allProducts,
-                    recentlyViewed = recentlyViewed,
-                    loading = loading,
-                    error = error,
-                    onAdd = { p -> cartViewModel.add(p); syncAuthenticatedCart() },
-                    onOpen = { selectedProduct = it },
-                    wishlist = wishlist,
-                    onToggleWishlist = { id -> wishlist = wishlistStore.toggle(id) },
-                    onFilter = { showFilters = true },
-                    sortMode = sortMode,
-                    onSortChange = { sortMode = it },
-                    minRating = minRating,
-                    maxPrice = maxPrice,
-                    inStockOnly = inStockOnly,
-                    onOpenSeller = { activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java)) },
-                    onOpenOffers = { selectedTab = 5 },
-                    onOpenCategories = { selectedTab = 1 },
-                    isDarkTheme = isDarkTheme
-                )
-                1 -> PreviewCategoriesExplorerScreen(
-                    padding = padding,
-                    allProducts = allProducts,
-                    selectedCategory = category,
-                    onSelectCategory = { category = it },
-                    wishlist = wishlist,
-                    onToggleWishlist = { id -> wishlist = wishlistStore.toggle(id) },
-                    onAdd = { p -> cartViewModel.add(p); syncAuthenticatedCart() },
-                    onOpenProduct = { selectedProduct = it },
-                    loading = loading,
-                    sortMode = sortMode,
-                    onSortChange = { sortMode = it },
-                    isDarkTheme = isDarkTheme
-                )
-                2 -> CartScreen(
-                    padding = padding,
-                    items = cartItems,
-                    allProducts = allProducts,
-                    saveForLater = saveForLater,
-                    onIncrement = { product -> cartViewModel.increment(product); syncAuthenticatedCart() },
-                    onDecrement = { product -> cartViewModel.decrement(product); syncAuthenticatedCart() },
-                    onRemoveAll = { id -> cartViewModel.removeAll(id); syncAuthenticatedCart() },
-                    quantityOf = cartViewModel::quantity,
-                    onClear = {
-                        cartViewModel.clear()
-                        if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } }
-                    },
-                    onSaveForLater = { product ->
-                        cartViewModel.removeAll(product.id)
-                        saveForLater = saveForLaterStore.toggle(product.id)
-                        syncAuthenticatedCart()
-                    },
-                    onMoveToCart = { product ->
-                        saveForLater = saveForLaterStore.remove(product.id)
-                        cartViewModel.add(product)
-                        syncAuthenticatedCart()
-                    },
-                    onRemoveSaved = { id -> saveForLater = saveForLaterStore.remove(id) },
-                    onCheckout = {
-                        if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" }
-                    },
-                    onOpenOrders = { selectedTab = 3 },
-                    api = api,
-                    userName = userName,
-                    deliveryAddressLine = defaultAddressLine,
-                    deliveryPincode = defaultPincode,
-                    userOrderCount = userOrderCount,
-                    appliedCouponCode = appliedCouponCode,
-                    couponDiscountPaise = couponDiscountPaise,
-                    onApplyCoupon = { code, discount ->
-                        appliedCouponCode = code
-                        couponDiscountPaise = discount
-                    },
-                    onRemoveCoupon = {
-                        appliedCouponCode = null
-                        couponDiscountPaise = 0L
-                    },
-                    onOpenCoupons = { showCouponsModal = true },
-                    onChangeAddress = { activity.startActivity(Intent(activity, AddressBookActivity::class.java)) },
-                    onExploreProducts = { selectedTab = 0 },
-                    isDarkTheme = isDarkTheme
-                )
-                3 -> OrdersScreen(padding, api) { selectedTab = 0 }
-                5 -> PreviewOffersScreen(
-                    padding = padding,
-                    api = api,
-                    products = allProducts,
-                    appliedCouponCode = appliedCouponCode,
-                    onApplyCoupon = { code, discount ->
-                        appliedCouponCode = code
-                        couponDiscountPaise = discount
-                    },
-                    onRemoveCoupon = {
-                        appliedCouponCode = null
-                        couponDiscountPaise = 0L
-                    },
-                    wishlist = wishlist,
-                    onToggleWishlist = { id -> wishlist = wishlistStore.toggle(id) },
-                    onAdd = { p -> cartViewModel.add(p); syncAuthenticatedCart() },
-                    onOpenProduct = { selectedProduct = it },
-                    isDarkTheme = isDarkTheme
-                )
-                else -> AccountScreen(
-                    padding = padding,
-                    userName = userName,
-                    role = role,
-                    api = api,
-                    activity = activity,
-                    guestMode = guestMode,
-                    onLogin = onLogin,
-                    onSignOut = onSignOut,
-                    onWishlist = { accountSection = "wishlist" },
-                    onNotifications = { showNotifications = true },
+            Box(Modifier.fillMaxSize()) {
+                when (selectedTab) {
+                    0 -> PreviewHomeScreen(
+                        padding = padding,
+                        api = api,
+                        query = query,
+                        onQueryChange = { query = it },
+                        categories = availableCategories,
+                        selectedCategory = category,
+                        onCategoryChange = { category = it },
+                        products = visibleProducts,
+                        allProducts = allProducts,
+                        recentlyViewed = recentlyViewed,
+                        loading = loading,
+                        error = error,
+                        onAdd = { p ->
+                            cartViewModel.add(p)
+                            syncAuthenticatedCart()
+                            showAppToast("${p.name} added to Cart", "SUCCESS")
+                        },
+                        onOpen = { selectedProduct = it },
+                        wishlist = wishlist,
+                        onToggleWishlist = { id ->
+                            val added = id !in wishlist
+                            wishlist = wishlistStore.toggle(id)
+                            showAppToast(if (added) "Saved to Wishlist" else "Removed from Wishlist", "INFO")
+                        },
+                        onFilter = { showFilters = true },
+                        sortMode = sortMode,
+                        onSortChange = { sortMode = it },
+                        minRating = minRating,
+                        minPrice = minPrice,
+                        maxPrice = maxPrice,
+                        onPriceRangeChange = { mn, mx ->
+                            minPrice = mn
+                            maxPrice = mx
+                        },
+                        inStockOnly = inStockOnly,
+                        onOpenSeller = { activity.startActivity(Intent(activity, SellerOnboardingActivity::class.java)) },
+                        onOpenOffers = { selectedTab = 5 },
+                        onOpenCategories = { selectedTab = 1 },
+                        onShowToast = ::showAppToast,
+                        isDarkTheme = isDarkTheme
+                    )
+                    1 -> PreviewCategoriesExplorerScreen(
+                        padding = padding,
+                        allProducts = allProducts,
+                        selectedCategory = category,
+                        onSelectCategory = { category = it },
+                        wishlist = wishlist,
+                        onToggleWishlist = { id ->
+                            val added = id !in wishlist
+                            wishlist = wishlistStore.toggle(id)
+                            showAppToast(if (added) "Saved to Wishlist" else "Removed from Wishlist", "INFO")
+                        },
+                        onAdd = { p ->
+                            cartViewModel.add(p)
+                            syncAuthenticatedCart()
+                            showAppToast("${p.name} added to Cart", "SUCCESS")
+                        },
+                        onOpenProduct = { selectedProduct = it },
+                        loading = loading,
+                        sortMode = sortMode,
+                        onSortChange = { sortMode = it },
+                        minPrice = minPrice,
+                        maxPrice = maxPrice,
+                        onPriceRangeChange = { mn, mx ->
+                            minPrice = mn
+                            maxPrice = mx
+                        },
+                        onOpenPriceFilter = { showFilters = true },
+                        onShowToast = ::showAppToast,
+                        isDarkTheme = isDarkTheme
+                    )
+                    2 -> CartScreen(
+                        padding = padding,
+                        items = cartItems,
+                        allProducts = allProducts,
+                        saveForLater = saveForLater,
+                        onIncrement = { product -> cartViewModel.increment(product); syncAuthenticatedCart() },
+                        onDecrement = { product -> cartViewModel.decrement(product); syncAuthenticatedCart() },
+                        onRemoveAll = { id ->
+                            cartViewModel.removeAll(id)
+                            syncAuthenticatedCart()
+                            showAppToast("Removed item from Cart", "INFO")
+                        },
+                        quantityOf = cartViewModel::quantity,
+                        onClear = {
+                            cartViewModel.clear()
+                            if (!guestMode && role == "BUYER") scope.launch { runCatching { api.clearServerCart() } }
+                            showAppToast("Cart cleared", "INFO")
+                        },
+                        onSaveForLater = { product ->
+                            cartViewModel.removeAll(product.id)
+                            saveForLater = saveForLaterStore.toggle(product.id)
+                            syncAuthenticatedCart()
+                            showAppToast("${product.name} saved for later", "INFO")
+                        },
+                        onMoveToCart = { product ->
+                            saveForLater = saveForLaterStore.remove(product.id)
+                            cartViewModel.add(product)
+                            syncAuthenticatedCart()
+                            showAppToast("${product.name} moved to Cart", "SUCCESS")
+                        },
+                        onRemoveSaved = { id -> saveForLater = saveForLaterStore.remove(id) },
+                        onCheckout = {
+                            if (guestMode) showLoginRequired = true else { showCheckout = true; checkoutMessage = "" }
+                        },
+                        onOpenOrders = { selectedTab = 3 },
+                        api = api,
+                        userName = userName,
+                        deliveryAddressLine = defaultAddressLine,
+                        deliveryPincode = defaultPincode,
+                        userOrderCount = userOrderCount,
+                        appliedCouponCode = appliedCouponCode,
+                        couponDiscountPaise = couponDiscountPaise,
+                        onApplyCoupon = { code, discount ->
+                            appliedCouponCode = code
+                            couponDiscountPaise = discount
+                            showAppToast("Coupon $code applied", "SUCCESS")
+                        },
+                        onRemoveCoupon = {
+                            appliedCouponCode = null
+                            couponDiscountPaise = 0L
+                            showAppToast("Coupon removed", "INFO")
+                        },
+                        onOpenCoupons = { showCouponsModal = true },
+                        onChangeAddress = { showLocationModal = true },
+                        onExploreProducts = { selectedTab = 0 },
+                        isDarkTheme = isDarkTheme
+                    )
+                    3 -> OrdersScreen(padding, api) { selectedTab = 0 }
+                    5 -> PreviewOffersScreen(
+                        padding = padding,
+                        api = api,
+                        products = allProducts,
+                        appliedCouponCode = appliedCouponCode,
+                        onApplyCoupon = { code, discount ->
+                            appliedCouponCode = code
+                            couponDiscountPaise = discount
+                            showAppToast("Coupon $code applied", "SUCCESS")
+                        },
+                        onRemoveCoupon = {
+                            appliedCouponCode = null
+                            couponDiscountPaise = 0L
+                            showAppToast("Coupon removed", "INFO")
+                        },
+                        wishlist = wishlist,
+                        onToggleWishlist = { id -> wishlist = wishlistStore.toggle(id) },
+                        onAdd = { p ->
+                            cartViewModel.add(p)
+                            syncAuthenticatedCart()
+                            showAppToast("${p.name} added to Cart", "SUCCESS")
+                        },
+                        onOpenProduct = { selectedProduct = it },
+                        isDarkTheme = isDarkTheme
+                    )
+                    else -> AccountScreen(
+                        padding = padding,
+                        userName = userName,
+                        role = role,
+                        api = api,
+                        activity = activity,
+                        guestMode = guestMode,
+                        onLogin = onLogin,
+                        onSignOut = onSignOut,
+                        onWishlist = { accountSection = "wishlist" },
+                        onNotifications = { showNotifications = true },
+                        isDarkTheme = isDarkTheme,
+                        onToggleTheme = onToggleTheme,
+                        allProducts = allProducts,
+                        wishlist = wishlist,
+                        onToggleWishlist = { id -> wishlist = wishlistStore.toggle(id) },
+                        onOpenProduct = { selectedProduct = it },
+                        onAddToCart = { product ->
+                            cartViewModel.add(product)
+                            syncAuthenticatedCart()
+                            showAppToast("${product.name} added to Cart", "SUCCESS")
+                        },
+                        userOrderCount = userOrderCount,
+                        section = accountSection,
+                        onSectionChange = { accountSection = it },
+                        appliedCouponCode = appliedCouponCode,
+                        onOpenCoupons = { showCouponsModal = true },
+                        onOpenHelp = { showHelpModal = true },
+                        defaultAddressSummary = "$defaultAddressLine - $defaultPincode",
+                        onOpenOrdersTab = { selectedTab = 3 },
+                        onOpenLocationModal = { showLocationModal = true }
+                    )
+                }
+
+                AarvoFloatingToastBanner(
+                    toast = activeToast,
                     isDarkTheme = isDarkTheme,
-                    onToggleTheme = onToggleTheme,
-                    allProducts = allProducts,
-                    wishlist = wishlist,
-                    onToggleWishlist = { id -> wishlist = wishlistStore.toggle(id) },
-                    onOpenProduct = { selectedProduct = it },
-                    onAddToCart = { product -> cartViewModel.add(product); syncAuthenticatedCart() },
-                    userOrderCount = userOrderCount,
-                    section = accountSection,
-                    onSectionChange = { accountSection = it },
-                    appliedCouponCode = appliedCouponCode,
-                    onOpenCoupons = { showCouponsModal = true },
-                    onOpenHelp = { showHelpModal = true },
-                    defaultAddressSummary = "$defaultAddressLine - $defaultPincode",
-                    onOpenOrdersTab = { selectedTab = 3 }
+                    onDismiss = { activeToast = null },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = padding.calculateBottomPadding())
                 )
             }
         }
@@ -995,7 +1369,573 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 
 @Composable private fun LoginRequiredDialog(onLogin: () -> Unit, onDismiss: () -> Unit) { AlertDialog(onDismissRequest = onDismiss, title = { Text("Login Required") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("To complete your purchase, please login or create an account."); Text("You can still browse and add to cart.", style = MaterialTheme.typography.bodySmall) } }, confirmButton = { Button(onClick = onLogin) { Text("Login / Sign Up") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Continue Browsing") } }) }
 
-@Composable private fun ProductFilterDialog(sortMode: String, minRating: Double, maxPrice: Long?, inStockOnly: Boolean, onSort: (String) -> Unit, onRating: (Double) -> Unit, onMaxPrice: (Long?) -> Unit, onStock: (Boolean) -> Unit, onClose: () -> Unit) { var priceText by remember(maxPrice) { mutableStateOf(maxPrice?.let { (it / 100).toString() } ?: "") }; AlertDialog(onDismissRequest = onClose, title = { Text("Filters & Sorting") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Sort", fontWeight = FontWeight.Bold); listOf("Relevance", "Price: Low to High", "Price: High to Low", "Rating: High to Low", "Discount").forEach { option -> TextButton(onClick = { onSort(option) }) { Text(if (sortMode == option) "✓ $option" else option) } }; Text("Minimum rating: ${if (minRating == 0.0) "Any" else "${minRating}★"}", fontWeight = FontWeight.Bold); Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { listOf(0.0, 3.0, 4.0, 4.5).forEach { r -> TextButton(onClick = { onRating(r) }) { Text(if (minRating == r) "✓ ${if (r == 0.0) "Any" else r.toString()}★" else if (r == 0.0) "Any" else "${r}★") } } }; OutlinedTextField(priceText, { priceText = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Maximum price ₹ (optional)") }); TextButton(onClick = { onMaxPrice(priceText.trim().toLongOrNull()?.times(100)); onClose() }) { Text("Apply price") }; TextButton(onClick = { onStock(!inStockOnly) }) { Text(if (inStockOnly) "✓ In stock only" else "In stock only") } } }, confirmButton = { Button(onClick = onClose) { Text("Done") } }) }
+@Composable private fun ProductFilterDialog(
+    sortMode: String,
+    minRating: Double,
+    minPrice: Long?,
+    maxPrice: Long?,
+    inStockOnly: Boolean,
+    isDarkTheme: Boolean = false,
+    onSort: (String) -> Unit,
+    onRating: (Double) -> Unit,
+    onPriceRange: (Long?, Long?) -> Unit,
+    onStock: (Boolean) -> Unit,
+    onReset: () -> Unit,
+    onClose: () -> Unit,
+    onApplyNotify: (String) -> Unit = {}
+) {
+    val initialMinRupees = ((minPrice ?: 0L) / 100L).coerceIn(0L, 25000L)
+    val initialMaxRupees = ((maxPrice ?: 2500000L) / 100L).coerceIn(initialMinRupees, 25000L)
+    var minPriceText by remember(minPrice) { mutableStateOf(minPrice?.let { (it / 100L).toString() } ?: "") }
+    var maxPriceText by remember(maxPrice) { mutableStateOf(maxPrice?.let { (it / 100L).toString() } ?: "") }
+    var sliderRange by remember(minPrice, maxPrice) {
+        mutableStateOf(initialMinRupees.toFloat()..initialMaxRupees.toFloat())
+    }
+    val headingColor = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF0F172A)
+    val mutedColor = if (isDarkTheme) Color(0xFFCBBDB4) else Color(0xFF64748B)
+    val presets = listOf(
+        Triple("All", null as Long?, null as Long?),
+        Triple("<₹500", null as Long?, 50000L),
+        Triple("₹500-2K", 50000L, 200000L),
+        Triple("₹2K-10K", 200000L, 1000000L),
+        Triple("₹10K+", 1000000L, null as Long?)
+    )
+
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterSlidersVectorIcon(tint = Color(0xFFFF5722), modifier = Modifier.size(18.dp))
+                Text("Filters & Price Range", fontWeight = FontWeight.Black, fontSize = 17.sp)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 460.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Price Range Presets", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = headingColor)
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    presets.forEach { (label, pMin, pMax) ->
+                        val active = minPrice == pMin && maxPrice == pMax
+                        Surface(
+                            shape = CircleShape,
+                            color = if (active) Color(0xFFFF5722) else if (isDarkTheme) Color(0xFF211A17) else Color(0xFFFFF4E8),
+                            border = if (active) null else BorderStroke(1.dp, Color(0xFFFED7AA)),
+                            modifier = Modifier.clickable {
+                                minPriceText = pMin?.let { (it / 100L).toString() } ?: ""
+                                maxPriceText = pMax?.let { (it / 100L).toString() } ?: ""
+                                val lo = ((pMin ?: 0L) / 100L).coerceIn(0L, 25000L).toFloat()
+                                val hi = ((pMax ?: 2500000L) / 100L).coerceIn(lo.toLong(), 25000L).toFloat()
+                                sliderRange = lo..hi
+                                onPriceRange(pMin, pMax)
+                            }
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (active) Color.White else headingColor,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(
+                            "Min: ₹${sliderRange.start.toInt()}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFF5722)
+                        )
+                        Text(
+                            "Max: ${if (sliderRange.endInclusive >= 25000f) "₹25,000+" else "₹${sliderRange.endInclusive.toInt()}"}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFF5722)
+                        )
+                    }
+                    RangeSlider(
+                        value = sliderRange,
+                        onValueChange = { range ->
+                            sliderRange = range
+                            val lo = range.start.toLong()
+                            val hi = range.endInclusive.toLong()
+                            minPriceText = if (lo <= 0L) "" else lo.toString()
+                            maxPriceText = if (hi >= 25000L) "" else hi.toString()
+                        },
+                        valueRange = 0f..25000f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color(0xFFFF5722),
+                            activeTrackColor = Color(0xFFFF5722)
+                        )
+                    )
+                }
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = minPriceText,
+                        onValueChange = { raw ->
+                            val clean = raw.filter(Char::isDigit).take(6)
+                            minPriceText = clean
+                            val lo = (clean.toLongOrNull() ?: 0L).coerceIn(0L, 25000L).toFloat()
+                            sliderRange = lo..maxOf(lo, sliderRange.endInclusive)
+                        },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        label = { Text("Min ₹", fontSize = 11.sp) }
+                    )
+                    OutlinedTextField(
+                        value = maxPriceText,
+                        onValueChange = { raw ->
+                            val clean = raw.filter(Char::isDigit).take(6)
+                            maxPriceText = clean
+                            val hi = (clean.toLongOrNull() ?: 25000L).coerceIn(0L, 25000L).toFloat()
+                            sliderRange = minOf(sliderRange.start, hi)..hi
+                        },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        label = { Text("Max ₹", fontSize = 11.sp) }
+                    )
+                }
+
+                Text("Sort By", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = headingColor)
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf("Relevance", "Price: Low to High", "Price: High to Low", "Rating: High to Low", "Discount").forEach { option ->
+                        val active = sortMode == option
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (active) Color(0xFF0F172A) else Color.Transparent,
+                            border = BorderStroke(1.dp, if (active) Color(0xFF0F172A) else Color(0xFFCBD5E1)),
+                            modifier = Modifier.clickable { onSort(option) }
+                        ) {
+                            Text(
+                                text = option,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (active) Color.White else headingColor,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+                }
+
+                Text("Minimum Rating: ${if (minRating == 0.0) "Any" else "${minRating}★"}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = headingColor)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(0.0, 3.0, 4.0, 4.5).forEach { r ->
+                        val active = minRating == r
+                        Surface(
+                            shape = CircleShape,
+                            color = if (active) Color(0xFFFF5722) else Color.Transparent,
+                            border = BorderStroke(1.dp, if (active) Color(0xFFFF5722) else Color(0xFFCBD5E1)),
+                            modifier = Modifier.clickable { onRating(r) }
+                        ) {
+                            Text(
+                                text = if (r == 0.0) "Any" else "${r}★",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (active) Color.White else headingColor,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onStock(!inStockOnly) }.padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(checked = inStockOnly, onCheckedChange = { onStock(it) })
+                    Spacer(Modifier.width(4.dp))
+                    Text("In stock items only", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = mutedColor)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val parsedMin = minPriceText.trim().toLongOrNull()?.times(100L)
+                    val parsedMax = maxPriceText.trim().toLongOrNull()?.times(100L)
+                    val validMin = if (parsedMin != null && parsedMax != null && parsedMin > parsedMax) parsedMax else parsedMin
+                    val validMax = if (parsedMin != null && parsedMax != null && parsedMin > parsedMax) parsedMin else parsedMax
+                    onPriceRange(validMin, validMax)
+                    val summary = when {
+                        validMin != null && validMax != null -> "Price ₹${validMin / 100} – ₹${validMax / 100}"
+                        validMax != null -> "Price under ₹${validMax / 100}"
+                        validMin != null -> "Price ₹${validMin / 100}+"
+                        else -> "Filters updated"
+                    }
+                    onApplyNotify(summary)
+                    onClose()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
+            ) {
+                Text("Apply Filters", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onReset) { Text("Reset", color = Color(0xFFE11D48)) }
+                TextButton(onClick = onClose) { Text("Cancel") }
+            }
+        }
+    )
+}
+
+@Composable
+private fun LocationPickerDialog(
+    api: AarvoApiClient,
+    guestMode: Boolean,
+    role: String,
+    savedLocations: List<SavedDeliveryLocation>,
+    activeSummary: String,
+    activePincode: String,
+    isDarkTheme: Boolean,
+    onUpdateLocations: (List<SavedDeliveryLocation>) -> Unit,
+    onSelectActive: (String, String) -> Unit,
+    onToast: (String, String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var quickPincode by remember(activePincode) { mutableStateOf(activePincode) }
+    var showAddForm by remember { mutableStateOf(false) }
+    var label by remember { mutableStateOf("Home") }
+    var fullName by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var line1 by remember { mutableStateOf("") }
+    var city by remember { mutableStateOf("") }
+    var state by remember { mutableStateOf("") }
+    var pin by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var formError by remember { mutableStateOf("") }
+
+    val headingColor = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF0F172A)
+    val mutedColor = if (isDarkTheme) Color(0xFFCBBDB4) else Color(0xFF64748B)
+    val cardBg = if (isDarkTheme) Color(0xFF211A17) else Color(0xFFFFF8F1)
+    val cardBorder = if (isDarkTheme) Color(0xFF3A2D27) else Color(0xFFFED7AA)
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LocationPinVectorIcon(tint = Color(0xFFFF5722), modifier = Modifier.size(20.dp))
+                Column {
+                    Text("Choose your location", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                    Text(
+                        "Delivery options & speeds may vary by pincode",
+                        fontSize = 11.sp,
+                        color = mutedColor
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 480.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Active delivery banner
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = cardBg,
+                    border = BorderStroke(1.dp, cardBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        LocationPinVectorIcon(tint = Color(0xFF059669), modifier = Modifier.size(16.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("CURRENT DELIVERY LOCATION", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color(0xFF059669))
+                            Text(
+                                "${activeSummary.ifBlank { "Selected Location" }}${if (activePincode.isNotBlank()) " - $activePincode" else ""}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = headingColor,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                // Flipkart-style quick 6-digit Pincode check & apply
+                Text("Check Delivery Pincode", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = headingColor)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = quickPincode,
+                        onValueChange = { quickPincode = it.filter(Char::isDigit).take(6) },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        placeholder = { Text("Enter 6-digit pincode", fontSize = 12.sp) }
+                    )
+                    Button(
+                        onClick = {
+                            val clean = quickPincode.trim()
+                            if (!clean.matches(Regex("^[1-9][0-9]{5}$"))) {
+                                formError = "Enter a valid 6-digit Indian pincode"
+                                onToast("Enter a valid 6-digit pincode", "WARNING")
+                            } else {
+                                formError = ""
+                                val (c, s) = inferCityStateForPincode(clean)
+                                onSelectActive("$c, $s", clean)
+                                onDismiss()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Text("Apply", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+
+                // Saved Delivery Addresses
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "SAVED ADDRESSES (${savedLocations.size})",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        color = mutedColor
+                    )
+                    Text(
+                        if (showAddForm) "✕ Close Form" else "+ Add New Address",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFFFF5722),
+                        modifier = Modifier.clickable {
+                            showAddForm = !showAddForm
+                            formError = ""
+                        }
+                    )
+                }
+
+                if (showAddForm) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isDarkTheme) Color(0xFF181311) else Color(0xFFFFFDF9),
+                        border = BorderStroke(1.dp, cardBorder),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                listOf("Home", "Work", "Other").forEach { tag ->
+                                    val sel = label == tag
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (sel) Color(0xFFFF5722) else Color.Transparent,
+                                        border = BorderStroke(1.dp, if (sel) Color(0xFFFF5722) else cardBorder),
+                                        modifier = Modifier.clickable { label = tag }
+                                    ) {
+                                        Text(
+                                            tag,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (sel) Color.White else headingColor,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            OutlinedTextField(fullName, { fullName = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full Name *") })
+                            OutlinedTextField(phone, { phone = it.filter(Char::isDigit).take(10) }, Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), label = { Text("10-digit Mobile *") })
+                            OutlinedTextField(line1, { line1 = it }, Modifier.fillMaxWidth(), label = { Text("House / Street / Area *") })
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                OutlinedTextField(city, { city = it }, Modifier.weight(1f), singleLine = true, label = { Text("City *") })
+                                OutlinedTextField(state, { state = it }, Modifier.weight(1f), singleLine = true, label = { Text("State *") })
+                            }
+                            OutlinedTextField(pin, { pin = it.filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), label = { Text("6-digit Pincode *") })
+                            if (formError.isNotBlank()) {
+                                Text(formError, color = MaterialTheme.colorScheme.error, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                            Button(
+                                onClick = {
+                                    when {
+                                        fullName.isBlank() -> formError = "Enter recipient name"
+                                        !phone.trim().matches(Regex("^[6-9][0-9]{9}$")) -> formError = "Enter valid 10-digit mobile number"
+                                        line1.isBlank() || city.isBlank() || state.isBlank() -> formError = "Enter complete address, city & state"
+                                        !pin.trim().matches(Regex("^[1-9][0-9]{5}$")) -> formError = "Enter valid 6-digit pincode"
+                                        else -> {
+                                            formError = ""
+                                            scope.launch {
+                                                busy = true
+                                                var savedId = "local_${System.currentTimeMillis()}"
+                                                if (!guestMode && role == "BUYER") {
+                                                    runCatching {
+                                                        val resp = api.addAddress(
+                                                            JSONObject()
+                                                                .put("label", label.trim())
+                                                                .put("fullName", fullName.trim())
+                                                                .put("phone", phone.trim())
+                                                                .put("line1", line1.trim())
+                                                                .put("line2", "")
+                                                                .put("city", city.trim())
+                                                                .put("state", state.trim())
+                                                                .put("postalCode", pin.trim())
+                                                                .put("country", "IN"),
+                                                            true
+                                                        )
+                                                        val srvId = resp.optString("id")
+                                                        if (srvId.isNotBlank()) savedId = srvId
+                                                    }
+                                                }
+                                                val newLoc = SavedDeliveryLocation(
+                                                    id = savedId,
+                                                    label = label.trim(),
+                                                    fullName = fullName.trim(),
+                                                    phone = phone.trim(),
+                                                    line1 = line1.trim(),
+                                                    city = city.trim(),
+                                                    state = state.trim(),
+                                                    pincode = pin.trim(),
+                                                    isDefault = true
+                                                )
+                                                val nextList = listOf(newLoc) + savedLocations.map { it.copy(isDefault = false) }
+                                                onUpdateLocations(nextList)
+                                                onSelectActive(newLoc.shortSummary(), newLoc.pincode)
+                                                busy = false
+                                                showAddForm = false
+                                                onDismiss()
+                                            }
+                                        }
+                                    }
+                                },
+                                enabled = !busy,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
+                            ) {
+                                Text(if (busy) "Saving..." else "Save & Deliver Here", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                savedLocations.forEach { loc ->
+                    val isSelected = (loc.pincode == activePincode && activeSummary.contains(loc.city, ignoreCase = true)) || loc.isDefault
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) cardBg else if (isDarkTheme) Color(0xFF181311) else Color.White,
+                        border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, if (isSelected) Color(0xFFFF5722) else cardBorder),
+                        modifier = Modifier.fillMaxWidth().clickable(enabled = !busy) {
+                            scope.launch {
+                                busy = true
+                                if (!guestMode && role == "BUYER" && !loc.id.startsWith("local_")) {
+                                    runCatching { api.setDefaultAddress(loc.id) }
+                                }
+                                val updated = savedLocations.map { it.copy(isDefault = it.id == loc.id) }
+                                onUpdateLocations(updated)
+                                onSelectActive(loc.shortSummary(), loc.pincode)
+                                busy = false
+                                onDismiss()
+                            }
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color(0xFFFF5722).copy(alpha = 0.14f)
+                                    ) {
+                                        Text(
+                                            loc.label.uppercase(),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color(0xFFFF5722),
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Text(
+                                        loc.fullName.ifBlank { "AARVO Shopper" },
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = headingColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (isSelected) {
+                                        Text("✓ Active", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color(0xFF059669))
+                                    }
+                                }
+                                Text(
+                                    "${loc.line1}, ${loc.city}, ${loc.state} - ${loc.pincode}",
+                                    fontSize = 11.sp,
+                                    color = mutedColor
+                                )
+                                if (loc.phone.isNotBlank()) {
+                                    Text("Mobile: ${loc.phone}", fontSize = 10.sp, color = mutedColor)
+                                }
+                            }
+                            if (savedLocations.size > 1) {
+                                IconButton(
+                                    onClick = {
+                                        scope.launch {
+                                            busy = true
+                                            if (!guestMode && role == "BUYER" && !loc.id.startsWith("local_")) {
+                                                runCatching { api.deleteAddress(loc.id) }
+                                            }
+                                            val remaining = savedLocations.filterNot { it.id == loc.id }
+                                            val normalized = if (remaining.isNotEmpty() && remaining.none { it.isDefault }) {
+                                                remaining.mapIndexed { idx, item -> item.copy(isDefault = idx == 0) }
+                                            } else remaining
+                                            onUpdateLocations(normalized)
+                                            normalized.firstOrNull { it.isDefault }?.let { nextDef ->
+                                                onSelectActive(nextDef.shortSummary(), nextDef.pincode)
+                                            }
+                                            onToast("Address removed", "INFO")
+                                            busy = false
+                                        }
+                                    },
+                                    enabled = !busy,
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete address", tint = mutedColor, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss, enabled = !busy) { Text("Close") }
+        }
+    )
+}
 
 private fun JSONArray.toProductList(): List<Product> = buildList {
     val seenIds = mutableSetOf<Int>()
@@ -3771,7 +4711,8 @@ private fun ProductDetailsScreen(
     onOpenCoupons: () -> Unit = {},
     onOpenHelp: () -> Unit = {},
     defaultAddressSummary: String = "",
-    onOpenOrdersTab: () -> Unit = { onSectionChange("orders") }
+    onOpenOrdersTab: () -> Unit = { onSectionChange("orders") },
+    onOpenLocationModal: () -> Unit = {}
 ) {
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -4213,7 +5154,7 @@ private fun ProductDetailsScreen(
                                 title = "Saved Delivery Addresses",
                                 subtitle = defaultAddressSummary.ifBlank { "Manage doorstep delivery pins" },
                                 isDarkTheme = isDarkTheme,
-                                onClick = { activity.startActivity(Intent(activity, AddressBookActivity::class.java)) }
+                                onClick = onOpenLocationModal
                             )
                             Box(Modifier.fillMaxWidth().height(0.5.dp).background(dividerColor))
 

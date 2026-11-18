@@ -49,10 +49,14 @@ import {
   HelpCircle,
   MessageSquare,
   Edit2,
+  SlidersHorizontal,
+  ChevronDown,
+  LocateFixed,
 } from 'lucide-react';
 import { ScrollToTop } from './ScrollToTop';
 import { MainScreenSkeleton } from './MainScreenSkeleton';
 import { ProductGridSkeleton } from './ProductGridSkeleton';
+import { ToastContainer, ToastItem, ToastVariant } from './ToastContainer';
 import { ProductDetailModal, Product } from './ProductDetailModal';
 import { Product360ViewerModal } from './Product360ViewerModal';
 import { ProductImageZoomModal } from './ProductImageZoomModal';
@@ -233,11 +237,19 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [orderSuccessModal, setOrderSuccessModal] = useState<string | null>(null);
   const [appliedCouponCode, setAppliedCouponCode] = useState<'AARVO200' | 'WELCOME100' | null>(null);
   const [couponInputCode, setCouponInputCode] = useState('');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const toastTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [product360Modal, setProduct360Modal] = useState<Product | null>(null);
   const [zoomImageProduct, setZoomImageProduct] = useState<Product | null>(null);
   const bulkCsvInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Price Range Filter state (₹)
+  const [minPriceFilter, setMinPriceFilter] = useState<number | null>(null);
+  const [maxPriceFilter, setMaxPriceFilter] = useState<number | null>(null);
+  const [isPriceFilterModalOpen, setIsPriceFilterModalOpen] = useState<boolean>(false);
+  const [priceMinDraft, setPriceMinDraft] = useState<string>('');
+  const [priceMaxDraft, setPriceMaxDraft] = useState<string>('');
 
   // Interactive Account Modals & Persistent User State
   const [userProfile, setUserProfile] = useState<{ name: string; phone: string }>(() => {
@@ -327,6 +339,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [profileDraftName, setProfileDraftName] = useState('');
   const [profileDraftPhone, setProfileDraftPhone] = useState('');
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [quickPincodeInput, setQuickPincodeInput] = useState('');
+  const [pincodeStatusMessage, setPincodeStatusMessage] = useState<string | null>(null);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [addressDraft, setAddressDraft] = useState({
     label: 'Home',
@@ -660,10 +675,69 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 2500);
-  };
+  const dismissToast = useCallback((id: string) => {
+    if (toastTimersRef.current[id]) {
+      clearTimeout(toastTimersRef.current[id]);
+      delete toastTimersRef.current[id];
+    }
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const showToast = useCallback(
+    (
+      msg: string,
+      variantOrOptions?:
+        | ToastVariant
+        | {
+            variant?: ToastVariant;
+            title?: string;
+            durationMs?: number;
+            actionLabel?: string;
+            onAction?: () => void;
+          }
+    ) => {
+      const opts =
+        typeof variantOrOptions === 'string'
+          ? { variant: variantOrOptions }
+          : variantOrOptions || {};
+      const lower = msg.toLowerCase();
+      const inferredVariant: ToastVariant =
+        opts.variant ||
+        (lower.includes('error') || lower.includes('failed') || lower.includes('invalid')
+          ? 'error'
+          : lower.includes('offline') || lower.includes('removed') || lower.includes('cleared')
+          ? 'warning'
+          : lower.includes('restocked') || lower.includes('detect') || lower.includes('search')
+          ? 'info'
+          : 'success');
+      const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const durationMs = opts.durationMs ?? 2800;
+
+      setToasts((prev) => [
+        ...prev.slice(-2),
+        {
+          id,
+          message: msg,
+          title: opts.title,
+          variant: inferredVariant,
+          actionLabel: opts.actionLabel,
+          onAction: opts.onAction,
+        },
+      ]);
+
+      toastTimersRef.current[id] = setTimeout(() => {
+        dismissToast(id);
+      }, durationMs);
+    },
+    [dismissToast]
+  );
+
+  useEffect(() => {
+    return () => {
+      Object.values(toastTimersRef.current).forEach(clearTimeout);
+      toastTimersRef.current = {};
+    };
+  }, []);
 
   // Payment Method Selection & Management in Cart
   const [paymentMethodSelection, setPaymentMethodSelection] = useState<'COD' | 'UPI'>('COD');
@@ -1334,14 +1408,71 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     });
   }, [queryMatchedProducts, matchesCategory]);
 
-  // Real-time filtered & sorted products matching search, category, and selected sort order
+  const hasPriceFilter = minPriceFilter !== null || maxPriceFilter !== null;
+
+  const matchesPriceRange = useCallback(
+    (product: Product) => {
+      if (minPriceFilter !== null && product.price < minPriceFilter) return false;
+      if (maxPriceFilter !== null && product.price > maxPriceFilter) return false;
+      return true;
+    },
+    [minPriceFilter, maxPriceFilter]
+  );
+
+  const applyPricePreset = useCallback(
+    (min: number | null, max: number | null, label: string) => {
+      haptics.selection();
+      setMinPriceFilter(min);
+      setMaxPriceFilter(max);
+      if (min === null && max === null) {
+        showToast('Price range filter cleared', 'info');
+      } else {
+        showToast(`Price filter: ${label}`, { title: 'Price Filter Applied', variant: 'info' });
+      }
+    },
+    [showToast]
+  );
+
+  const openPriceFilterModal = useCallback(() => {
+    haptics.light();
+    setPriceMinDraft(minPriceFilter !== null ? String(minPriceFilter) : '');
+    setPriceMaxDraft(maxPriceFilter !== null ? String(maxPriceFilter) : '');
+    setIsPriceFilterModalOpen(true);
+  }, [minPriceFilter, maxPriceFilter]);
+
+  const activePriceFilterLabel = useMemo(() => {
+    if (minPriceFilter === null && maxPriceFilter === null) return null;
+    if (minPriceFilter !== null && maxPriceFilter !== null) {
+      return `₹${minPriceFilter.toLocaleString('en-IN')} – ₹${maxPriceFilter.toLocaleString('en-IN')}`;
+    }
+    if (maxPriceFilter !== null) {
+      return `Under ₹${maxPriceFilter.toLocaleString('en-IN')}`;
+    }
+    return `₹${minPriceFilter!.toLocaleString('en-IN')}+`;
+  }, [minPriceFilter, maxPriceFilter]);
+
+  const PRICE_FILTER_PRESETS: { label: string; min: number | null; max: number | null }[] = [
+    { label: 'All Prices', min: null, max: null },
+    { label: 'Under ₹500', min: null, max: 500 },
+    { label: '₹500 – ₹2K', min: 500, max: 2000 },
+    { label: '₹2K – ₹10K', min: 2000, max: 10000 },
+    { label: '₹10,000+', min: 10000, max: null },
+  ];
+
+  // Real-time filtered & sorted products matching search, category, price range, and sort order
   const filteredProducts = useMemo(() => {
     const categoryFiltered =
       selectedCategory === 'All' || selectedCategory === 'More'
         ? queryMatchedProducts
         : queryMatchedProducts.filter((p) => matchesCategory(p.category, selectedCategory));
-    return sortProducts(categoryFiltered, sortBy, searchQuery);
-  }, [queryMatchedProducts, selectedCategory, matchesCategory, sortBy, searchQuery]);
+    const priceFiltered = categoryFiltered.filter(matchesPriceRange);
+    return sortProducts(priceFiltered, sortBy, searchQuery);
+  }, [queryMatchedProducts, selectedCategory, matchesCategory, matchesPriceRange, sortBy, searchQuery]);
+
+  const homeFeedProducts = useMemo(
+    () => allProducts.filter(matchesPriceRange),
+    [allProducts, matchesPriceRange]
+  );
 
   if (isLoading) {
     return (
@@ -1574,22 +1705,24 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   </div>
                 </div>
 
-                {/* Theme Toggle Button */}
-                {onToggleTheme && (
-                  <button
-                    type="button"
-                    onClick={onToggleTheme}
-                    className="p-1.5 text-slate-800 dark:text-slate-200 hover:bg-orange-100/70 dark:hover:bg-stone-800 rounded-full transition-colors shrink-0 cursor-pointer"
-                    title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
-                    aria-label="Toggle theme"
-                  >
-                    {theme === 'dark' ? (
-                      <Sun className="w-4 h-4 text-amber-400" />
-                    ) : (
-                      <Moon className="w-4 h-4 text-slate-700" />
-                    )}
-                  </button>
-                )}
+                {/* Flipkart-style Delivery Location Pin Button (replaces Moon theme toggle in header) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.light();
+                    setQuickPincodeInput(activeAddressObj?.pincode || '');
+                    setPincodeStatusMessage(null);
+                    setIsAddressModalOpen(true);
+                  }}
+                  className="relative p-1.5 text-slate-800 dark:text-slate-200 hover:bg-orange-100/70 dark:hover:bg-stone-800 rounded-full transition-colors shrink-0 cursor-pointer"
+                  title={`Delivering to ${activeAddressObj?.city || 'Select Location'} (${activeAddressObj?.pincode || 'Set PIN'})`}
+                  aria-label="Change delivery location"
+                >
+                  <MapPin className="w-5 h-5 stroke-[2] text-[#FF5722]" />
+                  {activeAddressObj?.pincode && (
+                    <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-[#181311]" />
+                  )}
+                </button>
 
                 {/* Right: Shopping Cart with Live Count Badge */}
                 <button
@@ -1608,12 +1741,40 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               </div>
 
               {/* Second Row: Centered AARVO Animated Logo */}
-              <div className="flex items-center justify-center py-1">
+              <div className="flex items-center justify-center py-0.5">
                 <AarvoAnimatedLogo
                   size="md"
                   onClick={() => switchTab('home')}
                 />
               </div>
+
+              {/* Flipkart-style Active Delivery Location Bar */}
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.selection();
+                  setQuickPincodeInput(activeAddressObj?.pincode || '');
+                  setPincodeStatusMessage(null);
+                  setIsAddressModalOpen(true);
+                }}
+                className="mt-1 w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-white/80 dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-800 hover:border-[#FF5722]/60 transition-colors text-left cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <MapPin className="w-3.5 h-3.5 text-[#FF5722] shrink-0" />
+                  <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate">
+                    Deliver to{' '}
+                    <strong className="font-bold text-slate-900 dark:text-white">
+                      {activeAddressObj
+                        ? `${activeAddressObj.fullName.split(' ')[0]} · ${activeAddressObj.city} - ${activeAddressObj.pincode}`
+                        : 'Select Location'}
+                    </strong>
+                  </span>
+                </div>
+                <span className="shrink-0 flex items-center gap-0.5 text-[10px] font-black text-[#FF5722]">
+                  <span>Change</span>
+                  <ChevronDown className="w-3 h-3" />
+                </span>
+              </button>
 
               {/* Horizontal Scrollable Category Filter Bar */}
               <div
@@ -1646,13 +1807,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               </div>
             </header>
 
-        {/* Toast Notification */}
-        {toastMessage && (
-          <div className="fixed top-28 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 dark:bg-[#211A17]/95 text-white px-4 py-2 rounded-full text-xs font-semibold shadow-xl backdrop-blur-xs flex items-center gap-2 animate-bounce border border-orange-500/30">
-            <CheckCircle2 className="w-4 h-4 text-[#FF8A65]" />
-            <span>{toastMessage}</span>
-          </div>
-        )}
+        {/* Rich Toast Notification Stack */}
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
         {/* ================================================================= */}
         {/* TAB 1: HOME VIEW                                                  */}
@@ -1779,6 +1935,40 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         }`}
                       >
                         {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Price Range Filter Selector Row */}
+                <div className="mb-3 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5" role="group" aria-label="Filter search results by price range">
+                  <button
+                    type="button"
+                    onClick={openPriceFilterModal}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap shrink-0 flex items-center gap-1 transition-colors cursor-pointer ${
+                      hasPriceFilter
+                        ? 'bg-[#FF5722] text-white shadow-2xs'
+                        : 'bg-[#FFF4E8] dark:bg-[#2B1A12] text-[#E64A19] dark:text-[#FF8A65] border border-orange-200 dark:border-stone-700'
+                    }`}
+                  >
+                    <SlidersHorizontal className="w-3 h-3" />
+                    <span>{activePriceFilterLabel || 'Price Range'}</span>
+                  </button>
+                  {PRICE_FILTER_PRESETS.map((preset) => {
+                    const active =
+                      minPriceFilter === preset.min && maxPriceFilter === preset.max;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => applyPricePreset(preset.min, preset.max, preset.label)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                          active
+                            ? 'bg-slate-900 text-white dark:bg-[#FF5722] dark:text-white shadow-2xs'
+                            : 'bg-white dark:bg-[#211A17] text-slate-700 dark:text-slate-300 border border-orange-200/70 dark:border-stone-700 hover:border-[#FF5722]/60'
+                        }`}
+                      >
+                        {preset.label}
                       </button>
                     );
                   })}
@@ -2148,21 +2338,57 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             {/* ================================================================= */}
             <section className="px-3.5 py-2">
               {/* Header Row */}
-              <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
                   <span className="text-base">🔥</span>
                   <h3 className="font-display font-black text-sm text-slate-900 dark:text-white">
-                    Top Deals
+                    {hasPriceFilter ? `Top Deals (${homeFeedProducts.length})` : 'Top Deals'}
                   </h3>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => switchTab('categories')}
-                  className="text-xs font-bold text-[#FF5722] hover:underline flex items-center gap-0.5 cursor-pointer"
-                >
-                  <span>See All</span>
-                  <span className="font-bold">&gt;</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={openPriceFilterModal}
+                    className={`px-2 py-0.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+                      hasPriceFilter
+                        ? 'bg-[#FF5722] text-white'
+                        : 'bg-[#FFF4E8] dark:bg-[#2B1A12] text-[#E64A19] dark:text-[#FF8A65] border border-orange-200/80 dark:border-stone-700'
+                    }`}
+                  >
+                    <SlidersHorizontal className="w-3 h-3" />
+                    <span>{activePriceFilterLabel || 'Price'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => switchTab('categories')}
+                    className="text-xs font-bold text-[#FF5722] hover:underline flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <span>See All</span>
+                    <span className="font-bold">&gt;</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Inline Price Range Filter Presets on Home */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2 mb-1" role="group" aria-label="Home price range filter">
+                {PRICE_FILTER_PRESETS.map((preset) => {
+                  const active =
+                    minPriceFilter === preset.min && maxPriceFilter === preset.max;
+                  return (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => applyPricePreset(preset.min, preset.max, preset.label)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                        active
+                          ? 'bg-slate-900 text-white dark:bg-[#FF5722] dark:text-white shadow-2xs'
+                          : 'bg-white dark:bg-[#211A17] text-slate-700 dark:text-slate-300 border border-orange-200/70 dark:border-stone-700 hover:border-[#FF5722]/60'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* 2-Column Product Cards */}
@@ -2172,9 +2398,22 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   variant="detailed"
                   label="Loading top deals"
                 />
+              ) : homeFeedProducts.length === 0 ? (
+                <div className="py-6 px-4 text-center bg-[#FFF4E8] dark:bg-[#211A17] rounded-2xl border border-dashed border-orange-200 dark:border-stone-800 space-y-2">
+                  <p className="text-xs font-bold text-slate-800 dark:text-white">
+                    No products match {activePriceFilterLabel}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => applyPricePreset(null, null, 'All Prices')}
+                    className="px-3 py-1.5 bg-[#FF5722] text-white text-xs font-bold rounded-xl cursor-pointer"
+                  >
+                    Reset Price Filter
+                  </button>
+                </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  {allProducts.slice(0, 2).map((product) => (
+                  {homeFeedProducts.slice(0, 2).map((product) => (
                     <div
                       key={product.id}
                       onClick={() => {
@@ -2286,7 +2525,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 />
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  {allProducts.slice(2, 6).map((product) => (
+                  {(homeFeedProducts.length > 2 ? homeFeedProducts.slice(2, 6) : homeFeedProducts).map((product) => (
                     <div
                       key={product.id}
                       onClick={() => {
@@ -2493,6 +2732,40 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       }`}
                     >
                       {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Price Range Filter Bar for Categories */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5" role="group" aria-label="Filter category products by price range">
+                <button
+                  type="button"
+                  onClick={openPriceFilterModal}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap shrink-0 flex items-center gap-1 cursor-pointer transition-colors ${
+                    hasPriceFilter
+                      ? 'bg-[#FF5722] text-white'
+                      : 'bg-[#FFF4E8] dark:bg-[#2B1A12] text-[#E64A19] dark:text-[#FF8A65] border border-orange-200 dark:border-stone-700'
+                  }`}
+                >
+                  <SlidersHorizontal className="w-3 h-3" />
+                  <span>{activePriceFilterLabel || 'Price'}</span>
+                </button>
+                {PRICE_FILTER_PRESETS.map((preset) => {
+                  const active =
+                    minPriceFilter === preset.min && maxPriceFilter === preset.max;
+                  return (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => applyPricePreset(preset.min, preset.max, preset.label)}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                        active
+                          ? 'bg-slate-900 text-white dark:bg-[#FF5722] dark:text-white shadow-2xs'
+                          : 'bg-white dark:bg-[#211A17] text-slate-700 dark:text-slate-300 border border-orange-200/70 dark:border-stone-700'
+                      }`}
+                    >
+                      {preset.label}
                     </button>
                   );
                 })}
@@ -5181,15 +5454,25 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           </div>
         )}
 
-        {/* 18. SAVED DELIVERY ADDRESSES MODAL */}
+        {/* 18. FLIPKART-STYLE DELIVERY LOCATION & SAVED ADDRESSES MODAL */}
         {isAddressModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-            <div className="w-full max-w-md max-h-[88vh] overflow-y-auto bg-white dark:bg-[#211A17] rounded-3xl p-5 border border-orange-100 dark:border-stone-800 shadow-2xl space-y-4">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs">
+            <div className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white dark:bg-[#211A17] rounded-t-3xl sm:rounded-3xl p-5 border border-orange-100 dark:border-stone-800 shadow-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-orange-100/70 dark:border-stone-800 pb-3">
-                <h3 className="font-display font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-[#FF5722]" />
-                  <span>Saved Delivery Addresses</span>
-                </h3>
+                <div>
+                  <h3 className="font-display font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-[#FF5722]" />
+                    <span>Select Delivery Location</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Currently delivering to{' '}
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {activeAddressObj
+                        ? `${activeAddressObj.city} - ${activeAddressObj.pincode}`
+                        : 'Select Address'}
+                    </span>
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => {
@@ -5202,7 +5485,111 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 </button>
               </div>
 
+              {/* Flipkart-style Enter Pincode Quick Bar + Detect Location */}
+              <div className="p-3 rounded-2xl bg-[#FFF4E8] dark:bg-[#181311] border border-orange-200/70 dark:border-stone-800 space-y-2">
+                <label className="text-[11px] font-black text-slate-800 dark:text-slate-200 block">
+                  Enter Delivery Pincode
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="Enter 6-digit pincode"
+                    value={quickPincodeInput}
+                    onChange={(e) => {
+                      setQuickPincodeInput(e.target.value.replace(/\D/g, '').slice(0, 6));
+                      setPincodeStatusMessage(null);
+                    }}
+                    className="flex-1 text-xs font-bold tabular-nums px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/80 dark:border-stone-700 text-slate-900 dark:text-white outline-none focus:border-[#FF5722]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cleanPin = quickPincodeInput.trim();
+                      if (!/^\d{6}$/.test(cleanPin)) {
+                        setPincodeStatusMessage('Please enter a valid 6-digit pincode.');
+                        showToast('Enter a valid 6-digit pincode', 'error');
+                        return;
+                      }
+                      haptics.saved();
+                      const existingMatch = savedAddresses.find((a) => a.pincode === cleanPin);
+                      if (existingMatch) {
+                        setActiveAddressId(existingMatch.id);
+                        setPincodeStatusMessage(
+                          `Delivery available in 2-3 days to ${existingMatch.city} (${cleanPin})`
+                        );
+                        showToast(
+                          `Delivering to ${existingMatch.city} - ${cleanPin}`,
+                          { title: 'Location Updated', variant: 'success' }
+                        );
+                      } else if (activeAddressObj) {
+                        setSavedAddresses((prev) =>
+                          prev.map((a) =>
+                            a.id === activeAddressObj.id ? { ...a, pincode: cleanPin } : a
+                          )
+                        );
+                        setPincodeStatusMessage(
+                          `Express delivery available in 2-4 days for PIN ${cleanPin}`
+                        );
+                        showToast(`Delivery pincode set to ${cleanPin}`, {
+                          title: 'Pincode Applied',
+                          variant: 'success',
+                        });
+                      }
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-black cursor-pointer shrink-0"
+                  >
+                    Apply
+                  </button>
+                </div>
+
+                {pincodeStatusMessage && (
+                  <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                    {pincodeStatusMessage}
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  disabled={isDetectingLocation}
+                  onClick={() => {
+                    haptics.light();
+                    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+                      showToast('Location detection unavailable — choose or add an address below', 'info');
+                      return;
+                    }
+                    setIsDetectingLocation(true);
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => {
+                        setIsDetectingLocation(false);
+                        const coords = `${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`;
+                        setPincodeStatusMessage(
+                          `GPS locked (${coords}). Select a saved address or enter your 6-digit PIN above.`
+                        );
+                        showToast('Current GPS coordinates detected', {
+                          title: 'Location Detected',
+                          variant: 'info',
+                        });
+                      },
+                      () => {
+                        setIsDetectingLocation(false);
+                        showToast('Location permission denied — select a saved address or enter PIN', 'warning');
+                      },
+                      { timeout: 6000 }
+                    );
+                  }}
+                  className="w-full py-1.5 px-2.5 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 text-[11px] font-bold text-[#FF5722] flex items-center justify-center gap-1.5 hover:bg-orange-50/70 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+                >
+                  <LocateFixed className="w-3.5 h-3.5" />
+                  <span>{isDetectingLocation ? 'Detecting location...' : 'Use my current location'}</span>
+                </button>
+              </div>
+
               <div className="space-y-2.5">
+                <p className="text-[11px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                  Saved Addresses ({savedAddresses.length})
+                </p>
                 {savedAddresses.map((addr) => {
                   const isActive = addr.id === activeAddressObj?.id;
                   return (
@@ -5211,7 +5598,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       onClick={() => {
                         haptics.selection();
                         setActiveAddressId(addr.id);
-                        showToast(`Active address set to ${addr.label}`);
+                        setQuickPincodeInput(addr.pincode);
+                        showToast(`Delivering to ${addr.label} (${addr.city} - ${addr.pincode})`, {
+                          title: 'Delivery Address Changed',
+                          variant: 'success',
+                        });
                       }}
                       className={`p-3 rounded-2xl border cursor-pointer transition-all ${
                         isActive
@@ -5259,8 +5650,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 haptics.warning();
-                                setSavedAddresses((prev) => prev.filter((a) => a.id !== addr.id));
-                                showToast('Address removed');
+                                const remaining = savedAddresses.filter((a) => a.id !== addr.id);
+                                setSavedAddresses(remaining);
+                                if (activeAddressId === addr.id && remaining[0]) {
+                                  setActiveAddressId(remaining[0].id);
+                                }
+                                showToast('Address removed', 'warning');
                               }}
                               className="text-[11px] font-bold text-rose-500 hover:underline cursor-pointer"
                             >
@@ -5289,14 +5684,22 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     setSavedAddresses((prev) =>
                       prev.map((a) => (a.id === editingAddressId ? { id: a.id, ...addressDraft } : a))
                     );
+                    setActiveAddressId(editingAddressId);
                     setEditingAddressId(null);
-                    showToast('Address updated!');
+                    showToast(`Address updated (${addressDraft.city} - ${addressDraft.pincode})`, {
+                      title: 'Address Saved',
+                      variant: 'success',
+                    });
                   } else {
                     const newId = `addr-${Date.now()}`;
                     setSavedAddresses((prev) => [...prev, { id: newId, ...addressDraft }]);
                     setActiveAddressId(newId);
-                    showToast('New address added!');
+                    showToast(`New address added (${addressDraft.city} - ${addressDraft.pincode})`, {
+                      title: 'Address Saved',
+                      variant: 'success',
+                    });
                   }
+                  setQuickPincodeInput(addressDraft.pincode);
                   setAddressDraft({
                     label: 'Home',
                     fullName: userProfile.name,
@@ -5366,9 +5769,161 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   type="submit"
                   className="w-full py-2 bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-bold rounded-xl cursor-pointer"
                 >
-                  {editingAddressId ? 'Update Address' : 'Save Address'}
+                  {editingAddressId ? 'Update Address' : 'Save & Use Address'}
                 </button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* 18B. PRICE RANGE FILTER MODAL */}
+        {isPriceFilterModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs">
+            <div className="w-full max-w-md bg-white dark:bg-[#211A17] rounded-t-3xl sm:rounded-3xl p-5 border border-orange-100 dark:border-stone-800 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-orange-100/70 dark:border-stone-800 pb-3">
+                <h3 className="font-display font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <SlidersHorizontal className="w-4 h-4 text-[#FF5722]" />
+                  <span>Price Range Filter</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsPriceFilterModalOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Quick Price Ranges
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {PRICE_FILTER_PRESETS.map((preset) => {
+                    const isMatch =
+                      (priceMinDraft ? Number(priceMinDraft) : null) === preset.min &&
+                      (priceMaxDraft ? Number(priceMaxDraft) : null) === preset.max;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          haptics.selection();
+                          setPriceMinDraft(preset.min !== null ? String(preset.min) : '');
+                          setPriceMaxDraft(preset.max !== null ? String(preset.max) : '');
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                          isMatch
+                            ? 'bg-[#FF5722] text-white'
+                            : 'bg-[#FFF4E8] dark:bg-[#181311] text-slate-700 dark:text-slate-200 border border-orange-200/70 dark:border-stone-700'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                      Min Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      value={priceMinDraft}
+                      onChange={(e) => setPriceMinDraft(e.target.value)}
+                      className="w-full text-xs font-bold tabular-nums px-3 py-2 rounded-xl bg-[#FFF4E8]/50 dark:bg-[#181311] border border-orange-200/70 dark:border-stone-700 text-slate-900 dark:text-white outline-none focus:border-[#FF5722]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                      Max Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="Any"
+                      value={priceMaxDraft}
+                      onChange={(e) => setPriceMaxDraft(e.target.value)}
+                      className="w-full text-xs font-bold tabular-nums px-3 py-2 rounded-xl bg-[#FFF4E8]/50 dark:bg-[#181311] border border-orange-200/70 dark:border-stone-700 text-slate-900 dark:text-white outline-none focus:border-[#FF5722]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    <span>Max Price Cap Slider</span>
+                    <span className="font-black text-[#FF5722] tabular-nums">
+                      {priceMaxDraft ? `Up to ₹${Number(priceMaxDraft).toLocaleString('en-IN')}` : 'No Limit'}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={25000}
+                    step={250}
+                    value={Math.min(25000, Number(priceMaxDraft) || 25000)}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setPriceMaxDraft(val >= 25000 ? '' : String(val));
+                    }}
+                    className="w-full accent-[#FF5722] cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.light();
+                    setPriceMinDraft('');
+                    setPriceMaxDraft('');
+                    setMinPriceFilter(null);
+                    setMaxPriceFilter(null);
+                    setIsPriceFilterModalOpen(false);
+                    showToast('Price filter cleared', 'info');
+                  }}
+                  className="flex-1 py-2.5 text-xs font-bold bg-stone-100 dark:bg-stone-800 text-slate-700 dark:text-slate-300 rounded-xl cursor-pointer"
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const parsedMin = priceMinDraft.trim() !== '' ? Math.max(0, Number(priceMinDraft)) : null;
+                    const parsedMax = priceMaxDraft.trim() !== '' ? Math.max(0, Number(priceMaxDraft)) : null;
+                    if (parsedMin !== null && parsedMax !== null && parsedMin > parsedMax) {
+                      showToast('Min price cannot exceed Max price', 'error');
+                      return;
+                    }
+                    haptics.saved();
+                    setMinPriceFilter(parsedMin);
+                    setMaxPriceFilter(parsedMax);
+                    setIsPriceFilterModalOpen(false);
+                    if (parsedMin === null && parsedMax === null) {
+                      showToast('Showing all prices', 'info');
+                    } else {
+                      const label =
+                        parsedMin !== null && parsedMax !== null
+                          ? `₹${parsedMin.toLocaleString('en-IN')} – ₹${parsedMax.toLocaleString('en-IN')}`
+                          : parsedMax !== null
+                          ? `Under ₹${parsedMax.toLocaleString('en-IN')}`
+                          : `₹${parsedMin!.toLocaleString('en-IN')}+`;
+                      showToast(`Filtered products: ${label}`, {
+                        title: 'Price Range Applied',
+                        variant: 'success',
+                      });
+                    }
+                  }}
+                  className="flex-1 py-2.5 text-xs font-bold bg-[#FF5722] hover:bg-[#E64A19] text-white rounded-xl shadow-md cursor-pointer"
+                >
+                  Apply Filter
+                </button>
+              </div>
             </div>
           </div>
         )}

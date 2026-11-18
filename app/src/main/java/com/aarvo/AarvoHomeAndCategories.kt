@@ -205,11 +205,14 @@ fun PreviewHomeScreen(
     sortMode: String,
     onSortChange: (String) -> Unit = {},
     minRating: Double,
+    minPrice: Long? = null,
     maxPrice: Long?,
+    onPriceRangeChange: (Long?, Long?) -> Unit = { _, _ -> },
     inStockOnly: Boolean,
     onOpenSeller: () -> Unit,
     onOpenOffers: () -> Unit,
     onOpenCategories: () -> Unit,
+    onShowToast: (String, String) -> Unit = { _, _ -> },
     isDarkTheme: Boolean = false
 ) {
     val haptics = LocalHapticFeedback.current
@@ -244,11 +247,15 @@ fun PreviewHomeScreen(
         }
     }
 
-    val searchProducts = remember(queryMatched, products, selectedCategory, query, sortMode) {
+    val searchProducts = remember(queryMatched, products, selectedCategory, query, sortMode, minPrice, maxPrice) {
         val base = if (query.isBlank()) products
         else if (selectedCategory.equals("All", true)) queryMatched
         else queryMatched.filter { matchesCategoryFilter(it.category, selectedCategory) }
-        sortProductsByMode(base, sortMode, query)
+        val priceFiltered = base.filter { p ->
+            (minPrice == null || p.pricePaise >= minPrice) &&
+                (maxPrice == null || p.pricePaise <= maxPrice)
+        }
+        sortProductsByMode(priceFiltered, sortMode, query)
     }
 
     LazyColumn(
@@ -426,6 +433,22 @@ fun PreviewHomeScreen(
                         }
                     }
                 }
+            }
+
+            item {
+                PriceRangeChipBar(
+                    minPricePaise = minPrice,
+                    maxPricePaise = maxPrice,
+                    onPriceRangeChange = { mn, mx, label ->
+                        onPriceRangeChange(mn, mx)
+                        onShowToast(
+                            if (mn == null && mx == null) "Price filter cleared" else "Price filter: $label",
+                            "INFO"
+                        )
+                    },
+                    onOpenFullFilter = onFilter,
+                    isDarkTheme = isDarkTheme
+                )
             }
 
             if (loading) {
@@ -801,25 +824,109 @@ fun PreviewHomeScreen(
                 item { Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
             }
 
-            // 5. Top Deals Section (First 2 products in 2-col layout)
-            if (!loading && products.isNotEmpty()) {
-                val topDeals = products.take(2)
+            // 5. Top Deals Section (First 2 products in 2-col layout) + Inline Price Range Bar
+            if (!loading) {
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("🔥 Top Deals", fontSize = 15.sp, fontWeight = FontWeight.Black, color = textColor)
                         Text(
-                            "See All >",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFFF5722),
-                            modifier = Modifier.clickable { onOpenCategories() }
+                            if (minPrice != null || maxPrice != null) "🔥 Top Deals (${products.size})" else "🔥 Top Deals",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            color = textColor
                         )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (minPrice != null || maxPrice != null) Color(0xFFFF5722) else if (isDarkTheme) Color(0xFF211A17) else Color(0xFFFFF4E8),
+                                border = BorderStroke(1.dp, if (minPrice != null || maxPrice != null) Color(0xFFFF5722) else cardBorder),
+                                modifier = Modifier.clickable {
+                                    triggerHaptic(haptics)
+                                    onFilter()
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    FilterSlidersVectorIcon(
+                                        tint = if (minPrice != null || maxPrice != null) Color.White else Color(0xFFFF5722),
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Text(
+                                        "Price",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (minPrice != null || maxPrice != null) Color.White else Color(0xFFFF5722)
+                                    )
+                                }
+                            }
+                            Text(
+                                "See All >",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFF5722),
+                                modifier = Modifier.clickable { onOpenCategories() }
+                            )
+                        }
                     }
                 }
+
+                item {
+                    PriceRangeChipBar(
+                        minPricePaise = minPrice,
+                        maxPricePaise = maxPrice,
+                        onPriceRangeChange = { mn, mx, label ->
+                            onPriceRangeChange(mn, mx)
+                            onShowToast(
+                                if (mn == null && mx == null) "Price filter cleared" else "Price filter: $label",
+                                "INFO"
+                            )
+                        },
+                        onOpenFullFilter = onFilter,
+                        isDarkTheme = isDarkTheme
+                    )
+                }
+
+                if (products.isEmpty() && error.isBlank()) {
+                    item {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (isDarkTheme) Color(0xFF211A17) else Color(0xFFFFF4E8),
+                            border = BorderStroke(1.dp, cardBorder)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text("No products in this price range", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = textColor)
+                                Button(
+                                    onClick = {
+                                        onPriceRangeChange(null, null)
+                                        onShowToast("Price range filter cleared", "INFO")
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722)),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("Reset Price Filter", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!loading && products.isNotEmpty()) {
+                val topDeals = products.take(2)
 
                 item {
                     Row(
@@ -1266,6 +1373,93 @@ fun PreviewProductCard(
     }
 }
 
+private data class PricePreset(val label: String, val minPaise: Long?, val maxPaise: Long?)
+
+@Composable
+fun PriceRangeChipBar(
+    minPricePaise: Long?,
+    maxPricePaise: Long?,
+    onPriceRangeChange: (Long?, Long?, String) -> Unit,
+    onOpenFullFilter: () -> Unit,
+    isDarkTheme: Boolean = false
+) {
+    val haptics = LocalHapticFeedback.current
+    val presets = remember {
+        listOf(
+            PricePreset("All Prices", null, null),
+            PricePreset("Under ₹500", null, 50_000L),
+            PricePreset("₹500 – ₹2K", 50_000L, 200_000L),
+            PricePreset("₹2K – ₹10K", 200_000L, 1_000_000L),
+            PricePreset("₹10,000+", 1_000_000L, null)
+        )
+    }
+    val hasActiveRange = minPricePaise != null || maxPricePaise != null
+    val cardBg = if (isDarkTheme) Color(0xFF211A17) else Color.White
+    val cardBorder = if (isDarkTheme) Color(0xFF332620) else Color(0xFFFFE8D6)
+    val textColor = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF1E293B)
+
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = if (hasActiveRange) Color(0xFFFF5722) else if (isDarkTheme) Color(0xFF2B1A12) else Color(0xFFFFF4E8),
+            border = if (hasActiveRange) null else BorderStroke(1.dp, cardBorder),
+            modifier = Modifier.clickable {
+                triggerHaptic(haptics)
+                onOpenFullFilter()
+            }
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                FilterSlidersVectorIcon(
+                    tint = if (hasActiveRange) Color.White else Color(0xFFFF5722),
+                    modifier = Modifier.size(12.dp)
+                )
+                val customLabel = when {
+                    minPricePaise != null && maxPricePaise != null -> "₹${minPricePaise / 100}–₹${maxPricePaise / 100}"
+                    maxPricePaise != null -> "≤₹${maxPricePaise / 100}"
+                    minPricePaise != null -> "₹${minPricePaise / 100}+"
+                    else -> "Price Range"
+                }
+                Text(
+                    text = customLabel,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (hasActiveRange) Color.White else Color(0xFFE64A19),
+                    maxLines = 1
+                )
+            }
+        }
+        presets.forEach { p ->
+            val selected = minPricePaise == p.minPaise && maxPricePaise == p.maxPaise
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = if (selected) Color(0xFF0F172A) else cardBg,
+                border = if (selected) null else BorderStroke(1.dp, cardBorder),
+                modifier = Modifier.clickable {
+                    triggerHaptic(haptics)
+                    onPriceRangeChange(p.minPaise, p.maxPaise, p.label)
+                }
+            ) {
+                Text(
+                    text = p.label,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (selected) Color.White else textColor,
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun PreviewCategoriesExplorerScreen(
     padding: PaddingValues,
@@ -1279,6 +1473,11 @@ fun PreviewCategoriesExplorerScreen(
     loading: Boolean = false,
     sortMode: String = "Relevance",
     onSortChange: (String) -> Unit = {},
+    minPrice: Long? = null,
+    maxPrice: Long? = null,
+    onPriceRangeChange: (Long?, Long?) -> Unit = { _, _ -> },
+    onOpenPriceFilter: () -> Unit = {},
+    onShowToast: (String, String) -> Unit = { _, _ -> },
     isDarkTheme: Boolean = false
 ) {
     val context = LocalContext.current
@@ -1305,10 +1504,14 @@ fun PreviewCategoriesExplorerScreen(
         )
     }
 
-    val filteredProducts = remember(allProducts, selectedCategory, sortMode) {
+    val filteredProducts = remember(allProducts, selectedCategory, sortMode, minPrice, maxPrice) {
         val list = if (selectedCategory.equals("All", true)) allProducts
         else allProducts.filter { matchesCategoryFilter(it.category, selectedCategory) }
-        sortProductsByMode(list, sortMode, "")
+        val priceFiltered = list.filter { p ->
+            (minPrice == null || p.pricePaise >= minPrice) &&
+                (maxPrice == null || p.pricePaise <= maxPrice)
+        }
+        sortProductsByMode(priceFiltered, sortMode, "")
     }
 
     Row(
@@ -1445,6 +1648,22 @@ fun PreviewCategoriesExplorerScreen(
                         }
                     }
                 }
+            }
+
+            item {
+                PriceRangeChipBar(
+                    minPricePaise = minPrice,
+                    maxPricePaise = maxPrice,
+                    onPriceRangeChange = { mn, mx, label ->
+                        onPriceRangeChange(mn, mx)
+                        onShowToast(
+                            if (mn == null && mx == null) "Price filter cleared" else "Price filter: $label",
+                            "INFO"
+                        )
+                    },
+                    onOpenFullFilter = onOpenPriceFilter,
+                    isDarkTheme = isDarkTheme
+                )
             }
 
             if (loading && filteredProducts.isEmpty()) {

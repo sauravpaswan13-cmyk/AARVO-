@@ -163,6 +163,36 @@ fun SunVectorIcon(tint: Color, modifier: Modifier = Modifier.size(20.dp)) {
 }
 
 @Composable
+fun LocationPinVectorIcon(tint: Color, modifier: Modifier = Modifier.size(20.dp)) {
+    Canvas(modifier = modifier) {
+        val s = size.minDimension
+        val sw = s * 0.095f
+        val pinPath = Path().apply {
+            moveTo(s * 0.50f, s * 0.90f)
+            cubicTo(s * 0.50f, s * 0.90f, s * 0.18f, s * 0.62f, s * 0.18f, s * 0.40f)
+            cubicTo(s * 0.18f, s * 0.22f, s * 0.32f, s * 0.10f, s * 0.50f, s * 0.10f)
+            cubicTo(s * 0.68f, s * 0.10f, s * 0.82f, s * 0.22f, s * 0.82f, s * 0.40f)
+            cubicTo(s * 0.82f, s * 0.62f, s * 0.50f, s * 0.90f, s * 0.50f, s * 0.90f)
+            close()
+        }
+        drawPath(pinPath, color = tint, style = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawCircle(color = tint, radius = s * 0.12f, center = Offset(s * 0.50f, s * 0.40f), style = Stroke(width = sw))
+    }
+}
+
+@Composable
+fun FilterSlidersVectorIcon(tint: Color, modifier: Modifier = Modifier.size(16.dp)) {
+    Canvas(modifier = modifier) {
+        val s = size.minDimension
+        val sw = s * 0.10f
+        drawLine(tint, Offset(s * 0.14f, s * 0.32f), Offset(s * 0.86f, s * 0.32f), sw, StrokeCap.Round)
+        drawCircle(tint, radius = s * 0.10f, center = Offset(s * 0.36f, s * 0.32f))
+        drawLine(tint, Offset(s * 0.14f, s * 0.68f), Offset(s * 0.86f, s * 0.68f), sw, StrokeCap.Round)
+        drawCircle(tint, radius = s * 0.10f, center = Offset(s * 0.66f, s * 0.68f))
+    }
+}
+
+@Composable
 fun GridVectorIcon(tint: Color, modifier: Modifier = Modifier.size(20.dp)) {
     Canvas(modifier = modifier) {
         val s = size.minDimension
@@ -601,7 +631,9 @@ fun AarvoPreviewTopBar(
     onMenuClick: () -> Unit,
     onVoiceClick: () -> Unit,
     isDarkTheme: Boolean,
-    onToggleTheme: () -> Unit,
+    onLocationClick: () -> Unit,
+    deliverySummary: String,
+    deliveryPincode: String,
     unreadNotificationCount: Int,
     onNotificationsClick: () -> Unit,
     cartBadgeCount: Int,
@@ -716,18 +748,28 @@ fun AarvoPreviewTopBar(
                 }
             }
 
-            // Theme toggle icon button (Moon in light mode, Sun in dark mode)
+            // Flipkart-style Delivery Location Pin button (replaces Moon icon in header)
             IconButton(
                 onClick = {
                     triggerHaptic(haptics)
-                    onToggleTheme()
+                    onLocationClick()
                 },
                 modifier = Modifier.size(34.dp)
             ) {
-                if (isDarkTheme) {
-                    SunVectorIcon(tint = Color(0xFFFBBF24), modifier = Modifier.size(19.dp))
-                } else {
-                    MoonVectorIcon(tint = Color(0xFF334155), modifier = Modifier.size(19.dp))
+                Box(contentAlignment = Alignment.Center) {
+                    LocationPinVectorIcon(
+                        tint = Color(0xFFFF5722),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    if (deliveryPincode.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF10B981))
+                        )
+                    }
                 }
             }
 
@@ -782,10 +824,66 @@ fun AarvoPreviewTopBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 1.dp, bottom = 6.dp),
+                .padding(top = 1.dp, bottom = 4.dp),
             contentAlignment = Alignment.Center
         ) {
             AarvoAnimatedBrandLogo(isDarkTheme = isDarkTheme, onTap = onLogoClick)
+        }
+
+        // Flipkart-style Compact Delivery Location Bar
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 2.dp)
+                .clickable {
+                    triggerHaptic(haptics)
+                    onLocationClick()
+                },
+            shape = RoundedCornerShape(10.dp),
+            color = if (isDarkTheme) Color(0xFF211A17) else Color.White.copy(alpha = 0.85f),
+            border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF3A2D27) else Color(0xFFFED7AA))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    LocationPinVectorIcon(tint = Color(0xFFFF5722), modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(5.dp))
+                    val displayLoc = buildString {
+                        append("Deliver to ")
+                        if (deliverySummary.isNotBlank() && !deliverySummary.startsWith("Tap Change")) {
+                            append(deliverySummary)
+                        } else {
+                            append("Select Location")
+                        }
+                        if (deliveryPincode.isNotBlank()) {
+                            append(" - $deliveryPincode")
+                        }
+                    }
+                    Text(
+                        text = displayLoc,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF1F1612),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Text(
+                    text = "Change ▾",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFFFF5722),
+                    maxLines = 1
+                )
+            }
         }
 
         // Row 3: Horizontal Scrollable Department Pills
