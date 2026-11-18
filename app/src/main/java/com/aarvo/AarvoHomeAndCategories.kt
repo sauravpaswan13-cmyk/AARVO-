@@ -1,6 +1,12 @@
 package com.aarvo
 
 import android.widget.Toast
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -54,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -276,7 +283,8 @@ fun PreviewHomeScreen(
                             }
                             Spacer(Modifier.height(2.dp))
                             Text(
-                                "${searchProducts.size} ${if (searchProducts.size == 1) "product" else "products"} found for \"$query\"",
+                                if (loading) "Searching products for \"$query\"..."
+                                else "${searchProducts.size} ${if (searchProducts.size == 1) "product" else "products"} found for \"$query\"",
                                 fontSize = 11.sp,
                                 color = mutedColor,
                                 maxLines = 1,
@@ -420,7 +428,11 @@ fun PreviewHomeScreen(
                 }
             }
 
-            if (searchProducts.isEmpty()) {
+            if (loading) {
+                items(3) {
+                    ProductSkeletonGridRow(isDarkTheme = isDarkTheme)
+                }
+            } else if (searchProducts.isEmpty()) {
                 item {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -741,9 +753,47 @@ fun PreviewHomeScreen(
 
             if (loading) {
                 item {
-                    Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center) {
-                        CircularProgressIndicator(color = Color(0xFFFF5722))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🔥 Top Deals", fontSize = 15.sp, fontWeight = FontWeight.Black, color = textColor)
+                        Text(
+                            "See All >",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFF5722),
+                            modifier = Modifier.clickable { onOpenCategories() }
+                        )
                     }
+                }
+                item {
+                    ProductSkeletonGridRow(isDarkTheme = isDarkTheme)
+                }
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            if (selectedCategory == "All") "More products for you" else "$selectedCategory Department",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            color = textColor
+                        )
+                        Text(
+                            "View All >",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFF5722),
+                            modifier = Modifier.clickable { onOpenCategories() }
+                        )
+                    }
+                }
+                items(2) {
+                    ProductSkeletonGridRow(isDarkTheme = isDarkTheme)
                 }
             }
 
@@ -752,7 +802,7 @@ fun PreviewHomeScreen(
             }
 
             // 5. Top Deals Section (First 2 products in 2-col layout)
-            if (products.isNotEmpty()) {
+            if (!loading && products.isNotEmpty()) {
                 val topDeals = products.take(2)
                 item {
                     Row(
@@ -887,6 +937,163 @@ fun PreviewHomeScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun rememberProductSkeletonBrush(isDarkTheme: Boolean = false): Brush {
+    val transition = rememberInfiniteTransition(label = "productSkeleton")
+    val translateAnim by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 900f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1050, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "productSkeletonOffset"
+    )
+    val baseColor = if (isDarkTheme) Color(0xFF2B221E) else Color(0xFFFDEEE2)
+    val highlightColor = if (isDarkTheme) Color(0xFF3A2E29) else Color(0xFFFFF8F2)
+    return Brush.linearGradient(
+        colors = listOf(baseColor, highlightColor, baseColor),
+        start = Offset(translateAnim - 260f, 0f),
+        end = Offset(translateAnim, 260f)
+    )
+}
+
+@Composable
+fun ProductSkeletonGridRow(
+    isDarkTheme: Boolean = false,
+    horizontalSpacingDp: Int = 10
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(horizontalSpacingDp.dp)
+    ) {
+        Box(Modifier.weight(1f)) {
+            ProductCardSkeleton(isDarkTheme = isDarkTheme)
+        }
+        Box(Modifier.weight(1f)) {
+            ProductCardSkeleton(isDarkTheme = isDarkTheme)
+        }
+    }
+}
+
+@Composable
+fun ProductCardSkeleton(isDarkTheme: Boolean = false) {
+    val cardBg = if (isDarkTheme) Color(0xFF211A17) else Color.White
+    val cardBorder = if (isDarkTheme) Color(0xFF332620) else Color(0xFFFFE8D6)
+    val shimmerBrush = rememberProductSkeletonBrush(isDarkTheme = isDarkTheme)
+    val subtlePillColor = if (isDarkTheme) Color(0xFF2E2420) else Color(0xFFF6E7DA)
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = cardBg,
+        border = BorderStroke(1.dp, cardBorder),
+        shadowElevation = 1.dp
+    ) {
+        Column(Modifier.padding(9.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(142.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(shimmerBrush)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                        .width(46.dp)
+                        .height(16.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(subtlePillColor)
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(if (isDarkTheme) Color(0xFF2E2420) else Color.White.copy(alpha = 0.85f))
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(6.dp)
+                        .width(40.dp)
+                        .height(16.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(subtlePillColor)
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(shimmerBrush)
+            )
+            Spacer(Modifier.height(5.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.72f)
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(shimmerBrush)
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(56.dp)
+                        .height(15.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(shimmerBrush)
+                )
+                Box(
+                    modifier = Modifier
+                        .width(34.dp)
+                        .height(11.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(subtlePillColor)
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Box(Modifier.fillMaxWidth().height(0.5.dp).background(cardBorder))
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(66.dp)
+                        .height(11.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(subtlePillColor)
+                )
+                Box(
+                    modifier = Modifier
+                        .width(56.dp)
+                        .height(24.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(shimmerBrush)
+                )
             }
         }
     }
@@ -1069,6 +1276,7 @@ fun PreviewCategoriesExplorerScreen(
     onToggleWishlist: (Int) -> Unit,
     onAdd: (Product) -> Unit,
     onOpenProduct: (Product) -> Unit,
+    loading: Boolean = false,
     sortMode: String = "Relevance",
     onSortChange: (String) -> Unit = {},
     isDarkTheme: Boolean = false
@@ -1189,7 +1397,8 @@ fun PreviewCategoriesExplorerScreen(
                                 color = textColor
                             )
                             Text(
-                                "${filteredProducts.size} items available",
+                                if (loading && filteredProducts.isEmpty()) "Loading catalog..."
+                                else "${filteredProducts.size} items available",
                                 fontSize = 10.sp,
                                 color = mutedColor
                             )
@@ -1238,7 +1447,11 @@ fun PreviewCategoriesExplorerScreen(
                 }
             }
 
-            if (filteredProducts.isEmpty()) {
+            if (loading && filteredProducts.isEmpty()) {
+                items(3) {
+                    ProductSkeletonGridRow(isDarkTheme = isDarkTheme, horizontalSpacingDp = 8)
+                }
+            } else if (filteredProducts.isEmpty()) {
                 item {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),

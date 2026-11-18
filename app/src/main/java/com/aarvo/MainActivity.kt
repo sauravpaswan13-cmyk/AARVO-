@@ -875,6 +875,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                     onToggleWishlist = { id -> wishlist = wishlistStore.toggle(id) },
                     onAdd = { p -> cartViewModel.add(p); syncAuthenticatedCart() },
                     onOpenProduct = { selectedProduct = it },
+                    loading = loading,
                     sortMode = sortMode,
                     onSortChange = { sortMode = it },
                     isDarkTheme = isDarkTheme

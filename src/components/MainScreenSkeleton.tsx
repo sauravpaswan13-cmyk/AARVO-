@@ -1,4 +1,5 @@
 import React from 'react';
+import { ProductGridSkeleton } from './ProductGridSkeleton';
 
 interface MainScreenSkeletonProps {
   className?: string;
@@ -41,7 +42,7 @@ export const MainScreenSkeleton: React.FC<MainScreenSkeletonProps> = ({ classNam
       <main className="flex-1 pb-20 space-y-3 overflow-hidden">
         {/* Hero Banner */}
         <section className="px-3.5 pt-2.5">
-          <div className="aspect-[16/9] w-full rounded-2xl bg-gradient-to-r from-blue-600/30 via-blue-400/20 to-indigo-500/30 dark:from-slate-800 dark:to-slate-700 animate-pulse p-4 flex flex-col justify-center">
+          <div className="h-[148px] sm:h-[164px] w-full rounded-2xl bg-gradient-to-r from-blue-600/30 via-blue-400/20 to-indigo-500/30 dark:from-slate-800 dark:to-slate-700 animate-pulse p-4 flex flex-col justify-center">
             <div className="w-36 h-5 bg-white/50 dark:bg-slate-600 rounded mb-2" />
             <div className="w-28 h-5 bg-white/50 dark:bg-slate-600 rounded mb-3" />
             <div className="w-24 h-7 bg-amber-300/70 rounded-full" />
@@ -66,7 +67,7 @@ export const MainScreenSkeleton: React.FC<MainScreenSkeletonProps> = ({ classNam
 
         {/* Promo Strip Skeleton */}
         <section className="px-3.5">
-          <div className="aspect-[21/9] rounded-2xl bg-gradient-to-r from-amber-300/50 via-orange-300/40 to-orange-400/50 dark:from-slate-800 dark:to-slate-700 p-4 flex items-center animate-pulse">
+          <div className="h-[114px] sm:h-[124px] rounded-2xl bg-gradient-to-r from-amber-300/50 via-orange-300/40 to-orange-400/50 dark:from-slate-800 dark:to-slate-700 p-4 flex items-center animate-pulse">
             <div className="space-y-2">
               <div className="w-32 h-4 bg-white/60 rounded" />
               <div className="w-20 h-6 bg-slate-900/30 rounded-full" />
@@ -81,21 +82,11 @@ export const MainScreenSkeleton: React.FC<MainScreenSkeletonProps> = ({ classNam
             <div className="w-12 h-3 bg-orange-200 dark:bg-orange-900/40 rounded animate-pulse" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            {Array.from({ length: 4 }).map((_, idx) => (
-              <div
-                key={idx}
-                className="rounded-2xl border border-slate-100 dark:border-slate-800/80 p-2.5 bg-white dark:bg-[#211A17] shadow-2xs flex flex-col justify-between"
-              >
-                <div className="w-full aspect-square rounded-xl bg-slate-100 dark:bg-slate-800/90 animate-pulse" />
-                <div className="mt-2.5 space-y-1.5">
-                  <div className="w-full h-3 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
-                  <div className="w-2/3 h-2.5 bg-slate-200 dark:bg-slate-700/60 rounded animate-pulse" />
-                </div>
-                <div className="mt-2.5 w-20 h-4 bg-slate-300 dark:bg-slate-600 rounded animate-pulse" />
-              </div>
-            ))}
-          </div>
+          <ProductGridSkeleton
+            count={4}
+            variant="compact"
+            label="Loading featured products"
+          />
         </section>
       </main>
 

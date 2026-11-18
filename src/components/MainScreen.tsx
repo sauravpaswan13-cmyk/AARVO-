@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import { ScrollToTop } from './ScrollToTop';
 import { MainScreenSkeleton } from './MainScreenSkeleton';
+import { ProductGridSkeleton } from './ProductGridSkeleton';
 import { ProductDetailModal, Product } from './ProductDetailModal';
 import { Product360ViewerModal } from './Product360ViewerModal';
 import { ProductImageZoomModal } from './ProductImageZoomModal';
@@ -1022,6 +1023,102 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     },
   ]);
 
+  const [isProductsLoading, setIsProductsLoading] = useState<boolean>(true);
+  const catalogFetchAbortRef = useRef<AbortController | null>(null);
+
+  const fetchCatalogProducts = useCallback(async () => {
+    catalogFetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    catalogFetchAbortRef.current = controller;
+    setIsProductsLoading(true);
+    const startedAt = Date.now();
+
+    try {
+      const response = await fetch('/v1/products', {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+
+      if (response.ok) {
+        const rows = await response.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          const normalized: Product[] = rows.map((row: any, idx: number) => {
+            const rawPricePaise = Number(row.price_paise ?? row.pricePaise ?? 0);
+            const rawMrpPaise = Number(
+              row.original_price_paise ?? row.originalPricePaise ?? rawPricePaise
+            );
+            const price =
+              rawPricePaise > 0
+                ? Math.round(rawPricePaise / 100)
+                : Math.max(1, Number(row.price ?? 499));
+            const originalPrice =
+              rawMrpPaise > 0
+                ? Math.round(rawMrpPaise / 100)
+                : Math.max(price, Number(row.originalPrice ?? price));
+            const discountPct =
+              originalPrice > price
+                ? Math.round(((originalPrice - price) * 100) / originalPrice)
+                : 0;
+            const primaryImage =
+              typeof row.image_url === 'string' && row.image_url.trim().length > 0
+                ? row.image_url.trim()
+                : typeof row.image === 'string' && row.image.trim().length > 0
+                ? row.image.trim()
+                : prodWhiteSneakersImg;
+            const stockQuantity = Number(row.stock_quantity ?? row.stockQuantity ?? 10);
+
+            return {
+              id: String(row.id ?? `api_p_${idx}`),
+              name: String(row.name ?? 'AARVO Product'),
+              category: String(row.category ?? 'General'),
+              image: primaryImage,
+              images:
+                Array.isArray(row.images) && row.images.length > 0
+                  ? row.images
+                  : [primaryImage],
+              price,
+              originalPrice,
+              rating: Number(row.rating ?? 4.2),
+              reviewsCount: Number(row.reviews_count ?? row.reviewsCount ?? 120),
+              discount: discountPct > 0 ? `${discountPct}% OFF` : '',
+              inStock: stockQuantity > 0,
+              stockQuantity,
+              seller: String(row.seller_name ?? row.seller ?? 'AARVO Verified Seller'),
+              description: String(
+                row.description ?? 'Genuine AARVO marketplace product with doorstep delivery.'
+              ),
+            };
+          });
+
+          if (!controller.signal.aborted) {
+            setAllProducts(normalized);
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        // Keep curated fallback catalog when backend API is unreachable in static preview
+      }
+    } finally {
+      const elapsed = Date.now() - startedAt;
+      const minSkeletonMs = 450;
+      const waitMs = Math.max(0, minSkeletonMs - elapsed);
+      setTimeout(() => {
+        if (!controller.signal.aborted) {
+          setIsProductsLoading(false);
+        }
+      }, waitMs);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isLoading) return;
+    fetchCatalogProducts();
+    return () => {
+      catalogFetchAbortRef.current?.abort();
+    };
+  }, [isLoading, fetchCatalogProducts]);
+
   const restockProduct = (id: string, amount: number = 10) => {
     setAllProducts((prev) =>
       prev.map((item) =>
@@ -1687,7 +1784,13 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   })}
                 </div>
 
-                {filteredProducts.length > 0 ? (
+                {isProductsLoading ? (
+                  <ProductGridSkeleton
+                    count={4}
+                    variant="compact"
+                    label="Loading search results"
+                  />
+                ) : filteredProducts.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3">
                     {filteredProducts.map((product) => (
                       <div
@@ -2063,91 +2166,99 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               </div>
 
               {/* 2-Column Product Cards */}
-              <div className="grid grid-cols-2 gap-3">
-                {allProducts.slice(0, 2).map((product) => (
-                  <div
-                    key={product.id}
-                    onClick={() => {
-                      haptics.light();
-                      setSelectedProduct(product);
-                    }}
-                    className="bg-white dark:bg-[#211A17] rounded-2xl p-2.5 border border-orange-100/80 dark:border-stone-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
-                  >
-                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#FFF9F2] dark:bg-stone-900 mb-2">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
-                      />
-                      {/* Green Rating Badge only if product has genuine reviews */}
-                      {product.reviewsCount > 0 && (
-                        <span className="absolute bottom-1.5 left-1.5 bg-emerald-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded flex items-center gap-0.5 shadow-xs">
-                          <span>★</span>
-                          <span>{product.rating.toFixed(1)}</span>
-                        </span>
-                      )}
-
-                      {/* Wishlist Heart */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleWishlist(product.id, product.name);
-                        }}
-                        aria-label="Wishlist"
-                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/85 dark:bg-stone-900/85 backdrop-blur-xs flex items-center justify-center text-slate-400 hover:text-rose-500 shadow-2xs cursor-pointer"
-                      >
-                        <Heart
-                          className={`w-3.5 h-3.5 ${
-                            wishlist.includes(product.id)
-                              ? 'fill-rose-500 stroke-rose-500 text-rose-500'
-                              : 'stroke-current fill-none'
-                          }`}
+              {isProductsLoading ? (
+                <ProductGridSkeleton
+                  count={2}
+                  variant="detailed"
+                  label="Loading top deals"
+                />
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {allProducts.slice(0, 2).map((product) => (
+                    <div
+                      key={product.id}
+                      onClick={() => {
+                        haptics.light();
+                        setSelectedProduct(product);
+                      }}
+                      className="bg-white dark:bg-[#211A17] rounded-2xl p-2.5 border border-orange-100/80 dark:border-stone-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
+                    >
+                      <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#FFF9F2] dark:bg-stone-900 mb-2">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
                         />
-                      </button>
-                    </div>
+                        {/* Green Rating Badge only if product has genuine reviews */}
+                        {product.reviewsCount > 0 && (
+                          <span className="absolute bottom-1.5 left-1.5 bg-emerald-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded flex items-center gap-0.5 shadow-xs">
+                            <span>★</span>
+                            <span>{product.rating.toFixed(1)}</span>
+                          </span>
+                        )}
 
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
-                        {product.name}
-                      </h4>
+                        {/* Wishlist Heart */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleWishlist(product.id, product.name);
+                          }}
+                          aria-label="Wishlist"
+                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/85 dark:bg-stone-900/85 backdrop-blur-xs flex items-center justify-center text-slate-400 hover:text-rose-500 shadow-2xs cursor-pointer"
+                        >
+                          <Heart
+                            className={`w-3.5 h-3.5 ${
+                              wishlist.includes(product.id)
+                                ? 'fill-rose-500 stroke-rose-500 text-rose-500'
+                                : 'stroke-current fill-none'
+                            }`}
+                          />
+                        </button>
+                      </div>
 
-                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                        <span className="text-sm font-black text-slate-900 dark:text-white">
-                          ₹{product.price.toLocaleString('en-IN')}
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
+                          {product.name}
+                        </h4>
+
+                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                          <span className="text-sm font-black text-slate-900 dark:text-white">
+                            ₹{product.price.toLocaleString('en-IN')}
+                          </span>
+                          {product.originalPrice > product.price && (
+                            <span className="text-[11px] text-slate-400 line-through">
+                              ₹{product.originalPrice.toLocaleString('en-IN')}
+                            </span>
+                          )}
+                          {product.discount && (
+                            <span className="text-[10px] font-black text-red-600 bg-red-50 dark:bg-red-950/60 px-1 py-0.2 rounded">
+                              {product.discount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 mt-1 border-t border-orange-100/70 dark:border-stone-800/80">
+                        <span className="text-[10px] text-emerald-600 font-bold">
+                          Free Delivery
                         </span>
-                        {product.originalPrice > product.price && (
-                          <span className="text-[11px] text-slate-400 line-through">
-                            ₹{product.originalPrice.toLocaleString('en-IN')}
-                          </span>
-                        )}
-                        {product.discount && (
-                          <span className="text-[10px] font-black text-red-600 bg-red-50 dark:bg-red-950/60 px-1 py-0.2 rounded">
-                            {product.discount}
-                          </span>
-                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToCart(product);
+                          }}
+                          className="p-1.5 rounded-lg bg-orange-50 dark:bg-stone-800 hover:bg-[#FF5722] text-[#FF5722] hover:text-white transition-colors cursor-pointer"
+                          title="Add to Cart"
+                        >
+                          <ShoppingCart className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex items-center justify-between pt-2 mt-1 border-t border-orange-100/70 dark:border-stone-800/80">
-                      <span className="text-[10px] text-emerald-600 font-bold">
-                        Free Delivery
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addToCart(product);
-                        }}
-                        className="p-1.5 rounded-lg bg-orange-50 dark:bg-stone-800 hover:bg-[#FF5722] text-[#FF5722] hover:text-white transition-colors cursor-pointer"
-                        title="Add to Cart"
-                      >
-                        <ShoppingCart className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* ================================================================= */}
@@ -2167,70 +2278,78 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                {allProducts.slice(2, 6).map((product) => (
-                  <div
-                    key={product.id}
-                    onClick={() => {
-                      haptics.light();
-                      setSelectedProduct(product);
-                    }}
-                    className="bg-white dark:bg-[#211A17] rounded-2xl p-2.5 border border-orange-100/80 dark:border-stone-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
-                  >
-                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#FFF9F2] dark:bg-stone-900 mb-2">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
+              {isProductsLoading ? (
+                <ProductGridSkeleton
+                  count={4}
+                  variant="compact"
+                  label="Loading recommended products"
+                />
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {allProducts.slice(2, 6).map((product) => (
+                    <div
+                      key={product.id}
+                      onClick={() => {
+                        haptics.light();
+                        setSelectedProduct(product);
+                      }}
+                      className="bg-white dark:bg-[#211A17] rounded-2xl p-2.5 border border-orange-100/80 dark:border-stone-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
+                    >
+                      <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#FFF9F2] dark:bg-stone-900 mb-2">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
 
-                      {product.originalPrice > product.price && product.discount && (
-                        <span className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
-                          {product.discount}
-                        </span>
-                      )}
+                        {product.originalPrice > product.price && product.discount && (
+                          <span className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                            {product.discount}
+                          </span>
+                        )}
 
-                      {/* Genuine Rating pill at bottom if rated */}
-                      {product.reviewsCount > 0 && (
-                        <span className="absolute bottom-1.5 left-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-xs text-slate-800 dark:text-slate-200 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-xs flex items-center gap-1">
-                          <span>{product.rating.toFixed(1)}</span>
-                          <Star className="w-2.5 h-2.5 fill-emerald-600 text-emerald-600" />
-                          <span className="text-slate-400 font-normal">({product.reviewsCount})</span>
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
-                        {product.name}
-                      </h4>
-
-                      <div className="flex items-baseline gap-1.5 mt-1">
-                        <span className="text-sm font-black text-slate-900 dark:text-white">
-                          ₹{product.price.toLocaleString('en-IN')}
-                        </span>
-                        {product.originalPrice > product.price && (
-                          <span className="text-[10px] text-slate-400 line-through">
-                            ₹{product.originalPrice.toLocaleString('en-IN')}
+                        {/* Genuine Rating pill at bottom if rated */}
+                        {product.reviewsCount > 0 && (
+                          <span className="absolute bottom-1.5 left-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-xs text-slate-800 dark:text-slate-200 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-xs flex items-center gap-1">
+                            <span>{product.rating.toFixed(1)}</span>
+                            <Star className="w-2.5 h-2.5 fill-emerald-600 text-emerald-600" />
+                            <span className="text-slate-400 font-normal">({product.reviewsCount})</span>
                           </span>
                         )}
                       </div>
-                    </div>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addToCart(product);
-                      }}
-                      className="mt-2 w-full py-1.5 bg-orange-50 dark:bg-stone-800 hover:bg-[#FF5722] text-[#FF5722] hover:text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <ShoppingCart className="w-3.5 h-3.5" />
-                      <span>Add to Cart</span>
-                    </button>
-                  </div>
-                ))}
-              </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
+                          {product.name}
+                        </h4>
+
+                        <div className="flex items-baseline gap-1.5 mt-1">
+                          <span className="text-sm font-black text-slate-900 dark:text-white">
+                            ₹{product.price.toLocaleString('en-IN')}
+                          </span>
+                          {product.originalPrice > product.price && (
+                            <span className="text-[10px] text-slate-400 line-through">
+                              ₹{product.originalPrice.toLocaleString('en-IN')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addToCart(product);
+                        }}
+                        className="mt-2 w-full py-1.5 bg-orange-50 dark:bg-stone-800 hover:bg-[#FF5722] text-[#FF5722] hover:text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <ShoppingCart className="w-3.5 h-3.5" />
+                        <span>Add to Cart</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Floating "↓ More below" pill button */}
               <div className="flex justify-center mt-3">
@@ -2322,18 +2441,34 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     {selectedCategory === 'All' ? 'All Collections' : selectedCategory}
                   </h3>
                   <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                    {filteredProducts.length} items available
+                    {isProductsLoading
+                      ? 'Loading items...'
+                      : `${filteredProducts.length} items available`}
                   </span>
                 </div>
-                {selectedCategory !== 'All' && (
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setSelectedCategory('All')}
-                    className="text-[10px] font-bold text-[#FF5722] dark:text-[#FF8A65] hover:underline cursor-pointer"
+                    onClick={() => {
+                      haptics.selection();
+                      fetchCatalogProducts();
+                    }}
+                    aria-label="Refresh products"
+                    title="Refresh products"
+                    className="p-1.5 rounded-lg bg-white/80 dark:bg-stone-800 text-slate-600 dark:text-slate-300 hover:text-[#FF5722] border border-orange-200/60 dark:border-stone-700 cursor-pointer"
                   >
-                    Show All
+                    <RotateCcw className={`w-3.5 h-3.5 ${isProductsLoading ? 'animate-spin text-[#FF5722]' : ''}`} />
                   </button>
-                )}
+                  {selectedCategory !== 'All' && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCategory('All')}
+                      className="text-[10px] font-bold text-[#FF5722] dark:text-[#FF8A65] hover:underline cursor-pointer"
+                    >
+                      Show All
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Sort Bar for Categories */}
@@ -2364,7 +2499,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               </div>
 
               {/* Products Listing Grid */}
-              {filteredProducts.length > 0 ? (
+              {isProductsLoading ? (
+                <ProductGridSkeleton
+                  count={6}
+                  variant="compact"
+                  gapClass="gap-2"
+                  label="Loading category products"
+                />
+              ) : filteredProducts.length > 0 ? (
                 <div className="grid grid-cols-2 gap-2">
                   {filteredProducts.map((product) => (
                     <div
