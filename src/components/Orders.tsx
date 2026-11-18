@@ -565,7 +565,7 @@ export const Orders: React.FC<OrdersProps> = ({
                     ? `Estimated by ${String(trackingJson.etd)}`
                     : trackingJson.estimatedDays
                     ? `Estimated in ${String(trackingJson.estimatedDays)} days`
-                    : 'Awaiting Shiprocket courier dispatch',
+                    : 'Awaiting courier dispatch',
                 itemEvents: timeline.map((ev) => ({
                   label: ev.status,
                   timestamp: ev.time,
@@ -616,7 +616,7 @@ export const Orders: React.FC<OrdersProps> = ({
                   ? `Estimated delivery by ${String(trackingJson.etd)}`
                   : trackingJson.estimatedDays
                   ? `Estimated delivery in ${String(trackingJson.estimatedDays)} days`
-                  : 'Updating after Shiprocket carrier pickup',
+                  : 'Updating after courier pickup',
               trackingNumber: trackingCode,
               carrier: carrierName,
               paymentMethod: String(detailRow.payment_method || row.payment_method || 'Online'),

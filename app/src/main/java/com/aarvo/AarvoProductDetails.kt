@@ -74,34 +74,117 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private fun inferAndroidZoneEstimate(deliveryPin: String, codAllowed: Boolean): JSONObject? {
+private fun sanitizeAndroidCourierName(raw: String?, mode: String? = null): String {
+    val clean = raw?.trim().orEmpty()
+    if (clean.isBlank() || clean.equals("null", ignoreCase = true) || clean.contains("shiprocket", ignoreCase = true)) {
+        return when (mode) {
+            "Surface Cargo" -> "Heavy Surface Freight"
+            "Air Express" -> "Express Air Courier"
+            else -> "Standard Courier Partner"
+        }
+    }
+    return clean
+}
+
+private data class AndroidParcelClass(
+    val sizeTier: String,
+    val deliveryMode: String,
+    val extraTransitDays: Int,
+    val extraHandlingDays: Int,
+    val dispatchNote: String
+)
+
+private fun classifyAndroidParcel(category: String = "", sizeClass: String = "", weightKg: Double = 0.0): AndroidParcelClass {
+    val cat = category.lowercase(Locale.ENGLISH)
+    val size = sizeClass.lowercase(Locale.ENGLISH)
+    val isHeavyCategory = Regex("(appliance|furniture|refrigerator|washing|\\btv\\b|television|sofa|mattress|cooler|geyser|almirah|bed|table|chair|wardrobe|dishwasher)").containsMatchIn(cat)
+    val isMediumCategory = Regex("(home & kitchen|kitchen|electronics|laptop|printer|monitor|audio|mixer|microwave|luggage|sports|fitness)").containsMatchIn(cat)
+
+    val (sizeTier, deliveryMode, extraTransit, extraHandling) = when {
+        weightKg > 5.0 || size == "heavy" || size == "bulky" || (isHeavyCategory && weightKg <= 0.0) ->
+            listOf("Heavy & Bulky", "Surface Cargo", 2, 1)
+        weightKg > 1.5 || size == "medium" || isMediumCategory ->
+            listOf("Medium Parcel", "Surface / Air", 1, 0)
+        else ->
+            listOf("Standard Parcel", "Air Express", 0, 0)
+    }
+
+    val istTz = java.util.TimeZone.getTimeZone("Asia/Kolkata")
+    val istNow = java.util.Calendar.getInstance(istTz)
+    val istHour = istNow.get(java.util.Calendar.HOUR_OF_DAY)
+    val istDay = istNow.get(java.util.Calendar.DAY_OF_WEEK)
+    val missedCutoff = istHour >= 14
+    var dispatchOffset = (if (missedCutoff) 1 else 0) + (extraHandling as Int)
+    if (istDay == java.util.Calendar.SUNDAY || (missedCutoff && istDay == java.util.Calendar.SATURDAY)) {
+        dispatchOffset += 1
+    }
+    val dispatchNote = when (dispatchOffset) {
+        0 -> "Dispatches today (order before 2 PM)"
+        1 -> "Dispatches tomorrow"
+        else -> "Dispatches in 2 business days"
+    }
+
+    return AndroidParcelClass(
+        sizeTier = sizeTier as String,
+        deliveryMode = deliveryMode as String,
+        extraTransitDays = extraTransit as Int,
+        extraHandlingDays = dispatchOffset,
+        dispatchNote = dispatchNote
+    )
+}
+
+private fun inferAndroidZoneEstimate(
+    deliveryPin: String,
+    codAllowed: Boolean,
+    category: String = "",
+    sizeClass: String = "",
+    weightKg: Double = 0.0
+): JSONObject? {
     val clean = deliveryPin.filter(Char::isDigit).take(6)
     if (!Regex("^[1-9][0-9]{5}$").matches(clean)) return null
-    val pickupPin = "800001"
+    val pickupPin = "110001"
     val metroPrefixes = setOf("110", "122", "201", "302", "400", "411", "500", "560", "600", "700", "800")
     val remotePrefixes = setOf("19", "74", "79")
-    val (minDays, maxDays, zoneLabel) = when {
+    val parcel = classifyAndroidParcel(category, sizeClass, weightKg)
+    val isDeliveryMetro = metroPrefixes.contains(clean.take(3))
+
+    val (baseMin, baseMax, zoneLabel) = when {
         clean.take(3) == pickupPin.take(3) -> Triple(1, 2, "Local City Hub")
         clean.take(2) == pickupPin.take(2) -> Triple(2, 3, "Intra-State Network")
-        remotePrefixes.contains(clean.take(2)) || clean.startsWith("744") -> Triple(5, 7, "Extended Zone")
+        remotePrefixes.contains(clean.take(2)) || clean.startsWith("744") -> Triple(5, 7, "Extended & Hill Zone")
         clean[0] == pickupPin[0] -> Triple(3, 4, "Regional Zone")
-        metroPrefixes.contains(clean.take(3)) -> Triple(3, 4, "Metro Air Express")
-        else -> Triple(3, 5, "National Surface / Air")
+        metroPrefixes.contains(pickupPin.take(3)) && isDeliveryMetro -> Triple(2, 3, "Metro-to-Metro")
+        else -> Triple(3, 4, "National Courier Network")
     }
-    val etaMs = System.currentTimeMillis() + maxDays * 24L * 60L * 60L * 1000L
-    val etd = SimpleDateFormat("d MMM yyyy", Locale("en", "IN")).format(Date(etaMs))
+
+    var minDays = maxOf(1, baseMin + parcel.extraHandlingDays + if (parcel.sizeTier == "Heavy & Bulky") 1 else 0)
+    var maxDays = maxOf(minDays, baseMax + parcel.extraHandlingDays + parcel.extraTransitDays)
+    val istTz = java.util.TimeZone.getTimeZone("Asia/Kolkata")
+    val etaCal = java.util.Calendar.getInstance(istTz)
+    etaCal.add(java.util.Calendar.DAY_OF_YEAR, maxDays)
+    if (!isDeliveryMetro && etaCal.get(java.util.Calendar.DAY_OF_WEEK) == java.util.Calendar.SUNDAY) {
+        maxDays += 1
+        etaCal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+        if (minDays == maxDays - 1) minDays = maxDays
+    }
+    val fmt = SimpleDateFormat("EEE, d MMM yyyy", Locale("en", "IN")).apply { timeZone = istTz }
+    val etd = fmt.format(etaCal.time)
+    val daysText = if (minDays == maxDays) "$maxDays day${if (maxDays > 1) "s" else ""}" else "$minDays-$maxDays days"
     return JSONObject()
         .put("serviceable", true)
         .put("deliveryPincode", clean)
         .put("minDays", minDays)
         .put("maxDays", maxDays)
         .put("estimatedDays", maxDays)
-        .put("estimatedDaysText", "$minDays-$maxDays days")
+        .put("estimatedDaysText", daysText)
         .put("etd", etd)
-        .put("courierName", "Shiprocket Partner Courier")
+        .put("courierName", sanitizeAndroidCourierName("", parcel.deliveryMode))
+        .put("sizeTier", parcel.sizeTier)
+        .put("deliveryMode", parcel.deliveryMode)
+        .put("dispatchNote", parcel.dispatchNote)
         .put("codAvailable", codAllowed)
         .put("zoneLabel", zoneLabel)
-        .put("source", "shiprocket_zone_estimate")
+        .put("source", "zone_estimate")
 }
 
 @Composable
@@ -145,9 +228,10 @@ fun PreviewProductDetailsScreen(
     val cleanDesc = remember(product.description) { cleanProductDescription(product.description) }
 
     var serviceability by remember(product.id, deliveryPincode) {
-        mutableStateOf(inferAndroidZoneEstimate(deliveryPincode, codAllowed))
+        mutableStateOf(inferAndroidZoneEstimate(deliveryPincode, codAllowed, category = product.category))
     }
     var checkingPincode by remember(product.id, deliveryPincode) { mutableStateOf(false) }
+    var liveOffers by remember(product.id) { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
 
     LaunchedEffect(product.id, deliveryPincode, api) {
         val cleanPin = deliveryPincode.filter(Char::isDigit).take(6)
@@ -155,7 +239,12 @@ fun PreviewProductDetailsScreen(
         if (api != null) {
             checkingPincode = true
             val live = runCatching {
-                api.checkPincodeServiceability(cleanPin, product.id, codAllowed)
+                api.checkPincodeServiceability(
+                    deliveryPincode = cleanPin,
+                    productId = product.id,
+                    cod = codAllowed,
+                    category = product.category
+                )
             }.getOrNull()
             if (live != null) {
                 serviceability = live
@@ -164,10 +253,33 @@ fun PreviewProductDetailsScreen(
         }
     }
 
+    LaunchedEffect(product.id, api) {
+        if (api != null) {
+            val arr = runCatching { api.offers() }.getOrNull()
+            if (arr != null && arr.length() > 0) {
+                liveOffers = buildList {
+                    for (i in 0 until arr.length()) {
+                        val o = arr.optJSONObject(i) ?: continue
+                        val code = o.optString("code", "").trim()
+                        val title = o.optString("title", "").ifBlank { o.optString("description", "") }.trim()
+                        val badge = o.optString("discount_label", o.optString("discountText", "")).trim()
+                        val headline = listOf(code, title).filter { it.isNotBlank() }.joinToString(" — ")
+                        if (headline.isNotBlank()) add(headline to badge)
+                    }
+                }
+            } else {
+                liveOffers = emptyList()
+            }
+        }
+    }
+
     val isServiceable = serviceability?.optBoolean("serviceable", true) ?: true
     val etaDaysText = serviceability?.optString("estimatedDaysText")?.takeIf { it.isNotBlank() } ?: "3-5 days"
     val etaDateText = serviceability?.optString("etd")?.takeIf { it.isNotBlank() && it != "null" }
-    val courierName = serviceability?.optString("courierName")?.takeIf { it.isNotBlank() && it != "null" } ?: "Shiprocket Partner Courier"
+    val deliveryModeLabel = serviceability?.optString("deliveryMode")?.takeIf { it.isNotBlank() && it != "null" }
+    val courierName = sanitizeAndroidCourierName(serviceability?.optString("courierName"), deliveryModeLabel)
+    val sizeTierLabel = serviceability?.optString("sizeTier")?.takeIf { it.isNotBlank() && it != "null" }
+    val dispatchNote = serviceability?.optString("dispatchNote")?.takeIf { it.isNotBlank() && it != "null" }
     val zoneLabel = serviceability?.optString("zoneLabel")?.takeIf { it.isNotBlank() && it != "null" }
     val freightCharge = serviceability?.optDouble("freightCharge", 0.0)?.takeIf { !it.isNaN() && it > 0.0 } ?: 0.0
     val codEligibleAtPin = codAllowed && (serviceability?.optBoolean("codAvailable", true) ?: true)
@@ -316,7 +428,7 @@ fun PreviewProductDetailsScreen(
                             Triple(
                                 reviewerName.ifBlank { "Verified Buyer" },
                                 reviewStars,
-                                reviewerComment.ifBlank { "Great authentic quality!" }
+                                reviewerComment.ifBlank { "Verified purchase rating" }
                             )
                         ) + localReviews
                         showRateDialog = false
@@ -352,7 +464,7 @@ fun PreviewProductDetailsScreen(
                             appPrefs.edit().putString("delivery_pincode", tempPincode).apply()
                             showPincodeDialog = false
                             triggerHaptic(haptics)
-                            Toast.makeText(context, "Checking Shiprocket ETA for PIN $deliveryPincode", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Checking delivery date for PIN $deliveryPincode", Toast.LENGTH_SHORT).show()
                         } else {
                             Toast.makeText(context, "Please enter a valid 6-digit Indian PIN", Toast.LENGTH_SHORT).show()
                         }
@@ -806,9 +918,9 @@ fun PreviewProductDetailsScreen(
                                 )
                                 Text(
                                     when {
-                                        checkingPincode -> "Checking Shiprocket rider ETA for $deliveryPincode…"
+                                        checkingPincode -> "Checking delivery date for $deliveryPincode…"
                                         !isServiceable -> "Not serviceable at PIN $deliveryPincode"
-                                        etaDateText != null -> "Delivery in $etaDaysText (by $etaDateText)"
+                                        etaDateText != null -> "Delivery by $etaDateText ($etaDaysText)"
                                         else -> "Delivery in $etaDaysText"
                                     },
                                     fontSize = 11.sp,
@@ -847,35 +959,52 @@ fun PreviewProductDetailsScreen(
                 }
             }
 
-            // 4. Available Offers Accordion Card
-            item {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    color = cardBg,
-                    border = BorderStroke(1.dp, cardBorder)
-                ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            TagVectorIcon(tint = Color(0xFF059669), modifier = Modifier.size(15.dp))
-                            Text("AVAILABLE OFFERS", fontSize = 11.sp, fontWeight = FontWeight.Black, color = textColor)
-                        }
-                        Text("• Bank Offer: 5% Cashback on AARVO Axis Bank Credit Card", fontSize = 11.sp, color = mutedColor)
-                        Text("• Bank Offer: 10% instant discount on SBI & HDFC Bank cards above ₹1,499", fontSize = 11.sp, color = mutedColor)
-                        if (showAllOffers) {
-                            Text("• Coupon Offer: Use AARVO200 in Cart on orders ₹999+ for flat ₹200 off", fontSize = 11.sp, color = mutedColor)
-                            Text("• Welcome Offer: Use WELCOME100 in Cart on orders ₹499+ for flat ₹100 off", fontSize = 11.sp, color = mutedColor)
-                        }
-                        Text(
-                            text = if (showAllOffers) "View fewer offers" else "+ 2 more offers",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFFF5722),
-                            modifier = Modifier.clickable {
-                                triggerHaptic(haptics)
-                                showAllOffers = !showAllOffers
+            // 4. Live Offers Card (shown only when backend returns active offers)
+            if (liveOffers.isNotEmpty()) {
+                item {
+                    val visibleOffers = if (showAllOffers) liveOffers else liveOffers.take(2)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = cardBg,
+                        border = BorderStroke(1.dp, cardBorder)
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                TagVectorIcon(tint = Color(0xFF059669), modifier = Modifier.size(15.dp))
+                                Text("AVAILABLE OFFERS", fontSize = 11.sp, fontWeight = FontWeight.Black, color = textColor)
                             }
-                        )
+                            visibleOffers.forEach { (headline, badge) ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "• $headline",
+                                        fontSize = 11.sp,
+                                        color = mutedColor,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    if (badge.isNotBlank()) {
+                                        Text(badge, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF059669))
+                                    }
+                                }
+                            }
+                            if (liveOffers.size > 2) {
+                                val remaining = liveOffers.size - 2
+                                Text(
+                                    text = if (showAllOffers) "View fewer offers" else "+ $remaining more offer${if (remaining > 1) "s" else ""}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFFF5722),
+                                    modifier = Modifier.clickable {
+                                        triggerHaptic(haptics)
+                                        showAllOffers = !showAllOffers
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -989,9 +1118,9 @@ fun PreviewProductDetailsScreen(
                             TruckVectorIcon(tint = Color(0xFFFF5722), modifier = Modifier.size(16.dp))
                             Text(
                                 text = when {
-                                    checkingPincode -> "Checking Shiprocket rider ETA…"
+                                    checkingPincode -> "Checking delivery date for $deliveryPincode…"
                                     !isServiceable -> "Not serviceable at PIN $deliveryPincode"
-                                    etaDateText != null -> "Delivery in $etaDaysText • By $etaDateText"
+                                    etaDateText != null -> "Delivery by $etaDateText • $etaDaysText"
                                     else -> "Delivery in $etaDaysText"
                                 },
                                 fontSize = 12.sp,
@@ -1009,10 +1138,12 @@ fun PreviewProductDetailsScreen(
                             }
                         }
                         Text(
-                            text = buildString {
-                                append(courierName)
-                                if (!zoneLabel.isNullOrBlank()) append(" • $zoneLabel")
-                            },
+                            text = listOfNotNull(
+                                courierName,
+                                sizeTierLabel,
+                                zoneLabel,
+                                dispatchNote
+                            ).filter { it.isNotBlank() }.joinToString(" • "),
                             fontSize = 10.sp,
                             color = mutedColor
                         )
@@ -1072,9 +1203,9 @@ fun PreviewProductDetailsScreen(
                         else -> "Free Delivery"
                     }
                     listOf(
-                        Triple(deliveryBadgeTitle, "$etaDaysText ETA", "truck"),
+                        Triple(deliveryBadgeTitle, etaDateText?.let { "By $it" } ?: "$etaDaysText ETA", "truck"),
                         Triple("7 Days Return", "Easy replacement", "return"),
-                        Triple("Verified Quality", "Brand checked", "shield")
+                        Triple(if (codEligibleAtPin) "COD Eligible" else "Online Pay", "Razorpay protected", "shield")
                     ).forEach { (title, sub, kind) ->
                         Surface(
                             modifier = Modifier.weight(1f),
@@ -1110,11 +1241,11 @@ fun PreviewProductDetailsScreen(
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("PRODUCT DETAILS & HIGHLIGHTS", fontSize = 12.sp, fontWeight = FontWeight.Black, color = textColor)
-                        listOf(
-                            "100% Original and Brand-Certified Product",
-                            "Tracked Shiprocket Courier Delivery ($etaDaysText to $deliveryPincode)",
-                            if (codAllowed) "Cash On Delivery (COD) Eligible" else "Prepaid Express Order",
-                            "7 Days Easy Replacement & Refund Guarantee"
+                        listOfNotNull(
+                            product.category.takeIf { it.isNotBlank() }?.let { "Category: $it${sizeTierLabel?.let { tier -> " ($tier)" } ?: ""}" },
+                            if (etaDateText != null) "Estimated Delivery: $etaDateText ($etaDaysText to PIN $deliveryPincode)" else "Estimated Delivery: $etaDaysText to PIN $deliveryPincode",
+                            if (codAllowed) "Cash On Delivery (COD) Eligible at serviceable PINs" else "Prepaid Online Checkout via Razorpay",
+                            "7 Days Easy Replacement & Return Policy"
                         ).forEach { bullet ->
                             Row(verticalAlignment = Alignment.Top) {
                                 Text("• ", color = Color(0xFFFF5722), fontWeight = FontWeight.Black, fontSize = 12.sp)
@@ -1124,7 +1255,7 @@ fun PreviewProductDetailsScreen(
                         Spacer(Modifier.height(2.dp))
                         Text("DESCRIPTION", fontSize = 11.sp, fontWeight = FontWeight.Black, color = textColor)
                         Text(
-                            cleanDesc.ifBlank { "Authentic quality product sourced directly from verified sellers on AARVO marketplace." },
+                            cleanDesc.ifBlank { "No additional description provided by the seller." },
                             fontSize = 11.sp,
                             color = mutedColor,
                             lineHeight = 16.sp

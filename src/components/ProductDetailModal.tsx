@@ -141,6 +141,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [orderConfirmed, setOrderConfirmed] = useState<Order | null>(null);
   const [serviceability, setServiceability] = useState<ShiprocketServiceabilityResult | null>(null);
   const [checkingPincode, setCheckingPincode] = useState(false);
+  const [liveOffers, setLiveOffers] = useState<Array<{ code: string; title: string; subtitle?: string }>>([]);
 
   // Swipe / Drag gesture tracking for image carousel
   const touchStartX = useRef<number>(0);
@@ -272,6 +273,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setCheckingPincode(true);
     checkShiprocketServiceability(cleanPin, {
       productId: product.id,
+      category: product.category,
       cod: product.codAvailable !== false,
       signal: controller.signal,
     })
@@ -286,17 +288,40 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         }
       });
     return () => controller.abort();
-  }, [isOpen, product?.id, product?.codAvailable, pincode]);
+  }, [isOpen, product?.id, product?.category, product?.codAvailable, pincode]);
 
   useEffect(() => {
     if (!isOpen || !product) return;
     const numericId = Number(product.id);
-    if (!Number.isInteger(numericId) || numericId <= 0) return;
     const controller = new AbortController();
     const apiBase = (
       (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL ||
       'https://aarvo-api.onrender.com'
     ).replace(/\/$/, '');
+
+    fetch(`${apiBase}/v1/offers`, { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((offersData) => {
+        if (controller.signal.aborted) return;
+        const list = Array.isArray(offersData) ? offersData : Array.isArray(offersData?.offers) ? offersData.offers : [];
+        const mappedOffers = list
+          .filter((o: Record<string, unknown>) => o && (o.code || o.title || o.description))
+          .map((o: Record<string, unknown>) => ({
+            code: String(o.code || '').trim(),
+            title: String(o.title || o.description || `Use code ${o.code}`).trim(),
+            subtitle: o.min_order_paise
+              ? `Valid on orders ₹${Math.round(Number(o.min_order_paise) / 100)}+`
+              : undefined,
+          }));
+        setLiveOffers(mappedOffers);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setLiveOffers([]);
+      });
+
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      return () => controller.abort();
+    }
     fetch(`${apiBase}/v1/products/${numericId}/reviews`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : []))
       .then((rows) => {
@@ -395,16 +420,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const totalMRP = product.originalPrice * selectedQty;
 
   const defaultDescription =
-    product.description ||
-    `Experience top-tier quality and premium craftsmanship with the ${product.name}. Designed to deliver maximum performance, verified durability, and complete comfort, backed by the AARVO Authentic Guarantee with hassle-free doorstep returns.`;
+    product.description?.trim() ||
+    'No additional description has been provided by the seller for this item.';
 
-  const defaultHighlights = product.highlights || [
-    '100% Original and Brand-Certified Product',
-    'Tracked Shiprocket Courier Delivery to Your Pincode',
-    'Cash On Delivery (COD) Eligible on Serviceable Pincodes',
-    '7 Days Easy Replacement & Refund Guarantee',
-    'GST Invoice and 1 Year Manufacturer Warranty Included',
-  ];
+  const defaultHighlights =
+    product.highlights && product.highlights.length > 0
+      ? product.highlights
+      : [
+          `Category: ${product.category}${serviceability?.sizeTier ? ` (${serviceability.sizeTier})` : ''}`,
+          serviceability?.serviceable
+            ? `Estimated delivery to PIN ${pincode}${serviceability.etd ? ` by ${serviceability.etd}` : ` in ${serviceability.estimatedDaysText}`}${serviceability.deliveryMode ? ` (${serviceability.deliveryMode})` : ''}`
+            : `Live pincode delivery tracking available`,
+          product.codAvailable !== false && (serviceability ? serviceability.codAvailable : true)
+            ? `Cash On Delivery (COD) supported for PIN ${pincode}`
+            : 'Online Prepaid Checkout (UPI, Card & NetBanking)',
+          '7 Days Replacement & Refund Support inside My Orders',
+          `Sold & fulfilled directly by ${product.seller}`,
+        ];
 
   const handleShare = () => {
     haptics.saved();
@@ -438,7 +470,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       statusStep: 1,
       estimatedDelivery: etaText,
       trackingNumber: trackingNo,
-      carrier: serviceability?.courierName || 'Shiprocket Partner Courier',
+      carrier: serviceability?.courierName || 'Express Delivery Partner',
       paymentMethod: paymentMethod === 'COD' ? 'Cash on Delivery (Pay at doorstep)' : paymentMethod === 'UPI' ? 'UPI' : 'Card',
       deliveryAddress: deliveryAddress,
       items: [
@@ -461,13 +493,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         {
           status: 'Seller Packaging',
           time: 'Preparing',
-          description: `${product.seller} is packing your item for Shiprocket courier pickup.`,
+          description: `${product.seller} is packing your item for courier pickup.`,
           completed: false,
         },
         {
           status: 'Out for Delivery',
           time: 'Pending dispatch',
-          description: 'Shiprocket courier partner will deliver with OTP verification.',
+          description: 'Verified courier partner will deliver with OTP verification.',
           completed: false,
         },
         {
@@ -873,12 +905,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </h4>
                 <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium mt-0.5 tabular-nums">
                   {checkingPincode
-                    ? `Checking Shiprocket rider ETA for ${pincode}…`
+                    ? `Checking delivery date for PIN ${pincode}…`
                     : serviceability
                     ? serviceability.serviceable
-                      ? `Delivery in ${serviceability.estimatedDaysText}${serviceability.etd ? ` (by ${serviceability.etd})` : ''}`
+                      ? `${serviceability.etd ? `Delivery by ${serviceability.etd}` : `Delivery in ${serviceability.estimatedDaysText}`}${serviceability.sizeTier ? ` • ${serviceability.sizeTier}` : ''}`
                       : `Currently unserviceable for PIN ${pincode}`
-                    : 'Enter delivery pincode below to check ETA'}
+                    : 'Enter delivery pincode below to check delivery date'}
                 </p>
               </div>
             </div>
@@ -899,68 +931,45 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           </div>
 
-          {/* =============================================================== */}
-          {/* FLIPKART "AVAILABLE OFFERS" ACCORDION                            */}
-          {/* =============================================================== */}
-          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100/80 dark:border-orange-950/50 space-y-2.5">
-            <h3 className="font-display font-extrabold text-xs uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Available offers</span>
-            </h3>
-
-            {/* Offer 1 */}
-            <div className="flex items-start gap-2 text-xs">
-              <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-              <div className="flex-1 leading-snug">
-                <span className="font-black text-slate-900 dark:text-slate-100">Bank Offer: </span>
-                <span className="text-slate-700 dark:text-slate-300">5% Unlimited Cashback on AARVO Axis Bank Credit Card </span>
-                <span className="text-[#FF5722] dark:text-[#FF8A65] font-bold text-[10px]">T&amp;C</span>
-              </div>
-            </div>
-
-            {/* Offer 2 */}
-            <div className="flex items-start gap-2 text-xs">
-              <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-              <div className="flex-1 leading-snug">
-                <span className="font-black text-slate-900 dark:text-slate-100">Bank Offer: </span>
-                <span className="text-slate-700 dark:text-slate-300">10% instant discount on SBI &amp; HDFC Bank cards on orders above ₹1,499 </span>
-                <span className="text-[#FF5722] dark:text-[#FF8A65] font-bold text-[10px]">T&amp;C</span>
-              </div>
-            </div>
-
-            {/* Collapsible extra offers */}
-            {showAllOffers && (
-              <div className="space-y-2.5 pt-1 animate-in fade-in duration-200">
-                <div className="flex items-start gap-2 text-xs">
+          {/* LIVE ACTIVE OFFERS ONLY (ZERO FAKE BANK/CARD OFFERS) */}
+          {liveOffers.length > 0 && (
+            <div className="p-3.5 rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100/80 dark:border-orange-950/50 space-y-2.5">
+              <h3 className="font-display font-extrabold text-xs uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Available offers</span>
+              </h3>
+              {(showAllOffers ? liveOffers : liveOffers.slice(0, 2)).map((offer, idx) => (
+                <div key={`${offer.code}-${idx}`} className="flex items-start gap-2 text-xs">
                   <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <div className="flex-1 leading-snug">
-                    <span className="font-black text-slate-900 dark:text-slate-100">Coupon Offer: </span>
-                    <span className="text-slate-700 dark:text-slate-300">Use AARVO200 in Cart on orders ₹999+ for flat ₹200 off </span>
+                    {offer.code && (
+                      <span className="font-black text-slate-900 dark:text-slate-100">{offer.code}: </span>
+                    )}
+                    <span className="text-slate-700 dark:text-slate-300">{offer.title}</span>
+                    {offer.subtitle && (
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 ml-1">
+                        ({offer.subtitle})
+                      </span>
+                    )}
                   </div>
                 </div>
-
-                <div className="flex items-start gap-2 text-xs">
-                  <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                  <div className="flex-1 leading-snug">
-                    <span className="font-black text-slate-900 dark:text-slate-100">Welcome Offer: </span>
-                    <span className="text-slate-700 dark:text-slate-300">Use WELCOME100 in Cart on orders ₹499+ for flat ₹100 off </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Accordion expand/collapse toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                haptics.selection();
-                setShowAllOffers(!showAllOffers);
-              }}
-              className="text-xs font-bold text-[#FF5722] dark:text-[#FF8A65] hover:underline pt-1 flex items-center gap-1 cursor-pointer"
-            >
-              <span>{showAllOffers ? 'View fewer offers' : '+ 2 more offers'}</span>
-            </button>
-          </div>
+              ))}
+              {liveOffers.length > 2 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.selection();
+                    setShowAllOffers(!showAllOffers);
+                  }}
+                  className="text-xs font-bold text-[#FF5722] dark:text-[#FF8A65] hover:underline pt-1 flex items-center gap-1 cursor-pointer"
+                >
+                  <span>
+                    {showAllOffers ? 'View fewer offers' : `+ ${liveOffers.length - 2} more offers`}
+                  </span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* =============================================================== */}
           {/* FLIPKART & MEESHO STYLE COLOUR & SIZE VARIANT SELECTOR           */}
@@ -1078,19 +1087,19 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           {/* CASH ON DELIVERY & FREE DELIVERY ASSURANCE                       */}
           {/* =============================================================== */}
           <div className="p-3.5 rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100 dark:border-orange-950/60 space-y-2.5">
-            {/* Live Shiprocket Rider / Courier Pincode ETA */}
+            {/* Live Category & Pincode Courier Delivery ETA */}
             <div className="flex items-start gap-2.5">
               <Truck className="w-4 h-4 text-[#FF5722] shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0 text-xs">
                 <div className="flex items-center flex-wrap gap-1.5">
                   <span className="font-bold text-slate-900 dark:text-white tabular-nums">
                     {checkingPincode
-                      ? `Checking Shiprocket rider ETA for ${pincode}…`
+                      ? `Checking delivery date for PIN ${pincode}…`
                       : serviceability
                       ? serviceability.serviceable
-                        ? `Delivery in ${serviceability.estimatedDaysText}${serviceability.etd ? ` • By ${serviceability.etd}` : ''}`
+                        ? `${serviceability.etd ? `Delivery by ${serviceability.etd}` : `Delivery in ${serviceability.estimatedDaysText}`} (${serviceability.estimatedDaysText})`
                         : `Not serviceable at PIN ${pincode}`
-                      : 'Check your pincode for courier ETA'}
+                      : 'Check your pincode for delivery date'}
                   </span>
                   {serviceability?.serviceable !== false && (
                     <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">
@@ -1102,9 +1111,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
                 {serviceability && (
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
-                    {serviceability.courierName || 'Shiprocket Partner Courier'}
+                    {serviceability.courierName || 'Express Delivery Partner'}
+                    {serviceability.sizeTier ? ` • ${serviceability.sizeTier}` : ''}
                     {serviceability.zoneLabel ? ` • ${serviceability.zoneLabel}` : ''}
-                    {serviceability.source === 'shiprocket_live' ? ' • Live Courier ETA' : ' • Estimated Transit'}
+                    {serviceability.dispatchNote ? ` • ${serviceability.dispatchNote}` : ''}
                   </p>
                 )}
               </div>
@@ -1198,9 +1208,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <div className="p-2.5 rounded-xl bg-[#FFF4E8]/70 dark:bg-[#211A17] border border-orange-100 dark:border-orange-950/50 flex flex-col items-center">
               <Truck className="w-4 h-4 text-[#FF5722] dark:text-[#FF8A65] mb-1" />
               <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">
-                Free Delivery
+                {serviceability?.freightCharge && serviceability.freightCharge > 0
+                  ? `Delivery ₹${Math.round(serviceability.freightCharge)}`
+                  : 'Free Delivery'}
               </span>
-              <span className="text-[9px] text-slate-500 dark:text-slate-400">Fast doorstep</span>
+              <span className="text-[9px] text-slate-500 dark:text-slate-400">
+                {serviceability?.etd ? `By ${serviceability.etd}` : serviceability?.estimatedDaysText || 'Tracked courier'}
+              </span>
             </div>
 
             <div className="p-2.5 rounded-xl bg-[#FFF4E8]/70 dark:bg-[#211A17] border border-orange-100 dark:border-orange-950/50 flex flex-col items-center">
@@ -1214,9 +1228,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <div className="p-2.5 rounded-xl bg-[#FFF4E8]/70 dark:bg-[#211A17] border border-orange-100 dark:border-orange-950/50 flex flex-col items-center">
               <ShieldCheck className="w-4 h-4 text-[#FF5722] dark:text-[#FF8A65] mb-1" />
               <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">
-                Quality Checked
+                {product.codAvailable !== false && (serviceability ? serviceability.codAvailable : true) ? 'COD Eligible' : 'Prepaid Pay'}
               </span>
-              <span className="text-[9px] text-slate-500 dark:text-slate-400">Verified item</span>
+              <span className="text-[9px] text-slate-500 dark:text-slate-400">Razorpay protected</span>
             </div>
           </div>
 

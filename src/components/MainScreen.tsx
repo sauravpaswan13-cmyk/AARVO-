@@ -330,24 +330,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     ? `${activeAddressObj.fullName}, ${activeAddressObj.addressLine}, ${activeAddressObj.city} - ${activeAddressObj.pincode}`
     : 'Patna - 800001';
 
-  useEffect(() => {
-    const pin = (activeAddressObj?.pincode || '').replace(/\D/g, '').slice(0, 6);
-    if (!/^[1-9]\d{5}$/.test(pin)) {
-      setCartServiceability(null);
-      return;
-    }
-    const controller = new AbortController();
-    setIsCheckingCartEta(true);
-    checkShiprocketServiceability(pin, { signal: controller.signal })
-      .then((res) => {
-        if (!controller.signal.aborted) setCartServiceability(res);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setIsCheckingCartEta(false);
-      });
-    return () => controller.abort();
-  }, [activeAddressObj?.pincode]);
-
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [profileDraftName, setProfileDraftName] = useState('');
   const [profileDraftPhone, setProfileDraftPhone] = useState('');
@@ -1209,6 +1191,28 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       : 0;
   const platformFee = cartItems.length > 0 ? 3 : 0;
   const finalPayable = Math.max(0, totalSellingPrice - couponDiscount + platformFee);
+  const primaryCartCategory = cartItems[0]?.product?.category || '';
+
+  useEffect(() => {
+    const pin = (activeAddressObj?.pincode || '').replace(/\D/g, '').slice(0, 6);
+    if (!/^[1-9]\d{5}$/.test(pin)) {
+      setCartServiceability(null);
+      return;
+    }
+    const controller = new AbortController();
+    setIsCheckingCartEta(true);
+    checkShiprocketServiceability(pin, {
+      category: primaryCartCategory || undefined,
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!controller.signal.aborted) setCartServiceability(res);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsCheckingCartEta(false);
+      });
+    return () => controller.abort();
+  }, [activeAddressObj?.pincode, primaryCartCategory]);
 
   // Fetch and display user order history from persistent storage
   const handleViewMyOrders = useCallback(() => {
@@ -3139,9 +3143,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             <Truck className="w-3 h-3 text-emerald-600 shrink-0" />
                             <span>
                               {isCheckingCartEta
-                                ? 'Checking Shiprocket courier ETA…'
+                                ? 'Checking delivery date…'
                                 : cartServiceability?.serviceable
-                                ? `Delivery in ${cartServiceability.estimatedDaysText}${cartServiceability.etd ? ` (by ${cartServiceability.etd})` : ''} | FREE`
+                                ? `${cartServiceability.etd ? `Delivery by ${cartServiceability.etd}` : `Delivery in ${cartServiceability.estimatedDaysText}`} | FREE`
                                 : `Delivery to ${activeAddressObj?.pincode || '800001'} calculated at checkout`}
                             </span>
                           </div>
@@ -3478,7 +3482,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         : `Online UPI (${selectedUpiApp}${selectedUpiApp === 'Custom UPI' && customUpiId ? `: ${customUpiId}` : ''})`;
                       const etaSummary = cartServiceability?.serviceable
                         ? `${cartServiceability.estimatedDaysText}${cartServiceability.etd ? ` (by ${cartServiceability.etd})` : ''}`
-                        : 'Updating after Shiprocket courier pickup';
+                        : 'Updating after courier pickup';
                       const newOrder: Order = {
                         id: orderId,
                         date: 'Today, Just now',
@@ -3487,7 +3491,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         statusStep: 1,
                         estimatedDelivery: etaSummary,
                         trackingNumber: `PENDING-AWB-${orderId.slice(-6)}`,
-                        carrier: cartServiceability?.courierName || 'Shiprocket Partner Courier',
+                        carrier: cartServiceability?.courierName || 'Express Delivery Partner',
                         paymentMethod: chosenPayment,
                         deliveryAddress: activeAddressString,
                         items: cartItems.map((ci) => ({
@@ -3500,8 +3504,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         })),
                         timeline: [
                           { status: 'Order Verified', time: 'Just now', description: `Order verified via ${chosenPayment}`, completed: true },
-                          { status: 'Processing at Warehouse', time: 'In progress', description: 'Seller preparing package for Shiprocket courier pickup', completed: false },
-                          { status: 'Shipped', time: 'Pending', description: 'Will dispatch via Shiprocket courier network', completed: false },
+                          { status: 'Processing at Warehouse', time: 'In progress', description: 'Seller preparing package for courier pickup', completed: false },
+                          { status: 'Shipped', time: 'Pending', description: 'Will dispatch via verified courier network', completed: false },
                           { status: 'Delivered', time: cartServiceability?.etd ? `Est. ${cartServiceability.etd}` : 'Pending', description: 'Doorstep delivery with verification', completed: false },
                         ],
                       };
@@ -4572,10 +4576,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=500&auto=format&fit=crop&q=80',
                           'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=500&auto=format&fit=crop&q=80',
                         ],
-                        seller: sellerForm.business.trim() || 'AARVO Luxury Certified Merchant',
+                        seller: sellerForm.business.trim() || 'AARVO Marketplace Seller',
                         description:
                           newProductDescription.trim() ||
-                          'Exquisite craftsmanship with genuine certified materials and verified quality.',
+                          'No additional description provided by the seller.',
                         availableSizes: allSizes.length > 0 ? allSizes : undefined,
                         availableColors: allColors.length > 0 ? allColors : undefined,
                         fabric: selectedFabric || undefined,
@@ -5487,7 +5491,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         return;
                       }
                       haptics.saved();
-                      setPincodeStatusMessage(`Checking Shiprocket serviceability for PIN ${cleanPin}…`);
+                      setPincodeStatusMessage(`Checking delivery serviceability for PIN ${cleanPin}…`);
                       const res = await checkShiprocketServiceability(cleanPin);
                       const existingMatch = savedAddresses.find((a) => a.pincode === cleanPin);
                       if (existingMatch) {
@@ -5504,7 +5508,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         : `Delivery pincode updated to ${cleanPin}`;
                       setPincodeStatusMessage(msg);
                       showToast(msg, {
-                        title: 'Shiprocket Pincode Updated',
+                        title: 'Delivery Pincode Updated',
                         variant: res && !res.serviceable ? 'warning' : 'success',
                       });
                     }}
@@ -6209,11 +6213,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               <div className="space-y-3 text-slate-600 dark:text-slate-300 leading-relaxed">
                 <div className="p-3 rounded-2xl bg-[#FFF4E8]/50 dark:bg-[#181311] border border-orange-100 dark:border-stone-800">
                   <p className="font-black text-slate-900 dark:text-white mb-1">Privacy &amp; Data Protection</p>
-                  <p>AARVO collects only the mobile number, delivery address, and order details necessary to fulfill purchases and Shiprocket courier deliveries. We never sell personal data to third parties. You can permanently delete your account anytime from Account Settings.</p>
+                  <p>AARVO collects only the mobile number, delivery address, and order details necessary to fulfill purchases and courier deliveries. We never sell personal data to third parties. You can permanently delete your account anytime from Account Settings.</p>
                 </div>
                 <div className="p-3 rounded-2xl bg-[#FFF4E8]/50 dark:bg-[#181311] border border-orange-100 dark:border-stone-800">
                   <p className="font-black text-slate-900 dark:text-white mb-1">Shipping &amp; Delivery Terms</p>
-                  <p>Estimated delivery timelines shown on product pages are calculated live from Shiprocket courier serviceability for the selected pickup &amp; destination pincodes.</p>
+                  <p>Estimated delivery dates shown on product pages are calculated live based on product category, parcel size/weight, and courier serviceability between pickup &amp; destination pincodes.</p>
                 </div>
                 <div className="p-3 rounded-2xl bg-[#FFF4E8]/50 dark:bg-[#181311] border border-orange-100 dark:border-stone-800">
                   <p className="font-black text-slate-900 dark:text-white mb-1">7-Day Replacement &amp; Refund Policy</p>

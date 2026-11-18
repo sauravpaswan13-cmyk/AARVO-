@@ -3,6 +3,8 @@ import { SplashScreen } from './components/SplashScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { MainScreen } from './components/MainScreen';
 import { haptics } from './utils/haptics';
+import { WifiOff, Wifi, X } from 'lucide-react';
+import { isAppOffline, onNetworkStatusChange, onServiceWorkerOfflineMessage } from './service-worker';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -206,6 +208,61 @@ export default function App() {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
+  // Network Status Listener leveraging Service Worker offline caching capabilities
+  const [isOnline, setIsOnline] = useState<boolean>(() => !isAppOffline());
+  const [offlineToastDismissed, setOfflineToastDismissed] = useState(false);
+  const [showBackOnlineToast, setShowBackOnlineToast] = useState(false);
+  const [swReady, setSwReady] = useState(false);
+  const wasOfflineRef = useRef<boolean>(isAppOffline());
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let backOnlineTimer: ReturnType<typeof setTimeout> | null = null;
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready
+        .then(() => setSwReady(true))
+        .catch(() => {});
+    }
+
+    const unsubscribe = onNetworkStatusChange((online) => {
+      if (!online) {
+        wasOfflineRef.current = true;
+        setIsOnline(false);
+        setOfflineToastDismissed(false);
+        setShowBackOnlineToast(false);
+        if (backOnlineTimer) {
+          clearTimeout(backOnlineTimer);
+          backOnlineTimer = null;
+        }
+      } else {
+        setIsOnline(true);
+        setOfflineToastDismissed(false);
+        if (wasOfflineRef.current) {
+          wasOfflineRef.current = false;
+          setShowBackOnlineToast(true);
+          if (backOnlineTimer) clearTimeout(backOnlineTimer);
+          backOnlineTimer = setTimeout(() => {
+            setShowBackOnlineToast(false);
+          }, 3200);
+        }
+      }
+    });
+
+    const unsubscribeSw = onServiceWorkerOfflineMessage(() => {
+      wasOfflineRef.current = true;
+      setIsOnline(false);
+      setOfflineToastDismissed(false);
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeSw();
+      if (backOnlineTimer) clearTimeout(backOnlineTimer);
+    };
+  }, []);
+
   return (
     <AarvoErrorBoundary>
       <div
@@ -231,6 +288,43 @@ export default function App() {
             onToggleTheme={toggleTheme}
             onLogout={() => setCurrentScreen('login')}
           />
+        )}
+
+        {!isOnline && !offlineToastDismissed && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-20 sm:bottom-5 left-1/2 -translate-x-1/2 sm:left-auto sm:right-5 sm:translate-x-0 z-[100] max-w-[92vw] sm:max-w-sm flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-slate-900/95 dark:bg-[#211A17]/95 text-white border border-amber-500/40 shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200"
+          >
+            <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold leading-tight">You&apos;re offline</p>
+              <p className="text-[11px] text-slate-300 leading-tight truncate">
+                {swReady
+                  ? 'Browsing cached pages — live actions resume when online.'
+                  : 'Waiting for internet connection to sync live data.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOfflineToastDismissed(true)}
+              aria-label="Dismiss offline notice"
+              className="p-1 text-slate-400 hover:text-white rounded-md transition-colors cursor-pointer shrink-0"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {isOnline && showBackOnlineToast && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-20 sm:bottom-5 left-1/2 -translate-x-1/2 sm:left-auto sm:right-5 sm:translate-x-0 z-[100] flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-700 text-white shadow-lg border border-emerald-500/40 animate-in fade-in slide-in-from-bottom-2 duration-200"
+          >
+            <Wifi className="w-4 h-4 text-emerald-200 shrink-0" />
+            <span className="text-xs font-bold">Back online — Live catalog &amp; delivery synced</span>
+          </div>
         )}
       </div>
     </AarvoErrorBoundary>

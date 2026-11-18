@@ -117,13 +117,27 @@ class AarvoApiClient(
     suspend fun sellerOrders(): JSONArray = get("/v1/seller/orders")
     suspend fun updateOrderTracking(orderId: String, status: String, trackingCode: String = "", carrier: String = "", note: String = ""): JSONObject { require(orderId.trim().isNotBlank()) { "Order ID is required" }; require(status.trim().isNotBlank()) { "Tracking status is required" }; return post("/v1/orders/${orderId.trim()}/tracking", JSONObject().put("status", status.trim().uppercase()).put("trackingCode", trackingCode.trim()).put("carrier", carrier.trim()).put("note", note.trim())) }
 
-    suspend fun checkPincodeServiceability(deliveryPincode: String, productId: Int? = null, cod: Boolean? = null): JSONObject {
+    suspend fun checkPincodeServiceability(
+        deliveryPincode: String,
+        productId: Int? = null,
+        cod: Boolean? = null,
+        category: String = "",
+        weightKg: Double = 0.0,
+        lengthCm: Double = 0.0,
+        breadthCm: Double = 0.0,
+        heightCm: Double = 0.0
+    ): JSONObject {
         val cleanPin = deliveryPincode.filter(Char::isDigit).take(6)
         require(Regex("^[1-9][0-9]{5}$").matches(cleanPin)) { "Enter a valid 6-digit pincode" }
         val params = buildList {
             add("deliveryPincode=${URLEncoder.encode(cleanPin, "UTF-8")}")
             if (productId != null && productId > 0) add("productId=$productId")
             if (cod != null) add("cod=${if (cod) "1" else "0"}")
+            if (category.isNotBlank()) add("category=${URLEncoder.encode(category.trim(), "UTF-8")}")
+            if (weightKg > 0.0) add("weightKg=$weightKg")
+            if (lengthCm > 0.0) add("length=$lengthCm")
+            if (breadthCm > 0.0) add("breadth=$breadthCm")
+            if (heightCm > 0.0) add("height=$heightCm")
         }.joinToString("&")
         return getObject("/v1/delivery/serviceability?$params")
     }

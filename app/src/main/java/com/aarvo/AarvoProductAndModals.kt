@@ -563,13 +563,16 @@ fun CouponsModalDialog(
                     Text(errorMsg, color = Color(0xFFEF4444), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
 
-                // Fallback standard promo list merged with backend offers
-                val displayList = if (offers.isNotEmpty()) offers else listOf(
-                    JSONObject().put("code", "AARVO200").put("title", "Flat ₹200 OFF on orders above ₹999").put("discount_type", "FLAT").put("discount_value", 20000L),
-                    JSONObject().put("code", "WELCOME100").put("title", "Flat ₹100 OFF on orders above ₹499").put("discount_type", "FLAT").put("discount_value", 10000L)
-                )
+                if (!loading && offers.isEmpty()) {
+                    Text(
+                        "No active coupon codes available right now.",
+                        fontSize = 12.sp,
+                        color = subColor,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
 
-                displayList.forEach { offer ->
+                offers.forEach { offer ->
                     val code = offer.optString("code", offer.optString("promo_code")).uppercase()
                     val title = offer.optString("title", offer.optString("description", "Verified AARVO Coupon"))
                     val isApplied = appliedCouponCode.equals(code, ignoreCase = true)

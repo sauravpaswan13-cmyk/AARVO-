@@ -65,6 +65,18 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+function notifyClientsOffline(url) {
+  try {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      clients.forEach((client) => {
+        client.postMessage({ type: 'SW_OFFLINE_FALLBACK', url: url || '' });
+      });
+    });
+  } catch {
+    // Ignore client notification errors
+  }
+}
+
 // Fetch Event: Handles offline caching strategies
 self.addEventListener('fetch', (event) => {
   const { request } = event;
@@ -89,6 +101,7 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(async () => {
+          notifyClientsOffline(request.url);
           const cachedResponse = await caches.match(request);
           if (cachedResponse) return cachedResponse;
 
@@ -145,6 +158,7 @@ self.addEventListener('fetch', (event) => {
             return networkResponse;
           })
           .catch(() => {
+            notifyClientsOffline(request.url);
             // If image request fails offline, return a placeholder SVG if needed
             if (request.destination === 'image') {
               return new Response(
@@ -171,7 +185,10 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       })
-      .catch(() => caches.match(request))
+      .catch(() => {
+        notifyClientsOffline(request.url);
+        return caches.match(request);
+      })
   );
 });
 

@@ -705,7 +705,7 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
                   Courier Partner &amp; AWB
                 </span>
                 <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate mt-0.5">
-                  {order.carrier || 'Shiprocket Partner Courier'}
+                  {order.carrier && !/shiprocket/i.test(order.carrier) ? order.carrier : 'Express Courier Partner'}
                 </p>
                 <p className="text-[11px] font-mono font-bold text-[#FF5722] dark:text-[#FF8A65] mt-0.5 truncate">
                   {awbCode}
@@ -734,7 +734,7 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
                 className="w-full py-2 px-3 rounded-xl bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span>Open Live Shiprocket Tracking</span>
+                <span>Track Live Courier Status</span>
               </a>
             )}
           </div>
@@ -783,7 +783,7 @@ export const LiveRiderTrackingModal: React.FC<LiveRiderTrackingModalProps> = ({
         {/* Footer */}
         <div className="p-3 bg-[#FFFDF9] dark:bg-[#181311] border-t border-orange-100/80 dark:border-orange-950/50 flex items-center justify-between">
           <span className="text-[10px] text-slate-500">
-            Shiprocket Courier Updates
+            Courier Tracking Updates
           </span>
           <button
             type="button"

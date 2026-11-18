@@ -28,22 +28,116 @@ const SERVICEABILITY_CACHE_TTL_MS=15*60*1000;
 const METRO_PIN_PREFIXES=new Set(['110','122','201','302','400','411','500','560','600','700','800']);
 const REMOTE_PIN_PREFIXES=new Set(['19','74','79']);
 
-function formatEtaDateFromDays(days){
-  const target=new Date(Date.now()+Math.max(1,Number(days)||1)*24*60*60*1000);
-  return target.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
-}
+const IST_OFFSET_MS=330*60*1000;
+const IST_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const IST_WEEKDAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-function estimateZoneTransit(pickupPin,deliveryPin,codAllowed=true){
+function getIstDate(offsetDays=0){
+  return new Date(Date.now()+IST_OFFSET_MS+offsetDays*24*60*60*1000);
+}
+function formatIstCalendarDate(days,withWeekday=true){
+  const d=getIstDate(days);
+  const w=IST_WEEKDAYS[d.getUTCDay()];
+  const day=d.getUTCDate();
+  const mon=IST_MONTHS[d.getUTCMonth()];
+  const yr=d.getUTCFullYear();
+  return withWeekday?`${w}, ${day} ${mon} ${yr}`:`${day} ${mon} ${yr}`;
+}
+function sanitizeCustomerCourierName(rawName,deliveryMode='Standard Courier'){
+  const txt=clean(rawName||'',100);
+  if(!txt||/shiprocket/i.test(txt)){
+    return deliveryMode==='Surface Cargo'?'Heavy Surface Freight':deliveryMode==='Air Express'?'Express Air Courier':'Standard Courier Partner';
+  }
+  return txt;
+}
+function classifyParcelAndCategory({category='',sizeClass='',weightKg=0,lengthCm=0,breadthCm=0,heightCm=0}){
+  const catLower=String(category||'').toLowerCase();
+  const sizeLower=String(sizeClass||'').toLowerCase();
+  const actualWeight=Number.isFinite(Number(weightKg))&&Number(weightKg)>0?Number(weightKg):0;
+  const volWeight=(Number(lengthCm)>0&&Number(breadthCm)>0&&Number(heightCm)>0)
+    ?(Number(lengthCm)*Number(breadthCm)*Number(heightCm))/5000:0;
+  const billableWeightKg=Math.max(actualWeight>0?actualWeight:0.5,volWeight);
+  const maxDim=Math.max(Number(lengthCm)||0,Number(breadthCm)||0,Number(heightCm)||0);
+
+  const isHeavyCategory=/(appliance|furniture|refrigerator|washing|television|\btv\b|sofa|mattress|cooler|geyser|almirah|bed|table|chair|wardrobe|dishwasher)/.test(catLower);
+  const isMediumCategory=/(home & kitchen|kitchen|electronics|laptop|printer|monitor|audio|mixer|microwave|luggage|sports|fitness)/.test(catLower);
+
+  let sizeTier='Standard Parcel';
+  let extraTransitDays=0;
+  let extraHandlingDays=0;
+  let deliveryMode='Air Express';
+
+  if(billableWeightKg>5||maxDim>60||sizeLower==='heavy'||sizeLower==='bulky'||(isHeavyCategory&&actualWeight===0)){
+    sizeTier='Heavy & Bulky';
+    extraTransitDays=2;
+    extraHandlingDays=1;
+    deliveryMode='Surface Cargo';
+  }else if(billableWeightKg>1.5||maxDim>35||sizeLower==='medium'||isMediumCategory){
+    sizeTier='Medium Parcel';
+    extraTransitDays=1;
+    extraHandlingDays=0;
+    deliveryMode='Surface / Air';
+  }
+
+  const istNow=getIstDate(0);
+  const istHour=istNow.getUTCHours();
+  const istDay=istNow.getUTCDay();
+  const missedCutoff=istHour>=14;
+  let dispatchOffset=(missedCutoff?1:0)+extraHandlingDays;
+  if(istDay===0||(missedCutoff&&istDay===6))dispatchOffset+=1;
+  const dispatchNote=dispatchOffset===0?'Dispatches today (order before 2 PM)':dispatchOffset===1?'Dispatches tomorrow':'Dispatches in 2 business days';
+
+  return {
+    billableWeightKg:Number(billableWeightKg.toFixed(2)),
+    sizeTier,
+    deliveryMode,
+    extraTransitDays,
+    dispatchOffset,
+    dispatchNote
+  };
+}
+function computeCalendarDeliveryDays(baseMin,baseMax,parcelInfo,isMetro){
+  let minDays=Math.max(1,baseMin+parcelInfo.dispatchOffset+(parcelInfo.sizeTier==='Heavy & Bulky'?1:0));
+  let maxDays=Math.max(minDays,baseMax+parcelInfo.dispatchOffset+parcelInfo.extraTransitDays);
+  // Skip Sunday delivery in non-metro pin codes for realistic courier calendar
+  if(!isMetro){
+    const targetDay=getIstDate(maxDays).getUTCDay();
+    if(targetDay===0){
+      maxDays+=1;
+      if(minDays===maxDays-1)minDays=maxDays;
+    }
+  }
+  return {minDays,maxDays};
+}
+function estimateZoneTransit(pickupPin,deliveryPin,codAllowed=true,meta={}){
   const p=clean(pickupPin||'800001',6);
   const d=clean(deliveryPin,6);
   if(!/^[1-9]\d{5}$/.test(d))return null;
   const pClean=/^[1-9]\d{5}$/.test(p)?p:'800001';
-  let minDays=3,maxDays=5,zoneLabel='National Surface / Air';
-  if(pClean.slice(0,3)===d.slice(0,3)){minDays=1;maxDays=2;zoneLabel='Local City Hub';}
-  else if(pClean.slice(0,2)===d.slice(0,2)){minDays=2;maxDays=3;zoneLabel='Intra-State Network';}
-  else if(REMOTE_PIN_PREFIXES.has(d.slice(0,2))||d.startsWith('744')){minDays=5;maxDays=7;zoneLabel='Extended Zone';}
-  else if(pClean[0]===d[0]){minDays=3;maxDays=4;zoneLabel='Regional Zone';}
-  else if(METRO_PIN_PREFIXES.has(pClean.slice(0,3))&&METRO_PIN_PREFIXES.has(d.slice(0,3))){minDays=3;maxDays=4;zoneLabel='Metro Air Express';}
+  const parcelInfo=classifyParcelAndCategory(meta);
+  const isDeliveryMetro=METRO_PIN_PREFIXES.has(d.slice(0,3));
+  let baseMin=3,baseMax=4,zoneLabel='National Courier Network';
+  let modeForRoute=parcelInfo.sizeTier==='Heavy & Bulky'?'Surface Cargo':parcelInfo.deliveryMode;
+
+  if(pClean.slice(0,3)===d.slice(0,3)){
+    baseMin=1;baseMax=2;zoneLabel='Local City Hub';
+    modeForRoute=parcelInfo.sizeTier==='Heavy & Bulky'?'Local Heavy Van':'Local City Courier';
+  }else if(pClean.slice(0,2)===d.slice(0,2)){
+    baseMin=2;baseMax=3;zoneLabel='Intra-State Network';
+  }else if(REMOTE_PIN_PREFIXES.has(d.slice(0,2))||d.startsWith('744')){
+    baseMin=5;baseMax=7;zoneLabel='Extended & Hill Zone';
+  }else if(pClean[0]===d[0]){
+    baseMin=3;baseMax=4;zoneLabel='Regional Zone';
+  }else if(METRO_PIN_PREFIXES.has(pClean.slice(0,3))&&isDeliveryMetro){
+    baseMin=2;baseMax=3;zoneLabel='Metro-to-Metro';
+    modeForRoute=parcelInfo.sizeTier==='Heavy & Bulky'?'Surface Cargo':'Air Express';
+  }
+
+  const {minDays,maxDays}=computeCalendarDeliveryDays(baseMin,baseMax,parcelInfo,isDeliveryMetro);
+  const etd=formatIstCalendarDate(maxDays,true);
+  const courierName=sanitizeCustomerCourierName('',modeForRoute);
+  const etaRangeText=minDays===maxDays?`${maxDays} day${maxDays>1?'s':''}`:`${minDays}-${maxDays} days`;
+
   return {
     serviceable:true,
     pickupPincode:pClean,
@@ -51,15 +145,19 @@ function estimateZoneTransit(pickupPin,deliveryPin,codAllowed=true){
     minDays,
     maxDays,
     estimatedDays:maxDays,
-    estimatedDaysText:minDays===maxDays?`${minDays} days`:`${minDays}-${maxDays} days`,
-    etd:formatEtaDateFromDays(maxDays),
-    courierName:'Shiprocket Partner Courier',
-    provider:'shiprocket',
+    estimatedDaysText:etaRangeText,
+    etd,
+    courierName,
+    provider:'courier',
     codAvailable:Boolean(codAllowed),
     freightCharge:null,
     zoneLabel,
-    source:'shiprocket_zone_estimate',
-    riderMessage:`Estimated ${minDays}-${maxDays} days delivery to PIN ${d} (${zoneLabel})`
+    sizeTier:parcelInfo.sizeTier,
+    deliveryMode:modeForRoute,
+    billableWeightKg:parcelInfo.billableWeightKg,
+    dispatchNote:parcelInfo.dispatchNote,
+    source:'zone_estimate',
+    riderMessage:`Delivery by ${etd} (${etaRangeText}) • ${parcelInfo.sizeTier} via ${modeForRoute}`
   };
 }
 
@@ -377,6 +475,8 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
     }
     const productId=Number(query.productId||0);
     let pickupPin=clean(query.pickupPincode||query.pickup_postcode||'',6).replace(/\D/g,'');
+    let category=clean(query.category||'',100);
+    const sizeClass=clean(query.sizeClass||query.size||'',40);
     let weightKg=Number(query.weightKg||query.weight||0);
     let lengthCm=Number(query.length||0);
     let breadthCm=Number(query.breadth||0);
@@ -387,7 +487,7 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
     if(pool){
       if(Number.isInteger(productId)&&productId>0){
         const prodQ=await pool.query(
-          `SELECT p.cod_enabled,p.delivery_fee_paise,p.package_weight_kg,p.package_length_cm,p.package_breadth_cm,p.package_height_cm,
+          `SELECT p.category,p.cod_enabled,p.delivery_fee_paise,p.package_weight_kg,p.package_length_cm,p.package_breadth_cm,p.package_height_cm,
            sp.pickup_postal_code,sp.pickup_city,sp.pickup_state
            FROM products p LEFT JOIN seller_profiles sp ON sp.seller_id=p.seller_id WHERE p.id=$1 LIMIT 1`,
           [productId]
@@ -397,6 +497,7 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
           if(!pickupPin&&/^[1-9]\d{5}$/.test(clean(row.pickup_postal_code||'',6))){
             pickupPin=clean(row.pickup_postal_code,6);
           }
+          if(!category&&row.category)category=clean(row.category,100);
           if(!(weightKg>0)&&Number(row.package_weight_kg)>0)weightKg=Number(row.package_weight_kg);
           if(!(lengthCm>0)&&Number(row.package_length_cm)>0)lengthCm=Number(row.package_length_cm);
           if(!(breadthCm>0)&&Number(row.package_breadth_cm)>0)breadthCm=Number(row.package_breadth_cm);
@@ -412,10 +513,11 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
     }
 
     if(!/^[1-9]\d{5}$/.test(pickupPin)){
-      pickupPin=clean(process.env.SHIPROCKET_DEFAULT_PICKUP_PINCODE||'800001',6);
+      pickupPin=clean(process.env.SHIPROCKET_DEFAULT_PICKUP_PINCODE||'110001',6);
     }
-    const safeWeight=Number.isFinite(weightKg)&&weightKg>0?Math.min(100,weightKg):0.5;
-    const cacheKey=`${pickupPin}:${deliveryPin}:${safeWeight.toFixed(2)}:${codAllowed?1:0}`;
+    const parcelInfo=classifyParcelAndCategory({category,sizeClass,weightKg,lengthCm,breadthCm,heightCm});
+    const safeWeight=Math.min(100,parcelInfo.billableWeightKg);
+    const cacheKey=`${pickupPin}:${deliveryPin}:${safeWeight.toFixed(2)}:${parcelInfo.sizeTier}:${category.toLowerCase()}:${codAllowed?1:0}`;
     const cached=serviceabilityCache.get(cacheKey);
     if(cached&&cached.expiresAt>Date.now()){
       return {...cached.value,deliveryFeePaise,cached:true};
@@ -447,53 +549,63 @@ export async function registerThirdPartyDelivery({app,pool,requireRole,audit}){
             estimatedDaysText:'Not serviceable',
             etd:null,
             courierName:null,
-            provider:'shiprocket',
+            provider:'courier',
             codAvailable:false,
             freightCharge:null,
-            source:'shiprocket_live',
-            riderMessage:`PIN ${deliveryPin} is currently not serviceable by Shiprocket couriers.`
+            sizeTier:parcelInfo.sizeTier,
+            deliveryMode:parcelInfo.deliveryMode,
+            dispatchNote:parcelInfo.dispatchNote,
+            source:'live_courier',
+            riderMessage:`PIN ${deliveryPin} is currently not serviceable.`
           };
           serviceabilityCache.set(cacheKey,{value:unserviceable,expiresAt:Date.now()+SERVICEABILITY_CACHE_TTL_MS});
           return {...unserviceable,deliveryFeePaise};
         }
-        const sorted=[...companies].sort((a,b)=>{
+        const filtered=parcelInfo.sizeTier==='Heavy & Bulky'
+          ?companies.filter(c=>String(c?.is_surface||c?.mode||'').toLowerCase()!=='air'||companies.every(x=>String(x?.mode||'').toLowerCase()==='air'))
+          :companies;
+        const poolList=filtered.length?filtered:companies;
+        const sorted=[...poolList].sort((a,b)=>{
           const da=Number(a?.estimated_delivery_days)||99;
           const db=Number(b?.estimated_delivery_days)||99;
           if(da!==db)return da-db;
           return (Number(a?.rate)||9999)-(Number(b?.rate)||9999);
         });
-        const best=(recommendedId&&companies.find(c=>Number(c?.courier_company_id)===recommendedId))||sorted[0];
+        const best=(recommendedId&&poolList.find(c=>Number(c?.courier_company_id)===recommendedId))||sorted[0];
         const rawDays=Number(best?.estimated_delivery_days);
-        const days=Number.isFinite(rawDays)&&rawDays>0?Math.round(rawDays):3;
-        const minDays=Math.max(1,days);
-        const maxDays=days;
-        const courierName=clean(best?.courier_name||'Shiprocket Partner',100);
-        const etd=clean(best?.etd||'',60)||formatEtaDateFromDays(days);
+        const baseDays=Number.isFinite(rawDays)&&rawDays>0?Math.round(rawDays):3;
+        const days=Math.max(1,baseDays+parcelInfo.dispatchOffset);
+        const courierName=sanitizeCustomerCourierName(best?.courier_name,parcelInfo.deliveryMode);
+        const etd=clean(best?.etd||'',60)||formatIstCalendarDate(days,true);
         const codOk=codAllowed&&(best?.cod===1||best?.cod===true||String(best?.cod)==='1');
         const result={
           serviceable:true,
           pickupPincode:pickupPin,
           deliveryPincode:deliveryPin,
-          minDays,
-          maxDays,
+          minDays:days,
+          maxDays:days,
           estimatedDays:days,
           estimatedDaysText:days===1?'1 day':`${days} days`,
           etd,
           courierName,
-          provider:'shiprocket',
+          provider:'courier',
           codAvailable:codOk,
           freightCharge:Number.isFinite(Number(best?.rate))?Number(best.rate):null,
-          source:'shiprocket_live',
-          riderMessage:`${courierName} (Shiprocket) delivers in ${days===1?'1 day':`${days} days`} (by ${etd}) to PIN ${deliveryPin}`
+          sizeTier:parcelInfo.sizeTier,
+          deliveryMode:parcelInfo.deliveryMode,
+          billableWeightKg:parcelInfo.billableWeightKg,
+          dispatchNote:parcelInfo.dispatchNote,
+          source:'live_courier',
+          riderMessage:`Delivery by ${etd} via ${courierName} (${parcelInfo.sizeTier})`
         };
         serviceabilityCache.set(cacheKey,{value:result,expiresAt:Date.now()+SERVICEABILITY_CACHE_TTL_MS});
         return {...result,deliveryFeePaise};
       }catch(error){
-        request.log.warn({err:error.code||error.message,pickupPin,deliveryPin},'Shiprocket serviceability lookup failed; using zone fallback');
+        request.log.warn({err:error.code||error.message,pickupPin,deliveryPin},'Live serviceability lookup failed; using category/size/pincode EDD fallback');
       }
     }
 
-    const fallback=estimateZoneTransit(pickupPin,deliveryPin,codAllowed);
+    const fallback=estimateZoneTransit(pickupPin,deliveryPin,codAllowed,{category,sizeClass,weightKg:safeWeight,lengthCm,breadthCm,heightCm});
     serviceabilityCache.set(cacheKey,{value:fallback,expiresAt:Date.now()+SERVICEABILITY_CACHE_TTL_MS});
     return {...fallback,deliveryFeePaise};
   };

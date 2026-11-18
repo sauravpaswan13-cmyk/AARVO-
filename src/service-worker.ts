@@ -53,6 +53,20 @@ export function onNetworkStatusChange(callback: (isOnline: boolean) => void): ()
 }
 
 /**
+ * Listens for Service Worker messages signaling offline fallback responses.
+ */
+export function onServiceWorkerOfflineMessage(callback: (url?: string) => void): () => void {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return () => {};
+  const handler = (event: MessageEvent) => {
+    if (event.data && event.data.type === 'SW_OFFLINE_FALLBACK') {
+      callback(typeof event.data.url === 'string' ? event.data.url : undefined);
+    }
+  };
+  navigator.serviceWorker.addEventListener('message', handler);
+  return () => navigator.serviceWorker.removeEventListener('message', handler);
+}
+
+/**
  * Clears old or all AARVO caches from CacheStorage.
  */
 export async function clearAppCache(): Promise<boolean> {

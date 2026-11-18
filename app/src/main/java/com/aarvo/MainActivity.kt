@@ -3007,7 +3007,7 @@ private fun ProductDetailsScreen(
 
                     Spacer(Modifier.height(10.dp))
 
-                    // Ratings & AARVO Assured Badge Row
+                    // Ratings Row
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (currentReviewsCount > 0) {
                             Surface(
@@ -3102,15 +3102,6 @@ private fun ProductDetailsScreen(
                                     }
                                 }
                             }
-
-                            val emiAmount = (product.pricePaise / 100) / 3
-                            Text(
-                                text = "₹$emiAmount/month  No Cost EMI ›",
-                                fontSize = 12.sp,
-                                color = Color(0xFFFF5722),
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
                         }
                     }
                 }
@@ -3118,51 +3109,7 @@ private fun ProductDetailsScreen(
 
             Spacer(Modifier.height(10.dp))
 
-            // 2. Special Bank Offers Card
-            Surface(
-                color = Color(0xFFF0FDF4),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, Color(0xFFA7F3D0)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 5.dp)
-            ) {
-                Column(Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🏷️", fontSize = 15.sp)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "Extra ₹100 Off On Selected Bank Cards & UPI",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF065F46)
-                            )
-                        }
-                        Text(
-                            "T&C",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFFF5722)
-                        )
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "Special Price: Get extra 10% instant discount on order checkout.",
-                        fontSize = 11.sp,
-                        color = Color(0xFF047857),
-                        lineHeight = 16.sp
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            // 3. Delivery Card with Inset Cash On Delivery Box
+            // 2. Delivery Card with Inset Payment Protection Box
             Surface(
                 color = Color.White,
                 shape = RoundedCornerShape(16.dp),
@@ -3176,7 +3123,7 @@ private fun ProductDetailsScreen(
                         Text("🚚", fontSize = 18.sp)
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            "Shiprocket Courier • PIN $deliveryPincode",
+                            "Courier Delivery • PIN $deliveryPincode",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF0F172A)
@@ -3306,7 +3253,7 @@ private fun ProductDetailsScreen(
                     }
                 }
 
-                // 3. Brand Warranty
+                // 3. Payment Method Protection
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(14.dp),
@@ -3319,8 +3266,8 @@ private fun ProductDetailsScreen(
                     ) {
                         Text("🛡️", fontSize = 20.sp)
                         Spacer(Modifier.height(6.dp))
-                        Text("Verified Quality", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
-                        Text("Brand warranty", fontSize = 9.sp, color = Color(0xFF64748B))
+                        Text(if (product.codEnabled) "COD Available" else "Online Pay", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                        Text("Razorpay protected", fontSize = 9.sp, color = Color(0xFF64748B))
                     }
                 }
             }
@@ -3345,12 +3292,11 @@ private fun ProductDetailsScreen(
                         letterSpacing = 0.5.sp
                     )
 
-                    listOf(
-                        "100% Original and Brand-Certified Product",
-                        "Tracked Shiprocket Doorstep Delivery by Verified Courier",
-                        "Cash On Delivery (COD) Eligible on Serviceable Pincodes",
-                        "7 Days Easy Replacement & Refund Guarantee",
-                        "GST Invoice and 1 Year Manufacturer Warranty Included"
+                    listOfNotNull(
+                        product.category.takeIf { it.isNotBlank() }?.let { "Category: $it" },
+                        "Tracked Doorstep Delivery to PIN $deliveryPincode",
+                        if (product.codEnabled) "Cash On Delivery (COD) Eligible at Serviceable Pincodes" else "Prepaid Online Checkout via Razorpay",
+                        "7 Days Easy Replacement & Return Policy"
                     ).forEach { bullet ->
                         Row(verticalAlignment = Alignment.Top) {
                             Text("• ", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF5722))
@@ -3373,7 +3319,7 @@ private fun ProductDetailsScreen(
                         letterSpacing = 0.5.sp
                     )
                     Text(
-                        text = product.description.ifBlank { "Authentic quality product sourced directly from verified sellers on AARVO marketplace." },
+                        text = product.description.ifBlank { "No additional description provided by the seller." },
                         fontSize = 11.sp,
                         color = Color(0xFF475569),
                         lineHeight = 17.sp
@@ -3715,11 +3661,20 @@ private fun ProductDetailsScreen(
     var cartServiceability by remember(deliveryPincode) { mutableStateOf<JSONObject?>(null) }
     var checkingCartEta by remember(deliveryPincode) { mutableStateOf(false) }
 
-    LaunchedEffect(deliveryPincode, api) {
+    val primaryCartCategory = groupedItems.firstOrNull()?.category.orEmpty()
+    val allCartCodEligible = groupedItems.all { it.codEnabled }
+
+    LaunchedEffect(deliveryPincode, primaryCartCategory, allCartCodEligible, api) {
         val cleanPin = deliveryPincode.filter(Char::isDigit).take(6)
         if (api != null && cleanPin.matches(Regex("^[1-9][0-9]{5}$"))) {
             checkingCartEta = true
-            cartServiceability = runCatching { api.checkPincodeServiceability(cleanPin) }.getOrNull()
+            cartServiceability = runCatching {
+                api.checkPincodeServiceability(
+                    deliveryPincode = cleanPin,
+                    cod = allCartCodEligible,
+                    category = primaryCartCategory
+                )
+            }.getOrNull()
             checkingCartEta = false
         } else {
             cartServiceability = null
@@ -3727,7 +3682,7 @@ private fun ProductDetailsScreen(
     }
 
     val cartEtaSummary = when {
-        checkingCartEta -> "Checking Shiprocket ETA for $deliveryPincode…"
+        checkingCartEta -> "Checking delivery date for $deliveryPincode…"
         cartServiceability != null && !cartServiceability!!.optBoolean("serviceable", true) ->
             "Currently unserviceable at PIN $deliveryPincode"
         cartServiceability != null -> {
@@ -3735,9 +3690,9 @@ private fun ProductDetailsScreen(
             val etd = cartServiceability!!.optString("etd").takeIf { it.isNotBlank() && it != "null" }
             val freight = cartServiceability!!.optDouble("freightCharge", 0.0).takeIf { !it.isNaN() && it > 0.0 } ?: 0.0
             val shipLabel = if (freight > 0.0) "₹${freight.toInt()}" else "FREE"
-            if (etd != null) "Delivery in $daysText (by $etd) | $shipLabel" else "Delivery in $daysText | $shipLabel"
+            if (etd != null) "Delivery by $etd ($daysText) | $shipLabel" else "Delivery in $daysText | $shipLabel"
         }
-        else -> "Shiprocket ETA calculated at checkout"
+        else -> "Delivery date calculated at checkout"
     }
 
     val cardBg = if (isDarkTheme) Color(0xFF181311) else Color.White
@@ -4794,13 +4749,13 @@ private fun ProductDetailsScreen(
                 ) {
                     Text("Privacy & Data Protection", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = headingColor)
                     Text(
-                        "AARVO collects only the mobile number, delivery address, and order records required to fulfill purchases and Shiprocket courier deliveries. We do not sell personal data. You can permanently delete your account from Account Settings at any time.",
+                        "AARVO collects only the mobile number, delivery address, and order records required to fulfill purchases and courier deliveries. We do not sell personal data. You can permanently delete your account from Account Settings at any time.",
                         fontSize = 11.sp,
                         color = mutedColor
                     )
                     Text("Shipping & Delivery", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = headingColor)
                     Text(
-                        "Delivery estimates are computed dynamically by pincode via Shiprocket courier serviceability.",
+                        "Delivery estimates are computed dynamically by pincode, product category, and parcel size.",
                         fontSize = 11.sp,
                         color = mutedColor
                     )
@@ -5273,7 +5228,7 @@ private fun ProductDetailsScreen(
                             AccountMenuRow(
                                 emoji = "📦",
                                 title = "Orders & Delivery Tracking",
-                                subtitle = "Live Shiprocket status, tracking & history",
+                                subtitle = "Live order status, courier tracking & history",
                                 badgeText = null,
                                 isDarkTheme = isDarkTheme,
                                 onClick = onOpenOrdersTab
@@ -5544,8 +5499,8 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, api: Aar
     val trackingObj = order.optJSONObject("tracking_json")
     val currentStatus = trackingObj?.optString("status")?.takeIf { it.isNotBlank() && it != "null" }
         ?: order.optString("status", "PROCESSING")
-    val carrier = trackingObj?.optString("carrier")?.takeIf { it.isNotBlank() && it != "null" }
-        ?: "Shiprocket Courier"
+    val rawCarrier = trackingObj?.optString("carrier")?.takeIf { it.isNotBlank() && it != "null" } ?: ""
+    val carrier = if (rawCarrier.isBlank() || rawCarrier.contains("shiprocket", ignoreCase = true)) "Express Courier Partner" else rawCarrier
     val awbCode = trackingObj?.optString("trackingCode")?.takeIf { it.isNotBlank() && it != "null" }
         ?: trackingObj?.optString("awb")?.takeIf { it.isNotBlank() && it != "null" }
         ?: ""
@@ -5605,7 +5560,7 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, api: Aar
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Open Live Shiprocket Tracking", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Open Live Courier Tracking", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
 
@@ -5622,7 +5577,7 @@ private fun LiveRiderTrackingDialog(orderId: String, order: JSONObject, api: Aar
                         } else if (errorMsg.isNotBlank()) {
                             Text(errorMsg, fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
                         } else if (events.isEmpty()) {
-                            Text("No courier scan updates yet. Updates appear automatically after Shiprocket pickup.", fontSize = 11.sp, color = Color(0xFF64748B))
+                            Text("No courier scan updates yet. Updates appear automatically after seller pickup.", fontSize = 11.sp, color = Color(0xFF64748B))
                         } else {
                             events.forEach { ev ->
                                 val evStatus = ev.optString("status", "UPDATE")
@@ -5765,10 +5720,11 @@ private fun OrderDetailsDialog(order: JSONObject, detail: JSONObject, onDismiss:
                         Text("Payment: $paymentMethod ($paymentStatus)", fontSize = 11.sp, color = Color(0xFF475569))
                         if (createdAt.isNotBlank()) Text("Placed on: $createdAt", fontSize = 10.sp, color = Color(0xFF64748B))
                         tracking?.let { tr ->
-                            val carrier = tr.optString("carrier", "")
+                            val rawCarrier = tr.optString("carrier", "")
+                            val carrier = if (rawCarrier.isBlank() || rawCarrier.contains("shiprocket", ignoreCase = true)) "Express Courier Partner" else rawCarrier
                             val awb = tr.optString("trackingCode", tr.optString("awb", ""))
                             if (carrier.isNotBlank() || awb.isNotBlank()) {
-                                Text("Courier: ${carrier.ifBlank { "Shiprocket" }}${if (awb.isNotBlank()) " • AWB $awb" else ""}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF0F172A))
+                                Text("Courier: $carrier${if (awb.isNotBlank()) " • AWB $awb" else ""}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF0F172A))
                             }
                         }
                     }
@@ -5889,7 +5845,7 @@ private fun OrderDetailsDialog(order: JSONObject, detail: JSONObject, onDismiss:
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Delivery Pickup Details", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text("Enter the address from where Shiprocket should collect your products.")
+            Text("Enter the address from where courier partners should collect your products.")
             OutlinedTextField(businessName, { businessName = it }, Modifier.fillMaxWidth(), label = { Text("Business / Seller Name") }, singleLine = true)
             OutlinedTextField(businessEmail, { businessEmail = it }, Modifier.fillMaxWidth(), label = { Text("Business Email") }, singleLine = true)
             OutlinedTextField(pickupPhone, { pickupPhone = it.filter(Char::isDigit).take(13) }, Modifier.fillMaxWidth(), label = { Text("Pickup Mobile Number") }, singleLine = true)
