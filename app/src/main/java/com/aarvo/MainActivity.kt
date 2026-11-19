@@ -641,10 +641,30 @@ private fun AarvoFloatingToastBanner(
     val cartItems by cartViewModel.items.collectAsState()
     val cartBadgeCount = cartItems.sumOf { cartViewModel.quantity(it.id) }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }; var wishlist by remember { mutableStateOf(wishlistStore.load()) }; var recentlyViewed by remember { mutableStateOf<List<Product>>(emptyList()) }
+    var localRecentlyViewedIds by remember { mutableStateOf(loadLocalRecentlyViewedIds(appPrefs)) }
+    var merchandisingSections by remember { mutableStateOf(loadCachedMerchandisingConfig(appPrefs)) }
+    var hydratedPinnedProducts by remember { mutableStateOf<List<Product>>(emptyList()) }
     var saveForLater by remember { mutableStateOf(saveForLaterStore.load()) }; var showCheckout by remember { mutableStateOf(false) }; var showLoginRequired by remember { mutableStateOf(false) }; var checkoutLoading by remember { mutableStateOf(false) }; var checkoutMessage by remember { mutableStateOf("") }; var products by remember { mutableStateOf<List<Product>>(emptyList()) }; var allProducts by remember { mutableStateOf<List<Product>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope()
+    LaunchedEffect(api, guestMode, role, selectedTab) {
+        if (selectedTab == 0 || allProducts.isEmpty()) {
+            runCatching {
+                val arr = api.homeMerchandising()
+                val (sections, pinned) = parseRemoteMerchandisingSections(arr)
+                merchandisingSections = sections
+                hydratedPinnedProducts = pinned
+                saveCachedMerchandisingJson(appPrefs, arr)
+                if (pinned.isNotEmpty()) {
+                    allProducts = (allProducts + pinned).distinctBy { it.id }
+                    if (query.isBlank() && category == "All") {
+                        products = (products + pinned).distinctBy { it.id }
+                    }
+                }
+            }
+        }
+    }
     LaunchedEffect(api, guestMode, role) {
         try {
-            allProducts = api.products("", "All").toProductList().distinctBy { it.id }
+            allProducts = (api.products("", "All").toProductList() + hydratedPinnedProducts).distinctBy { it.id }
             cartViewModel.restore(allProducts)
             if (!guestMode && role == "BUYER") {
                 val server = api.serverCart()
@@ -662,7 +682,7 @@ private fun AarvoFloatingToastBanner(
                 }
             }
         } catch (_: Throwable) {
-            allProducts = emptyList()
+            allProducts = hydratedPinnedProducts
         }
     }
     LaunchedEffect(api, guestMode, role, allProducts) {
@@ -674,7 +694,23 @@ private fun AarvoFloatingToastBanner(
             }.getOrDefault(emptyList())
         } else recentlyViewed = emptyList()
     }
-    LaunchedEffect(query, category, api) { loading = true; error = ""; try { products = api.products(query, category).toProductList().distinctBy { it.id } } catch (t: Throwable) { products = emptyList(); error = t.message ?: "Unable to load products." } finally { loading = false } }
+    LaunchedEffect(query, category, api) {
+        loading = true
+        error = ""
+        try {
+            val fetched = api.products(query, category).toProductList()
+            products = if (query.isBlank() && category == "All") {
+                (fetched + hydratedPinnedProducts).distinctBy { it.id }
+            } else {
+                fetched.distinctBy { it.id }
+            }
+        } catch (t: Throwable) {
+            products = emptyList()
+            error = t.message ?: "Unable to load products."
+        } finally {
+            loading = false
+        }
+    }
     val visibleProducts = remember(products, sortMode, minRating, minPrice, maxPrice, inStockOnly, query) {
         val minPriceCap = minPrice
         val maxPriceCap = maxPrice
@@ -1169,7 +1205,10 @@ private fun AarvoFloatingToastBanner(
                             syncAuthenticatedCart()
                             showAppToast("${p.name} added to Cart", "SUCCESS")
                         },
-                        onOpen = { selectedProduct = it },
+                        onOpen = { opened ->
+                            localRecentlyViewedIds = recordLocalRecentlyViewedId(appPrefs, opened.id)
+                            selectedProduct = opened
+                        },
                         wishlist = wishlist,
                         onToggleWishlist = { id ->
                             val added = id !in wishlist
@@ -1191,7 +1230,10 @@ private fun AarvoFloatingToastBanner(
                         onOpenOffers = { selectedTab = 5 },
                         onOpenCategories = { selectedTab = 1 },
                         onShowToast = ::showAppToast,
-                        isDarkTheme = isDarkTheme
+                        isDarkTheme = isDarkTheme,
+                        merchandisingSections = merchandisingSections,
+                        recentlyViewedIds = localRecentlyViewedIds,
+                        cartProductIds = cartItems.map { it.id }
                     )
                     1 -> PreviewCategoriesExplorerScreen(
                         padding = padding,
@@ -1957,8 +1999,8 @@ private fun JSONArray.toProductList(): List<Product> = buildList {
             if (pricePaise < 0L) return@runCatching null
             val originalPricePaise = o.optLong("original_price_paise", pricePaise).coerceAtLeast(0L)
             val reviewsCount = o.optInt("reviews_count", o.optInt("reviewsCount", 0)).coerceAtLeast(0)
-            val deliveryFeePaise = o.optLong("delivery_fee_paise", 0L).coerceAtLeast(0L)
-            val codEnabled = o.optBoolean("cod_enabled", true)
+            val deliveryFeePaise = if (o.isNull("delivery_fee_paise")) 0L else o.optLong("delivery_fee_paise", 0L).coerceAtLeast(0L)
+            val codEnabled = if (o.isNull("cod_enabled")) true else o.optBoolean("cod_enabled", true)
             Product(
                 id = id,
                 sellerId = o.optString("seller_id", ""),
@@ -3217,7 +3259,7 @@ private fun ProductDetailsScreen(
                     .padding(horizontal = 14.dp, vertical = 5.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // 1. Free Delivery
+                // 1. Doorstep Delivery
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(14.dp),
@@ -3230,8 +3272,8 @@ private fun ProductDetailsScreen(
                     ) {
                         Text("🚚", fontSize = 20.sp)
                         Spacer(Modifier.height(6.dp))
-                        Text("Free Delivery", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
-                        Text("Fast doorstep", fontSize = 9.sp, color = Color(0xFF64748B))
+                        Text("Doorstep Delivery", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                        Text("Trackable courier", fontSize = 9.sp, color = Color(0xFF64748B))
                     }
                 }
 
@@ -3253,7 +3295,7 @@ private fun ProductDetailsScreen(
                     }
                 }
 
-                // 3. Payment Method Protection
+                // 3. Payment Method Eligibility
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(14.dp),
@@ -3267,7 +3309,7 @@ private fun ProductDetailsScreen(
                         Text("🛡️", fontSize = 20.sp)
                         Spacer(Modifier.height(6.dp))
                         Text(if (product.codEnabled) "COD Available" else "Online Pay", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
-                        Text("Razorpay protected", fontSize = 9.sp, color = Color(0xFF64748B))
+                        Text("Safe checkout", fontSize = 9.sp, color = Color(0xFF64748B))
                     }
                 }
             }

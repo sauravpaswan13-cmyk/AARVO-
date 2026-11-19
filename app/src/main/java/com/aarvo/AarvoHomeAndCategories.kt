@@ -8,6 +8,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -213,7 +214,10 @@ fun PreviewHomeScreen(
     onOpenOffers: () -> Unit,
     onOpenCategories: () -> Unit,
     onShowToast: (String, String) -> Unit = { _, _ -> },
-    isDarkTheme: Boolean = false
+    isDarkTheme: Boolean = false,
+    merchandisingSections: List<HomeMerchandisingSectionConfig> = defaultHomeMerchandisingSections(),
+    recentlyViewedIds: List<Int> = emptyList(),
+    cartProductIds: List<Int> = emptyList()
 ) {
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
@@ -224,6 +228,25 @@ fun PreviewHomeScreen(
     val cardBorder = if (isDarkTheme) Color(0xFF332620) else Color(0xFFFFE8D6)
     val textColor = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF0F172A)
     val mutedColor = if (isDarkTheme) Color(0xFFCBBDB4) else Color(0xFF64748B)
+
+    val zoneCatalog = remember(allProducts, products) { allProducts.ifEmpty { products } }
+    val combinedViewedIds = remember(recentlyViewedIds, recentlyViewed) {
+        (recentlyViewedIds + recentlyViewed.map { it.id }).distinct()
+    }
+    val stillLookingConfig = remember(merchandisingSections) {
+        merchandisingSections.firstOrNull { it.id == "still_looking" }
+            ?: defaultHomeMerchandisingSections().first()
+    }
+    val stillLookingEntries = remember(zoneCatalog, combinedViewedIds, wishlist, cartProductIds, stillLookingConfig) {
+        selectStillLookingEntries(
+            catalog = zoneCatalog,
+            recentlyViewedIds = combinedViewedIds,
+            wishlistIds = wishlist,
+            cartProductIds = cartProductIds,
+            limit = stillLookingConfig.maxItems,
+            pinnedIds = stillLookingConfig.pinnedProductIds
+        )
+    }
 
     // Precompute query-matched products for Search Results "Refine by Category" counts
     val queryMatched = remember(allProducts, query) {
@@ -575,6 +598,26 @@ fun PreviewHomeScreen(
                 )
             }
 
+            // 1B. STILL LOOKING FOR THESE? (Admin-managed, Periwinkle Lavender Frost Theme)
+            if (stillLookingConfig.enabled && (loading || stillLookingEntries.isNotEmpty())) {
+                item(key = "merch_still_looking") {
+                    AndroidStillLookingZone(
+                        config = stillLookingConfig,
+                        entries = stillLookingEntries,
+                        hasRecentViews = combinedViewedIds.isNotEmpty(),
+                        loading = loading,
+                        isDarkTheme = isDarkTheme,
+                        onOpenProduct = { product ->
+                            triggerHaptic(haptics)
+                            scope.launch {
+                                runCatching { api.markProductViewed(product.id) }
+                                onOpen(product)
+                            }
+                        }
+                    )
+                }
+            }
+
             // 2. Shop by Category (5 Real Square Image Tiles matching Screenshot)
             item {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -731,44 +774,6 @@ fun PreviewHomeScreen(
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                             )
-                        }
-                    }
-                }
-            }
-
-            // 4. Recently Viewed Strip (when populated)
-            if (recentlyViewed.isNotEmpty()) {
-                item {
-                    Column(Modifier.fillMaxWidth()) {
-                        Text(
-                            "Recently Viewed",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Black,
-                            color = textColor,
-                            modifier = Modifier.padding(bottom = 6.dp)
-                        )
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            items(recentlyViewed, key = { it.id }) { product ->
-                                Surface(
-                                    modifier = Modifier
-                                        .size(width = 160.dp, height = 124.dp)
-                                        .clickable {
-                                            triggerHaptic(haptics)
-                                            onOpen(product)
-                                        },
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = cardBg,
-                                    border = BorderStroke(1.dp, cardBorder)
-                                ) {
-                                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                                        Text(product.name, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = textColor, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                        Column {
-                                            Text(product.displayPrice, fontSize = 13.sp, fontWeight = FontWeight.Black, color = Color(0xFFFF5722))
-                                            Text("View again ›", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = mutedColor)
-                                        }
-                                    }
-                                }
-                            }
                         }
                     }
                 }
@@ -961,47 +966,115 @@ fun PreviewHomeScreen(
                         if (topDeals.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
+            }
 
-                // 6. "More products for you" Section
-                val moreProducts = if (products.size > 2) products.drop(2) else products
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            if (selectedCategory == "All") "More products for you" else "$selectedCategory Department",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Black,
-                            color = textColor
+            // 6. DYNAMIC ADMIN-MANAGED MERCHANDISING ZONES (5 Distinct Premium Themes)
+            val orderedZones = merchandisingSections
+                .filter { it.id != "still_looking" && it.enabled }
+                .sortedWith(compareBy<HomeMerchandisingSectionConfig> { it.sortOrder }.thenBy { it.id })
+
+            orderedZones.forEach { sec ->
+                when (sec.id) {
+                    "brands_spotlight" -> {
+                        val entries = selectBrandsInSpotlight(
+                            catalog = zoneCatalog,
+                            limit = sec.maxItems,
+                            pinnedIds = sec.pinnedProductIds
                         )
-                        Text(
-                            "View All >",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFFF5722),
-                            modifier = Modifier.clickable { onOpenCategories() }
-                        )
+                        if (loading || entries.isNotEmpty()) {
+                            item(key = "merch_brands_spotlight") {
+                                AndroidBrandsSpotlightZone(
+                                    config = sec,
+                                    entries = entries,
+                                    loading = loading,
+                                    isDarkTheme = isDarkTheme,
+                                    onOpenProduct = { product ->
+                                        triggerHaptic(haptics)
+                                        scope.launch {
+                                            runCatching { api.markProductViewed(product.id) }
+                                            onOpen(product)
+                                        }
+                                    }
+                                )
+                            }
+                        }
                     }
-                }
 
-                items(moreProducts.chunked(2)) { rowPair ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        rowPair.forEach { product ->
-                            Box(Modifier.weight(1f)) {
-                                PreviewProductCard(
-                                    product = product,
-                                    isSaved = product.id in wishlist,
+                    "top_value_deals" -> {
+                        val picks = selectTopValueDeals(
+                            catalog = products.ifEmpty { zoneCatalog },
+                            limit = sec.maxItems,
+                            pinnedIds = sec.pinnedProductIds
+                        )
+                        if (loading || picks.isNotEmpty()) {
+                            item(key = "merch_top_value_deals") {
+                                AndroidTopValueDealsZone(
+                                    config = sec,
+                                    picks = picks,
+                                    loading = loading,
+                                    isDarkTheme = isDarkTheme,
+                                    onOpenProduct = { product ->
+                                        triggerHaptic(haptics)
+                                        scope.launch {
+                                            runCatching { api.markProductViewed(product.id) }
+                                            onOpen(product)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    "suggested_for_you" -> {
+                        val picks = selectSuggestedForYou(
+                            catalog = zoneCatalog,
+                            recentlyViewedIds = combinedViewedIds,
+                            wishlistIds = wishlist,
+                            cartProductIds = cartProductIds,
+                            limit = sec.maxItems,
+                            pinnedIds = sec.pinnedProductIds
+                        )
+                        if (loading || picks.isNotEmpty()) {
+                            item(key = "merch_suggested_for_you") {
+                                AndroidSuggestedForYouZone(
+                                    config = sec,
+                                    picks = picks,
+                                    loading = loading,
+                                    isDarkTheme = isDarkTheme,
+                                    onOpenProduct = { product ->
+                                        triggerHaptic(haptics)
+                                        scope.launch {
+                                            runCatching { api.markProductViewed(product.id) }
+                                            onOpen(product)
+                                        }
+                                    },
+                                    onOpenCategories = onOpenCategories
+                                )
+                            }
+                        }
+                    }
+
+                    "more_products" -> {
+                        val baseCatalog = if (selectedCategory == "All") products.ifEmpty { zoneCatalog } else products
+                        val morePicks = selectMoreProducts(
+                            catalog = baseCatalog,
+                            limit = sec.maxItems,
+                            pinnedIds = sec.pinnedProductIds
+                        )
+                        if (!loading && morePicks.isNotEmpty()) {
+                            item(key = "merch_more_products") {
+                                AndroidMoreProductsZone(
+                                    config = sec,
+                                    picks = morePicks,
+                                    selectedCategory = selectedCategory,
+                                    wishlist = wishlist,
+                                    isDarkTheme = isDarkTheme,
                                     onAdd = { p ->
                                         triggerHaptic(haptics, strong = true)
                                         onAdd(p)
                                         Toast.makeText(context, "${p.name} added to Cart", Toast.LENGTH_SHORT).show()
                                     },
-                                    onOpen = {
+                                    onOpen = { product ->
                                         triggerHaptic(haptics)
                                         scope.launch {
                                             runCatching { api.markProductViewed(product.id) }
@@ -1012,15 +1085,16 @@ fun PreviewHomeScreen(
                                         triggerHaptic(haptics)
                                         onToggleWishlist(id)
                                     },
-                                    isDarkTheme = isDarkTheme
+                                    onOpenCategories = onOpenCategories
                                 )
                             }
                         }
-                        if (rowPair.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
+            }
 
-                // 7. Floating "↓ More below" pill button
+            // 7. Floating "↓ More below" pill button
+            if (!loading && products.isNotEmpty()) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
                         Surface(
@@ -1266,8 +1340,8 @@ fun PreviewProductCard(
                     }
                 }
 
-                // Genuine Rating Pill Bottom-Left (ONLY if rating > 0)
-                if (product.rating > 0.0) {
+                // Genuine Rating Pill Bottom-Left (ONLY when product has genuine reviews)
+                if (product.reviewsCount > 0 && product.rating > 0.0) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = Color(0xFF059669),
@@ -1339,7 +1413,7 @@ fun PreviewProductCard(
 
             Spacer(Modifier.height(6.dp))
 
-            // Footer matching Preview: Free Delivery + Add to Cart button
+            // Footer: COD / Online Pay eligibility + Add to Cart button
             Box(Modifier.fillMaxWidth().height(0.5.dp).background(cardBorder))
             Spacer(Modifier.height(6.dp))
 
@@ -1349,10 +1423,10 @@ fun PreviewProductCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    if (product.deliveryFeePaise <= 0L) "Free Delivery" else "Delivery ₹${product.deliveryFeePaise / 100}",
+                    if (product.codEnabled) "COD Eligible" else "Online Pay",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (product.deliveryFeePaise <= 0L) Color(0xFF059669) else Color(0xFF64748B)
+                    color = Color(0xFF059669)
                 )
                 Surface(
                     shape = RoundedCornerShape(8.dp),
@@ -1971,6 +2045,849 @@ fun PreviewOffersScreen(
                     }
                 }
                 if (rowPair.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun AndroidStillLookingZone(
+    config: HomeMerchandisingSectionConfig,
+    entries: List<StillLookingEntry>,
+    hasRecentViews: Boolean,
+    loading: Boolean,
+    isDarkTheme: Boolean,
+    onOpenProduct: (Product) -> Unit
+) {
+    val brush = if (isDarkTheme) {
+        Brush.linearGradient(listOf(Color(0xFF1D1A2B), Color(0xFF241B29), Color(0xFF1C1613)))
+    } else {
+        Brush.linearGradient(listOf(Color(0xFFE9F0FF), Color(0xFFF3E9FF), Color(0xFFFFF2EA)))
+    }
+    val borderColor = if (isDarkTheme) Color(0xFF3730A3).copy(alpha = 0.45f) else Color(0xFFC7D2FE).copy(alpha = 0.85f)
+    val textColor = if (isDarkTheme) Color.White else Color(0xFF0F172A)
+    val subColor = if (isDarkTheme) Color(0xFFCBD5E1) else Color(0xFF475569)
+    val cardBg = if (isDarkTheme) Color(0xFF211A17) else Color(0xFFFCFCFF)
+    val imgBg = if (isDarkTheme) Color(0xFF141110) else Color(0xFFFFF9F2)
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, borderColor),
+        shadowElevation = 1.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(brush)
+                .padding(12.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = config.title,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black,
+                            color = textColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = if (hasRecentViews) {
+                                config.subtitle.ifBlank { "Based on items you viewed, saved & carted" }
+                            } else {
+                                config.subtitle.ifBlank { "Tap any product to track your browsing picks" }
+                            },
+                            fontSize = 10.sp,
+                            color = subColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (config.badgeText.isNotBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isDarkTheme) Color(0xFF312E81) else Color(0xFF4F46E5)
+                        ) {
+                            Text(
+                                text = config.badgeText,
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (loading && entries.isEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        repeat(3) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(132.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(cardBg.copy(alpha = 0.7f))
+                            )
+                        }
+                    }
+                } else {
+                    entries.chunked(3).forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowItems.forEach { entry ->
+                                val product = entry.product
+                                val pct = product.discountPercent
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onOpenProduct(product) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = cardBg,
+                                    border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF2D2522) else Color.White)
+                                ) {
+                                    Column(modifier = Modifier.padding(6.dp)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(1f)
+                                                .clip(RoundedCornerShape(9.dp))
+                                                .background(imgBg),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (!product.imageUrl.isNullOrBlank()) {
+                                                AsyncImage(
+                                                    model = product.imageUrl,
+                                                    contentDescription = product.name,
+                                                    modifier = Modifier.fillMaxSize().padding(3.dp),
+                                                    contentScale = ContentScale.Fit
+                                                )
+                                            } else {
+                                                Text(product.emoji.ifBlank { "🛍️" }, fontSize = 26.sp)
+                                            }
+                                            if (pct > 0) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(bottomEnd = 8.dp),
+                                                    color = Color(0xFF2563EB),
+                                                    modifier = Modifier.align(Alignment.TopStart)
+                                                ) {
+                                                    Text(
+                                                        text = "↓${pct}%",
+                                                        color = Color.White,
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        Spacer(Modifier.height(5.dp))
+                                        Text(
+                                            text = product.name,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = textColor,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "₹${product.pricePaise / 100}",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = textColor
+                                        )
+                                        Text(
+                                            text = entry.reasonLabel,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = subColor,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                            repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AndroidBrandsSpotlightZone(
+    config: HomeMerchandisingSectionConfig,
+    entries: List<BrandSpotlightEntry>,
+    loading: Boolean,
+    isDarkTheme: Boolean,
+    onOpenProduct: (Product) -> Unit
+) {
+    val brush = if (isDarkTheme) {
+        Brush.verticalGradient(listOf(Color(0xFF211A17), Color(0xFF27181E), Color(0xFF1B1512)))
+    } else {
+        Brush.verticalGradient(listOf(Color(0xFFFFFDF9), Color(0xFFFFF1F5), Color(0xFFFFF6EC)))
+    }
+    val borderColor = if (isDarkTheme) Color(0xFF881337).copy(alpha = 0.45f) else Color(0xFFFECDD3).copy(alpha = 0.85f)
+    val textColor = if (isDarkTheme) Color.White else Color(0xFF0F172A)
+    val subColor = if (isDarkTheme) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val cardBg = if (isDarkTheme) Color(0xFF211A17) else Color.White
+    val imgBgBrush = if (isDarkTheme) {
+        Brush.linearGradient(listOf(Color(0xFF1C1917), Color(0xFF241A1E)))
+    } else {
+        Brush.linearGradient(listOf(Color(0xFFFFF9F5), Color(0xFFFFEFF4)))
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, borderColor),
+        shadowElevation = 1.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(brush)
+                .padding(12.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = config.title,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black,
+                            color = textColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (config.badgeText.isNotBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFFE11D48)
+                            ) {
+                                Text(
+                                    text = config.badgeText,
+                                    color = Color.White,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                    if (config.subtitle.isNotBlank()) {
+                        Text(
+                            text = config.subtitle,
+                            fontSize = 10.sp,
+                            color = subColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                if (loading && entries.isEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        repeat(3) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(126.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(cardBg.copy(alpha = 0.7f))
+                            )
+                        }
+                    }
+                } else {
+                    entries.chunked(3).forEach { rowEntries ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowEntries.forEach { entry ->
+                                val product = entry.product
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onOpenProduct(product) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = cardBg,
+                                    border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF332620) else Color(0xFFFFE4E6))
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(6.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(1f)
+                                                .clip(RoundedCornerShape(9.dp))
+                                                .background(imgBgBrush),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (!product.imageUrl.isNullOrBlank()) {
+                                                AsyncImage(
+                                                    model = product.imageUrl,
+                                                    contentDescription = product.name,
+                                                    modifier = Modifier.fillMaxSize().padding(4.dp),
+                                                    contentScale = ContentScale.Fit
+                                                )
+                                            } else {
+                                                Text(product.emoji.ifBlank { "🛍️" }, fontSize = 26.sp)
+                                            }
+                                            Surface(
+                                                shape = RoundedCornerShape(5.dp),
+                                                color = Color(0xFF0F172A).copy(alpha = 0.78f),
+                                                modifier = Modifier.align(Alignment.TopStart).padding(4.dp)
+                                            ) {
+                                                Text(
+                                                    text = product.sellerName.split(" ").take(2).joinToString(" "),
+                                                    color = Color.White,
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                            if (entry.isAdminCurated) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = Color(0xFFF59E0B),
+                                                    modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "Featured",
+                                                        color = Color(0xFF0F172A),
+                                                        fontSize = 7.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        Spacer(Modifier.height(5.dp))
+                                        Text(
+                                            text = entry.headline,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = textColor,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Text(
+                                            text = entry.caption,
+                                            fontSize = 9.sp,
+                                            color = subColor,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
+                            repeat(3 - rowEntries.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AndroidTopValueDealsZone(
+    config: HomeMerchandisingSectionConfig,
+    picks: List<MerchandisingProductPick>,
+    loading: Boolean,
+    isDarkTheme: Boolean,
+    onOpenProduct: (Product) -> Unit
+) {
+    val brush = if (isDarkTheme) {
+        Brush.linearGradient(listOf(Color(0xFF3D2808), Color(0xFF2E1E08), Color(0xFF211509)))
+    } else {
+        Brush.linearGradient(listOf(Color(0xFFFFE082), Color(0xFFFBBF24), Color(0xFFF59E0B)))
+    }
+    val borderColor = if (isDarkTheme) Color(0xFF92400E).copy(alpha = 0.65f) else Color(0xFFFCD34D).copy(alpha = 0.85f)
+    val textColor = if (isDarkTheme) Color(0xFFFEF3C7) else Color(0xFF0F172A)
+    val subColor = if (isDarkTheme) Color(0xFFFDE68A).copy(alpha = 0.8f) else Color(0xFF78350F)
+    val cardBg = if (isDarkTheme) Color(0xFF211A17) else Color(0xFFFFFDF7)
+    val imgBg = if (isDarkTheme) Color(0xFF141110) else Color(0xFFFFFBEB)
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, borderColor),
+        shadowElevation = 1.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(brush)
+        ) {
+            Canvas(modifier = Modifier.matchParentSize()) {
+                val step = 18.dp.toPx()
+                val lineColor = if (isDarkTheme) Color(0xFFF59E0B).copy(alpha = 0.08f) else Color(0xFF92400E).copy(alpha = 0.11f)
+                var x = 0f
+                while (x < size.width) {
+                    drawLine(lineColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1f)
+                    x += step
+                }
+                var y = 0f
+                while (y < size.height) {
+                    drawLine(lineColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
+                    y += step
+                }
+            }
+
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = config.title,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            color = textColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (config.subtitle.isNotBlank()) {
+                            Text(
+                                text = config.subtitle,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = subColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    if (config.badgeText.isNotBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isDarkTheme) Color(0xFF1B130B) else Color.White,
+                            border = BorderStroke(1.5.dp, Color(0xFFDC2626))
+                        ) {
+                            Text(
+                                text = config.badgeText,
+                                color = if (isDarkTheme) Color(0xFFFCD34D) else Color(0xFFDC2626),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (loading && picks.isEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        repeat(3) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(126.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(cardBg.copy(alpha = 0.7f))
+                            )
+                        }
+                    }
+                } else {
+                    picks.chunked(3).forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowItems.forEach { pick ->
+                                val product = pick.product
+                                val rupees = product.pricePaise / 100L
+                                val priceText = if (rupees <= 999L) {
+                                    "Under ₹${(((rupees + 99L) / 100L) * 100L).coerceAtLeast(99L)}"
+                                } else {
+                                    "Just ₹$rupees"
+                                }
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onOpenProduct(product) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = cardBg,
+                                    border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF78350F) else Color(0xFFFEF3C7))
+                                ) {
+                                    Column(modifier = Modifier.padding(6.dp)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(1f)
+                                                .clip(RoundedCornerShape(9.dp))
+                                                .background(imgBg),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (!product.imageUrl.isNullOrBlank()) {
+                                                AsyncImage(
+                                                    model = product.imageUrl,
+                                                    contentDescription = product.name,
+                                                    modifier = Modifier.fillMaxSize().padding(3.dp),
+                                                    contentScale = ContentScale.Fit
+                                                )
+                                            } else {
+                                                Text(product.emoji.ifBlank { "🛍️" }, fontSize = 26.sp)
+                                            }
+                                            if (pick.isAdminCurated) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(5.dp),
+                                                    color = Color(0xFF0F172A),
+                                                    modifier = Modifier.align(Alignment.TopStart).padding(4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "Admin Pick",
+                                                        color = Color(0xFFFCD34D),
+                                                        fontSize = 8.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        Spacer(Modifier.height(5.dp))
+                                        Text(
+                                            text = product.name,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isDarkTheme) Color.White else Color(0xFF0F172A),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = priceText,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = if (isDarkTheme) Color(0xFFFCD34D) else Color(0xFF0F172A)
+                                        )
+                                    }
+                                }
+                            }
+                            repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AndroidSuggestedForYouZone(
+    config: HomeMerchandisingSectionConfig,
+    picks: List<MerchandisingProductPick>,
+    loading: Boolean,
+    isDarkTheme: Boolean,
+    onOpenProduct: (Product) -> Unit,
+    onOpenCategories: () -> Unit
+) {
+    val brush = if (isDarkTheme) {
+        Brush.linearGradient(listOf(Color(0xFF13221D), Color(0xFF141E26), Color(0xFF1B1614)))
+    } else {
+        Brush.linearGradient(listOf(Color(0xFFECFDF5), Color(0xFFEBF8FF), Color(0xFFFFFDF9)))
+    }
+    val borderColor = if (isDarkTheme) Color(0xFF065F46).copy(alpha = 0.5f) else Color(0xFFA7F3D0).copy(alpha = 0.85f)
+    val textColor = if (isDarkTheme) Color.White else Color(0xFF0F172A)
+    val subColor = if (isDarkTheme) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val cardBg = if (isDarkTheme) Color(0xFF211A17) else Color.White
+    val imgBg = if (isDarkTheme) Color(0xFF141110) else Color(0xFFF7FCFA)
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, borderColor),
+        shadowElevation = 1.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(brush)
+                .padding(12.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = config.title,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black,
+                            color = textColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (config.subtitle.isNotBlank()) {
+                            Text(
+                                text = config.subtitle,
+                                fontSize = 10.sp,
+                                color = subColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isDarkTheme) Color(0xFFFF5722) else Color(0xFF0F172A),
+                        modifier = Modifier.clickable { onOpenCategories() }
+                    ) {
+                        Text(
+                            text = "→",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+
+                if (loading && picks.isEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        repeat(3) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(126.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(cardBg.copy(alpha = 0.7f))
+                            )
+                        }
+                    }
+                } else {
+                    picks.chunked(3).forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowItems.forEach { pick ->
+                                val product = pick.product
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onOpenProduct(product) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = cardBg,
+                                    border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF2D2522) else Color(0xFFD1FAE5))
+                                ) {
+                                    Column(modifier = Modifier.padding(6.dp)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(1f)
+                                                .clip(RoundedCornerShape(9.dp))
+                                                .background(imgBg),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (!product.imageUrl.isNullOrBlank()) {
+                                                AsyncImage(
+                                                    model = product.imageUrl,
+                                                    contentDescription = product.name,
+                                                    modifier = Modifier.fillMaxSize().padding(3.dp),
+                                                    contentScale = ContentScale.Fit
+                                                )
+                                            } else {
+                                                Text(product.emoji.ifBlank { "🛍️" }, fontSize = 26.sp)
+                                            }
+                                            if (product.reviewsCount > 0 && product.rating > 0.0) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = Color(0xFF059669),
+                                                    modifier = Modifier.align(Alignment.BottomStart).padding(4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "%.1f ★".format(product.rating),
+                                                        color = Color.White,
+                                                        fontSize = 8.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    )
+                                                }
+                                            }
+                                            if (pick.isAdminCurated) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(5.dp),
+                                                    color = Color(0xFF047857),
+                                                    modifier = Modifier.align(Alignment.TopStart).padding(4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "Curated",
+                                                        color = Color.White,
+                                                        fontSize = 8.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        Spacer(Modifier.height(5.dp))
+                                        Text(
+                                            text = product.name,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = textColor,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "₹${product.pricePaise / 100}",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = textColor
+                                        )
+                                    }
+                                }
+                            }
+                            repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AndroidMoreProductsZone(
+    config: HomeMerchandisingSectionConfig,
+    picks: List<MerchandisingProductPick>,
+    selectedCategory: String,
+    wishlist: Set<Int>,
+    isDarkTheme: Boolean,
+    onAdd: (Product) -> Unit,
+    onOpen: (Product) -> Unit,
+    onToggleWishlist: (Int) -> Unit,
+    onOpenCategories: () -> Unit
+) {
+    val brush = if (isDarkTheme) {
+        Brush.verticalGradient(listOf(Color(0xFF221914), Color(0xFF1B1512), Color(0xFF181311)))
+    } else {
+        Brush.verticalGradient(listOf(Color(0xFFFFF6EC), Color(0xFFFFFDF9), Color.White))
+    }
+    val borderColor = if (isDarkTheme) Color(0xFF332620) else Color(0xFFFED7AA).copy(alpha = 0.85f)
+    val textColor = if (isDarkTheme) Color.White else Color(0xFF0F172A)
+    val subColor = if (isDarkTheme) Color(0xFF94A3B8) else Color(0xFF64748B)
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, borderColor),
+        shadowElevation = 1.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(brush)
+                .padding(12.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (selectedCategory == "All") config.title else "$selectedCategory Department",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            color = textColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (config.subtitle.isNotBlank()) {
+                            Text(
+                                text = config.subtitle,
+                                fontSize = 10.sp,
+                                color = subColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    Text(
+                        text = "View All >",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFFF5722),
+                        modifier = Modifier.clickable { onOpenCategories() }
+                    )
+                }
+
+                picks.chunked(2).forEach { rowPair ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        rowPair.forEach { pick ->
+                            Box(Modifier.weight(1f)) {
+                                PreviewProductCard(
+                                    product = pick.product,
+                                    isSaved = pick.product.id in wishlist,
+                                    onAdd = onAdd,
+                                    onOpen = { onOpen(pick.product) },
+                                    onToggleWishlist = onToggleWishlist,
+                                    isDarkTheme = isDarkTheme
+                                )
+                                if (pick.isAdminCurated) {
+                                    Surface(
+                                        shape = RoundedCornerShape(5.dp),
+                                        color = Color(0xFF0F172A).copy(alpha = 0.88f),
+                                        modifier = Modifier.align(Alignment.TopStart).padding(14.dp)
+                                    ) {
+                                        Text(
+                                            text = "Featured",
+                                            color = Color(0xFFFCD34D),
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Black,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (rowPair.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                }
             }
         }
     }

@@ -35,6 +35,18 @@ class AarvoApiClient(
     suspend fun productReviews(productId: Int): JSONArray { require(productId > 0) { "Product ID must be positive" }; return get("/v1/products/$productId/reviews") }
     suspend fun productImages(productId: Int): JSONArray { require(productId > 0) { "Product ID must be positive" }; return get("/v1/products/$productId/images") }
     suspend fun heroSlides(): JSONArray = get("/v1/home/hero")
+    suspend fun homeMerchandising(): JSONArray = withContext(Dispatchers.IO) {
+        JSONArray(
+            execute(
+                Request.Builder()
+                    .url(buildUrl("/v1/home/merchandising"))
+                    .header("Cache-Control", "no-cache")
+                    .applyAuth()
+                    .get()
+                    .build()
+            )
+        )
+    }
     suspend fun offers(): JSONArray = get("/v1/offers")
     suspend fun productDeals(): JSONArray = get("/v1/deals")
     suspend fun validateOffer(code: String, subtotalPaise: Long): JSONObject { require(code.trim().isNotBlank()) { "Offer code is required" }; require(subtotalPaise >= 0) { "Subtotal cannot be negative" }; return post("/v1/offers/validate", JSONObject().put("code", code.trim().uppercase()).put("subtotalPaise", subtotalPaise)) }

@@ -911,7 +911,7 @@ fun PreviewProductDetailsScreen(
                             }
                             Column {
                                 Text(
-                                    if (freightCharge > 0.0) "Delivery Charge ₹${freightCharge.toInt()}" else "Free Delivery",
+                                    if (freightCharge > 0.0) "Delivery Charge ₹${freightCharge.toInt()}" else "Standard Delivery",
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Black,
                                     color = textColor
@@ -1200,12 +1200,12 @@ fun PreviewProductDetailsScreen(
                     val deliveryBadgeTitle = when {
                         freightCharge > 0.0 -> "Courier ₹${freightCharge.toInt()}"
                         product.deliveryFeePaise > 0L -> "Delivery ₹${product.deliveryFeePaise / 100}"
-                        else -> "Free Delivery"
+                        else -> "Courier Delivery"
                     }
                     listOf(
                         Triple(deliveryBadgeTitle, etaDateText?.let { "By $it" } ?: "$etaDaysText ETA", "truck"),
                         Triple("7 Days Return", "Easy replacement", "return"),
-                        Triple(if (codEligibleAtPin) "COD Eligible" else "Online Pay", "Razorpay protected", "shield")
+                        Triple(if (codEligibleAtPin) "COD Eligible" else "Online Pay", "Safe checkout", "shield")
                     ).forEach { (title, sub, kind) ->
                         Surface(
                             modifier = Modifier.weight(1f),
