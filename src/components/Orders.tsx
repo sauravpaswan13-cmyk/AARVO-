@@ -36,6 +36,7 @@ import {
   parseShippingAddressText,
 } from './OrderDetailsModal';
 import { haptics } from '../utils/haptics';
+import { getStoredAuthToken, resolveApiBaseUrl } from '../utils/authSession';
 import prodWhiteSneakersImg from '../assets/images/prod_white_sneakers_1794533652181.jpg';
 import catMobilesPhoneImg from '../assets/images/cat_mobiles_phone_1794533648438.jpg';
 import catFashionBagImg from '../assets/images/cat_fashion_bag_1794533648322.jpg';
@@ -65,6 +66,7 @@ export interface OrdersProps {
   customerName?: string;
   customerPhone?: string;
   onOpenSupport?: () => void;
+  embedded?: boolean;
 }
 
 const ITEM_STAGE_STEPS = ['Ordered', 'Packed', 'Shipped', 'Delivered'] as const;
@@ -312,6 +314,7 @@ export const Orders: React.FC<OrdersProps> = ({
   customerName = 'AARVO Customer',
   customerPhone = '',
   onOpenSupport,
+  embedded = false,
 }) => {
   const [trackedOrders, setTrackedOrders] = useState<TrackedOrder[]>(() => {
     if (initialOrdersProp && initialOrdersProp.length > 0) {
@@ -357,14 +360,7 @@ export const Orders: React.FC<OrdersProps> = ({
   const notifyRef = useRef(notify);
   notifyRef.current = notify;
 
-  const resolvedApiBase = useMemo(() => {
-    if (apiBaseUrl !== undefined) return apiBaseUrl.replace(/\/$/, '');
-    const envBase =
-      (typeof import.meta !== 'undefined' &&
-        (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL) ||
-      '';
-    return envBase.replace(/\/$/, '');
-  }, [apiBaseUrl]);
+  const resolvedApiBase = useMemo(() => resolveApiBaseUrl(apiBaseUrl), [apiBaseUrl]);
 
   const fetchOrderHistory = useCallback(
     async (manualRefresh = false) => {
@@ -377,11 +373,9 @@ export const Orders: React.FC<OrdersProps> = ({
       setFetchNotice(null);
 
       const token =
-        authToken !== undefined
-          ? authToken
-          : typeof window !== 'undefined'
-          ? localStorage.getItem('aarvo_token') || localStorage.getItem('token')
-          : null;
+        authToken !== undefined && authToken !== null && authToken.trim()
+          ? authToken.trim()
+          : getStoredAuthToken();
 
       try {
         const headers: Record<string, string> = {
@@ -759,13 +753,23 @@ export const Orders: React.FC<OrdersProps> = ({
   return (
     <section
       aria-label="Past Orders and Item Status Tracking"
-      className="flex-1 flex flex-col bg-[#FFFDF9] dark:bg-[#120E0C] min-h-screen pb-24"
+      className={
+        embedded
+          ? 'flex flex-col pb-4'
+          : 'flex-1 flex flex-col bg-[#FFFDF9] dark:bg-[#120E0C] min-h-screen pb-24'
+      }
     >
-      {/* Top Sticky Header */}
-      <header className="sticky top-0 z-30 bg-[#FFFDF9]/95 dark:bg-[#181311]/95 backdrop-blur-md border-b border-orange-100 dark:border-stone-800 px-3.5 py-3">
+      {/* Top Sticky Header (or compact inline toolbar when embedded inside Settings) */}
+      <header
+        className={
+          embedded
+            ? 'bg-white dark:bg-[#211A17] border border-orange-100 dark:border-stone-800 rounded-2xl p-3.5 mb-3 shadow-2xs'
+            : 'sticky top-0 z-30 bg-[#FFFDF9]/95 dark:bg-[#181311]/95 backdrop-blur-md border-b border-orange-100 dark:border-stone-800 px-3.5 py-3'
+        }
+      >
         <div className="flex items-center justify-between gap-2 mb-2.5">
           <div className="flex items-center gap-2 min-w-0">
-            {onBack && (
+            {!embedded && onBack && (
               <button
                 type="button"
                 onClick={() => {
@@ -780,7 +784,7 @@ export const Orders: React.FC<OrdersProps> = ({
             )}
             <div className="min-w-0">
               <h1 className="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white truncate">
-                My Orders
+                {embedded ? 'Order History' : 'My Orders'}
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums truncate">
                 {trackedOrders.length} {trackedOrders.length === 1 ? 'order' : 'orders'} &middot; {activeCount} active &middot; ₹{totalSpent.toLocaleString('en-IN')} spent
@@ -794,7 +798,7 @@ export const Orders: React.FC<OrdersProps> = ({
               onClick={() => fetchOrderHistory(true)}
               disabled={isRefreshing}
               aria-label="Refresh order history"
-              className="px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 dark:bg-[#241B17] dark:hover:bg-[#30241E] text-[#FF5722] dark:text-[#FF8A65] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              className="min-h-[36px] px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 dark:bg-[#241B17] dark:hover:bg-[#30241E] text-[#FF5722] dark:text-[#FF8A65] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
               <span>{isRefreshing ? 'Syncing' : 'Refresh'}</span>
@@ -803,7 +807,7 @@ export const Orders: React.FC<OrdersProps> = ({
             <button
               type="button"
               onClick={handleExportCsv}
-              className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/80 dark:border-stone-700 hover:bg-orange-50 dark:hover:bg-[#2A201C] text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              className="min-h-[36px] px-3 py-1.5 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/80 dark:border-stone-700 hover:bg-orange-50 dark:hover:bg-[#2A201C] text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               <Download className="w-3.5 h-3.5 text-[#FF5722] dark:text-[#FF8A65]" />
               <span>CSV</span>
@@ -849,7 +853,7 @@ export const Orders: React.FC<OrdersProps> = ({
       </header>
 
       {/* Main Content */}
-      <div className="p-3.5 space-y-4">
+      <div className={embedded ? 'space-y-4' : 'p-3.5 space-y-4'}>
         {fetchError && (
           <div
             role="alert"

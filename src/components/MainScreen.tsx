@@ -52,6 +52,7 @@ import {
   SlidersHorizontal,
   ChevronDown,
   LocateFixed,
+  Settings,
 } from 'lucide-react';
 import { ScrollToTop } from './ScrollToTop';
 import { MainScreenSkeleton } from './MainScreenSkeleton';
@@ -62,6 +63,8 @@ import { Product360ViewerModal } from './Product360ViewerModal';
 import { ProductImageZoomModal } from './ProductImageZoomModal';
 import { Order, OrderItem } from './OrdersSection';
 import { Orders } from './Orders';
+import { SettingsView, SettingsSection, UserProfile, SavedAddress } from './SettingsView';
+import { getStoredAuthToken, resolveApiBaseUrl } from '../utils/authSession';
 import { AarvoAnimatedLogo } from './AarvoAnimatedLogo';
 import { haptics } from '../utils/haptics';
 import catFashionBagImg from '../assets/images/cat_fashion_bag_1794533648322.jpg';
@@ -111,13 +114,51 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   }, [initialLoading]);
 
   // Navigation tabs: 'home' | 'categories' | 'offers' | 'cart' | 'account'
-  const [activeTab, setActiveTab] = useState<'home' | 'categories' | 'offers' | 'cart' | 'account'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'categories' | 'offers' | 'cart' | 'account'>(() => {
+    try {
+      return localStorage.getItem('aarvo_settings_open') === 'true' ? 'account' : 'home';
+    } catch {
+      return 'home';
+    }
+  });
   const [isOrdersViewOpen, setIsOrdersViewOpen] = useState(false);
+  const [isSettingsViewOpen, setIsSettingsViewOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('aarvo_settings_open') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [settingsSectionTarget, setSettingsSectionTarget] = useState<SettingsSection | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('aarvo_settings_open', isSettingsViewOpen ? 'true' : 'false');
+    } catch {
+      // safe catch
+    }
+  }, [isSettingsViewOpen]);
 
   const switchTab = (tab: 'home' | 'categories' | 'offers' | 'cart' | 'account') => {
     haptics.selection();
     setIsOrdersViewOpen(false);
+    setIsSettingsViewOpen(false);
     setActiveTab(tab);
+  };
+
+  const openSettings = (section?: SettingsSection) => {
+    haptics.selection();
+    if (section) {
+      setSettingsSectionTarget(section);
+      try {
+        localStorage.setItem('aarvo_settings_section', section);
+      } catch {
+        // safe catch
+      }
+    }
+    setIsOrdersViewOpen(false);
+    setActiveTab('account');
+    setIsSettingsViewOpen(true);
   };
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [sortBy, setSortBy] = useState<ProductSortOption>('relevance');
@@ -256,14 +297,14 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [priceMaxDraft, setPriceMaxDraft] = useState<string>('');
 
   // Interactive Account Modals & Persistent User State
-  const [userProfile, setUserProfile] = useState<{ name: string; phone: string }>(() => {
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     try {
       const saved = localStorage.getItem('aarvo_profile');
       if (saved) return JSON.parse(saved);
     } catch {
       // safe fallback
     }
-    return { name: 'AARVO Shopper', phone: '' };
+    return { name: 'AARVO Shopper', phone: '', email: '' };
   });
 
   useEffect(() => {
@@ -273,16 +314,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       // safe catch
     }
   }, [userProfile]);
-
-  interface SavedAddress {
-    id: string;
-    label: string;
-    fullName: string;
-    phone: string;
-    addressLine: string;
-    city: string;
-    pincode: string;
-  }
 
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>(() => {
     try {
@@ -1501,9 +1532,99 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           </aside>
         )}
 
-        {isOrdersViewOpen ? (
+        {isSettingsViewOpen ? (
+          <SettingsView
+            userProfile={userProfile}
+            onUpdateProfile={(next) => setUserProfile(next)}
+            savedAddresses={savedAddresses}
+            activeAddressId={activeAddressId}
+            onUpdateAddresses={(nextList, nextActive) => {
+              setSavedAddresses(nextList);
+              if (nextActive) setActiveAddressId(nextActive);
+            }}
+            onSelectActiveAddress={(addrId) => setActiveAddressId(addrId)}
+            orders={orders}
+            onOrdersLoaded={(loaded) => {
+              if (loaded.length > 0) setOrders(loaded);
+            }}
+            onReorderItem={(item) => {
+              const matchedProduct = allProducts.find((p) => p.id === item.id) || {
+                id: item.id,
+                name: item.name,
+                category: item.category,
+                image: item.image,
+                price: item.price,
+                originalPrice: Math.round(item.price * 1.25),
+                rating: 0,
+                reviewsCount: 0,
+                discount: '20% OFF',
+                inStock: true,
+                seller: 'AARVO Seller',
+              };
+              addToCart(matchedProduct);
+              showToast(`Added ${item.name.slice(0, 20)}... to Cart!`);
+            }}
+            onReorderAll={(items) => {
+              haptics.addToCart();
+              setCartItems((prev) => {
+                const nextCart = [...prev];
+                items.forEach((orderItem) => {
+                  const matchedProduct: Product = allProducts.find((p) => p.id === orderItem.id) || {
+                    id: orderItem.id,
+                    name: orderItem.name,
+                    category: orderItem.category,
+                    image: orderItem.image,
+                    price: orderItem.price,
+                    originalPrice: Math.round(orderItem.price * 1.25),
+                    rating: 0,
+                    reviewsCount: 0,
+                    discount: '20% OFF',
+                    inStock: true,
+                    seller: 'AARVO Seller',
+                  };
+                  const existingIndex = nextCart.findIndex((ci) => ci.product.id === orderItem.id);
+                  if (existingIndex > -1) {
+                    nextCart[existingIndex] = {
+                      ...nextCart[existingIndex],
+                      quantity: nextCart[existingIndex].quantity + (orderItem.quantity || 1),
+                    };
+                  } else {
+                    nextCart.push({
+                      product: matchedProduct,
+                      quantity: orderItem.quantity || 1,
+                    });
+                  }
+                });
+                return nextCart;
+              });
+              const count = items.reduce((acc, it) => acc + (it.quantity || 1), 0);
+              showToast(`Reordered! ${count} item${count > 1 ? 's' : ''} added to your Cart 🛒`);
+            }}
+            onNavigateToCart={() => {
+              setIsSettingsViewOpen(false);
+              switchTab('cart');
+            }}
+            onOpenSupport={() => {
+              setIsSettingsViewOpen(false);
+              setIsHelpModalOpen(true);
+            }}
+            onShowToast={showToast}
+            onBack={() => setIsSettingsViewOpen(false)}
+            theme={theme}
+            onToggleTheme={onToggleTheme}
+            onOpenDeleteAccount={() => {
+              setDeleteConfirmText('');
+              setDeleteAccountError(null);
+              setIsDeleteAccountOpen(true);
+            }}
+            onLogout={onLogout}
+            initialSection={settingsSectionTarget}
+          />
+        ) : isOrdersViewOpen ? (
           <Orders
             orders={orders}
+            apiBaseUrl={resolveApiBaseUrl()}
+            authToken={getStoredAuthToken()}
             onOrdersLoaded={(loaded) => {
               if (loaded.length > 0) setOrders(loaded);
             }}
@@ -3557,19 +3678,30 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  haptics.selection();
-                  setProfileDraftName(userProfile.name);
-                  setProfileDraftPhone(userProfile.phone);
-                  setIsEditProfileOpen(true);
-                }}
-                className="px-3 py-1.5 rounded-xl bg-white text-[#E64A19] text-[11px] font-extrabold shadow-xs hover:bg-orange-50 active:scale-95 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
-              >
-                <Edit2 className="w-3 h-3" />
-                <span>Edit</span>
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => openSettings('contact')}
+                  className="px-2.5 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-extrabold active:scale-95 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                  aria-label="Open Settings"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>Settings</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptics.selection();
+                    setProfileDraftName(userProfile.name);
+                    setProfileDraftPhone(userProfile.phone);
+                    setIsEditProfileOpen(true);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-white text-[#E64A19] text-[11px] font-extrabold shadow-xs hover:bg-orange-50 active:scale-95 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  <span>Edit</span>
+                </button>
+              </div>
             </div>
 
             {/* 2. 4-Action Quick Tiles (Orders, Wishlist, Coupons, Help Center) */}
@@ -3724,16 +3856,39 @@ export const MainScreen: React.FC<MainScreenProps> = ({
 
             {/* 4. Account Settings List */}
             <div className="bg-white dark:bg-[#211A17] rounded-2xl border border-orange-100/80 dark:border-stone-800 shadow-2xs divide-y divide-orange-100/70 dark:divide-stone-800 text-xs font-semibold text-slate-700 dark:text-slate-200 overflow-hidden">
-              <h4 className="px-4 pt-3 pb-1 font-display font-black text-xs uppercase tracking-wider text-slate-900 dark:text-white">
-                Account Settings
-              </h4>
+              <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+                <h4 className="font-display font-black text-xs uppercase tracking-wider text-slate-900 dark:text-white">
+                  Account Settings
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => openSettings('contact')}
+                  className="text-[11px] font-bold text-[#FF5722] hover:underline cursor-pointer"
+                >
+                  Open All &gt;
+                </button>
+              </div>
 
               <button
                 type="button"
-                onClick={() => {
-                  haptics.selection();
-                  setIsAddressModalOpen(true);
-                }}
+                onClick={() => openSettings('contact')}
+                className="w-full px-4 py-3 text-left hover:bg-[#FFF4E8]/60 dark:hover:bg-stone-800/40 flex items-center justify-between gap-2 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Settings className="w-4 h-4 text-[#FF5722] shrink-0" />
+                  <div className="min-w-0">
+                    <span className="block">Contact Info, Security &amp; Preferences</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal block truncate">
+                      {userProfile.email || userProfile.phone || 'Manage name, email & session'}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openSettings('addresses')}
                 className="w-full px-4 py-3 text-left hover:bg-[#FFF4E8]/60 dark:hover:bg-stone-800/40 flex items-center justify-between gap-2 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -3742,6 +3897,23 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     <span className="block">Saved Delivery Addresses ({savedAddresses.length})</span>
                     <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal block truncate">
                       {activeAddressString}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => openSettings('orders')}
+                className="w-full px-4 py-3 text-left hover:bg-[#FFF4E8]/60 dark:hover:bg-stone-800/40 flex items-center justify-between gap-2 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Package className="w-4 h-4 text-[#FF5722] shrink-0" />
+                  <div className="min-w-0">
+                    <span className="block">Order History &amp; Tracking</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal block truncate">
+                      View {orders.length} past order{orders.length === 1 ? '' : 's'} securely
                     </span>
                   </div>
                 </div>
@@ -3864,12 +4036,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           {/* 1. Home */}
           <button
             type="button"
-            onClick={() => {
-              setIsOrdersViewOpen(false);
-              switchTab('home');
-            }}
+            onClick={() => switchTab('home')}
             className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
-              activeTab === 'home' && !isOrdersViewOpen
+              activeTab === 'home' && !isOrdersViewOpen && !isSettingsViewOpen
                 ? 'text-[#FF5722] font-black'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
@@ -3881,12 +4050,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           {/* 2. Categories */}
           <button
             type="button"
-            onClick={() => {
-              setIsOrdersViewOpen(false);
-              switchTab('categories');
-            }}
+            onClick={() => switchTab('categories')}
             className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
-              activeTab === 'categories' && !isOrdersViewOpen
+              activeTab === 'categories' && !isOrdersViewOpen && !isSettingsViewOpen
                 ? 'text-[#FF5722] font-black'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
@@ -3898,12 +4064,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           {/* 3. Cart with live badge */}
           <button
             type="button"
-            onClick={() => {
-              setIsOrdersViewOpen(false);
-              switchTab('cart');
-            }}
+            onClick={() => switchTab('cart')}
             className={`relative flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
-              activeTab === 'cart' && !isOrdersViewOpen
+              activeTab === 'cart' && !isOrdersViewOpen && !isSettingsViewOpen
                 ? 'text-[#FF5722] font-black'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
@@ -3922,10 +4085,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             type="button"
             onClick={() => {
               haptics.selection();
+              setIsSettingsViewOpen(false);
               setIsOrdersViewOpen(true);
             }}
             className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
-              isOrdersViewOpen
+              isOrdersViewOpen && !isSettingsViewOpen
                 ? 'text-[#FF5722] font-black'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
@@ -3937,10 +4101,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           {/* 5. Account */}
           <button
             type="button"
-            onClick={() => {
-              setIsOrdersViewOpen(false);
-              switchTab('account');
-            }}
+            onClick={() => switchTab('account')}
             className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
               activeTab === 'account' && !isOrdersViewOpen
                 ? 'text-[#FF5722] font-black'
@@ -4077,6 +4238,17 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         {wishlist.length}
                       </span>
                     )}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsSidebarOpen(false);
+                      openSettings('contact');
+                    }}
+                    className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-[#FFF4E8] dark:hover:bg-orange-950/30 hover:text-[#FF5722] transition-colors flex items-center gap-3 cursor-pointer"
+                  >
+                    <Settings className="w-4 h-4 text-[#FF5722]" />
+                    <span>Account Settings</span>
                   </button>
 
                   <button
@@ -5368,7 +5540,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 e.preventDefault();
                 if (!profileDraftName.trim() || !profileDraftPhone.trim()) return;
                 haptics.saved();
-                setUserProfile({ name: profileDraftName.trim(), phone: profileDraftPhone.trim() });
+                setUserProfile((prev) => ({
+                  ...prev,
+                  name: profileDraftName.trim(),
+                  phone: profileDraftPhone.trim(),
+                }));
                 setIsEditProfileOpen(false);
                 showToast('Profile updated!');
               }}
