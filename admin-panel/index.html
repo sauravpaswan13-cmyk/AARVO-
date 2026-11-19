@@ -16,6 +16,67 @@
 .shiprocket-live-tag{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #80532f;border-radius:999px;color:#ffd0a3;font-size:10px;font-weight:800;letter-spacing:.08em;white-space:nowrap}.shiprocket-live-tag i{width:7px;height:7px;border-radius:50%;background:#ff9b48;box-shadow:0 0 10px #ff9b48}
 .shiprocket-bottom{margin-top:20px;padding-top:15px;border-top:1px solid #ffffff18}.shiprocket-note{font-size:12px;color:#b9b0aa}.shiprocket-button{display:inline-flex;align-items:center;justify-content:center;gap:12px;width:auto;min-width:225px;margin:0;padding:13px 18px;border:0;border-radius:12px;background:linear-gradient(110deg,#ffb35d,#ff781d);color:#241307;font-weight:850;box-shadow:0 7px 20px #ff811933}.shiprocket-button:disabled{opacity:.6}.shiprocket-button span{font-size:18px}.shiprocket-status{margin-top:13px;padding:10px 12px;border:1px solid #ffffff16;border-radius:10px;background:#090d12aa;color:#d5d0cc;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
 @media(max-width:640px){.shiprocket-panel{padding:17px;margin-bottom:14px}.shiprocket-head,.shiprocket-bottom{align-items:stretch;flex-direction:column}.shiprocket-brand{align-items:flex-start}.shiprocket-mark{flex-basis:46px;width:46px;height:46px;border-radius:13px}.shiprocket-brand h2{font-size:18px}.shiprocket-live-tag{align-self:flex-start}.shiprocket-button{width:100%;min-width:0}.shiprocket-note{line-height:1.5}}
+
+/* AARVO premium admin refresh — presentation-only overrides; API and workflows unchanged */
+:root{font-family:Inter,"Segoe UI",system-ui,sans-serif;color-scheme:dark;background:#101014;color:#f7f5f2}
+body{background:radial-gradient(ellipse at 10% -10%,#3a2114 0%,transparent 34%),radial-gradient(ellipse at 100% 0%,#24202a 0%,transparent 35%),#101014;letter-spacing:.005em}
+.wrap{max-width:1440px;padding:clamp(16px,2.5vw,34px)}
+#app>.top{position:relative;padding:22px 24px;margin-bottom:22px;border:1px solid #37313a;border-radius:22px;background:linear-gradient(110deg,#211a18,#19191f 62%,#1d1a21);box-shadow:0 18px 50px #0005}
+.brand{font-size:clamp(25px,3vw,32px);font-weight:850;letter-spacing:.13em;background:linear-gradient(100deg,#fff 5%,#ffb36b 68%,#ff7b27);-webkit-background-clip:text;background-clip:text;color:transparent}
+#app>.top .muted{margin-top:6px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#aaa3a0}
+.logout{border:1px solid #59402f;background:#2a211c;color:#ffbd83;border-radius:12px;padding:11px 17px}
+.nav{position:sticky;top:8px;z-index:30;display:flex;gap:7px;flex-wrap:nowrap;overflow-x:auto;padding:8px;margin:0 0 22px;border:1px solid #34313a;border-radius:16px;background:#17171deF;backdrop-filter:blur(16px);box-shadow:0 10px 30px #0005;scrollbar-width:thin}
+.nav button,.heroLink{flex:0 0 auto;border:1px solid transparent;border-radius:11px;background:transparent;color:#c8c3c0;padding:11px 15px;font-size:13px;font-weight:750;transition:all .18s ease}
+.nav button:hover,.heroLink:hover{background:#30251f;color:#ffd0a7;border-color:#5c3b27}
+.nav button.active{background:linear-gradient(120deg,#ffb66e,#ff7929);color:#24160d;border-color:#ffb66e;box-shadow:0 5px 18px #ff8a3733}
+.heroLink{background:#24212a;border-color:#403944}
+.card{background:linear-gradient(145deg,#1e1e25,#19191f);border:1px solid #34333d;border-radius:20px;padding:clamp(17px,2vw,24px);box-shadow:0 12px 34px #0003}
+.grid{gap:16px}
+#overview .grid>.card{position:relative;min-height:132px;overflow:hidden;background:linear-gradient(145deg,#242027,#1a1a20);transition:transform .18s ease,border-color .18s ease}
+#overview .grid>.card:before{content:"";position:absolute;left:0;top:18px;bottom:18px;width:3px;border-radius:0 5px 5px 0;background:linear-gradient(#ffc184,#f47729)}
+#overview .grid>.card:hover{transform:translateY(-3px);border-color:#795032}
+.stat{font-size:30px;letter-spacing:.02em;color:#ffb777}
+h2,h3{letter-spacing:-.025em;color:#fff}
+h2{font-size:21px}
+h3{font-size:16px}
+.muted{color:#aaa6ad}
+input,button,textarea,select{border-radius:12px;border:1px solid #3b3943;background:#111116;color:#f7f5f2;padding:12px 14px}
+input:focus,textarea:focus,select:focus{outline:2px solid #ff9b4c66;border-color:#ff9b4c}
+button{background:linear-gradient(120deg,#ffb36b,#ff812f);color:#24160d;border:0;font-weight:800;box-shadow:0 5px 16px #ff8b3520;transition:filter .18s ease,transform .18s ease}
+button:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px)}
+button:disabled{box-shadow:none}
+.table{border-collapse:separate;border-spacing:0;min-width:760px}
+.table th{background:#24232b;color:#ffbf8a;font-size:11px;text-transform:uppercase;letter-spacing:.09em;white-space:nowrap}
+.table th:first-child{border-radius:10px 0 0 0}.table th:last-child{border-radius:0 10px 0 0}
+.table td{color:#e5e1e5;border-bottom:1px solid #303039;line-height:1.55}
+.table tr:hover td{background:#ffffff06}
+.pill{padding:6px 10px;border:1px solid #48434b;background:#2b2931;color:#ded8df;letter-spacing:.045em}
+.pill.good{background:#153728;border-color:#286b49;color:#8df0b4}
+.pill.warn{background:#3b2c18;border-color:#765126;color:#ffd18c}
+.pill.bad{background:#401f27;border-color:#793541;color:#ffabb4}
+.actions{flex-wrap:wrap}
+.actions button{font-size:11px;padding:8px 11px;border-radius:9px}
+.actions .approve{background:#baf3d0;color:#123322}
+.actions .reject{background:#ffd1d7;color:#501b25}
+.panel>.card+.card{margin-top:16px}
+#overview .card[style*="margin-top"]{background:linear-gradient(120deg,#211c1a,#1b1b22)}
+.empty{color:#aaa;padding:32px}
+.modalCard{background:#1d1d24;border-color:#4a4146;border-radius:22px}
+.modalHead button{background:#302a2b;color:#f2d3bf;border:1px solid #5b4032}
+.shiprocket-panel{border-radius:22px;box-shadow:0 18px 44px #0006}
+@media(max-width:700px){
+ .wrap{padding:12px}
+ #app>.top{padding:17px;border-radius:17px}
+ #app>.top .brand{font-size:23px}
+ .nav{top:4px;margin-left:-2px;margin-right:-2px}
+ .nav button,.heroLink{padding:10px 12px;font-size:12px}
+ .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #overview .grid>.card{min-height:112px;padding:15px}
+ .stat{font-size:23px}
+ .card{border-radius:17px}
+}
+@media(max-width:390px){.grid{grid-template-columns:1fr}}
+
 </style></head>
 <body><main class="wrap">
 <section id="login" class="card login"><div class="brand">AARVO</div><h2>Private Admin</h2><p class="muted">This panel is separate from the customer Android app.</p><input id="email" type="email" placeholder="Admin email"><input id="password" type="password" placeholder="Admin password"><button id="loginBtn">Sign in as Admin</button><div id="loginMsg"></div></section>
