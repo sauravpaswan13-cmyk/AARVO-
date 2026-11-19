@@ -101,7 +101,6 @@ import {
   selectSuggestedForYou,
   selectMoreProducts,
 } from '../utils/homeMerchandising';
-import { HomeFeedControlModal } from './HomeFeedControlModal';
 
 interface MainScreenProps {
   onLogout?: () => void;
@@ -336,24 +335,13 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [zoomImageProduct, setZoomImageProduct] = useState<Product | null>(null);
   const bulkCsvInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Home Merchandising & Admin Feed Controls state
+  // Home Merchandising state (managed exclusively via AARVO Admin Panel)
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>(() =>
     loadRecentlyViewedIds()
   );
   const [merchandisingConfig, setMerchandisingConfig] = useState<HomeMerchandisingSectionConfig[]>(() =>
     loadMerchandisingConfig()
   );
-  const [isFeedControlOpen, setIsFeedControlOpen] = useState(false);
-
-  const updateMerchandisingConfig = useCallback((next: HomeMerchandisingSectionConfig[]) => {
-    setMerchandisingConfig(next);
-    saveMerchandisingConfig(next);
-  }, []);
-
-  const clearRecentlyViewedHistory = useCallback(() => {
-    setRecentlyViewedIds([]);
-    saveRecentlyViewedIds([]);
-  }, []);
 
   const openProductDetail = useCallback((product: Product) => {
     setRecentlyViewedIds((prev) => {
@@ -1154,6 +1142,55 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     const startedAt = Date.now();
 
     try {
+      const normalizeCatalogRow = (row: any, idx: number): Product => {
+        const rawPricePaise = Number(row.price_paise ?? row.pricePaise ?? 0);
+        const rawMrpPaise = Number(
+          row.original_price_paise ?? row.originalPricePaise ?? rawPricePaise
+        );
+        const price =
+          rawPricePaise > 0
+            ? Math.round(rawPricePaise / 100)
+            : Math.max(1, Number(row.price ?? 499));
+        const originalPrice =
+          rawMrpPaise > 0
+            ? Math.round(rawMrpPaise / 100)
+            : Math.max(price, Number(row.originalPrice ?? price));
+        const discountPct =
+          originalPrice > price
+            ? Math.round(((originalPrice - price) * 100) / originalPrice)
+            : 0;
+        const primaryImage =
+          typeof row.image_url === 'string' && row.image_url.trim().length > 0
+            ? row.image_url.trim()
+            : typeof row.image === 'string' && row.image.trim().length > 0
+            ? row.image.trim()
+            : prodWhiteSneakersImg;
+        const stockQuantity = Number(row.stock_quantity ?? row.stockQuantity ?? 10);
+
+        return {
+          id: String(row.id ?? `api_p_${idx}`),
+          name: String(row.name ?? 'AARVO Product'),
+          category: String(row.category ?? 'General'),
+          image: primaryImage,
+          images:
+            Array.isArray(row.images) && row.images.length > 0
+              ? row.images
+              : [primaryImage],
+          price,
+          originalPrice,
+          rating: Number(row.rating ?? 4.2),
+          reviewsCount: Number(row.reviews_count ?? row.reviewsCount ?? 0),
+          discount: discountPct > 0 ? `${discountPct}% OFF` : '',
+          inStock: stockQuantity > 0,
+          stockQuantity,
+          codAvailable: row.cod_enabled !== false,
+          seller: String(row.seller_name ?? row.seller ?? 'AARVO Verified Seller'),
+          description: String(
+            row.description ?? 'Genuine AARVO marketplace product with doorstep delivery.'
+          ),
+        };
+      };
+
       const response = await fetch('/v1/products', {
         signal: controller.signal,
         headers: { Accept: 'application/json' },
@@ -1162,54 +1199,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
       if (response.ok) {
         const rows = await response.json();
         if (Array.isArray(rows) && rows.length > 0) {
-          const normalized: Product[] = rows.map((row: any, idx: number) => {
-            const rawPricePaise = Number(row.price_paise ?? row.pricePaise ?? 0);
-            const rawMrpPaise = Number(
-              row.original_price_paise ?? row.originalPricePaise ?? rawPricePaise
-            );
-            const price =
-              rawPricePaise > 0
-                ? Math.round(rawPricePaise / 100)
-                : Math.max(1, Number(row.price ?? 499));
-            const originalPrice =
-              rawMrpPaise > 0
-                ? Math.round(rawMrpPaise / 100)
-                : Math.max(price, Number(row.originalPrice ?? price));
-            const discountPct =
-              originalPrice > price
-                ? Math.round(((originalPrice - price) * 100) / originalPrice)
-                : 0;
-            const primaryImage =
-              typeof row.image_url === 'string' && row.image_url.trim().length > 0
-                ? row.image_url.trim()
-                : typeof row.image === 'string' && row.image.trim().length > 0
-                ? row.image.trim()
-                : prodWhiteSneakersImg;
-            const stockQuantity = Number(row.stock_quantity ?? row.stockQuantity ?? 10);
-
-            return {
-              id: String(row.id ?? `api_p_${idx}`),
-              name: String(row.name ?? 'AARVO Product'),
-              category: String(row.category ?? 'General'),
-              image: primaryImage,
-              images:
-                Array.isArray(row.images) && row.images.length > 0
-                  ? row.images
-                  : [primaryImage],
-              price,
-              originalPrice,
-              rating: Number(row.rating ?? 4.2),
-              reviewsCount: Number(row.reviews_count ?? row.reviewsCount ?? 0),
-              discount: discountPct > 0 ? `${discountPct}% OFF` : '',
-              inStock: stockQuantity > 0,
-              stockQuantity,
-              codAvailable: row.cod_enabled !== false,
-              seller: String(row.seller_name ?? row.seller ?? 'AARVO Verified Seller'),
-              description: String(
-                row.description ?? 'Genuine AARVO marketplace product with doorstep delivery.'
-              ),
-            };
-          });
+          const normalized: Product[] = rows.map(normalizeCatalogRow);
 
           if (!controller.signal.aborted) {
             setAllProducts(normalized);
@@ -1217,7 +1207,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         }
       }
 
-      // Sync Admin-managed Home merchandising sections from backend API (if configured)
+      // Sync Admin-managed Home merchandising sections from backend API
       try {
         const apiBase = resolveApiBaseUrl();
         const merchRes = await fetch(`${apiBase}/v1/home/merchandising`, {
@@ -1227,11 +1217,30 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         if (merchRes.ok) {
           const remoteSections = await merchRes.json();
           if (Array.isArray(remoteSections) && remoteSections.length > 0 && !controller.signal.aborted) {
-            setMerchandisingConfig((prev) => mergeRemoteMerchandisingConfig(prev, remoteSections));
+            const hydratedPinned: Product[] = [];
+            remoteSections.forEach((sec: any) => {
+              if (Array.isArray(sec?.pinnedProducts)) {
+                sec.pinnedProducts.forEach((row: any, idx: number) => {
+                  hydratedPinned.push(normalizeCatalogRow(row, idx));
+                });
+              }
+            });
+            if (hydratedPinned.length > 0) {
+              setAllProducts((prev) => {
+                const existingIds = new Set(prev.map((p) => p.id));
+                const extras = hydratedPinned.filter((p) => !existingIds.has(p.id));
+                return extras.length > 0 ? [...prev, ...extras] : prev;
+              });
+            }
+            setMerchandisingConfig((prev) => {
+              const merged = mergeRemoteMerchandisingConfig(prev, remoteSections);
+              saveMerchandisingConfig(merged);
+              return merged;
+            });
           }
         }
       } catch {
-        // Offline / preview fallback keeps local merchandising rules active
+        // Offline / preview fallback keeps cached Admin merchandising rules active
       }
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
@@ -2496,29 +2505,15 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               <section className="px-3.5 py-1.5">
                 <div className="relative overflow-hidden rounded-2xl p-3 bg-gradient-to-br from-[#E9F0FF] via-[#F3E9FF] to-[#FFF2EA] dark:from-[#1D1A2B] dark:via-[#241B29] dark:to-[#1C1613] border border-indigo-200/75 dark:border-indigo-900/40 shadow-sm">
                   <div className="pointer-events-none absolute -top-10 -right-10 w-28 h-28 rounded-full bg-indigo-300/20 dark:bg-indigo-500/10 blur-xl" />
-                  <div className="relative flex items-center justify-between gap-2 mb-2.5">
-                    <div>
-                      <h3 className="font-display font-black text-sm text-slate-900 dark:text-white leading-tight">
-                        {stillLookingConfig.title}
-                      </h3>
-                      <p className="text-[10px] text-slate-600 dark:text-slate-300">
-                        {recentlyViewedIds.length > 0
-                          ? stillLookingConfig.subtitle
-                          : 'Tap any product to track your browsing picks'}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        haptics.selection();
-                        setIsFeedControlOpen(true);
-                      }}
-                      className="shrink-0 px-2 py-1 rounded-lg bg-white/90 dark:bg-[#2A201B] border border-indigo-200/80 dark:border-stone-700 text-[10px] font-bold text-slate-700 dark:text-slate-200 hover:border-[#FF5722] flex items-center gap-1 cursor-pointer transition-colors"
-                      title="Manage Admin merchandising zones and see product rules"
-                    >
-                      <SlidersHorizontal className="w-3 h-3 text-[#FF5722]" />
-                      <span>Manage Feed</span>
-                    </button>
+                  <div className="relative mb-2.5">
+                    <h3 className="font-display font-black text-sm text-slate-900 dark:text-white leading-tight">
+                      {stillLookingConfig.title}
+                    </h3>
+                    <p className="text-[10px] text-slate-600 dark:text-slate-300">
+                      {recentlyViewedIds.length > 0
+                        ? stillLookingConfig.subtitle
+                        : 'Tap any product to track your browsing picks'}
+                    </p>
                   </div>
 
                   {isProductsLoading ? (
@@ -2874,35 +2869,22 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   return (
                     <section key={sec.id} className="px-3.5 py-2">
                       <div className="relative overflow-hidden rounded-2xl p-3 bg-gradient-to-b from-[#FFFDF9] via-[#FFF1F5]/85 to-[#FFF6EC] dark:from-[#211A17] dark:via-[#27181E] dark:to-[#1B1512] border border-rose-200/75 dark:border-rose-900/35 shadow-sm">
-                        <div className="flex items-center justify-between gap-2 mb-2.5">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <h3 className="font-display font-black text-sm text-slate-900 dark:text-white leading-tight truncate">
-                                {sec.title}
-                              </h3>
-                              {sec.badgeText && (
-                                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-600 text-white shrink-0">
-                                  {sec.badgeText}
-                                </span>
-                              )}
-                            </div>
-                            {sec.subtitle && (
-                              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                                {sec.subtitle}
-                              </p>
+                        <div className="mb-2.5">
+                          <div className="flex items-center gap-1.5">
+                            <h3 className="font-display font-black text-sm text-slate-900 dark:text-white leading-tight truncate">
+                              {sec.title}
+                            </h3>
+                            {sec.badgeText && (
+                              <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-600 text-white shrink-0">
+                                {sec.badgeText}
+                              </span>
                             )}
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              haptics.selection();
-                              setIsFeedControlOpen(true);
-                            }}
-                            className="shrink-0 p-1.5 rounded-lg bg-white/85 dark:bg-[#2A201B] border border-rose-200/70 dark:border-stone-700 text-slate-600 dark:text-slate-300 hover:text-[#FF5722] cursor-pointer"
-                            aria-label="Manage Brands in Spotlight"
-                          >
-                            <SlidersHorizontal className="w-3.5 h-3.5" />
-                          </button>
+                          {sec.subtitle && (
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                              {sec.subtitle}
+                            </p>
+                          )}
                         </div>
 
                         {isProductsLoading ? (
@@ -2988,17 +2970,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                                 {sec.badgeText}
                               </div>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                haptics.selection();
-                                setIsFeedControlOpen(true);
-                              }}
-                              className="p-1.5 rounded-lg bg-white/85 dark:bg-stone-900/80 text-slate-800 dark:text-amber-200 cursor-pointer"
-                              aria-label="Manage Top Value Deals"
-                            >
-                              <SlidersHorizontal className="w-3.5 h-3.5" />
-                            </button>
                           </div>
                         </div>
 
@@ -3071,17 +3042,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             )}
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                haptics.selection();
-                                setIsFeedControlOpen(true);
-                              }}
-                              className="p-1.5 rounded-lg bg-white/85 dark:bg-[#211A17] border border-emerald-200/70 dark:border-stone-700 text-slate-600 dark:text-slate-300 cursor-pointer"
-                              aria-label="Manage Suggested For You"
-                            >
-                              <SlidersHorizontal className="w-3.5 h-3.5" />
-                            </button>
                             <button
                               type="button"
                               onClick={() => switchTab('categories')}
@@ -4596,26 +4556,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   </span>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  haptics.selection();
-                  setIsFeedControlOpen(true);
-                }}
-                className="w-full px-4 py-3 text-left hover:bg-[#FFF4E8]/60 dark:hover:bg-stone-800/40 flex items-center justify-between transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <SlidersHorizontal className="w-4 h-4 text-[#FF5722] shrink-0" />
-                  <div className="min-w-0">
-                    <span className="block">Home Merchandising &amp; Feed Controls</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal block truncate">
-                      {merchandisingConfig.filter((s) => s.enabled).length}/{merchandisingConfig.length} zones active · {recentlyViewedIds.length} viewed items tracked
-                    </span>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
               </button>
 
               <button
@@ -7459,29 +7399,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             </div>
           </div>
         )}
-
-        {/* ================================================================= */}
-        {/* HOME MERCHANDISING & ADMIN FEED CONTROL MODAL                     */}
-        {/* ================================================================= */}
-        <HomeFeedControlModal
-          isOpen={isFeedControlOpen}
-          onClose={() => setIsFeedControlOpen(false)}
-          config={merchandisingConfig}
-          onChangeConfig={updateMerchandisingConfig}
-          catalog={allProducts}
-          recentlyViewedIds={recentlyViewedIds}
-          wishlistIds={wishlist}
-          cartProductIds={cartItems.map((c) => c.product.id)}
-          onClearHistory={() => {
-            clearRecentlyViewedHistory();
-            showToast('Cleared browsing history for Still looking for these?', 'info');
-          }}
-          onResetDefaults={() => {
-            updateMerchandisingConfig(DEFAULT_MERCHANDISING_CONFIG);
-            showToast('Reset Home Merchandising zones to default layout');
-          }}
-          onOpenProduct={openProductDetail}
-        />
 
       </div>
     </div>
