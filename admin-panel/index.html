@@ -16,6 +16,136 @@
 .shiprocket-live-tag{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #80532f;border-radius:999px;color:#ffd0a3;font-size:10px;font-weight:800;letter-spacing:.08em;white-space:nowrap}.shiprocket-live-tag i{width:7px;height:7px;border-radius:50%;background:#ff9b48;box-shadow:0 0 10px #ff9b48}
 .shiprocket-bottom{margin-top:20px;padding-top:15px;border-top:1px solid #ffffff18}.shiprocket-note{font-size:12px;color:#b9b0aa}.shiprocket-button{display:inline-flex;align-items:center;justify-content:center;gap:12px;width:auto;min-width:225px;margin:0;padding:13px 18px;border:0;border-radius:12px;background:linear-gradient(110deg,#ffb35d,#ff781d);color:#241307;font-weight:850;box-shadow:0 7px 20px #ff811933}.shiprocket-button:disabled{opacity:.6}.shiprocket-button span{font-size:18px}.shiprocket-status{margin-top:13px;padding:10px 12px;border:1px solid #ffffff16;border-radius:10px;background:#090d12aa;color:#d5d0cc;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
 @media(max-width:640px){.shiprocket-panel{padding:17px;margin-bottom:14px}.shiprocket-head,.shiprocket-bottom{align-items:stretch;flex-direction:column}.shiprocket-brand{align-items:flex-start}.shiprocket-mark{flex-basis:46px;width:46px;height:46px;border-radius:13px}.shiprocket-brand h2{font-size:18px}.shiprocket-live-tag{align-self:flex-start}.shiprocket-button{width:100%;min-width:0}.shiprocket-note{line-height:1.5}}
+
+/* AARVO premium admin refresh — presentation-only overrides; API and workflows unchanged */
+:root{font-family:Inter,"Segoe UI",system-ui,sans-serif;color-scheme:dark;background:#101014;color:#f7f5f2}
+body{background:radial-gradient(ellipse at 10% -10%,#3a2114 0%,transparent 34%),radial-gradient(ellipse at 100% 0%,#24202a 0%,transparent 35%),#101014;letter-spacing:.005em}
+.wrap{max-width:1440px;padding:clamp(16px,2.5vw,34px)}
+#app>.top{position:relative;padding:22px 24px;margin-bottom:22px;border:1px solid #37313a;border-radius:22px;background:linear-gradient(110deg,#211a18,#19191f 62%,#1d1a21);box-shadow:0 18px 50px #0005}
+.brand{font-size:clamp(25px,3vw,32px);font-weight:850;letter-spacing:.13em;background:linear-gradient(100deg,#fff 5%,#ffb36b 68%,#ff7b27);-webkit-background-clip:text;background-clip:text;color:transparent}
+#app>.top .muted{margin-top:6px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#aaa3a0}
+.logout{border:1px solid #59402f;background:#2a211c;color:#ffbd83;border-radius:12px;padding:11px 17px}
+.nav{position:sticky;top:8px;z-index:30;display:flex;gap:7px;flex-wrap:nowrap;overflow-x:auto;padding:8px;margin:0 0 22px;border:1px solid #34313a;border-radius:16px;background:#17171deF;backdrop-filter:blur(16px);box-shadow:0 10px 30px #0005;scrollbar-width:thin}
+.nav button,.heroLink{flex:0 0 auto;border:1px solid transparent;border-radius:11px;background:transparent;color:#c8c3c0;padding:11px 15px;font-size:13px;font-weight:750;transition:all .18s ease}
+.nav button:hover,.heroLink:hover{background:#30251f;color:#ffd0a7;border-color:#5c3b27}
+.nav button.active{background:linear-gradient(120deg,#ffb66e,#ff7929);color:#24160d;border-color:#ffb66e;box-shadow:0 5px 18px #ff8a3733}
+.heroLink{background:#24212a;border-color:#403944}
+.card{background:linear-gradient(145deg,#1e1e25,#19191f);border:1px solid #34333d;border-radius:20px;padding:clamp(17px,2vw,24px);box-shadow:0 12px 34px #0003}
+.grid{gap:16px}
+#overview .grid>.card{position:relative;min-height:132px;overflow:hidden;background:linear-gradient(145deg,#242027,#1a1a20);transition:transform .18s ease,border-color .18s ease}
+#overview .grid>.card:before{content:"";position:absolute;left:0;top:18px;bottom:18px;width:3px;border-radius:0 5px 5px 0;background:linear-gradient(#ffc184,#f47729)}
+#overview .grid>.card:hover{transform:translateY(-3px);border-color:#795032}
+.stat{font-size:30px;letter-spacing:.02em;color:#ffb777}
+h2,h3{letter-spacing:-.025em;color:#fff}
+h2{font-size:21px}
+h3{font-size:16px}
+.muted{color:#aaa6ad}
+input,button,textarea,select{border-radius:12px;border:1px solid #3b3943;background:#111116;color:#f7f5f2;padding:12px 14px}
+input:focus,textarea:focus,select:focus{outline:2px solid #ff9b4c66;border-color:#ff9b4c}
+button{background:linear-gradient(120deg,#ffb36b,#ff812f);color:#24160d;border:0;font-weight:800;box-shadow:0 5px 16px #ff8b3520;transition:filter .18s ease,transform .18s ease}
+button:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px)}
+button:disabled{box-shadow:none}
+.table{border-collapse:separate;border-spacing:0;min-width:760px}
+.table th{background:#24232b;color:#ffbf8a;font-size:11px;text-transform:uppercase;letter-spacing:.09em;white-space:nowrap}
+.table th:first-child{border-radius:10px 0 0 0}.table th:last-child{border-radius:0 10px 0 0}
+.table td{color:#e5e1e5;border-bottom:1px solid #303039;line-height:1.55}
+.table tr:hover td{background:#ffffff06}
+.pill{padding:6px 10px;border:1px solid #48434b;background:#2b2931;color:#ded8df;letter-spacing:.045em}
+.pill.good{background:#153728;border-color:#286b49;color:#8df0b4}
+.pill.warn{background:#3b2c18;border-color:#765126;color:#ffd18c}
+.pill.bad{background:#401f27;border-color:#793541;color:#ffabb4}
+.actions{flex-wrap:wrap}
+.actions button{font-size:11px;padding:8px 11px;border-radius:9px}
+.actions .approve{background:#baf3d0;color:#123322}
+.actions .reject{background:#ffd1d7;color:#501b25}
+.panel>.card+.card{margin-top:16px}
+#overview .card[style*="margin-top"]{background:linear-gradient(120deg,#211c1a,#1b1b22)}
+.empty{color:#aaa;padding:32px}
+.modalCard{background:#1d1d24;border-color:#4a4146;border-radius:22px}
+.modalHead button{background:#302a2b;color:#f2d3bf;border:1px solid #5b4032}
+.shiprocket-panel{border-radius:22px;box-shadow:0 18px 44px #0006}
+@media(max-width:700px){
+ .wrap{padding:12px}
+ #app>.top{padding:17px;border-radius:17px}
+ #app>.top .brand{font-size:23px}
+ .nav{top:4px;margin-left:-2px;margin-right:-2px}
+ .nav button,.heroLink{padding:10px 12px;font-size:12px}
+ .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #overview .grid>.card{min-height:112px;padding:15px}
+ .stat{font-size:23px}
+ .card{border-radius:17px}
+}
+@media(max-width:390px){.grid{grid-template-columns:1fr}}
+
+
+/* Dedicated premium merchandising studio */
+.nav button[onclick*="homeFeed"]{position:relative;background:linear-gradient(120deg,#ffbd7c,#ff812f);color:#21150d;border:1px solid #ffc18a;box-shadow:0 5px 20px #ff8a3738}
+.nav button[onclick*="homeFeed"]:after{content:"✦";margin-left:7px;font-size:11px}
+.merch-panel{display:grid;gap:18px}
+.merch-hero{position:relative;display:flex;align-items:center;justify-content:space-between;gap:22px;min-height:230px;overflow:hidden;padding:clamp(22px,4vw,42px);border:1px solid #59402f;border-radius:24px;background:radial-gradient(ellipse at 82% 48%,#75432455,transparent 38%),linear-gradient(115deg,#211a19,#201c22 65%,#2a1d18);box-shadow:0 18px 46px #0005}
+.merch-hero-copy{position:relative;z-index:2;max-width:600px}
+.merch-kicker{display:block;color:#ffb778;font-size:10px;font-weight:850;letter-spacing:.19em}
+.merch-hero h2{font-size:clamp(28px,4vw,39px);margin:10px 0 8px;letter-spacing:-.045em}
+.merch-hero p,.merch-ads-copy p{max-width:540px;color:#c0b7b4;line-height:1.65;font-size:13px;margin:0}
+.merch-safe-note{display:inline-flex;align-items:center;gap:9px;margin-top:20px;padding:9px 13px;border:1px solid #60452f;border-radius:30px;background:#39291f;color:#ffd0a7;font-size:11px;font-weight:700}
+.merch-safe-dot{width:7px;height:7px;border-radius:50%;background:#79dba1;box-shadow:0 0 12px #79dba1}
+.merch-hero-art{position:relative;flex:0 0 230px;height:174px;display:flex;align-items:center;justify-content:center}
+.merch-art-window{position:relative;width:190px;height:135px;border:1px solid #8e6547;border-radius:17px;background:linear-gradient(150deg,#493024,#28212a);box-shadow:0 16px 30px #0007;transform:rotate(4deg)}
+.art-sun{position:absolute;width:43px;height:43px;right:20px;top:16px;border-radius:50%;background:linear-gradient(140deg,#ffd19c,#ff853d);box-shadow:0 0 30px #ff9a4b55}
+.art-shelf{position:absolute;left:15px;right:15px;height:2px;background:#b28a6c}
+.shelf-one{top:54px}.shelf-two{top:88px}.shelf-three{top:119px}
+.art-product{position:absolute;bottom:0;width:25px;border-radius:6px 6px 2px 2px;background:linear-gradient(140deg,#ffcb91,#c96d36);box-shadow:0 4px 10px #0005}
+.p-one{height:38px;left:30px;bottom:90px}.p-two{height:29px;left:76px;bottom:90px;background:linear-gradient(140deg,#e6c9a5,#8c624d)}.p-three{height:31px;left:125px;bottom:57px;background:linear-gradient(140deg,#ffc37c,#d65d34)}
+.merch-art-caption{position:absolute;bottom:0;right:0;color:#d4a27c;font-size:9px;font-weight:800;letter-spacing:.17em}
+.merch-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 2px}
+.merch-toolbar h3{font-size:19px;margin:5px 0}
+.merch-toolbar p{font-size:12px;margin:0}
+.merch-refresh{width:auto;background:#28242a;border:1px solid #51413a;color:#ffd0a7;box-shadow:none;font-size:12px}
+.merch-status-strip{display:flex;align-items:center;gap:13px;padding:14px 17px;border:1px solid #3d393e;border-radius:15px;background:linear-gradient(100deg,#232127,#1c1c22)}
+.merch-status-icon{display:grid;place-items:center;width:34px;height:34px;flex:0 0 34px;border-radius:11px;background:#49301f;color:#ffc18a;font-size:17px}
+.merch-status-strip b,.merch-savebar b{display:block;font-size:12px;color:#f5eee9}
+.merch-status-strip small,.merch-savebar small{display:block;margin-top:4px;color:#aaa2a0;font-size:11px}
+.merch-live-pill{margin-left:auto;border:1px solid #4c624f;border-radius:20px;padding:6px 9px;color:#a6e5b7;font-size:9px;font-weight:850;letter-spacing:.1em;white-space:nowrap}
+.merch-message{font-size:12px;margin:0;padding:0 2px}
+.merch-shelves{display:grid;gap:10px}
+.merch-shelf-row{display:flex;align-items:center;gap:14px;padding:15px 17px!important;margin:0!important;border:1px solid #38343b!important;border-radius:17px!important;background:linear-gradient(110deg,#222128,#1a1a20)!important;box-shadow:0 7px 20px #0002;transition:border-color .18s,transform .18s}
+.merch-shelf-row:hover{border-color:#795032!important;transform:translateY(-1px)}
+.merch-shelf-number{display:grid;place-items:center;width:36px;height:36px;flex:0 0 36px;border-radius:12px;background:#38291f;color:#ffbf88;font-size:13px;font-weight:850}
+.merch-shelf-info{flex:1;min-width:0}
+.merch-shelf-info b{display:block;color:#f6f0eb;font-size:13px}
+.merch-shelf-info .muted{margin-top:5px;font-size:11px}
+.merch-shelf-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.merch-shelf-actions button{width:auto;min-width:36px;padding:9px 11px;border:1px solid #48414a;background:#2b2930;color:#f3d2b6;box-shadow:none;font-size:12px}
+.merch-shelf-actions .merch-toggle{min-width:68px;background:#183b2b;border-color:#32664a;color:#a8efbf;font-size:10px;letter-spacing:.08em}
+.merch-shelf-actions .merch-toggle.is-off{background:#342b2b;border-color:#604343;color:#e5a9a9}
+.merch-shelf-actions button:disabled{opacity:.3;cursor:not-allowed}
+.merch-savebar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:17px 19px;border:1px solid #5a402e;border-radius:17px;background:linear-gradient(100deg,#2d211b,#211d20)}
+.merch-save{width:auto;white-space:nowrap;padding:13px 18px}
+.merch-save span{margin-left:8px}
+.merch-ads-card{display:flex;align-items:center;gap:15px;padding:19px;border:1px solid #34323a;border-radius:18px;background:#1b1b21}
+.merch-ads-icon{display:grid;place-items:center;width:44px;height:44px;flex:0 0 44px;border-radius:14px;background:#30261f;color:#ffc18a;font-size:22px}
+.merch-ads-copy{flex:1;min-width:0}
+.merch-ads-copy h3{margin:5px 0;font-size:15px}
+.merch-ads-copy p{font-size:11px}
+@media(max-width:650px){
+ .merch-hero{min-height:0;padding:22px}
+ .merch-hero-art{flex:0 0 105px;height:110px;transform:scale(.68);transform-origin:right center;margin-left:-45px}
+ .merch-art-window{width:160px}
+ .merch-art-caption{font-size:8px;white-space:nowrap}
+ .merch-hero p{font-size:12px}
+ .merch-toolbar{align-items:flex-start;flex-direction:column}
+ .merch-refresh{align-self:flex-end}
+ .merch-shelf-row{gap:9px;padding:12px!important}
+ .merch-shelf-number{width:30px;height:30px;flex-basis:30px}
+ .merch-shelf-actions{gap:5px}
+ .merch-shelf-actions button{padding:8px;min-width:32px}
+ .merch-shelf-actions .merch-toggle{min-width:55px}
+ .merch-savebar{align-items:flex-start;flex-direction:column}
+ .merch-save{width:100%}
+ .merch-ads-card{align-items:flex-start;flex-wrap:wrap}
+ .merch-ads-card>.pill{margin-left:59px}
+}
+
 </style></head>
 <body><main class="wrap">
 <section id="login" class="card login"><div class="brand">AARVO</div><h2>Private Admin</h2><p class="muted">This panel is separate from the customer Android app.</p><input id="email" type="email" placeholder="Admin email"><input id="password" type="password" placeholder="Admin password"><button id="loginBtn">Sign in as Admin</button><div id="loginMsg"></div></section>
@@ -40,7 +170,18 @@
   <div style="overflow:auto"><table class="table"><thead><tr><th>Order</th><th>Buyer / Delivery</th><th>Amount</th><th>Payment</th><th>Status</th><th>Actions</th></tr></thead><tbody id="orderRows"></tbody></table></div>
   <div class="card" style="margin-top:16px"><h3>Manual Seller Settlement</h3><p class="muted">Admin-only cash/bank settlement record. Use only after the seller has actually received the money. Requires the server feature flag.</p><div class="grid"><div><label>Seller user ID</label><input id="manualSellerId" placeholder="Seller ID"></div><div><label>Amount (₹)</label><input id="manualPayoutAmount" type="number" min="0.01" step="0.01" placeholder="Amount"></div><div><label>Payment reference</label><input id="manualPayoutReference" maxlength="120" placeholder="Bank UTR / cash receipt ref"></div><div><label>Memo</label><input id="manualPayoutMemo" maxlength="500" placeholder="Settlement note"></div></div><button style="max-width:260px" onclick="recordManualPayout()">Record manual payout</button><div id="manualPayoutMsg" class="muted" style="margin-top:8px"></div></div>
  </div>
-</div><div id="homeFeed" class="panel"><div class="card"><div class="top"><div><h2 style="margin:0">Homepage Merchandising</h2><div class="muted">Enable/disable shelves and change their order. Hero Live slider is intentionally not managed here.</div></div><button style="width:auto" onclick="loadHomeFeedSettings()">Refresh</button></div><div id="homeFeedMsg" class="muted">Load settings to begin.</div><div id="homeFeedRows"></div><button style="max-width:240px" onclick="saveHomeFeedSettings()">Save Homepage Layout</button></div><div class="card" style="margin-top:16px"><h3>Sponsored Products / Ads</h3><p class="muted">Sponsored placement stays OFF until a real sponsored campaign is configured and approved. No paid placement is displayed by default.</p><span class="pill warn">Campaign manager: setup pending</span></div></div><div id="deals" class="panel"><div class="card"><h2>Top Deals & Offers</h2><p class="muted">Publish your own deals for published products, or review seller-submitted deals. Approved discounts apply at checkout while active.</p><div class="grid"><div><label>Product ID</label><input id="dealProductId" type="number" min="1" placeholder="Product ID"></div><div><label>Discount (%)</label><input id="dealDiscount" type="number" min="1" max="80" value="10"></div><div><label>Ends at</label><input id="dealEndsAt" type="datetime-local"></div><div><label>Admin note</label><input id="dealAdminNote" maxlength="500" placeholder="Optional note"></div></div><button style="max-width:240px" onclick="createAdminDeal()">Publish Admin Deal</button><div id="dealCreateMsg" class="muted" style="margin-top:8px"></div></div><div class="card" style="margin-top:16px"><div class="top"><h2 style="margin:0">Seller Requests & Live Deals</h2><button style="width:auto" onclick="loadDeals()">Refresh</button></div><div id="dealMsg" class="muted">Loading…</div><div style="overflow:auto"><table class="table"><thead><tr><th>Product</th><th>Seller</th><th>Price</th><th>Discount</th><th>Ends</th><th>Status</th><th>Action</th></tr></thead><tbody id="dealRows"></tbody></table></div></div></div><div id="sellers" class="panel"><div class="card"><div class="top" style="margin-bottom:8px"><div><h2 style="margin:0">Seller Onboarding Review</h2><div class="muted">Review submitted business, KYC, payout and pickup details.</div></div><button style="width:auto;margin:0" onclick="loadSellers()">Refresh</button></div><div id="sellerMsg" class="muted" style="margin:12px 0">Loading…</div><div style="overflow:auto"><table class="table"><thead><tr><th>Seller</th><th>Business / KYC</th><th>Payout</th><th>Pickup</th><th>Status</th><th>Action</th></tr></thead><tbody id="sellerRows"></tbody></table></div></div></div>
+</div><div id="homeFeed" class="panel merch-panel">
+ <div class="merch-hero">
+  <div class="merch-hero-copy"><span class="merch-kicker">AARVO STOREFRONT STUDIO</span><h2>Merchandising</h2><p>Shape the shopping journey. Curate which shelves customers see and set the order they appear on the AARVO home page.</p><div class="merch-safe-note"><span class="merch-safe-dot"></span> Hero Live slider remains untouched</div></div>
+  <div class="merch-hero-art" aria-hidden="true"><div class="merch-art-window"><span class="art-sun"></span><span class="art-shelf shelf-one"></span><span class="art-shelf shelf-two"></span><span class="art-shelf shelf-three"></span><span class="art-product p-one"></span><span class="art-product p-two"></span><span class="art-product p-three"></span></div><span class="merch-art-caption">YOUR HOME · YOUR STORY</span></div>
+ </div>
+ <div class="merch-toolbar"><div><span class="merch-kicker">STOREFRONT LAYOUT</span><h3>Homepage sections</h3><p class="muted">Arrange the shelves and control their visibility.</p></div><button class="merch-refresh" onclick="loadHomeFeedSettings()">↻ Refresh layout</button></div>
+ <div class="merch-status-strip"><span class="merch-status-icon">✦</span><span><b>Live layout controls</b><small>Changes are saved to the AARVO server when you publish the layout.</small></span><span class="merch-live-pill">ADMIN CONTROL</span></div>
+ <div id="homeFeedMsg" class="muted merch-message">Load settings to begin.</div>
+ <div id="homeFeedRows" class="merch-shelves"></div>
+ <div class="merch-savebar"><div><b>Ready to update your storefront?</b><small>Review the order and visibility before saving.</small></div><button class="merch-save" onclick="saveHomeFeedSettings()">Save Homepage Layout <span>→</span></button></div>
+ <div class="merch-ads-card"><div class="merch-ads-icon">✧</div><div class="merch-ads-copy"><span class="merch-kicker">GROWTH & PROMOTION</span><h3>Sponsored Products / Ads</h3><p>Paid placements remain disabled until a real sponsored campaign is configured and approved. No sponsored content is shown by default.</p></div><span class="pill warn">Setup pending</span></div>
+</div><div id="deals" class="panel"><div class="card"><h2>Top Deals & Offers</h2><p class="muted">Publish your own deals for published products, or review seller-submitted deals. Approved discounts apply at checkout while active.</p><div class="grid"><div><label>Product ID</label><input id="dealProductId" type="number" min="1" placeholder="Product ID"></div><div><label>Discount (%)</label><input id="dealDiscount" type="number" min="1" max="80" value="10"></div><div><label>Ends at</label><input id="dealEndsAt" type="datetime-local"></div><div><label>Admin note</label><input id="dealAdminNote" maxlength="500" placeholder="Optional note"></div></div><button style="max-width:240px" onclick="createAdminDeal()">Publish Admin Deal</button><div id="dealCreateMsg" class="muted" style="margin-top:8px"></div></div><div class="card" style="margin-top:16px"><div class="top"><h2 style="margin:0">Seller Requests & Live Deals</h2><button style="width:auto" onclick="loadDeals()">Refresh</button></div><div id="dealMsg" class="muted">Loading…</div><div style="overflow:auto"><table class="table"><thead><tr><th>Product</th><th>Seller</th><th>Price</th><th>Discount</th><th>Ends</th><th>Status</th><th>Action</th></tr></thead><tbody id="dealRows"></tbody></table></div></div></div><div id="sellers" class="panel"><div class="card"><div class="top" style="margin-bottom:8px"><div><h2 style="margin:0">Seller Onboarding Review</h2><div class="muted">Review submitted business, KYC, payout and pickup details.</div></div><button style="width:auto;margin:0" onclick="loadSellers()">Refresh</button></div><div id="sellerMsg" class="muted" style="margin:12px 0">Loading…</div><div style="overflow:auto"><table class="table"><thead><tr><th>Seller</th><th>Business / KYC</th><th>Payout</th><th>Pickup</th><th>Status</th><th>Action</th></tr></thead><tbody id="sellerRows"></tbody></table></div></div></div>
 </section>
 <div id="actionModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="actionModalTitle">
  <div class="modalCard"><div class="modalHead"><h2 id="actionModalTitle">Seller action</h2><button type="button" class="logout" onclick="closeActionModal()">Close</button></div>
@@ -188,7 +329,7 @@ async function createShipment(id){if(!confirm('Create a third-party delivery shi
 async function refundOrder(id,totalPaise){const raw=prompt('Refund amount in rupees. Enter full amount ('+(totalPaise/100).toFixed(2)+') for full refund, or a smaller amount for partial refund.',''+(totalPaise/100).toFixed(2));if(raw===null)return;const amount=Number(raw);if(!Number.isFinite(amount)||amount<=0||amount>totalPaise/100)return alert('Enter a valid amount not exceeding the order total.');if(!confirm('Confirm refund of ₹'+amount.toFixed(2)+' for order '+id+'? This submits a real payment refund.'))return;try{await api('/v1/admin/orders/'+encodeURIComponent(id)+'/refund',{method:'POST',body:JSON.stringify({amountPaise:Math.round(amount*100)})});alert('Refund request processed by payment provider.');loadOrders()}catch(e){alert('Refund failed: '+e.message)}}
 let homeFeedConfig=null;
 async function loadHomeFeedSettings(){const msg=document.getElementById('homeFeedMsg'),rows=document.getElementById('homeFeedRows');msg.className='muted';msg.textContent='Loading saved homepage layout…';rows.innerHTML='';try{homeFeedConfig=await api('/v1/admin/home-feed/settings');renderHomeFeedSettings();msg.textContent='Settings loaded. Save after changing order or visibility.'}catch(e){msg.className='err';msg.textContent='Could not load homepage settings: '+e.message}}
-function renderHomeFeedSettings(){const rows=document.getElementById('homeFeedRows');if(!homeFeedConfig||!rows)return;rows.innerHTML=homeFeedConfig.sections.map((s,i)=>'<div class="card" style="margin:8px 0;padding:12px;display:flex;align-items:center;gap:10px"><div style="flex:1"><b>'+esc(s.label)+'</b><div class="muted">Position '+(i+1)+'</div></div><button style="width:auto" onclick="moveHomeFeedSection('+i+',-1)" '+(i===0?'disabled':'')+'>↑</button><button style="width:auto" onclick="moveHomeFeedSection('+i+',1)" '+(i===homeFeedConfig.sections.length-1?'disabled':'')+'>↓</button><button style="width:auto" onclick="toggleHomeFeedSection('+i+')">'+(s.enabled?'ON':'OFF')+'</button></div>').join('')}
+function renderHomeFeedSettings(){const rows=document.getElementById('homeFeedRows');if(!homeFeedConfig||!rows)return;rows.innerHTML=homeFeedConfig.sections.map((s,i)=>'<div class="card merch-shelf-row"><div class="merch-shelf-number">'+String(i+1).padStart(2,'0')+'</div><div class="merch-shelf-info"><b>'+esc(s.label)+'</b><div class="muted">Homepage position '+(i+1)+' · '+(s.enabled?'Visible to customers':'Hidden from storefront')+'</div></div><div class="merch-shelf-actions"><button aria-label="Move '+esc(s.label)+' up" onclick="moveHomeFeedSection('+i+',-1)" '+(i===0?'disabled':'')+'>↑</button><button aria-label="Move '+esc(s.label)+' down" onclick="moveHomeFeedSection('+i+',1)" '+(i===homeFeedConfig.sections.length-1?'disabled':'')+'>↓</button><button class="merch-toggle '+(s.enabled?'':'is-off')+'" aria-pressed="'+(s.enabled?'true':'false')+'" onclick="toggleHomeFeedSection('+i+')">'+(s.enabled?'● ON':'○ OFF')+'</button></div></div>').join('')}
 function moveHomeFeedSection(index,direction){if(!homeFeedConfig)return;const next=index+direction;if(next<0||next>=homeFeedConfig.sections.length)return;const list=[...homeFeedConfig.sections];[list[index],list[next]]=[list[next],list[index]];homeFeedConfig={...homeFeedConfig,sections:list};renderHomeFeedSettings()}
 function toggleHomeFeedSection(index){if(!homeFeedConfig)return;homeFeedConfig={...homeFeedConfig,sections:homeFeedConfig.sections.map((s,i)=>i===index?{...s,enabled:!s.enabled}:s)};renderHomeFeedSettings()}
 async function saveHomeFeedSettings(){const msg=document.getElementById('homeFeedMsg');if(!homeFeedConfig)return;msg.className='muted';msg.textContent='Saving homepage layout…';try{const result=await api('/v1/admin/home-feed/settings',{method:'PUT',body:JSON.stringify({config:homeFeedConfig})});homeFeedConfig=result.config;renderHomeFeedSettings();msg.className='ok';msg.textContent='Homepage layout saved to AARVO server.'}catch(e){msg.className='err';msg.textContent='Save failed: '+e.message}}
