@@ -86,6 +86,17 @@ import {
   checkShiprocketServiceability,
   ShiprocketServiceabilityResult,
 } from '../utils/shiprocketServiceability';
+import {
+  DEFAULT_STILL_LOOKING_CONFIG,
+  StillLookingConfig,
+  loadStillLookingConfig,
+  saveStillLookingConfig,
+  loadRecentlyViewedIds,
+  saveRecentlyViewedIds,
+  getRealDiscountPercent,
+  selectStillLookingEntries,
+} from '../utils/homeMerchandising';
+import { HomeFeedControlModal } from './HomeFeedControlModal';
 
 interface MainScreenProps {
   onLogout?: () => void;
@@ -319,6 +330,34 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [product360Modal, setProduct360Modal] = useState<Product | null>(null);
   const [zoomImageProduct, setZoomImageProduct] = useState<Product | null>(null);
   const bulkCsvInputRef = useRef<HTMLInputElement | null>(null);
+
+  // "Still looking for these?" browsing history & controls state
+  const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>(() =>
+    loadRecentlyViewedIds()
+  );
+  const [stillLookingConfig, setStillLookingConfig] = useState<StillLookingConfig>(() =>
+    loadStillLookingConfig()
+  );
+  const [isStillLookingControlOpen, setIsStillLookingControlOpen] = useState(false);
+
+  const updateStillLookingConfig = useCallback((next: StillLookingConfig) => {
+    setStillLookingConfig(next);
+    saveStillLookingConfig(next);
+  }, []);
+
+  const clearRecentlyViewedHistory = useCallback(() => {
+    setRecentlyViewedIds([]);
+    saveRecentlyViewedIds([]);
+  }, []);
+
+  const openProductDetail = useCallback((product: Product) => {
+    setRecentlyViewedIds((prev) => {
+      const next = [product.id, ...prev.filter((id) => id !== product.id)].slice(0, 20);
+      saveRecentlyViewedIds(next);
+      return next;
+    });
+    setSelectedProduct(product);
+  }, []);
 
   // Price Range Filter state (₹)
   const [minPriceFilter, setMinPriceFilter] = useState<number | null>(null);
@@ -1498,6 +1537,18 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     [allProducts, matchesPriceRange]
   );
 
+  const stillLookingEntries = useMemo(
+    () =>
+      selectStillLookingEntries(
+        allProducts,
+        recentlyViewedIds,
+        wishlist,
+        cartItems.map((c) => c.product.id),
+        stillLookingConfig
+      ),
+    [allProducts, recentlyViewedIds, wishlist, cartItems, stillLookingConfig]
+  );
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#FFFDF9] dark:bg-[#120E0C] text-slate-900 dark:text-slate-100 flex justify-center pb-16 select-none font-sans transition-colors duration-300">
@@ -2106,7 +2157,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         key={product.id}
                         onClick={() => {
                           haptics.light();
-                          setSelectedProduct(product);
+                          openProductDetail(product);
                         }}
                         className="bg-white dark:bg-[#211A17] rounded-2xl p-2.5 border border-orange-100/80 dark:border-stone-800/80 shadow-xs flex flex-col justify-between hover:shadow-md transition-all group cursor-pointer"
                       >
@@ -2337,6 +2388,97 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             </section>
 
             {/* ================================================================= */}
+            {/* 1B. STILL LOOKING FOR THESE? (Browsing History + Wishlist + Cart) */}
+            {/* ================================================================= */}
+            {stillLookingConfig.enabled && (isProductsLoading || stillLookingEntries.length > 0) && (
+              <section className="px-3.5 py-1.5">
+                <div className="rounded-2xl p-3 bg-gradient-to-br from-[#EEF2FF] via-[#F3E8FF]/65 to-[#FFF4E8] dark:from-[#231B26] dark:via-[#211A17] dark:to-[#1C1613] border border-indigo-100/80 dark:border-stone-800 shadow-2xs">
+                  <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <div>
+                      <h3 className="font-display font-black text-sm text-slate-900 dark:text-white leading-tight">
+                        Still looking for these?
+                      </h3>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        {recentlyViewedIds.length > 0
+                          ? 'Based on items you viewed, saved & carted'
+                          : 'Tap any product to track your browsing picks'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.selection();
+                        setIsStillLookingControlOpen(true);
+                      }}
+                      className="shrink-0 px-2 py-1 rounded-lg bg-white/85 dark:bg-[#2A201B] border border-indigo-200/70 dark:border-stone-700 text-[10px] font-bold text-slate-700 dark:text-slate-200 hover:border-[#FF5722] flex items-center gap-1 cursor-pointer transition-colors"
+                      title="See how products are selected and control this section"
+                    >
+                      <SlidersHorizontal className="w-3 h-3 text-[#FF5722]" />
+                      <span>Controls</span>
+                    </button>
+                  </div>
+
+                  {isProductsLoading ? (
+                    <div className="grid grid-cols-3 gap-2">
+                      {[0, 1, 2].map((skeletonIdx) => (
+                        <div
+                          key={skeletonIdx}
+                          className="bg-white/80 dark:bg-[#211A17] rounded-xl p-1.5 animate-pulse"
+                        >
+                          <div className="aspect-square rounded-lg bg-orange-100/60 dark:bg-stone-800 mb-1.5" />
+                          <div className="h-2.5 bg-orange-100/60 dark:bg-stone-800 rounded w-4/5 mb-1" />
+                          <div className="h-3 bg-orange-100/80 dark:bg-stone-800 rounded w-1/2" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      {stillLookingEntries.map(({ product, reasonLabel }) => {
+                        const pct = getRealDiscountPercent(product);
+                        return (
+                          <button
+                            key={`still-looking-${product.id}`}
+                            type="button"
+                            onClick={() => {
+                              haptics.light();
+                              openProductDetail(product);
+                            }}
+                            className="bg-white dark:bg-[#211A17] rounded-xl p-1.5 border border-white/90 dark:border-stone-800 shadow-2xs hover:shadow-md active:scale-[0.98] transition-all text-left flex flex-col justify-between group cursor-pointer"
+                          >
+                            <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-[#FFF9F2] dark:bg-stone-900 mb-1.5">
+                              <img
+                                src={product.image}
+                                alt={product.name}
+                                className="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform duration-300"
+                              />
+                              {pct > 0 && (
+                                <span className="absolute top-0 left-0 bg-[#2563EB] text-white text-[10px] font-black px-1.5 py-0.5 rounded-br-lg shadow-xs leading-none">
+                                  ↓{pct}%
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="px-0.5">
+                              <h4 className="text-[11px] font-bold text-slate-800 dark:text-slate-100 line-clamp-1 leading-tight">
+                                {product.name}
+                              </h4>
+                              <p className="text-xs font-black text-slate-900 dark:text-white mt-0.5 leading-tight">
+                                ₹{product.price.toLocaleString('en-IN')}
+                              </p>
+                              <p className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                {reasonLabel}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* ================================================================= */}
             {/* 2. SHOP BY CATEGORY SECTION                                       */}
             {/* ================================================================= */}
             <section className="px-3.5 py-2">
@@ -2537,7 +2679,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       key={product.id}
                       onClick={() => {
                         haptics.light();
-                        setSelectedProduct(product);
+                        openProductDetail(product);
                       }}
                       className="bg-white dark:bg-[#211A17] rounded-2xl p-2.5 border border-orange-100/80 dark:border-stone-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
                     >
@@ -2649,7 +2791,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       key={product.id}
                       onClick={() => {
                         haptics.light();
-                        setSelectedProduct(product);
+                        openProductDetail(product);
                       }}
                       className="bg-white dark:bg-[#211A17] rounded-2xl p-2.5 border border-orange-100/80 dark:border-stone-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
                     >
@@ -2910,7 +3052,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       key={product.id}
                       onClick={() => {
                         haptics.light();
-                        setSelectedProduct(product);
+                        openProductDetail(product);
                       }}
                       className="bg-white dark:bg-[#211A17] rounded-2xl p-2 border border-orange-100/80 dark:border-stone-800/80 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group active:scale-[0.98]"
                     >
@@ -3146,7 +3288,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     key={product.id}
                     onClick={() => {
                       haptics.light();
-                      setSelectedProduct(product);
+                      openProductDetail(product);
                     }}
                     className="bg-white dark:bg-[#211A17] rounded-2xl p-2.5 border border-orange-100/80 dark:border-stone-800 shadow-xs flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group"
                   >
@@ -4040,6 +4182,26 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   </span>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.selection();
+                  setIsStillLookingControlOpen(true);
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-[#FFF4E8]/60 dark:hover:bg-stone-800/40 flex items-center justify-between transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <SlidersHorizontal className="w-4 h-4 text-[#FF5722] shrink-0" />
+                  <div className="min-w-0">
+                    <span className="block">&ldquo;Still looking for these?&rdquo; Controls</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal block truncate">
+                      {stillLookingConfig.enabled ? 'Visible on Home' : 'Hidden'} · {recentlyViewedIds.length} viewed items tracked
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
               </button>
 
               <button
@@ -6466,7 +6628,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           onClick={() => {
                             haptics.light();
                             setIsWishlistModalOpen(false);
-                            setSelectedProduct(item);
+                            openProductDetail(item);
                           }}
                           className="w-14 h-14 rounded-xl object-cover shrink-0 cursor-pointer"
                         />
@@ -6475,7 +6637,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             onClick={() => {
                               haptics.light();
                               setIsWishlistModalOpen(false);
-                              setSelectedProduct(item);
+                              openProductDetail(item);
                             }}
                             className="text-xs font-bold text-slate-900 dark:text-white truncate cursor-pointer"
                           >
@@ -6883,6 +7045,29 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             </div>
           </div>
         )}
+
+        {/* ================================================================= */}
+        {/* "STILL LOOKING FOR THESE?" CONTROL & EXPLANATION MODAL            */}
+        {/* ================================================================= */}
+        <HomeFeedControlModal
+          isOpen={isStillLookingControlOpen}
+          onClose={() => setIsStillLookingControlOpen(false)}
+          config={stillLookingConfig}
+          onChangeConfig={updateStillLookingConfig}
+          entries={stillLookingEntries}
+          recentlyViewedCount={recentlyViewedIds.length}
+          wishlistCount={wishlist.length}
+          cartCount={cartItems.length}
+          onClearHistory={() => {
+            clearRecentlyViewedHistory();
+            showToast('Cleared browsing history for Still looking for these?', 'info');
+          }}
+          onResetDefaults={() => {
+            updateStillLookingConfig(DEFAULT_STILL_LOOKING_CONFIG);
+            showToast('Reset Still looking for these? settings to default');
+          }}
+          onOpenProduct={openProductDetail}
+        />
 
       </div>
     </div>
