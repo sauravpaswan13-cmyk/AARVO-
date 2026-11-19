@@ -17,13 +17,12 @@ const riderImport = "import { registerRiderDelivery } from './rider-delivery.js'
 const thirdPartyDeliveryImport = "import { createThirdPartyShipmentForOrder, enqueueSellerShipment, registerThirdPartyDelivery } from './third-party-delivery.js';";
 const offerImport = "import { registerOfferCompletion } from './offer-completion.js';";
 const productDealsImport = "import { registerProductDeals } from './product-deals.js';";
-const homeFeedImport = "import { registerHomeFeedSettings } from './home-feed-settings.js';";
 
 // Keep the runtime-generated server deterministic: randomInt must survive every launcher rewrite.
 const cryptoImport = "import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';";
 const cryptoImportWithRandomInt = "import { createHmac, randomBytes, randomUUID, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';";
 const productImagesImport = "import { registerProductImageUploads } from './product-image-uploads.js';";
-const runtimeImports = [marketplaceImport, cartImport, settlementImport, gapImport, sellerImport, kycDocsImport, productImagesImport, riderImport, thirdPartyDeliveryImport, offerImport, productDealsImport, homeFeedImport];
+const runtimeImports = [marketplaceImport, cartImport, settlementImport, gapImport, sellerImport, kycDocsImport, productImagesImport, riderImport, thirdPartyDeliveryImport, offerImport, productDealsImport];
 const cryptoAnchor = source.includes(cryptoImportWithRandomInt) ? cryptoImportWithRandomInt : cryptoImport;
 if (!source.includes(cryptoImportWithRandomInt)) {
   source = source.replace(cryptoImport, cryptoImportWithRandomInt);
@@ -51,8 +50,7 @@ const routeRegistrations = [
   ["await registerRiderDelivery({ app, pool, requireRole, audit });", "rider delivery"],
   ["await registerThirdPartyDelivery({ app, pool, requireRole, audit });", "third-party delivery"],
   ["await registerOfferCompletion({ app, pool, requireRole, audit });", "offers"],
-  ["await registerProductDeals({ app, pool, requireRole, audit });", "product deals"],
-  ["await registerHomeFeedSettings({ app, pool, requireRole, audit });", "homepage merchandising settings"]
+  ["await registerProductDeals({ app, pool, requireRole, audit });", "product deals"]
 ];
 if (!source.includes(listenMarker)) throw new Error("AARVO launcher safety check: listen marker missing");
 const missingRegistrations = routeRegistrations
@@ -248,6 +246,17 @@ if (!source.includes('hero-content.js')) {
   source = source.replace(
     "await registerAdminAuth({ app, pool, issueToken, verifyPassword });",
     "await registerAdminAuth({ app, pool, issueToken, verifyPassword });\nawait registerHeroContent({ app, pool, requireRole });"
+  );
+}
+
+if (!source.includes('home-merchandising.js')) {
+  source = source.replace(
+    "import { registerHeroContent } from './hero-content.js';",
+    "import { registerHeroContent } from './hero-content.js';\nimport { registerHomeMerchandising } from './home-merchandising.js';"
+  );
+  source = source.replace(
+    "await registerHeroContent({ app, pool, requireRole });",
+    "await registerHeroContent({ app, pool, requireRole });\nawait registerHomeMerchandising({ app, pool, requireRole, audit });"
   );
 }
 

@@ -861,7 +861,7 @@ export const Product360ViewerModal: React.FC<Product360ViewerModalProps> = ({
                 </span>
               </div>
               <span className="text-[10px] font-bold text-emerald-400">
-                {product.discount} &bull; Free Delivery
+                {product.discount ? `${product.discount} • Verified Listing` : 'Verified AARVO Listing'}
               </span>
             </div>
 

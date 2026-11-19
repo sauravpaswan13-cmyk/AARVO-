@@ -87,14 +87,19 @@ import {
   ShiprocketServiceabilityResult,
 } from '../utils/shiprocketServiceability';
 import {
-  DEFAULT_STILL_LOOKING_CONFIG,
-  StillLookingConfig,
-  loadStillLookingConfig,
-  saveStillLookingConfig,
+  DEFAULT_MERCHANDISING_CONFIG,
+  HomeMerchandisingSectionConfig,
+  loadMerchandisingConfig,
+  saveMerchandisingConfig,
+  mergeRemoteMerchandisingConfig,
   loadRecentlyViewedIds,
   saveRecentlyViewedIds,
   getRealDiscountPercent,
   selectStillLookingEntries,
+  selectBrandsInSpotlight,
+  selectTopValueDeals,
+  selectSuggestedForYou,
+  selectMoreProducts,
 } from '../utils/homeMerchandising';
 import { HomeFeedControlModal } from './HomeFeedControlModal';
 
@@ -331,18 +336,18 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [zoomImageProduct, setZoomImageProduct] = useState<Product | null>(null);
   const bulkCsvInputRef = useRef<HTMLInputElement | null>(null);
 
-  // "Still looking for these?" browsing history & controls state
+  // Home Merchandising & Admin Feed Controls state
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>(() =>
     loadRecentlyViewedIds()
   );
-  const [stillLookingConfig, setStillLookingConfig] = useState<StillLookingConfig>(() =>
-    loadStillLookingConfig()
+  const [merchandisingConfig, setMerchandisingConfig] = useState<HomeMerchandisingSectionConfig[]>(() =>
+    loadMerchandisingConfig()
   );
-  const [isStillLookingControlOpen, setIsStillLookingControlOpen] = useState(false);
+  const [isFeedControlOpen, setIsFeedControlOpen] = useState(false);
 
-  const updateStillLookingConfig = useCallback((next: StillLookingConfig) => {
-    setStillLookingConfig(next);
-    saveStillLookingConfig(next);
+  const updateMerchandisingConfig = useCallback((next: HomeMerchandisingSectionConfig[]) => {
+    setMerchandisingConfig(next);
+    saveMerchandisingConfig(next);
   }, []);
 
   const clearRecentlyViewedHistory = useCallback(() => {
@@ -1194,10 +1199,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               price,
               originalPrice,
               rating: Number(row.rating ?? 4.2),
-              reviewsCount: Number(row.reviews_count ?? row.reviewsCount ?? 120),
+              reviewsCount: Number(row.reviews_count ?? row.reviewsCount ?? 0),
               discount: discountPct > 0 ? `${discountPct}% OFF` : '',
               inStock: stockQuantity > 0,
               stockQuantity,
+              codAvailable: row.cod_enabled !== false,
               seller: String(row.seller_name ?? row.seller ?? 'AARVO Verified Seller'),
               description: String(
                 row.description ?? 'Genuine AARVO marketplace product with doorstep delivery.'
@@ -1209,6 +1215,23 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             setAllProducts(normalized);
           }
         }
+      }
+
+      // Sync Admin-managed Home merchandising sections from backend API (if configured)
+      try {
+        const apiBase = resolveApiBaseUrl();
+        const merchRes = await fetch(`${apiBase}/v1/home/merchandising`, {
+          signal: controller.signal,
+          headers: { Accept: 'application/json' },
+        });
+        if (merchRes.ok) {
+          const remoteSections = await merchRes.json();
+          if (Array.isArray(remoteSections) && remoteSections.length > 0 && !controller.signal.aborted) {
+            setMerchandisingConfig((prev) => mergeRemoteMerchandisingConfig(prev, remoteSections));
+          }
+        }
+      } catch {
+        // Offline / preview fallback keeps local merchandising rules active
       }
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
@@ -1537,6 +1560,13 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     [allProducts, matchesPriceRange]
   );
 
+  const stillLookingConfig = useMemo(
+    () =>
+      merchandisingConfig.find((s) => s.id === 'still_looking') ||
+      DEFAULT_MERCHANDISING_CONFIG[0],
+    [merchandisingConfig]
+  );
+
   const stillLookingEntries = useMemo(
     () =>
       selectStillLookingEntries(
@@ -1544,9 +1574,81 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         recentlyViewedIds,
         wishlist,
         cartItems.map((c) => c.product.id),
-        stillLookingConfig
+        stillLookingConfig.maxItems,
+        stillLookingConfig.pinnedProductIds
       ),
     [allProducts, recentlyViewedIds, wishlist, cartItems, stillLookingConfig]
+  );
+
+  const brandsSpotlightConfig = useMemo(
+    () =>
+      merchandisingConfig.find((s) => s.id === 'brands_spotlight') ||
+      DEFAULT_MERCHANDISING_CONFIG[1],
+    [merchandisingConfig]
+  );
+
+  const brandsSpotlightEntries = useMemo(
+    () =>
+      selectBrandsInSpotlight(
+        homeFeedProducts.length > 0 ? homeFeedProducts : allProducts,
+        brandsSpotlightConfig.maxItems,
+        brandsSpotlightConfig.pinnedProductIds
+      ),
+    [homeFeedProducts, allProducts, brandsSpotlightConfig]
+  );
+
+  const topValueDealsConfig = useMemo(
+    () =>
+      merchandisingConfig.find((s) => s.id === 'top_value_deals') ||
+      DEFAULT_MERCHANDISING_CONFIG[2],
+    [merchandisingConfig]
+  );
+
+  const topValueDealsPicks = useMemo(
+    () =>
+      selectTopValueDeals(
+        homeFeedProducts.length > 0 ? homeFeedProducts : allProducts,
+        topValueDealsConfig.maxItems,
+        topValueDealsConfig.pinnedProductIds
+      ),
+    [homeFeedProducts, allProducts, topValueDealsConfig]
+  );
+
+  const suggestedForYouConfig = useMemo(
+    () =>
+      merchandisingConfig.find((s) => s.id === 'suggested_for_you') ||
+      DEFAULT_MERCHANDISING_CONFIG[3],
+    [merchandisingConfig]
+  );
+
+  const suggestedForYouPicks = useMemo(
+    () =>
+      selectSuggestedForYou(
+        homeFeedProducts.length > 0 ? homeFeedProducts : allProducts,
+        recentlyViewedIds,
+        wishlist,
+        cartItems.map((c) => c.product.id),
+        suggestedForYouConfig.maxItems,
+        suggestedForYouConfig.pinnedProductIds
+      ),
+    [homeFeedProducts, allProducts, recentlyViewedIds, wishlist, cartItems, suggestedForYouConfig]
+  );
+
+  const moreProductsConfig = useMemo(
+    () =>
+      merchandisingConfig.find((s) => s.id === 'more_products') ||
+      DEFAULT_MERCHANDISING_CONFIG[4],
+    [merchandisingConfig]
+  );
+
+  const moreProductsPicks = useMemo(
+    () =>
+      selectMoreProducts(
+        homeFeedProducts,
+        moreProductsConfig.maxItems,
+        moreProductsConfig.pinnedProductIds
+      ),
+    [homeFeedProducts, moreProductsConfig]
   );
 
   if (isLoading) {
@@ -2388,19 +2490,20 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             </section>
 
             {/* ================================================================= */}
-            {/* 1B. STILL LOOKING FOR THESE? (Browsing History + Wishlist + Cart) */}
+            {/* 1B. STILL LOOKING FOR THESE? (Periwinkle Lavender Frost Zone)     */}
             {/* ================================================================= */}
             {stillLookingConfig.enabled && (isProductsLoading || stillLookingEntries.length > 0) && (
               <section className="px-3.5 py-1.5">
-                <div className="rounded-2xl p-3 bg-gradient-to-br from-[#EEF2FF] via-[#F3E8FF]/65 to-[#FFF4E8] dark:from-[#231B26] dark:via-[#211A17] dark:to-[#1C1613] border border-indigo-100/80 dark:border-stone-800 shadow-2xs">
-                  <div className="flex items-center justify-between gap-2 mb-2.5">
+                <div className="relative overflow-hidden rounded-2xl p-3 bg-gradient-to-br from-[#E9F0FF] via-[#F3E9FF] to-[#FFF2EA] dark:from-[#1D1A2B] dark:via-[#241B29] dark:to-[#1C1613] border border-indigo-200/75 dark:border-indigo-900/40 shadow-sm">
+                  <div className="pointer-events-none absolute -top-10 -right-10 w-28 h-28 rounded-full bg-indigo-300/20 dark:bg-indigo-500/10 blur-xl" />
+                  <div className="relative flex items-center justify-between gap-2 mb-2.5">
                     <div>
                       <h3 className="font-display font-black text-sm text-slate-900 dark:text-white leading-tight">
-                        Still looking for these?
+                        {stillLookingConfig.title}
                       </h3>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                      <p className="text-[10px] text-slate-600 dark:text-slate-300">
                         {recentlyViewedIds.length > 0
-                          ? 'Based on items you viewed, saved & carted'
+                          ? stillLookingConfig.subtitle
                           : 'Tap any product to track your browsing picks'}
                       </p>
                     </div>
@@ -2408,13 +2511,13 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       type="button"
                       onClick={() => {
                         haptics.selection();
-                        setIsStillLookingControlOpen(true);
+                        setIsFeedControlOpen(true);
                       }}
-                      className="shrink-0 px-2 py-1 rounded-lg bg-white/85 dark:bg-[#2A201B] border border-indigo-200/70 dark:border-stone-700 text-[10px] font-bold text-slate-700 dark:text-slate-200 hover:border-[#FF5722] flex items-center gap-1 cursor-pointer transition-colors"
-                      title="See how products are selected and control this section"
+                      className="shrink-0 px-2 py-1 rounded-lg bg-white/90 dark:bg-[#2A201B] border border-indigo-200/80 dark:border-stone-700 text-[10px] font-bold text-slate-700 dark:text-slate-200 hover:border-[#FF5722] flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Manage Admin merchandising zones and see product rules"
                     >
                       <SlidersHorizontal className="w-3 h-3 text-[#FF5722]" />
-                      <span>Controls</span>
+                      <span>Manage Feed</span>
                     </button>
                   </div>
 
@@ -2425,9 +2528,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                           key={skeletonIdx}
                           className="bg-white/80 dark:bg-[#211A17] rounded-xl p-1.5 animate-pulse"
                         >
-                          <div className="aspect-square rounded-lg bg-orange-100/60 dark:bg-stone-800 mb-1.5" />
-                          <div className="h-2.5 bg-orange-100/60 dark:bg-stone-800 rounded w-4/5 mb-1" />
-                          <div className="h-3 bg-orange-100/80 dark:bg-stone-800 rounded w-1/2" />
+                          <div className="aspect-square rounded-lg bg-indigo-100/60 dark:bg-stone-800 mb-1.5" />
+                          <div className="h-2.5 bg-indigo-100/60 dark:bg-stone-800 rounded w-4/5 mb-1" />
+                          <div className="h-3 bg-indigo-100/80 dark:bg-stone-800 rounded w-1/2" />
                         </div>
                       ))}
                     </div>
@@ -2443,7 +2546,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                               haptics.light();
                               openProductDetail(product);
                             }}
-                            className="bg-white dark:bg-[#211A17] rounded-xl p-1.5 border border-white/90 dark:border-stone-800 shadow-2xs hover:shadow-md active:scale-[0.98] transition-all text-left flex flex-col justify-between group cursor-pointer"
+                            className="bg-white/95 dark:bg-[#211A17] rounded-xl p-1.5 border border-white dark:border-stone-800 shadow-2xs hover:shadow-md active:scale-[0.98] transition-all text-left flex flex-col justify-between group cursor-pointer"
                           >
                             <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-[#FFF9F2] dark:bg-stone-900 mb-1.5">
                               <img
@@ -2740,8 +2843,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       </div>
 
                       <div className="flex items-center justify-between pt-2 mt-1 border-t border-orange-100/70 dark:border-stone-800/80">
-                        <span className="text-[10px] text-emerald-600 font-bold">
-                          Free Delivery
+                        <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold">
+                          {product.codAvailable === false ? 'Online Pay' : 'COD Eligible'}
                         </span>
                         <button
                           type="button"
@@ -2762,107 +2865,418 @@ export const MainScreen: React.FC<MainScreenProps> = ({
             </section>
 
             {/* ================================================================= */}
-            {/* 5. "MORE PRODUCTS FOR YOU"                                        */}
+            {/* DYNAMIC ADMIN-MANAGED MERCHANDISING ZONES (DISTINCT BACKGROUNDS)  */}
             {/* ================================================================= */}
-            <section className="px-3.5 py-2 relative">
-              <div className="flex items-center justify-between mb-2.5">
-                <h3 className="font-display font-black text-sm text-slate-900 dark:text-white">
-                  More products for you
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => switchTab('categories')}
-                  className="text-xs font-bold text-[#FF5722] hover:underline cursor-pointer"
-                >
-                  View All &gt;
-                </button>
-              </div>
+            {merchandisingConfig
+              .filter((sec) => sec.id !== 'still_looking' && sec.enabled)
+              .map((sec) => {
+                if (sec.id === 'brands_spotlight' && (isProductsLoading || brandsSpotlightEntries.length > 0)) {
+                  return (
+                    <section key={sec.id} className="px-3.5 py-2">
+                      <div className="relative overflow-hidden rounded-2xl p-3 bg-gradient-to-b from-[#FFFDF9] via-[#FFF1F5]/85 to-[#FFF6EC] dark:from-[#211A17] dark:via-[#27181E] dark:to-[#1B1512] border border-rose-200/75 dark:border-rose-900/35 shadow-sm">
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <h3 className="font-display font-black text-sm text-slate-900 dark:text-white leading-tight truncate">
+                                {sec.title}
+                              </h3>
+                              {sec.badgeText && (
+                                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-600 text-white shrink-0">
+                                  {sec.badgeText}
+                                </span>
+                              )}
+                            </div>
+                            {sec.subtitle && (
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                {sec.subtitle}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              haptics.selection();
+                              setIsFeedControlOpen(true);
+                            }}
+                            className="shrink-0 p-1.5 rounded-lg bg-white/85 dark:bg-[#2A201B] border border-rose-200/70 dark:border-stone-700 text-slate-600 dark:text-slate-300 hover:text-[#FF5722] cursor-pointer"
+                            aria-label="Manage Brands in Spotlight"
+                          >
+                            <SlidersHorizontal className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
 
-              {isProductsLoading ? (
-                <ProductGridSkeleton
-                  count={4}
-                  variant="compact"
-                  label="Loading recommended products"
-                />
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {(homeFeedProducts.length > 2 ? homeFeedProducts.slice(2, 6) : homeFeedProducts).map((product) => (
-                    <div
-                      key={product.id}
-                      onClick={() => {
-                        haptics.light();
-                        openProductDetail(product);
-                      }}
-                      className="bg-white dark:bg-[#211A17] rounded-2xl p-2.5 border border-orange-100/80 dark:border-stone-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
-                    >
-                      <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#FFF9F2] dark:bg-stone-900 mb-2">
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-
-                        {product.originalPrice > product.price && product.discount && (
-                          <span className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
-                            {product.discount}
-                          </span>
-                        )}
-
-                        {/* Genuine Rating pill at bottom if rated */}
-                        {product.reviewsCount > 0 && (
-                          <span className="absolute bottom-1.5 left-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-xs text-slate-800 dark:text-slate-200 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-xs flex items-center gap-1">
-                            <span>{product.rating.toFixed(1)}</span>
-                            <Star className="w-2.5 h-2.5 fill-emerald-600 text-emerald-600" />
-                            <span className="text-slate-400 font-normal">({product.reviewsCount})</span>
-                          </span>
+                        {isProductsLoading ? (
+                          <div className="grid grid-cols-3 gap-2">
+                            {[0, 1, 2, 3, 4, 5].map((skeletonIdx) => (
+                              <div key={skeletonIdx} className="bg-white/80 dark:bg-[#211A17] rounded-xl p-1.5 animate-pulse">
+                                <div className="aspect-square rounded-lg bg-rose-100/60 dark:bg-stone-800 mb-1.5" />
+                                <div className="h-2.5 bg-rose-100/60 dark:bg-stone-800 rounded w-3/4 mx-auto mb-1" />
+                                <div className="h-2 bg-rose-100/40 dark:bg-stone-800 rounded w-1/2 mx-auto" />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-2">
+                            {brandsSpotlightEntries.map(({ product, headline, caption, isAdminCurated }) => (
+                              <button
+                                key={`brand-spot-${product.id}`}
+                                type="button"
+                                onClick={() => {
+                                  haptics.light();
+                                  openProductDetail(product);
+                                }}
+                                className="bg-white/95 dark:bg-[#211A17] rounded-xl p-1.5 border border-rose-100/80 dark:border-stone-800 shadow-2xs hover:shadow-md active:scale-[0.98] transition-all text-center flex flex-col justify-between group cursor-pointer"
+                              >
+                                <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-gradient-to-br from-[#FFF9F5] to-[#FFEFF4] dark:from-stone-900 dark:to-[#241A1E] mb-1.5">
+                                  <img
+                                    src={product.image}
+                                    alt={product.name}
+                                    className="w-full h-full object-contain p-1.5 group-hover:scale-105 transition-transform duration-300"
+                                  />
+                                  <span className="absolute top-1 left-1 max-w-[85%] truncate px-1.5 py-0.5 rounded bg-slate-950/75 text-white text-[8px] font-black tracking-tight backdrop-blur-xs">
+                                    {(product.seller || 'AARVO').split(' ').slice(0, 2).join(' ')}
+                                  </span>
+                                  {isAdminCurated && (
+                                    <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-amber-500 text-slate-950 text-[8px] font-black">
+                                      Featured
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="px-0.5">
+                                  <p className="text-[11px] font-black text-slate-900 dark:text-white leading-tight truncate">
+                                    {headline}
+                                  </p>
+                                  <p className="text-[9px] font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                    {caption}
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
                         )}
                       </div>
+                    </section>
+                  );
+                }
 
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
-                          {product.name}
-                        </h4>
+                if (sec.id === 'top_value_deals' && (isProductsLoading || topValueDealsPicks.length > 0)) {
+                  return (
+                    <section key={sec.id} className="px-3.5 py-2">
+                      <div className="relative overflow-hidden rounded-2xl p-3 bg-gradient-to-br from-[#FFE082] via-[#FBBF24] to-[#F59E0B] dark:from-[#3D2808] dark:via-[#2E1E08] dark:to-[#211509] border border-amber-300/80 dark:border-amber-800/60 shadow-sm">
+                        <div
+                          className="pointer-events-none absolute inset-0 opacity-75 dark:opacity-30"
+                          style={{
+                            backgroundImage:
+                              'linear-gradient(to right, rgba(146, 64, 14, 0.11) 1px, transparent 1px), linear-gradient(to bottom, rgba(146, 64, 14, 0.11) 1px, transparent 1px)',
+                            backgroundSize: '18px 18px',
+                          }}
+                        />
+                        <div className="relative flex items-start justify-between gap-2 mb-2.5">
+                          <div className="min-w-0">
+                            <h3 className="font-display font-black text-base text-slate-950 dark:text-amber-100 leading-tight drop-shadow-[0_1px_0_rgba(255,255,255,0.45)] dark:drop-shadow-none">
+                              {sec.title}
+                            </h3>
+                            {sec.subtitle && (
+                              <p className="text-[10px] font-bold text-amber-950/80 dark:text-amber-200/80 truncate">
+                                {sec.subtitle}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {sec.badgeText && (
+                              <div className="px-2 py-1 rounded-xl bg-white dark:bg-[#1B130B] border-2 border-red-600 text-red-600 dark:text-amber-300 font-display font-black text-[9px] uppercase tracking-wider shadow-xs">
+                                {sec.badgeText}
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                haptics.selection();
+                                setIsFeedControlOpen(true);
+                              }}
+                              className="p-1.5 rounded-lg bg-white/85 dark:bg-stone-900/80 text-slate-800 dark:text-amber-200 cursor-pointer"
+                              aria-label="Manage Top Value Deals"
+                            >
+                              <SlidersHorizontal className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
 
-                        <div className="flex items-baseline gap-1.5 mt-1">
-                          <span className="text-sm font-black text-slate-900 dark:text-white">
-                            ₹{product.price.toLocaleString('en-IN')}
-                          </span>
-                          {product.originalPrice > product.price && (
-                            <span className="text-[10px] text-slate-400 line-through">
-                              ₹{product.originalPrice.toLocaleString('en-IN')}
-                            </span>
-                          )}
+                        {isProductsLoading ? (
+                          <div className="grid grid-cols-3 gap-2">
+                            {[0, 1, 2].map((skeletonIdx) => (
+                              <div key={skeletonIdx} className="bg-white/85 dark:bg-[#211A17] rounded-xl p-1.5 animate-pulse">
+                                <div className="aspect-square rounded-lg bg-amber-100 dark:bg-stone-800 mb-1.5" />
+                                <div className="h-2.5 bg-amber-100 dark:bg-stone-800 rounded w-3/4 mb-1" />
+                                <div className="h-3 bg-amber-200/70 dark:bg-stone-800 rounded w-1/2" />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-2">
+                            {topValueDealsPicks.map(({ product, isAdminCurated }) => (
+                              <button
+                                key={`value-deal-${product.id}`}
+                                type="button"
+                                onClick={() => {
+                                  haptics.light();
+                                  openProductDetail(product);
+                                }}
+                                className="bg-[#FFFDF7] dark:bg-[#211A17] rounded-xl p-1.5 border border-amber-100 dark:border-amber-900/50 shadow-xs hover:shadow-md active:scale-[0.98] transition-all text-left flex flex-col justify-between group cursor-pointer"
+                              >
+                                <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-amber-50/70 dark:bg-stone-900 mb-1.5">
+                                  <img
+                                    src={product.image}
+                                    alt={product.name}
+                                    className="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform duration-300"
+                                  />
+                                  {isAdminCurated && (
+                                    <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-slate-950 text-amber-300 text-[8px] font-black">
+                                      Admin Pick
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="px-0.5">
+                                  <h4 className="text-[11px] font-bold text-slate-800 dark:text-slate-100 line-clamp-1 leading-tight">
+                                    {product.name}
+                                  </h4>
+                                  <p className="text-xs font-black text-slate-950 dark:text-amber-300 mt-0.5 leading-tight">
+                                    {product.price <= 999
+                                      ? `Under ₹${(Math.ceil(product.price / 100) * 100).toLocaleString('en-IN')}`
+                                      : `Just ₹${product.price.toLocaleString('en-IN')}`}
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  );
+                }
+
+                if (sec.id === 'suggested_for_you' && (isProductsLoading || suggestedForYouPicks.length > 0)) {
+                  return (
+                    <section key={sec.id} className="px-3.5 py-2">
+                      <div className="rounded-2xl p-3 bg-gradient-to-br from-[#ECFDF5] via-[#EBF8FF] to-[#FFFDF9] dark:from-[#13221D] dark:via-[#141E26] dark:to-[#1B1614] border border-emerald-200/75 dark:border-emerald-900/40 shadow-sm">
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                          <div className="min-w-0">
+                            <h3 className="font-display font-black text-sm text-slate-900 dark:text-white leading-tight truncate">
+                              {sec.title}
+                            </h3>
+                            {sec.subtitle && (
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                {sec.subtitle}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                haptics.selection();
+                                setIsFeedControlOpen(true);
+                              }}
+                              className="p-1.5 rounded-lg bg-white/85 dark:bg-[#211A17] border border-emerald-200/70 dark:border-stone-700 text-slate-600 dark:text-slate-300 cursor-pointer"
+                              aria-label="Manage Suggested For You"
+                            >
+                              <SlidersHorizontal className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => switchTab('categories')}
+                              aria-label="Browse suggested categories"
+                              className="w-8 h-6 rounded-full bg-slate-900 hover:bg-black dark:bg-[#FF5722] text-white flex items-center justify-center shadow-xs active:scale-95 transition-transform cursor-pointer"
+                            >
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {isProductsLoading ? (
+                          <div className="grid grid-cols-3 gap-2">
+                            {[0, 1, 2].map((skeletonIdx) => (
+                              <div key={skeletonIdx} className="bg-white/85 dark:bg-[#211A17] rounded-xl p-1.5 animate-pulse">
+                                <div className="aspect-square rounded-lg bg-emerald-100/60 dark:bg-stone-800 mb-1.5" />
+                                <div className="h-2.5 bg-emerald-100/60 dark:bg-stone-800 rounded w-3/4 mb-1" />
+                                <div className="h-3 bg-emerald-100/80 dark:bg-stone-800 rounded w-1/2" />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-2">
+                            {suggestedForYouPicks.map(({ product, isAdminCurated }) => (
+                              <button
+                                key={`suggested-${product.id}`}
+                                type="button"
+                                onClick={() => {
+                                  haptics.light();
+                                  openProductDetail(product);
+                                }}
+                                className="bg-white/95 dark:bg-[#211A17] rounded-xl p-1.5 border border-emerald-100/80 dark:border-stone-800 shadow-2xs hover:shadow-md active:scale-[0.98] transition-all text-left flex flex-col justify-between group cursor-pointer"
+                              >
+                                <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-[#F7FCFA] dark:bg-stone-900 mb-1.5">
+                                  <img
+                                    src={product.image}
+                                    alt={product.name}
+                                    className="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform duration-300"
+                                  />
+                                  {product.reviewsCount > 0 && (
+                                    <span className="absolute bottom-1 left-1 bg-white/95 dark:bg-stone-900/90 text-slate-900 dark:text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-xs flex items-center gap-0.5">
+                                      <span>{product.rating.toFixed(1)}</span>
+                                      <Star className="w-2.5 h-2.5 fill-emerald-600 text-emerald-600" />
+                                    </span>
+                                  )}
+                                  {isAdminCurated && (
+                                    <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-emerald-700 text-white text-[8px] font-black">
+                                      Curated
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="px-0.5">
+                                  <h4 className="text-[11px] font-bold text-slate-800 dark:text-slate-100 line-clamp-1 leading-tight">
+                                    {product.name}
+                                  </h4>
+                                  <p className="text-xs font-black text-slate-900 dark:text-white mt-0.5">
+                                    ₹{product.price.toLocaleString('en-IN')}
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  );
+                }
+
+                if (sec.id === 'more_products') {
+                  return (
+                    <section key={sec.id} className="px-3.5 py-2 relative">
+                      <div className="rounded-2xl p-3 bg-gradient-to-b from-[#FFF6EC] via-[#FFFDF9] to-white dark:from-[#221914] dark:via-[#1B1512] dark:to-[#181311] border border-orange-200/75 dark:border-stone-800 shadow-xs">
+                        <div className="flex items-center justify-between mb-2.5 gap-2">
+                          <div>
+                            <h3 className="font-display font-black text-sm text-slate-900 dark:text-white">
+                              {sec.title}
+                            </h3>
+                            {sec.subtitle && (
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                                {sec.subtitle}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => switchTab('categories')}
+                            className="text-xs font-bold text-[#FF5722] hover:underline cursor-pointer shrink-0"
+                          >
+                            View All &gt;
+                          </button>
+                        </div>
+
+                        {isProductsLoading ? (
+                          <ProductGridSkeleton
+                            count={4}
+                            variant="compact"
+                            label="Loading recommended products"
+                          />
+                        ) : (
+                          <div className="grid grid-cols-2 gap-3">
+                            {moreProductsPicks.map(({ product, isAdminCurated }) => {
+                              const pct = getRealDiscountPercent(product);
+                              return (
+                                <div
+                                  key={product.id}
+                                  onClick={() => {
+                                    haptics.light();
+                                    openProductDetail(product);
+                                  }}
+                                  className="bg-white dark:bg-[#211A17] rounded-2xl p-2.5 border border-orange-100/80 dark:border-stone-800 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer"
+                                >
+                                  <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-[#FFF9F2] dark:bg-stone-900 mb-2">
+                                    <img
+                                      src={product.image}
+                                      alt={product.name}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                    />
+
+                                    {pct >= 45 ? (
+                                      <span className="absolute top-1.5 left-1.5 bg-indigo-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                                        Lowest price
+                                      </span>
+                                    ) : product.originalPrice > product.price && product.discount ? (
+                                      <span className="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                                        {product.discount}
+                                      </span>
+                                    ) : null}
+
+                                    {isAdminCurated && (
+                                      <span className="absolute top-1.5 right-1.5 bg-slate-900/85 text-amber-300 text-[8px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                                        Featured
+                                      </span>
+                                    )}
+
+                                    {/* Genuine Rating pill at bottom only if genuinely rated */}
+                                    {product.reviewsCount > 0 && (
+                                      <span className="absolute bottom-1.5 left-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-xs text-slate-800 dark:text-slate-200 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-xs flex items-center gap-1">
+                                        <span>{product.rating.toFixed(1)}</span>
+                                        <Star className="w-2.5 h-2.5 fill-emerald-600 text-emerald-600" />
+                                        <span className="text-slate-400 font-normal">({product.reviewsCount})</span>
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight">
+                                      {product.name}
+                                    </h4>
+
+                                    <div className="flex items-baseline gap-1.5 mt-1">
+                                      <span className="text-sm font-black text-slate-900 dark:text-white">
+                                        ₹{product.price.toLocaleString('en-IN')}
+                                      </span>
+                                      {product.originalPrice > product.price && (
+                                        <span className="text-[10px] text-slate-400 line-through">
+                                          ₹{product.originalPrice.toLocaleString('en-IN')}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      addToCart(product);
+                                    }}
+                                    className="mt-2 w-full py-1.5 bg-orange-50 dark:bg-stone-800 hover:bg-[#FF5722] text-[#FF5722] hover:text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                  >
+                                    <ShoppingCart className="w-3.5 h-3.5" />
+                                    <span>Add to Cart</span>
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        <div className="flex justify-center mt-3">
+                          <button
+                            type="button"
+                            onClick={() => switchTab('categories')}
+                            className="px-4 py-1.5 rounded-full bg-white dark:bg-[#211A17] border border-orange-200 dark:border-stone-700 shadow-sm text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 hover:shadow-md active:scale-95 transition-all cursor-pointer"
+                          >
+                            <span className="text-[#FF5722] font-black">Explore Full Catalog</span>
+                            <ArrowRight className="w-3.5 h-3.5 text-[#FF5722]" />
+                          </button>
                         </div>
                       </div>
+                    </section>
+                  );
+                }
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addToCart(product);
-                        }}
-                        className="mt-2 w-full py-1.5 bg-orange-50 dark:bg-stone-800 hover:bg-[#FF5722] text-[#FF5722] hover:text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <ShoppingCart className="w-3.5 h-3.5" />
-                        <span>Add to Cart</span>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Floating "↓ More below" pill button */}
-              <div className="flex justify-center mt-3">
-                <button
-                  type="button"
-                  onClick={() => switchTab('categories')}
-                  className="px-4 py-1.5 rounded-full bg-white dark:bg-[#211A17] border border-orange-200 dark:border-stone-700 shadow-md text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 hover:shadow-lg active:scale-95 transition-all cursor-pointer"
-                >
-                  <span className="text-[#FF5722] font-black">↓</span>
-                  <span>More below</span>
-                </button>
-              </div>
-            </section>
+                return null;
+              })}
           </>
         )}
       </div>
@@ -4188,16 +4602,16 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                 type="button"
                 onClick={() => {
                   haptics.selection();
-                  setIsStillLookingControlOpen(true);
+                  setIsFeedControlOpen(true);
                 }}
                 className="w-full px-4 py-3 text-left hover:bg-[#FFF4E8]/60 dark:hover:bg-stone-800/40 flex items-center justify-between transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <SlidersHorizontal className="w-4 h-4 text-[#FF5722] shrink-0" />
                   <div className="min-w-0">
-                    <span className="block">&ldquo;Still looking for these?&rdquo; Controls</span>
+                    <span className="block">Home Merchandising &amp; Feed Controls</span>
                     <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal block truncate">
-                      {stillLookingConfig.enabled ? 'Visible on Home' : 'Hidden'} · {recentlyViewedIds.length} viewed items tracked
+                      {merchandisingConfig.filter((s) => s.enabled).length}/{merchandisingConfig.length} zones active · {recentlyViewedIds.length} viewed items tracked
                     </span>
                   </div>
                 </div>
@@ -7047,24 +7461,24 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         )}
 
         {/* ================================================================= */}
-        {/* "STILL LOOKING FOR THESE?" CONTROL & EXPLANATION MODAL            */}
+        {/* HOME MERCHANDISING & ADMIN FEED CONTROL MODAL                     */}
         {/* ================================================================= */}
         <HomeFeedControlModal
-          isOpen={isStillLookingControlOpen}
-          onClose={() => setIsStillLookingControlOpen(false)}
-          config={stillLookingConfig}
-          onChangeConfig={updateStillLookingConfig}
-          entries={stillLookingEntries}
-          recentlyViewedCount={recentlyViewedIds.length}
-          wishlistCount={wishlist.length}
-          cartCount={cartItems.length}
+          isOpen={isFeedControlOpen}
+          onClose={() => setIsFeedControlOpen(false)}
+          config={merchandisingConfig}
+          onChangeConfig={updateMerchandisingConfig}
+          catalog={allProducts}
+          recentlyViewedIds={recentlyViewedIds}
+          wishlistIds={wishlist}
+          cartProductIds={cartItems.map((c) => c.product.id)}
           onClearHistory={() => {
             clearRecentlyViewedHistory();
             showToast('Cleared browsing history for Still looking for these?', 'info');
           }}
           onResetDefaults={() => {
-            updateStillLookingConfig(DEFAULT_STILL_LOOKING_CONFIG);
-            showToast('Reset Still looking for these? settings to default');
+            updateMerchandisingConfig(DEFAULT_MERCHANDISING_CONFIG);
+            showToast('Reset Home Merchandising zones to default layout');
           }}
           onOpenProduct={openProductDetail}
         />

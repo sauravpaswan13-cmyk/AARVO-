@@ -595,7 +595,7 @@ export const ProductImageZoomModal: React.FC<ProductImageZoomModalProps> = ({
               </span>
             </div>
             <p className="text-[10px] text-slate-400">
-              Free Delivery &bull; 7 Days Return
+              7 Days Return &bull; Tracked Delivery
             </p>
           </div>
 

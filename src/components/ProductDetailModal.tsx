@@ -889,10 +889,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           </div>
 
           {/* =============================================================== */}
-          {/* 2 TRUST CARDS MATCHING SCREENSHOT EXACTLY (FREE DELIVERY & SECURE PAYMENT) */}
+          {/* 2 HONEST DELIVERY & CHECKOUT CARDS (NO FAKE FREE DELIVERY)      */}
           {/* =============================================================== */}
           <div className="space-y-2.5 pt-1">
-            {/* 1. Green Free Delivery Card */}
+            {/* 1. Delivery Fee & Date Card */}
             <div className="p-3 rounded-2xl bg-[#E8F8EE] dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/80 flex items-center gap-3 shadow-2xs">
               <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
                 <Check className="w-4 h-4 stroke-[3]" />
@@ -901,7 +901,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <h4 className="text-xs sm:text-[13px] font-black text-slate-900 dark:text-white leading-tight">
                   {serviceability?.freightCharge && serviceability.freightCharge > 0
                     ? `Delivery Charge ₹${Math.round(serviceability.freightCharge)}`
-                    : 'Free Delivery'}
+                    : serviceability?.serviceable
+                    ? 'Tracked Courier Delivery'
+                    : 'Delivery Estimate by PIN'}
                 </h4>
                 <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium mt-0.5 tabular-nums">
                   {checkingPincode
@@ -910,22 +912,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     ? serviceability.serviceable
                       ? `${serviceability.etd ? `Delivery by ${serviceability.etd}` : `Delivery in ${serviceability.estimatedDaysText}`}${serviceability.sizeTier ? ` • ${serviceability.sizeTier}` : ''}`
                       : `Currently unserviceable for PIN ${pincode}`
-                    : 'Enter delivery pincode below to check delivery date'}
+                    : 'Enter delivery pincode below to check courier ETA & fee'}
                 </p>
               </div>
             </div>
 
-            {/* 2. Blue Secure Payment Card */}
+            {/* 2. Verified Checkout Card */}
             <div className="p-3 rounded-2xl bg-[#EEF4FF] dark:bg-blue-950/40 border border-blue-200/90 dark:border-blue-800/80 flex items-center gap-3 shadow-2xs">
               <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
                 <ShieldCheck className="w-4 h-4 stroke-[2.5]" />
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs sm:text-[13px] font-black text-slate-900 dark:text-white leading-tight">
-                  Secure Payment
+                  Verified AARVO Checkout
                 </h4>
                 <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium mt-0.5">
-                  100% Secure &amp; Easy Payments
+                  {product.codAvailable !== false ? 'Cash on Delivery & UPI/Card Checkout' : 'Prepaid Online Checkout'}
                 </p>
               </div>
             </div>
@@ -1210,10 +1212,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">
                 {serviceability?.freightCharge && serviceability.freightCharge > 0
                   ? `Delivery ₹${Math.round(serviceability.freightCharge)}`
-                  : 'Free Delivery'}
+                  : serviceability?.serviceable
+                  ? 'Tracked Delivery'
+                  : 'Delivery ETA'}
               </span>
               <span className="text-[9px] text-slate-500 dark:text-slate-400">
-                {serviceability?.etd ? `By ${serviceability.etd}` : serviceability?.estimatedDaysText || 'Tracked courier'}
+                {serviceability?.etd ? `By ${serviceability.etd}` : serviceability?.estimatedDaysText || 'Check PIN above'}
               </span>
             </div>
 
@@ -1228,9 +1232,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <div className="p-2.5 rounded-xl bg-[#FFF4E8]/70 dark:bg-[#211A17] border border-orange-100 dark:border-orange-950/50 flex flex-col items-center">
               <ShieldCheck className="w-4 h-4 text-[#FF5722] dark:text-[#FF8A65] mb-1" />
               <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200">
-                {product.codAvailable !== false && (serviceability ? serviceability.codAvailable : true) ? 'COD Eligible' : 'Prepaid Pay'}
+                {product.codAvailable !== false && (serviceability ? serviceability.codAvailable : true) ? 'COD Eligible' : 'Prepaid Order'}
               </span>
-              <span className="text-[9px] text-slate-500 dark:text-slate-400">Razorpay protected</span>
+              <span className="text-[9px] text-slate-500 dark:text-slate-400">
+                {product.codAvailable !== false && (serviceability ? serviceability.codAvailable : true)
+                  ? 'Pay at doorstep'
+                  : 'Verified checkout'}
+              </span>
             </div>
           </div>
 
