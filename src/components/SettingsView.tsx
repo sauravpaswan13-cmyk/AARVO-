@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Bell,
@@ -166,10 +166,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [activeSection, setActiveSection] = useState<SettingsSection>(() =>
     initialSection || readStoredSection('contact')
   );
+  const [sectionDirection, setSectionDirection] = useState<'left' | 'right'>('right');
+  const sectionOrder: Record<SettingsSection, number> = {
+    contact: 0,
+    addresses: 1,
+    orders: 2,
+  };
+  const selectSection = useCallback(
+    (next: SettingsSection) => {
+      setSectionDirection(sectionOrder[next] >= sectionOrder[activeSection] ? 'right' : 'left');
+      setActiveSection(next);
+    },
+    [activeSection]
+  );
 
   useEffect(() => {
     if (initialSection) {
-      setActiveSection(initialSection);
+      selectSection(initialSection);
     }
   }, [initialSection]);
 
@@ -420,6 +433,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setIsAddressFormOpen(true);
   };
 
+  const addressFormRef = useRef<HTMLFormElement | null>(null);
+
   const openEditAddressForm = (addr: SavedAddress) => {
     haptics.light();
     setEditingAddressId(addr.id);
@@ -437,6 +452,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       isDefault: addr.id === activeAddressId || Boolean(addr.isDefault),
     });
     setIsAddressFormOpen(true);
+    setTimeout(() => {
+      addressFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 60);
   };
 
   const handleCheckPincode = async (pin: string) => {
@@ -669,12 +687,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </button>
         </div>
 
-        {/* Segmented Section Switcher */}
+        {/* Animated Segmented Section Switcher */}
         <div
           role="tablist"
           aria-label="Settings sections"
-          className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-orange-50/80 dark:bg-[#211A17] border border-orange-100/80 dark:border-stone-800"
+          className="relative grid grid-cols-3 p-1 rounded-xl bg-orange-50/80 dark:bg-[#211A17] border border-orange-100/80 dark:border-stone-800"
         >
+          <div
+            aria-hidden="true"
+            className="absolute top-1 bottom-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-lg bg-[#FF5722] shadow-xs transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none"
+            style={{
+              transform: `translate3d(${sectionOrder[activeSection] * 100}%, 0, 0)`,
+            }}
+          />
           {(
             [
               { id: 'contact', label: 'Contact Info' },
@@ -691,12 +716,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 type="button"
                 onClick={() => {
                   haptics.selection();
-                  setActiveSection(tab.id);
+                  selectSection(tab.id);
                 }}
-                className={`min-h-[40px] px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap truncate cursor-pointer ${
+                className={`relative z-10 min-h-[40px] px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors duration-200 whitespace-nowrap truncate cursor-pointer ${
                   isSelected
-                    ? 'bg-[#FF5722] text-white shadow-xs'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-stone-800/60'
+                    ? 'text-white'
+                    : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 {tab.label}
@@ -753,7 +778,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         {/* SECTION 1: CONTACT INFORMATION & APP PREFERENCES                */}
         {/* =============================================================== */}
         {activeSection === 'contact' && (
-          <div className="space-y-4">
+          <div
+            key="settings-panel-contact"
+            className={`space-y-4 ${
+              sectionDirection === 'right' ? 'animate-tab-from-right' : 'animate-tab-from-left'
+            }`}
+          >
             <form
               onSubmit={handleSaveContact}
               className="rounded-2xl bg-white dark:bg-[#211A17] border border-orange-100 dark:border-stone-800 p-4 space-y-3.5 shadow-2xs"
@@ -989,7 +1019,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         {/* SECTION 2: SAVED DELIVERY ADDRESSES                             */}
         {/* =============================================================== */}
         {activeSection === 'addresses' && (
-          <div className="space-y-4">
+          <div
+            key="settings-panel-addresses"
+            className={`space-y-4 ${
+              sectionDirection === 'right' ? 'animate-tab-from-right' : 'animate-tab-from-left'
+            }`}
+          >
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h2 className="font-display font-bold text-sm text-slate-900 dark:text-white">
@@ -1011,6 +1046,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             {isAddressFormOpen && (
               <form
+                ref={addressFormRef}
                 onSubmit={handleSaveAddress}
                 className="rounded-2xl bg-white dark:bg-[#211A17] border border-orange-200 dark:border-stone-700 p-4 space-y-3 shadow-sm"
               >
@@ -1295,7 +1331,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         {/* SECTION 3: SECURE ORDER HISTORY (UTILIZING STORED AUTH TOKEN)   */}
         {/* =============================================================== */}
         {activeSection === 'orders' && (
-          <div className="space-y-3">
+          <div
+            key="settings-panel-orders"
+            className={`space-y-3 ${
+              sectionDirection === 'right' ? 'animate-tab-from-right' : 'animate-tab-from-left'
+            }`}
+          >
             <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 px-0.5">
               <Package className="w-4 h-4 text-[#FF5722] shrink-0" />
               <span>

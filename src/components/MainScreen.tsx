@@ -139,15 +139,46 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     }
   }, [isSettingsViewOpen]);
 
+  const [tabTransitionDirection, setTabTransitionDirection] = useState<'left' | 'right'>('right');
+
+  const activeNavIndex = isSettingsViewOpen
+    ? 4
+    : isOrdersViewOpen
+    ? 3
+    : activeTab === 'home'
+    ? 0
+    : activeTab === 'categories' || activeTab === 'offers'
+    ? 1
+    : activeTab === 'cart'
+    ? 2
+    : 4;
+
+  const getTabIndexForTarget = (tab: 'home' | 'categories' | 'offers' | 'cart' | 'account') => {
+    if (tab === 'home') return 0;
+    if (tab === 'categories' || tab === 'offers') return 1;
+    if (tab === 'cart') return 2;
+    return 4;
+  };
+
   const switchTab = (tab: 'home' | 'categories' | 'offers' | 'cart' | 'account') => {
     haptics.selection();
+    const nextIdx = getTabIndexForTarget(tab);
+    setTabTransitionDirection(nextIdx >= activeNavIndex ? 'right' : 'left');
     setIsOrdersViewOpen(false);
     setIsSettingsViewOpen(false);
     setActiveTab(tab);
   };
 
+  const openOrdersView = () => {
+    haptics.selection();
+    setTabTransitionDirection(3 >= activeNavIndex ? 'right' : 'left');
+    setIsSettingsViewOpen(false);
+    setIsOrdersViewOpen(true);
+  };
+
   const openSettings = (section?: SettingsSection) => {
     haptics.selection();
+    setTabTransitionDirection(4 >= activeNavIndex ? 'right' : 'left');
     if (section) {
       setSettingsSectionTarget(section);
       try {
@@ -369,14 +400,41 @@ export const MainScreen: React.FC<MainScreenProps> = ({
   const [pincodeStatusMessage, setPincodeStatusMessage] = useState<string | null>(null);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [addressDraftError, setAddressDraftError] = useState<string | null>(null);
+  const [isSavingAddressModal, setIsSavingAddressModal] = useState(false);
+  const [addressEditPinPreview, setAddressEditPinPreview] = useState<ShiprocketServiceabilityResult | null>(null);
+  const addressModalFormRef = useRef<HTMLFormElement | null>(null);
   const [addressDraft, setAddressDraft] = useState({
     label: 'Home',
     fullName: '',
     phone: '',
     addressLine: '',
+    line2: '',
     city: '',
+    state: '',
     pincode: '',
   });
+
+  const startEditingAddressInModal = (addr: SavedAddress) => {
+    haptics.light();
+    setEditingAddressId(addr.id);
+    setAddressDraftError(null);
+    setAddressEditPinPreview(null);
+    setAddressDraft({
+      label: addr.label || 'Home',
+      fullName: addr.fullName,
+      phone: addr.phone,
+      addressLine: addr.addressLine,
+      line2: addr.line2 || '',
+      city: addr.city,
+      state: addr.state || '',
+      pincode: addr.pincode,
+    });
+    setIsAddressModalOpen(true);
+    setTimeout(() => {
+      addressModalFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 80);
+  };
   const [isWishlistModalOpen, setIsWishlistModalOpen] = useState(false);
   const [isCouponsModalOpen, setIsCouponsModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
@@ -1870,7 +1928,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         {/* TAB 1: HOME VIEW                                                  */}
         {/* ================================================================= */}
         {activeTab === 'home' && (
-          <div className="flex-1 flex flex-col pb-6">
+          <div
+            key="tab-panel-home"
+            className={`flex-1 flex flex-col pb-6 ${
+              tabTransitionDirection === 'right' ? 'animate-tab-from-right' : 'animate-tab-from-left'
+            }`}
+          >
             {searchQuery.trim() !== '' ? (
               /* REAL-TIME LIVE SEARCH RESULTS VIEW */
               <section className="p-3 animate-in fade-in duration-200">
@@ -2670,7 +2733,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         {/* TAB 2: FLIPKART-STYLE 2-PANE CATEGORIES EXPLORER                  */}
         {/* ================================================================= */}
         {activeTab === 'categories' && (
-          <div className="flex-1 flex overflow-hidden bg-[#FFFDF9] dark:bg-[#120E0C]">
+          <div
+            key="tab-panel-categories"
+            className={`flex-1 flex overflow-hidden bg-[#FFFDF9] dark:bg-[#120E0C] ${
+              tabTransitionDirection === 'right' ? 'animate-tab-from-right' : 'animate-tab-from-left'
+            }`}
+          >
             {/* Left Vertical Category Rail */}
             <aside className="w-20 sm:w-24 shrink-0 overflow-y-auto no-scrollbar border-r border-orange-100/80 dark:border-stone-800 bg-[#FFF8F1] dark:bg-[#181311] divide-y divide-orange-100/60 dark:divide-stone-800/60">
               {/* All Products Option */}
@@ -2967,7 +3035,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         {/* TAB 3: OFFERS VIEW                                                */}
         {/* ================================================================= */}
         {activeTab === 'offers' && (
-          <div className="flex-1 flex flex-col p-3 pb-6 space-y-3.5">
+          <div
+            key="tab-panel-offers"
+            className={`flex-1 flex flex-col p-3 pb-6 space-y-3.5 ${
+              tabTransitionDirection === 'right' ? 'animate-tab-from-right' : 'animate-tab-from-left'
+            }`}
+          >
             {/* Live Lightning Deal Header with countdown */}
             <div className="rounded-2xl bg-gradient-to-r from-[#FF7043] via-[#FF5722] to-[#E64A19] p-4 text-white shadow-md">
               <div className="flex items-center justify-between mb-2">
@@ -3147,7 +3220,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         {/* TAB 4: CART VIEW                                                  */}
         {/* ================================================================= */}
         {activeTab === 'cart' && (
-          <div className="flex-1 flex flex-col p-3 pb-6">
+          <div
+            key="tab-panel-cart"
+            className={`flex-1 flex flex-col p-3 pb-6 ${
+              tabTransitionDirection === 'right' ? 'animate-tab-from-right' : 'animate-tab-from-left'
+            }`}
+          >
             <div className="flex items-center justify-between mb-3 gap-2">
               <div>
                 <h2 className="font-display font-black text-lg text-slate-900 dark:text-white">
@@ -3213,13 +3291,24 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                       </p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddressModalOpen(true)}
-                    className="text-[11px] font-bold text-[#FF5722] hover:underline shrink-0 cursor-pointer"
-                  >
-                    Change
-                  </button>
+                  <div className="flex items-center gap-2.5 shrink-0">
+                    {activeAddressObj && (
+                      <button
+                        type="button"
+                        onClick={() => startEditingAddressInModal(activeAddressObj)}
+                        className="text-[11px] font-bold text-slate-700 dark:text-slate-200 hover:text-[#FF5722] hover:underline shrink-0 cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsAddressModalOpen(true)}
+                      className="text-[11px] font-bold text-[#FF5722] hover:underline shrink-0 cursor-pointer"
+                    >
+                      Change
+                    </button>
+                  </div>
                 </div>
 
                 {/* Cart Items List */}
@@ -3655,7 +3744,12 @@ export const MainScreen: React.FC<MainScreenProps> = ({
         {/* TAB 5: FLIPKART-STYLE ACCOUNT VIEW                                */}
         {/* ================================================================= */}
         {activeTab === 'account' && (
-          <div className="flex-1 flex flex-col p-3 pb-24 space-y-3.5 no-scrollbar overflow-y-auto">
+          <div
+            key="tab-panel-account"
+            className={`flex-1 flex flex-col p-3 pb-24 space-y-3.5 no-scrollbar overflow-y-auto ${
+              tabTransitionDirection === 'right' ? 'animate-tab-from-right' : 'animate-tab-from-left'
+            }`}
+          >
             {/* 1. AARVO Warm Orange Profile Header Card (No Fake Badges / No Fake SuperCoins) */}
             <div className="rounded-2xl bg-gradient-to-r from-[#FF7043] via-[#FF5722] to-[#E64A19] p-4 text-white shadow-md flex items-center justify-between gap-2">
               <div className="flex items-center gap-3 min-w-0">
@@ -4030,20 +4124,41 @@ export const MainScreen: React.FC<MainScreenProps> = ({
     )}
 
         {/* ================================================================= */}
-        {/* 7. BOTTOM NAVIGATION BAR                                          */}
+        {/* 7. ANIMATED BOTTOM NAVIGATION TAB SWITCHER                        */}
         {/* ================================================================= */}
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[440px] bg-white dark:bg-[#181311] border-t border-orange-100 dark:border-stone-800 py-1.5 px-2 flex items-center justify-around shadow-2xl z-40 transition-colors duration-300">
+        <nav
+          aria-label="Primary Bottom Navigation"
+          className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[440px] bg-white/95 dark:bg-[#181311]/95 backdrop-blur-md border-t border-orange-100 dark:border-stone-800 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] px-1.5 grid grid-cols-5 items-center shadow-2xl z-40 transition-colors duration-300"
+        >
+          {/* GPU-Accelerated Sliding Active Indicator */}
+          <div
+            aria-hidden="true"
+            className="absolute top-1 left-1.5 bottom-[max(0.25rem,env(safe-area-inset-bottom))] w-[calc((100%-0.75rem)/5)] pointer-events-none transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+            style={{
+              transform: `translate3d(${activeNavIndex * 100}%, 0, 0)`,
+            }}
+          >
+            <div className="mx-1.5 h-full rounded-xl bg-[#FFF4E8] dark:bg-orange-950/45 border border-orange-200/60 dark:border-orange-900/40 relative overflow-hidden">
+              <span className="block mx-auto w-7 h-0.5 rounded-b-full bg-[#FF5722]" />
+            </div>
+          </div>
+
           {/* 1. Home */}
           <button
             type="button"
             onClick={() => switchTab('home')}
-            className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
-              activeTab === 'home' && !isOrdersViewOpen && !isSettingsViewOpen
+            aria-current={activeNavIndex === 0 ? 'page' : undefined}
+            className={`relative z-10 flex flex-col items-center gap-0.5 text-[10px] transition-all duration-200 py-1.5 cursor-pointer ${
+              activeNavIndex === 0
                 ? 'text-[#FF5722] font-black'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                : 'text-slate-500 dark:text-slate-400 font-bold hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >
-            <Home className="w-5 h-5 stroke-[2.2]" />
+            <Home
+              className={`w-5 h-5 stroke-[2.2] transition-transform duration-200 ${
+                activeNavIndex === 0 ? 'scale-110 -translate-y-0.5' : ''
+              }`}
+            />
             <span className="whitespace-nowrap">Home</span>
           </button>
 
@@ -4051,13 +4166,18 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           <button
             type="button"
             onClick={() => switchTab('categories')}
-            className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
-              activeTab === 'categories' && !isOrdersViewOpen && !isSettingsViewOpen
+            aria-current={activeNavIndex === 1 ? 'page' : undefined}
+            className={`relative z-10 flex flex-col items-center gap-0.5 text-[10px] transition-all duration-200 py-1.5 cursor-pointer ${
+              activeNavIndex === 1
                 ? 'text-[#FF5722] font-black'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                : 'text-slate-500 dark:text-slate-400 font-bold hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >
-            <LayoutGrid className="w-5 h-5 stroke-[2.2]" />
+            <LayoutGrid
+              className={`w-5 h-5 stroke-[2.2] transition-transform duration-200 ${
+                activeNavIndex === 1 ? 'scale-110 -translate-y-0.5' : ''
+              }`}
+            />
             <span className="whitespace-nowrap">Categories</span>
           </button>
 
@@ -4065,16 +4185,21 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           <button
             type="button"
             onClick={() => switchTab('cart')}
-            className={`relative flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
-              activeTab === 'cart' && !isOrdersViewOpen && !isSettingsViewOpen
+            aria-current={activeNavIndex === 2 ? 'page' : undefined}
+            className={`relative z-10 flex flex-col items-center gap-0.5 text-[10px] transition-all duration-200 py-1.5 cursor-pointer ${
+              activeNavIndex === 2
                 ? 'text-[#FF5722] font-black'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                : 'text-slate-500 dark:text-slate-400 font-bold hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >
-            <ShoppingCart className="w-5 h-5 stroke-[2.2]" />
+            <ShoppingCart
+              className={`w-5 h-5 stroke-[2.2] transition-transform duration-200 ${
+                activeNavIndex === 2 ? 'scale-110 -translate-y-0.5' : ''
+              }`}
+            />
             <span className="whitespace-nowrap">Cart</span>
             {totalCartCount > 0 && (
-              <span className="absolute -top-1 right-1.5 px-1 min-w-[16px] h-4 bg-[#FF5722] text-white text-[9px] font-extrabold rounded-full flex items-center justify-center shadow-xs">
+              <span className="absolute top-0 right-2.5 px-1 min-w-[16px] h-4 bg-[#FF5722] text-white text-[9px] font-extrabold rounded-full flex items-center justify-center shadow-xs tabular-nums">
                 {totalCartCount}
               </span>
             )}
@@ -4083,18 +4208,19 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           {/* 4. Orders */}
           <button
             type="button"
-            onClick={() => {
-              haptics.selection();
-              setIsSettingsViewOpen(false);
-              setIsOrdersViewOpen(true);
-            }}
-            className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
-              isOrdersViewOpen && !isSettingsViewOpen
+            onClick={openOrdersView}
+            aria-current={activeNavIndex === 3 ? 'page' : undefined}
+            className={`relative z-10 flex flex-col items-center gap-0.5 text-[10px] transition-all duration-200 py-1.5 cursor-pointer ${
+              activeNavIndex === 3
                 ? 'text-[#FF5722] font-black'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                : 'text-slate-500 dark:text-slate-400 font-bold hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >
-            <Package className="w-5 h-5 stroke-[2.2]" />
+            <Package
+              className={`w-5 h-5 stroke-[2.2] transition-transform duration-200 ${
+                activeNavIndex === 3 ? 'scale-110 -translate-y-0.5' : ''
+              }`}
+            />
             <span className="whitespace-nowrap">Orders</span>
           </button>
 
@@ -4102,13 +4228,18 @@ export const MainScreen: React.FC<MainScreenProps> = ({
           <button
             type="button"
             onClick={() => switchTab('account')}
-            className={`flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors py-1 cursor-pointer ${
-              activeTab === 'account' && !isOrdersViewOpen
+            aria-current={activeNavIndex === 4 ? 'page' : undefined}
+            className={`relative z-10 flex flex-col items-center gap-0.5 text-[10px] transition-all duration-200 py-1.5 cursor-pointer ${
+              activeNavIndex === 4
                 ? 'text-[#FF5722] font-black'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                : 'text-slate-500 dark:text-slate-400 font-bold hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >
-            <User className="w-5 h-5 stroke-[2.2]" />
+            <User
+              className={`w-5 h-5 stroke-[2.2] transition-transform duration-200 ${
+                activeNavIndex === 4 ? 'scale-110 -translate-y-0.5' : ''
+              }`}
+            />
             <span className="whitespace-nowrap">Account</span>
           </button>
         </nav>
@@ -5779,31 +5910,44 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              haptics.light();
-                              setEditingAddressId(addr.id);
-                              setAddressDraft({
-                                label: addr.label,
-                                fullName: addr.fullName,
-                                phone: addr.phone,
-                                addressLine: addr.addressLine,
-                                city: addr.city,
-                                pincode: addr.pincode,
-                              });
+                              startEditingAddressInModal(addr);
                             }}
                             className="text-[11px] font-bold text-[#FF5722] hover:underline cursor-pointer"
                           >
-                            Edit
+                            {editingAddressId === addr.id ? 'Editing…' : 'Edit'}
                           </button>
                           {savedAddresses.length > 1 && (
                             <button
                               type="button"
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
                                 haptics.warning();
                                 const remaining = savedAddresses.filter((a) => a.id !== addr.id);
                                 setSavedAddresses(remaining);
                                 if (activeAddressId === addr.id && remaining[0]) {
                                   setActiveAddressId(remaining[0].id);
+                                }
+                                if (editingAddressId === addr.id) {
+                                  setEditingAddressId(null);
+                                }
+                                const token = getStoredAuthToken();
+                                if (
+                                  token &&
+                                  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+                                    addr.id
+                                  )
+                                ) {
+                                  try {
+                                    await fetch(
+                                      `${resolveApiBaseUrl()}/v1/addresses/${encodeURIComponent(addr.id)}`,
+                                      {
+                                        method: 'DELETE',
+                                        headers: { Authorization: `Bearer ${token}` },
+                                      }
+                                    );
+                                  } catch {
+                                    // Local state already updated
+                                  }
                                 }
                                 showToast('Address removed', 'warning');
                               }}
@@ -5815,9 +5959,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                         </div>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-300 mt-1.5">
-                        {addr.addressLine}, {addr.city} - {addr.pincode}
+                        {addr.addressLine}
+                        {addr.line2 ? `, ${addr.line2}` : ''}, {addr.city}
+                        {addr.state ? `, ${addr.state}` : ''} - {addr.pincode}
                       </p>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
                         {addr.phone}
                       </p>
                     </div>
@@ -5826,52 +5972,199 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               </div>
 
               <form
-                onSubmit={(e) => {
+                ref={addressModalFormRef}
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  if (!addressDraft.fullName.trim() || !addressDraft.addressLine.trim() || !addressDraft.pincode.trim()) return;
-                  haptics.saved();
-                  if (editingAddressId) {
-                    setSavedAddresses((prev) =>
-                      prev.map((a) => (a.id === editingAddressId ? { id: a.id, ...addressDraft } : a))
-                    );
-                    setActiveAddressId(editingAddressId);
-                    setEditingAddressId(null);
-                    showToast(`Address updated (${addressDraft.city} - ${addressDraft.pincode})`, {
-                      title: 'Address Saved',
-                      variant: 'success',
-                    });
-                  } else {
-                    const newId = `addr-${Date.now()}`;
-                    setSavedAddresses((prev) => [...prev, { id: newId, ...addressDraft }]);
-                    setActiveAddressId(newId);
-                    showToast(`New address added (${addressDraft.city} - ${addressDraft.pincode})`, {
-                      title: 'Address Saved',
-                      variant: 'success',
-                    });
+                  setAddressDraftError(null);
+                  const cleanName = addressDraft.fullName.trim();
+                  const cleanLine1 = addressDraft.addressLine.trim();
+                  const cleanLine2 = addressDraft.line2.trim();
+                  const cleanCity = addressDraft.city.trim();
+                  const cleanState = addressDraft.state.trim() || 'India';
+                  const cleanPin = addressDraft.pincode.trim();
+                  const rawDigits = addressDraft.phone.replace(/\D/g, '');
+                  const cleanPhone =
+                    rawDigits.startsWith('91') && rawDigits.length === 12
+                      ? rawDigits.slice(2)
+                      : rawDigits;
+
+                  if (!cleanName || !cleanLine1 || !cleanCity) {
+                    setAddressDraftError('Full name, street address, and city are required.');
+                    return;
                   }
-                  setQuickPincodeInput(addressDraft.pincode);
-                  setAddressDraft({
-                    label: 'Home',
-                    fullName: userProfile.name,
-                    phone: userProfile.phone,
-                    addressLine: '',
-                    city: '',
-                    pincode: '',
-                  });
+                  if (!/^[1-9]\d{5}$/.test(cleanPin)) {
+                    setAddressDraftError('Enter a valid 6-digit Indian PIN code.');
+                    return;
+                  }
+                  if (cleanPhone && !/^[6-9]\d{9}$/.test(cleanPhone)) {
+                    setAddressDraftError('Enter a valid 10-digit Indian mobile number.');
+                    return;
+                  }
+
+                  setIsSavingAddressModal(true);
+                  haptics.saved();
+
+                  const draftPayload: SavedAddress = {
+                    id: editingAddressId || `addr-${Date.now()}`,
+                    label: addressDraft.label.trim() || 'Home',
+                    fullName: cleanName,
+                    phone: cleanPhone || userProfile.phone || '',
+                    addressLine: cleanLine1,
+                    line2: cleanLine2 || undefined,
+                    city: cleanCity,
+                    state: cleanState,
+                    pincode: cleanPin,
+                    isDefault: true,
+                  };
+
+                  const commitAddress = (savedItem: SavedAddress) => {
+                    if (editingAddressId) {
+                      setSavedAddresses((prev) =>
+                        prev.map((a) => (a.id === editingAddressId ? savedItem : a))
+                      );
+                      setActiveAddressId(savedItem.id);
+                      setEditingAddressId(null);
+                      showToast(`Address updated (${savedItem.city} - ${savedItem.pincode})`, {
+                        title: 'Address Updated',
+                        variant: 'success',
+                      });
+                    } else {
+                      setSavedAddresses((prev) => [...prev, savedItem]);
+                      setActiveAddressId(savedItem.id);
+                      showToast(`New address added (${savedItem.city} - ${savedItem.pincode})`, {
+                        title: 'Address Saved',
+                        variant: 'success',
+                      });
+                    }
+                    setQuickPincodeInput(savedItem.pincode);
+                    setAddressEditPinPreview(null);
+                    setAddressDraft({
+                      label: 'Home',
+                      fullName: userProfile.name,
+                      phone: userProfile.phone,
+                      addressLine: '',
+                      line2: '',
+                      city: '',
+                      state: '',
+                      pincode: '',
+                    });
+                  };
+
+                  const token = getStoredAuthToken();
+                  if (!token || !draftPayload.phone) {
+                    commitAddress(draftPayload);
+                    setIsSavingAddressModal(false);
+                    return;
+                  }
+
+                  try {
+                    const isRemoteEdit = Boolean(
+                      editingAddressId &&
+                        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+                          editingAddressId
+                        )
+                    );
+                    const url = isRemoteEdit
+                      ? `${resolveApiBaseUrl()}/v1/addresses/${encodeURIComponent(editingAddressId!)}`
+                      : `${resolveApiBaseUrl()}/v1/addresses`;
+                    const resp = await fetch(url, {
+                      method: isRemoteEdit ? 'PUT' : 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        Authorization: `Bearer ${token}`,
+                      },
+                      body: JSON.stringify({
+                        label: draftPayload.label,
+                        fullName: draftPayload.fullName,
+                        phone: draftPayload.phone,
+                        line1: draftPayload.addressLine,
+                        line2: draftPayload.line2 || '',
+                        city: draftPayload.city,
+                        state: draftPayload.state || 'India',
+                        postalCode: draftPayload.pincode,
+                        country: 'IN',
+                        isDefault: true,
+                      }),
+                    });
+
+                    if (resp.ok) {
+                      const row = (await resp.json()) as Record<string, unknown>;
+                      commitAddress({
+                        id: String(row.id || draftPayload.id),
+                        label: String(row.label || draftPayload.label),
+                        fullName: String(row.full_name || draftPayload.fullName),
+                        phone: String(row.phone || draftPayload.phone),
+                        addressLine: String(row.line1 || draftPayload.addressLine),
+                        line2: row.line2 ? String(row.line2) : draftPayload.line2,
+                        city: String(row.city || draftPayload.city),
+                        state: String(row.state || draftPayload.state || ''),
+                        pincode: String(row.postal_code || draftPayload.pincode),
+                        isDefault: Boolean(row.is_default ?? true),
+                      });
+                    } else {
+                      commitAddress(draftPayload);
+                    }
+                  } catch {
+                    commitAddress(draftPayload);
+                  } finally {
+                    setIsSavingAddressModal(false);
+                  }
                 }}
-                className="p-3 rounded-2xl bg-[#FFF4E8]/60 dark:bg-[#181311] border border-orange-200/70 dark:border-stone-800 space-y-2"
+                className={`p-3 rounded-2xl border space-y-2.5 transition-colors ${
+                  editingAddressId
+                    ? 'bg-orange-50/90 dark:bg-orange-950/25 border-[#FF5722]'
+                    : 'bg-[#FFF4E8]/60 dark:bg-[#181311] border-orange-200/70 dark:border-stone-800'
+                }`}
               >
-                <p className="text-xs font-black text-slate-900 dark:text-white">
-                  {editingAddressId ? 'Edit Address' : '+ Add New Address'}
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-black text-slate-900 dark:text-white">
+                    {editingAddressId ? `Edit "${addressDraft.label || 'Saved'}" Address` : '+ Add New Address'}
+                  </p>
+                  {editingAddressId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAddressId(null);
+                        setAddressDraftError(null);
+                        setAddressEditPinPreview(null);
+                        setAddressDraft({
+                          label: 'Home',
+                          fullName: userProfile.name,
+                          phone: userProfile.phone,
+                          addressLine: '',
+                          line2: '',
+                          city: '',
+                          state: '',
+                          pincode: '',
+                        });
+                      }}
+                      className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick Address Label Switcher */}
+                <div className="flex items-center gap-1.5">
+                  {(['Home', 'Work', 'Other'] as const).map((lbl) => (
+                    <button
+                      key={lbl}
+                      type="button"
+                      onClick={() => setAddressDraft({ ...addressDraft, label: lbl })}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                        addressDraft.label === lbl
+                          ? 'bg-[#FF5722] text-white'
+                          : 'bg-white dark:bg-[#211A17] text-slate-600 dark:text-slate-300 border border-orange-200/70 dark:border-stone-700'
+                      }`}
+                    >
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    placeholder="Label (Home / Work)"
-                    value={addressDraft.label}
-                    onChange={(e) => setAddressDraft({ ...addressDraft, label: e.target.value })}
-                    className="text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
-                  />
                   <input
                     type="text"
                     required
@@ -5880,13 +6173,34 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                     onChange={(e) => setAddressDraft({ ...addressDraft, fullName: e.target.value })}
                     className="text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
                   />
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="10-digit Mobile"
+                    value={addressDraft.phone}
+                    onChange={(e) =>
+                      setAddressDraft({
+                        ...addressDraft,
+                        phone: e.target.value.replace(/\D/g, '').slice(0, 10),
+                      })
+                    }
+                    className="text-xs tabular-nums px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
+                  />
                 </div>
                 <input
                   type="text"
                   required
-                  placeholder="House / Street / Area"
+                  placeholder="House / Building / Street"
                   value={addressDraft.addressLine}
                   onChange={(e) => setAddressDraft({ ...addressDraft, addressLine: e.target.value })}
+                  className="w-full text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
+                />
+                <input
+                  type="text"
+                  placeholder="Locality / Landmark (Optional)"
+                  value={addressDraft.line2}
+                  onChange={(e) => setAddressDraft({ ...addressDraft, line2: e.target.value })}
                   className="w-full text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
                 />
                 <div className="grid grid-cols-3 gap-2">
@@ -5900,26 +6214,57 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                   />
                   <input
                     type="text"
-                    required
-                    maxLength={6}
-                    placeholder="Pincode"
-                    value={addressDraft.pincode}
-                    onChange={(e) => setAddressDraft({ ...addressDraft, pincode: e.target.value.replace(/\D/g, '') })}
+                    placeholder="State"
+                    value={addressDraft.state}
+                    onChange={(e) => setAddressDraft({ ...addressDraft, state: e.target.value })}
                     className="text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
                   />
                   <input
-                    type="tel"
-                    placeholder="Phone"
-                    value={addressDraft.phone}
-                    onChange={(e) => setAddressDraft({ ...addressDraft, phone: e.target.value })}
-                    className="text-xs px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
+                    type="text"
+                    inputMode="numeric"
+                    required
+                    maxLength={6}
+                    placeholder="6-digit PIN"
+                    value={addressDraft.pincode}
+                    onChange={async (e) => {
+                      const nextPin = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setAddressDraft({ ...addressDraft, pincode: nextPin });
+                      if (/^[1-9]\d{5}$/.test(nextPin)) {
+                        const res = await checkShiprocketServiceability(nextPin);
+                        setAddressEditPinPreview(res);
+                      } else {
+                        setAddressEditPinPreview(null);
+                      }
+                    }}
+                    className="text-xs tabular-nums px-3 py-2 rounded-xl bg-white dark:bg-[#211A17] border border-orange-200/70 dark:border-stone-700 outline-none focus:border-[#FF5722]"
                   />
                 </div>
+                {addressEditPinPreview && (
+                  <p
+                    className={`text-[11px] font-semibold ${
+                      addressEditPinPreview.serviceable
+                        ? 'text-emerald-700 dark:text-emerald-400'
+                        : 'text-amber-700 dark:text-amber-400'
+                    }`}
+                  >
+                    {addressEditPinPreview.riderMessage}
+                  </p>
+                )}
+                {addressDraftError && (
+                  <p role="alert" className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                    {addressDraftError}
+                  </p>
+                )}
                 <button
                   type="submit"
-                  className="w-full py-2 bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-bold rounded-xl cursor-pointer"
+                  disabled={isSavingAddressModal}
+                  className="w-full min-h-[40px] py-2 bg-[#FF5722] hover:bg-[#E64A19] disabled:opacity-60 text-white text-xs font-bold rounded-xl cursor-pointer"
                 >
-                  {editingAddressId ? 'Update Address' : 'Save & Use Address'}
+                  {isSavingAddressModal
+                    ? 'Saving Address...'
+                    : editingAddressId
+                    ? 'Save Updated Address'
+                    : 'Save & Use Address'}
                 </button>
               </form>
             </div>
