@@ -825,7 +825,7 @@ fun PreviewHomeScreen(
                 }
             }
 
-            if (error.isNotBlank()) {
+            if (error.isNotBlank() && !error.contains("coroutine", ignoreCase = true) && !error.contains("composition", ignoreCase = true)) {
                 item { Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
             }
 
@@ -2570,7 +2570,7 @@ private fun AndroidTopValueDealsZone(
                                                     modifier = Modifier.align(Alignment.TopStart).padding(4.dp)
                                                 ) {
                                                     Text(
-                                                        text = "Admin Pick",
+                                                        text = "Featured",
                                                         color = Color(0xFFFCD34D),
                                                         fontSize = 8.sp,
                                                         fontWeight = FontWeight.Black,

@@ -40,7 +40,8 @@ class AarvoApiClient(
             execute(
                 Request.Builder()
                     .url(buildUrl("/v1/home/merchandising"))
-                    .header("Cache-Control", "no-cache")
+                    .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                    .header("Pragma", "no-cache")
                     .applyAuth()
                     .get()
                     .build()

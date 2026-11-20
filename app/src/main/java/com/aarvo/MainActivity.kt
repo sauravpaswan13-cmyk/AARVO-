@@ -131,6 +131,7 @@ import android.net.Uri
 import com.razorpay.Checkout
 import com.razorpay.PaymentData
 import com.razorpay.PaymentResultWithDataListener
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -202,11 +203,35 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         if (signedIn && role == "ADMIN") activity.startActivity(Intent(activity, AdminDashboardActivity::class.java))
         if (signedIn && role == "RIDER") activity.startActivity(Intent(activity, RiderDashboardActivity::class.java))
     }
-    when {
-        signedIn && role != "ADMIN" && role != "RIDER" -> AarvoApp(userName, role, api, activity, wishlistStore, saveForLaterStore, false, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", true).putString("user_role", "BUYER").remove("auth_token").apply(); signedIn = false; guestMode = true; role = "BUYER" }, isDarkTheme = isDarkTheme, onToggleTheme = onToggleTheme)
-        guestMode || !signedIn -> AarvoApp(userName.ifBlank { "Guest" }, "BUYER", api, activity, wishlistStore, saveForLaterStore, true, openOtpLogin, { prefs.edit().putBoolean("signed_in", false).putBoolean("guest_mode", true).putString("user_role", "BUYER").remove("auth_token").apply(); signedIn = false; guestMode = true; role = "BUYER" }, isDarkTheme = isDarkTheme, onToggleTheme = onToggleTheme)
-        else -> AarvoApp(userName.ifBlank { "Guest" }, "BUYER", api, activity, wishlistStore, saveForLaterStore, true, openOtpLogin, {}, isDarkTheme = isDarkTheme, onToggleTheme = onToggleTheme)
+    val isAuthenticatedBuyer = signedIn && role != "ADMIN" && role != "RIDER"
+    val effectiveUserName = if (isAuthenticatedBuyer) userName else userName.ifBlank { "Guest" }
+    val effectiveRole = if (isAuthenticatedBuyer) role else "BUYER"
+    val effectiveGuestMode = !isAuthenticatedBuyer
+    val handleSignOut = {
+        prefs.edit()
+            .putBoolean("signed_in", false)
+            .putBoolean("guest_mode", true)
+            .putString("user_role", "BUYER")
+            .remove("auth_token")
+            .apply()
+        signedIn = false
+        guestMode = true
+        role = "BUYER"
     }
+    AarvoApp(
+        userName = effectiveUserName,
+        role = effectiveRole,
+        api = api,
+        activity = activity,
+        wishlistStore = wishlistStore,
+        saveForLaterStore = saveForLaterStore,
+        guestMode = effectiveGuestMode,
+        onLogin = openOtpLogin,
+        onSignOut = handleSignOut,
+        isDarkTheme = isDarkTheme,
+        onToggleTheme = onToggleTheme,
+        authRefresh = authRefresh
+    )
 }
 
 @Composable private fun OnboardingScreen(onLogin: () -> Unit, onGuest: () -> Unit) {
@@ -524,7 +549,8 @@ private fun AarvoFloatingToastBanner(
     onSignOut: () -> Unit,
     cartViewModel: CartViewModel = remember { CartViewModel(activity.applicationContext.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE)) },
     isDarkTheme: Boolean = false,
-    onToggleTheme: () -> Unit = {}
+    onToggleTheme: () -> Unit = {},
+    authRefresh: Int = 0
 ) {
     val appPrefs = remember { activity.applicationContext.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
     var selectedTab by remember { mutableIntStateOf(0) }; var accountSection by remember { mutableStateOf("account") }; var query by remember { mutableStateOf("") }; var category by remember { mutableStateOf("All") }; var sortMode by remember { mutableStateOf("Relevance") }; var minRating by remember { mutableStateOf(0.0) }; var minPrice by remember { mutableStateOf<Long?>(null) }; var maxPrice by remember { mutableStateOf<Long?>(null) }; var inStockOnly by remember { mutableStateOf(false) }; var showFilters by remember { mutableStateOf(false) }; var showNotifications by remember { mutableStateOf(false) }
@@ -645,9 +671,9 @@ private fun AarvoFloatingToastBanner(
     var merchandisingSections by remember { mutableStateOf(loadCachedMerchandisingConfig(appPrefs)) }
     var hydratedPinnedProducts by remember { mutableStateOf<List<Product>>(emptyList()) }
     var saveForLater by remember { mutableStateOf(saveForLaterStore.load()) }; var showCheckout by remember { mutableStateOf(false) }; var showLoginRequired by remember { mutableStateOf(false) }; var checkoutLoading by remember { mutableStateOf(false) }; var checkoutMessage by remember { mutableStateOf("") }; var products by remember { mutableStateOf<List<Product>>(emptyList()) }; var allProducts by remember { mutableStateOf<List<Product>>(emptyList()) }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope()
-    LaunchedEffect(api, guestMode, role, selectedTab) {
+    LaunchedEffect(api, guestMode, role, selectedTab, authRefresh) {
         if (selectedTab == 0 || allProducts.isEmpty()) {
-            runCatching {
+            try {
                 val arr = api.homeMerchandising()
                 val (sections, pinned) = parseRemoteMerchandisingSections(arr)
                 merchandisingSections = sections
@@ -659,17 +685,21 @@ private fun AarvoFloatingToastBanner(
                         products = (products + pinned).distinctBy { it.id }
                     }
                 }
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (_: Throwable) {
             }
         }
     }
-    LaunchedEffect(api, guestMode, role) {
+    LaunchedEffect(api, guestMode, role, authRefresh) {
         try {
-            allProducts = (api.products("", "All").toProductList() + hydratedPinnedProducts).distinctBy { it.id }
-            cartViewModel.restore(allProducts)
+            val catalog = (api.products("", "All").toProductList() + hydratedPinnedProducts).distinctBy { it.id }
+            allProducts = catalog
+            cartViewModel.restore(catalog)
             if (!guestMode && role == "BUYER") {
                 val server = api.serverCart()
                 if (server.length() > 0) {
-                    allProducts.forEach { product ->
+                    catalog.forEach { product ->
                         val row = (0 until server.length()).asSequence()
                             .map { server.getJSONObject(it) }
                             .firstOrNull { it.optInt("productId") == product.id }
@@ -681,20 +711,28 @@ private fun AarvoFloatingToastBanner(
                     }
                 }
             }
+        } catch (ce: CancellationException) {
+            throw ce
         } catch (_: Throwable) {
-            allProducts = hydratedPinnedProducts
+            if (allProducts.isEmpty()) {
+                allProducts = hydratedPinnedProducts
+            }
         }
     }
     LaunchedEffect(api, guestMode, role, allProducts) {
         if (!guestMode && role == "BUYER" && allProducts.isNotEmpty()) {
-            recentlyViewed = runCatching {
+            recentlyViewed = try {
                 val rows = api.recentlyViewed()
                 val ids = (0 until rows.length()).map { rows.getJSONObject(it).optInt("productId", rows.getJSONObject(it).optInt("product_id", 0)) }.filter { it > 0 }
                 ids.mapNotNull { id -> allProducts.firstOrNull { it.id == id } }.distinctBy { it.id }.take(10)
-            }.getOrDefault(emptyList())
+            } catch (ce: CancellationException) {
+                throw ce
+            } catch (_: Throwable) {
+                emptyList()
+            }
         } else recentlyViewed = emptyList()
     }
-    LaunchedEffect(query, category, api) {
+    LaunchedEffect(query, category, api, authRefresh) {
         loading = true
         error = ""
         try {
@@ -704,9 +742,18 @@ private fun AarvoFloatingToastBanner(
             } else {
                 fetched.distinctBy { it.id }
             }
+        } catch (ce: CancellationException) {
+            throw ce
         } catch (t: Throwable) {
-            products = emptyList()
-            error = t.message ?: "Unable to load products."
+            if (products.isEmpty()) {
+                products = if (query.isBlank() && category == "All") hydratedPinnedProducts else emptyList()
+            }
+            val msg = t.message.orEmpty()
+            error = if (msg.contains("coroutine", ignoreCase = true) || msg.contains("composition", ignoreCase = true)) {
+                ""
+            } else {
+                msg.ifBlank { "Unable to load products." }
+            }
         } finally {
             loading = false
         }

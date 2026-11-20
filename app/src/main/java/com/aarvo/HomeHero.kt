@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.aarvo.network.AarvoApiClient
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 
@@ -106,6 +107,8 @@ fun LiveHero(
         serverSlides = try {
             val response = api.heroSlides()
             buildList { for (i in 0 until response.length()) add(response.getJSONObject(i)) }
+        } catch (ce: CancellationException) {
+            throw ce
         } catch (_: Throwable) {
             emptyList()
         }

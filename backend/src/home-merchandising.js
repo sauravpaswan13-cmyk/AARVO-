@@ -92,6 +92,7 @@ export async function registerHomeMerchandising({ app, pool, requireRole, audit 
 
   // Public Home Merchandising Feed: returns ordered sections + live hydrated Admin-pinned products
   app.get('/v1/home/merchandising', async (_request, reply) => {
+    reply.header('Cache-Control', 'no-store, max-age=0');
     const sectionsResult = await pool.query(`
       SELECT section_key, title, subtitle, badge_text, enabled, max_items, sort_order, pinned_product_ids, updated_at
       FROM aarvo_home_merchandising

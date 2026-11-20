@@ -2505,15 +2505,22 @@ export const MainScreen: React.FC<MainScreenProps> = ({
               <section className="px-3.5 py-1.5">
                 <div className="relative overflow-hidden rounded-2xl p-3 bg-gradient-to-br from-[#E9F0FF] via-[#F3E9FF] to-[#FFF2EA] dark:from-[#1D1A2B] dark:via-[#241B29] dark:to-[#1C1613] border border-indigo-200/75 dark:border-indigo-900/40 shadow-sm">
                   <div className="pointer-events-none absolute -top-10 -right-10 w-28 h-28 rounded-full bg-indigo-300/20 dark:bg-indigo-500/10 blur-xl" />
-                  <div className="relative mb-2.5">
-                    <h3 className="font-display font-black text-sm text-slate-900 dark:text-white leading-tight">
-                      {stillLookingConfig.title}
-                    </h3>
-                    <p className="text-[10px] text-slate-600 dark:text-slate-300">
-                      {recentlyViewedIds.length > 0
-                        ? stillLookingConfig.subtitle
-                        : 'Tap any product to track your browsing picks'}
-                    </p>
+                  <div className="relative flex items-start justify-between gap-2 mb-2.5">
+                    <div className="min-w-0">
+                      <h3 className="font-display font-black text-sm text-slate-900 dark:text-white leading-tight truncate">
+                        {stillLookingConfig.title}
+                      </h3>
+                      <p className="text-[10px] text-slate-600 dark:text-slate-300 truncate">
+                        {recentlyViewedIds.length > 0
+                          ? stillLookingConfig.subtitle
+                          : 'Tap any product to track your browsing picks'}
+                      </p>
+                    </div>
+                    {stillLookingConfig.badgeText && (
+                      <span className="shrink-0 px-2 py-0.5 rounded-lg bg-indigo-600 dark:bg-indigo-800 text-white text-[9px] font-black uppercase tracking-wider shadow-2xs">
+                        {stillLookingConfig.badgeText}
+                      </span>
+                    )}
                   </div>
 
                   {isProductsLoading ? (
@@ -3003,7 +3010,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({
                                   />
                                   {isAdminCurated && (
                                     <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-slate-950 text-amber-300 text-[8px] font-black">
-                                      Admin Pick
+                                      Featured
                                     </span>
                                   )}
                                 </div>

@@ -287,7 +287,7 @@ export function selectStillLookingEntries(
     picked.push({ product: p, reason, reasonLabel });
   };
 
-  pinnedIds.forEach((id) => pushUnique(byId.get(id), 'admin', 'Admin Pick'));
+  pinnedIds.forEach((id) => pushUnique(byId.get(id), 'admin', 'Featured'));
   recentlyViewedIds.forEach((id) => pushUnique(byId.get(id), 'viewed', 'Recently Viewed'));
   wishlistIds.forEach((id) => pushUnique(byId.get(id), 'wishlist', 'Saved in Wishlist'));
   cartProductIds.forEach((id) => pushUnique(byId.get(id), 'cart', 'In Your Cart'));

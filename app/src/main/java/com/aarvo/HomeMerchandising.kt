@@ -147,6 +147,7 @@ fun parseRemoteMerchandisingSections(
             if (rawPins != null) {
                 for (j in 0 until rawPins.length()) {
                     val pid = rawPins.optString(j, "").trim().toIntOrNull()
+                        ?: rawPins.optInt(j, 0).takeIf { it > 0 }
                     if (pid != null && pid > 0 && pid !in this) add(pid)
                 }
             }
@@ -220,7 +221,7 @@ fun selectStillLookingEntries(
         picked.add(StillLookingEntry(product = product, reasonLabel = label))
     }
 
-    pinnedIds.forEach { pushUnique(byId[it], "Admin Pick") }
+    pinnedIds.forEach { pushUnique(byId[it], "Featured") }
     recentlyViewedIds.forEach { pushUnique(byId[it], "Recently Viewed") }
     wishlistIds.forEach { pushUnique(byId[it], "Saved in Wishlist") }
     cartProductIds.forEach { pushUnique(byId[it], "In Your Cart") }
