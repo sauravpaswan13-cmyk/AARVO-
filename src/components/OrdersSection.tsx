@@ -526,7 +526,7 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
             </div>
             <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
               <span>Delivery Charges</span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold">FREE</span>
+              <span className="text-slate-700 dark:text-slate-300 font-semibold">Included</span>
             </div>
             <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
               <span>Tax &amp; Handling</span>

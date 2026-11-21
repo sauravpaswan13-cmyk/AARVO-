@@ -599,7 +599,7 @@ fun PreviewHomeScreen(
             }
 
             // 1B. STILL LOOKING FOR THESE? (Admin-managed, Periwinkle Lavender Frost Theme)
-            if (stillLookingConfig.enabled && (loading || stillLookingEntries.isNotEmpty())) {
+            if (stillLookingConfig.enabled && !loading && stillLookingEntries.isNotEmpty()) {
                 item(key = "merch_still_looking") {
                     AndroidStillLookingZone(
                         config = stillLookingConfig,
@@ -981,7 +981,7 @@ fun PreviewHomeScreen(
                             limit = sec.maxItems,
                             pinnedIds = sec.pinnedProductIds
                         )
-                        if (loading || entries.isNotEmpty()) {
+                        if (!loading && entries.isNotEmpty()) {
                             item(key = "merch_brands_spotlight") {
                                 AndroidBrandsSpotlightZone(
                                     config = sec,
@@ -1006,7 +1006,7 @@ fun PreviewHomeScreen(
                             limit = sec.maxItems,
                             pinnedIds = sec.pinnedProductIds
                         )
-                        if (loading || picks.isNotEmpty()) {
+                        if (!loading && picks.isNotEmpty()) {
                             item(key = "merch_top_value_deals") {
                                 AndroidTopValueDealsZone(
                                     config = sec,
@@ -1034,7 +1034,7 @@ fun PreviewHomeScreen(
                             limit = sec.maxItems,
                             pinnedIds = sec.pinnedProductIds
                         )
-                        if (loading || picks.isNotEmpty()) {
+                        if (!loading && picks.isNotEmpty()) {
                             item(key = "merch_suggested_for_you") {
                                 AndroidSuggestedForYouZone(
                                     config = sec,
@@ -2072,7 +2072,7 @@ private fun AndroidStillLookingZone(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, borderColor),
         shadowElevation = 1.dp
     ) {
@@ -2080,9 +2080,9 @@ private fun AndroidStillLookingZone(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(brush)
-                .padding(12.dp)
+                .padding(10.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -2091,7 +2091,7 @@ private fun AndroidStillLookingZone(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = config.title,
-                            fontSize = 14.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Black,
                             color = textColor,
                             maxLines = 1,
@@ -2101,125 +2101,94 @@ private fun AndroidStillLookingZone(
                             text = if (hasRecentViews) {
                                 config.subtitle.ifBlank { "Based on items you viewed, saved & carted" }
                             } else {
-                                config.subtitle.ifBlank { "Tap any product to track your browsing picks" }
+                                config.subtitle.ifBlank { "Admin curated picks & your saved items" }
                             },
-                            fontSize = 10.sp,
+                            fontSize = 9.5.sp,
                             color = subColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    if (config.badgeText.isNotBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isDarkTheme) Color(0xFF312E81) else Color(0xFF4F46E5)
-                        ) {
-                            Text(
-                                text = config.badgeText,
-                                color = Color.White,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Black,
-                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
                 }
 
-                if (loading && entries.isEmpty()) {
+                entries.chunked(3).forEach { rowItems ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        repeat(3) {
-                            Box(
+                        rowItems.forEach { entry ->
+                            val product = entry.product
+                            val pct = product.discountPercent
+                            Surface(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(132.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(cardBg.copy(alpha = 0.7f))
-                            )
-                        }
-                    }
-                } else {
-                    entries.chunked(3).forEach { rowItems ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            rowItems.forEach { entry ->
-                                val product = entry.product
-                                val pct = product.discountPercent
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { onOpenProduct(product) },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = cardBg,
-                                    border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF2D2522) else Color.White)
-                                ) {
-                                    Column(modifier = Modifier.padding(6.dp)) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .aspectRatio(1f)
-                                                .clip(RoundedCornerShape(9.dp))
-                                                .background(imgBg),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (!product.imageUrl.isNullOrBlank()) {
-                                                AsyncImage(
-                                                    model = product.imageUrl,
-                                                    contentDescription = product.name,
-                                                    modifier = Modifier.fillMaxSize().padding(3.dp),
-                                                    contentScale = ContentScale.Fit
+                                    .clickable { onOpenProduct(product) },
+                                shape = RoundedCornerShape(10.dp),
+                                color = cardBg,
+                                border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF2D2522) else Color.White)
+                            ) {
+                                Column(modifier = Modifier.padding(5.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(1f)
+                                            .clip(RoundedCornerShape(7.dp))
+                                            .background(imgBg),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (!product.imageUrl.isNullOrBlank()) {
+                                            AsyncImage(
+                                                model = product.imageUrl,
+                                                contentDescription = product.name,
+                                                modifier = Modifier.fillMaxSize().padding(3.dp),
+                                                contentScale = ContentScale.Fit
+                                            )
+                                        } else {
+                                            Text(product.emoji.ifBlank { "🛍️" }, fontSize = 22.sp)
+                                        }
+                                        if (pct > 0) {
+                                            Surface(
+                                                shape = RoundedCornerShape(bottomEnd = 7.dp),
+                                                color = Color(0xFF2563EB),
+                                                modifier = Modifier.align(Alignment.TopStart)
+                                            ) {
+                                                Text(
+                                                    text = "↓${pct}%",
+                                                    color = Color.White,
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
                                                 )
-                                            } else {
-                                                Text(product.emoji.ifBlank { "🛍️" }, fontSize = 26.sp)
-                                            }
-                                            if (pct > 0) {
-                                                Surface(
-                                                    shape = RoundedCornerShape(bottomEnd = 8.dp),
-                                                    color = Color(0xFF2563EB),
-                                                    modifier = Modifier.align(Alignment.TopStart)
-                                                ) {
-                                                    Text(
-                                                        text = "↓${pct}%",
-                                                        color = Color.White,
-                                                        fontSize = 9.sp,
-                                                        fontWeight = FontWeight.Black,
-                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                                    )
-                                                }
                                             }
                                         }
-                                        Spacer(Modifier.height(5.dp))
-                                        Text(
-                                            text = product.name,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = textColor,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            text = "₹${product.pricePaise / 100}",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = textColor
-                                        )
-                                        Text(
-                                            text = entry.reasonLabel,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = subColor,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
                                     }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = product.name,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "₹${product.pricePaise / 100}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = textColor
+                                    )
+                                    Text(
+                                        text = entry.reasonLabel,
+                                        fontSize = 8.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = subColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
                             }
-                            repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                         }
+                        repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
@@ -2252,7 +2221,7 @@ private fun AndroidBrandsSpotlightZone(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, borderColor),
         shadowElevation = 1.dp
     ) {
@@ -2260,9 +2229,9 @@ private fun AndroidBrandsSpotlightZone(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(brush)
-                .padding(12.dp)
+                .padding(10.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -2270,7 +2239,7 @@ private fun AndroidBrandsSpotlightZone(
                     ) {
                         Text(
                             text = config.title,
-                            fontSize = 14.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Black,
                             color = textColor,
                             maxLines = 1,
@@ -2294,7 +2263,7 @@ private fun AndroidBrandsSpotlightZone(
                     if (config.subtitle.isNotBlank()) {
                         Text(
                             text = config.subtitle,
-                            fontSize = 10.sp,
+                            fontSize = 9.5.sp,
                             color = subColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -2302,113 +2271,81 @@ private fun AndroidBrandsSpotlightZone(
                     }
                 }
 
-                if (loading && entries.isEmpty()) {
+                entries.chunked(3).forEach { rowEntries ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        repeat(3) {
-                            Box(
+                        rowEntries.forEach { entry ->
+                            val product = entry.product
+                            Surface(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(126.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(cardBg.copy(alpha = 0.7f))
-                            )
-                        }
-                    }
-                } else {
-                    entries.chunked(3).forEach { rowEntries ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            rowEntries.forEach { entry ->
-                                val product = entry.product
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { onOpenProduct(product) },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = cardBg,
-                                    border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF332620) else Color(0xFFFFE4E6))
+                                    .clickable { onOpenProduct(product) },
+                                shape = RoundedCornerShape(10.dp),
+                                color = cardBg,
+                                border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF332620) else Color(0xFFFFE4E6))
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(5.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Column(
-                                        modifier = Modifier.padding(6.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(1f)
+                                            .clip(RoundedCornerShape(7.dp))
+                                            .background(imgBgBrush),
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .aspectRatio(1f)
-                                                .clip(RoundedCornerShape(9.dp))
-                                                .background(imgBgBrush),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (!product.imageUrl.isNullOrBlank()) {
-                                                AsyncImage(
-                                                    model = product.imageUrl,
-                                                    contentDescription = product.name,
-                                                    modifier = Modifier.fillMaxSize().padding(4.dp),
-                                                    contentScale = ContentScale.Fit
-                                                )
-                                            } else {
-                                                Text(product.emoji.ifBlank { "🛍️" }, fontSize = 26.sp)
-                                            }
+                                        if (!product.imageUrl.isNullOrBlank()) {
+                                            AsyncImage(
+                                                model = product.imageUrl,
+                                                contentDescription = product.name,
+                                                modifier = Modifier.fillMaxSize().padding(3.dp),
+                                                contentScale = ContentScale.Fit
+                                            )
+                                        } else {
+                                            Text(product.emoji.ifBlank { "🛍️" }, fontSize = 22.sp)
+                                        }
+                                        if (entry.isAdminCurated) {
                                             Surface(
-                                                shape = RoundedCornerShape(5.dp),
-                                                color = Color(0xFF0F172A).copy(alpha = 0.78f),
-                                                modifier = Modifier.align(Alignment.TopStart).padding(4.dp)
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = Color(0xFFF59E0B),
+                                                modifier = Modifier.align(Alignment.BottomEnd).padding(3.dp)
                                             ) {
                                                 Text(
-                                                    text = product.sellerName.split(" ").take(2).joinToString(" "),
-                                                    color = Color.White,
-                                                    fontSize = 8.sp,
+                                                    text = "Featured",
+                                                    color = Color(0xFF0F172A),
+                                                    fontSize = 7.sp,
                                                     fontWeight = FontWeight.Black,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
                                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                                 )
                                             }
-                                            if (entry.isAdminCurated) {
-                                                Surface(
-                                                    shape = RoundedCornerShape(4.dp),
-                                                    color = Color(0xFFF59E0B),
-                                                    modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "Featured",
-                                                        color = Color(0xFF0F172A),
-                                                        fontSize = 7.sp,
-                                                        fontWeight = FontWeight.Black,
-                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                                    )
-                                                }
-                                            }
                                         }
-                                        Spacer(Modifier.height(5.dp))
-                                        Text(
-                                            text = entry.headline,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = textColor,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            textAlign = TextAlign.Center
-                                        )
-                                        Text(
-                                            text = entry.caption,
-                                            fontSize = 9.sp,
-                                            color = subColor,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            textAlign = TextAlign.Center
-                                        )
                                     }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = entry.headline,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = textColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Text(
+                                        text = entry.caption,
+                                        fontSize = 8.5.sp,
+                                        color = subColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center
+                                    )
                                 }
                             }
-                            repeat(3 - rowEntries.size) { Spacer(Modifier.weight(1f)) }
                         }
+                        repeat(3 - rowEntries.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
@@ -2437,7 +2374,7 @@ private fun AndroidTopValueDealsZone(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, borderColor),
         shadowElevation = 1.dp
     ) {
@@ -2447,7 +2384,7 @@ private fun AndroidTopValueDealsZone(
                 .background(brush)
         ) {
             Canvas(modifier = Modifier.matchParentSize()) {
-                val step = 18.dp.toPx()
+                val step = 16.dp.toPx()
                 val lineColor = if (isDarkTheme) Color(0xFFF59E0B).copy(alpha = 0.08f) else Color(0xFF92400E).copy(alpha = 0.11f)
                 var x = 0f
                 while (x < size.width) {
@@ -2462,8 +2399,8 @@ private fun AndroidTopValueDealsZone(
             }
 
             Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -2473,7 +2410,7 @@ private fun AndroidTopValueDealsZone(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = config.title,
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Black,
                             color = textColor,
                             maxLines = 1,
@@ -2482,7 +2419,7 @@ private fun AndroidTopValueDealsZone(
                         if (config.subtitle.isNotBlank()) {
                             Text(
                                 text = config.subtitle,
-                                fontSize = 10.sp,
+                                fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = subColor,
                                 maxLines = 1,
@@ -2492,113 +2429,96 @@ private fun AndroidTopValueDealsZone(
                     }
                     if (config.badgeText.isNotBlank()) {
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(9.dp),
                             color = if (isDarkTheme) Color(0xFF1B130B) else Color.White,
                             border = BorderStroke(1.5.dp, Color(0xFFDC2626))
                         ) {
                             Text(
                                 text = config.badgeText,
                                 color = if (isDarkTheme) Color(0xFFFCD34D) else Color(0xFFDC2626),
-                                fontSize = 9.sp,
+                                fontSize = 8.5.sp,
                                 fontWeight = FontWeight.Black,
-                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
                             )
                         }
                     }
                 }
 
-                if (loading && picks.isEmpty()) {
+                picks.chunked(3).forEach { rowItems ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        repeat(3) {
-                            Box(
+                        rowItems.forEach { pick ->
+                            val product = pick.product
+                            val rupees = product.pricePaise / 100L
+                            val priceText = if (rupees <= 999L) {
+                                "Under ₹${(((rupees + 99L) / 100L) * 100L).coerceAtLeast(99L)}"
+                            } else {
+                                "Just ₹$rupees"
+                            }
+                            Surface(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(126.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(cardBg.copy(alpha = 0.7f))
-                            )
-                        }
-                    }
-                } else {
-                    picks.chunked(3).forEach { rowItems ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            rowItems.forEach { pick ->
-                                val product = pick.product
-                                val rupees = product.pricePaise / 100L
-                                val priceText = if (rupees <= 999L) {
-                                    "Under ₹${(((rupees + 99L) / 100L) * 100L).coerceAtLeast(99L)}"
-                                } else {
-                                    "Just ₹$rupees"
-                                }
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { onOpenProduct(product) },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = cardBg,
-                                    border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF78350F) else Color(0xFFFEF3C7))
-                                ) {
-                                    Column(modifier = Modifier.padding(6.dp)) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .aspectRatio(1f)
-                                                .clip(RoundedCornerShape(9.dp))
-                                                .background(imgBg),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (!product.imageUrl.isNullOrBlank()) {
-                                                AsyncImage(
-                                                    model = product.imageUrl,
-                                                    contentDescription = product.name,
-                                                    modifier = Modifier.fillMaxSize().padding(3.dp),
-                                                    contentScale = ContentScale.Fit
+                                    .clickable { onOpenProduct(product) },
+                                shape = RoundedCornerShape(10.dp),
+                                color = cardBg,
+                                border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF78350F) else Color(0xFFFEF3C7))
+                            ) {
+                                Column(modifier = Modifier.padding(5.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(1f)
+                                            .clip(RoundedCornerShape(7.dp))
+                                            .background(imgBg),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (!product.imageUrl.isNullOrBlank()) {
+                                            AsyncImage(
+                                                model = product.imageUrl,
+                                                contentDescription = product.name,
+                                                modifier = Modifier.fillMaxSize().padding(3.dp),
+                                                contentScale = ContentScale.Fit
+                                            )
+                                        } else {
+                                            Text(product.emoji.ifBlank { "🛍️" }, fontSize = 22.sp)
+                                        }
+                                        if (pick.isAdminCurated) {
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = Color(0xFF0F172A),
+                                                modifier = Modifier.align(Alignment.TopStart).padding(3.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Featured",
+                                                    color = Color(0xFFFCD34D),
+                                                    fontSize = 7.5.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                                 )
-                                            } else {
-                                                Text(product.emoji.ifBlank { "🛍️" }, fontSize = 26.sp)
-                                            }
-                                            if (pick.isAdminCurated) {
-                                                Surface(
-                                                    shape = RoundedCornerShape(5.dp),
-                                                    color = Color(0xFF0F172A),
-                                                    modifier = Modifier.align(Alignment.TopStart).padding(4.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "Featured",
-                                                        color = Color(0xFFFCD34D),
-                                                        fontSize = 8.sp,
-                                                        fontWeight = FontWeight.Black,
-                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                                    )
-                                                }
                                             }
                                         }
-                                        Spacer(Modifier.height(5.dp))
-                                        Text(
-                                            text = product.name,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isDarkTheme) Color.White else Color(0xFF0F172A),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            text = priceText,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = if (isDarkTheme) Color(0xFFFCD34D) else Color(0xFF0F172A)
-                                        )
                                     }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = product.name,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isDarkTheme) Color.White else Color(0xFF0F172A),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = priceText,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = if (isDarkTheme) Color(0xFFFCD34D) else Color(0xFF0F172A)
+                                    )
                                 }
                             }
-                            repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                         }
+                        repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
@@ -2628,7 +2548,7 @@ private fun AndroidSuggestedForYouZone(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, borderColor),
         shadowElevation = 1.dp
     ) {
@@ -2636,9 +2556,9 @@ private fun AndroidSuggestedForYouZone(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(brush)
-                .padding(12.dp)
+                .padding(10.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -2647,7 +2567,7 @@ private fun AndroidSuggestedForYouZone(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = config.title,
-                            fontSize = 14.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Black,
                             color = textColor,
                             maxLines = 1,
@@ -2656,7 +2576,7 @@ private fun AndroidSuggestedForYouZone(
                         if (config.subtitle.isNotBlank()) {
                             Text(
                                 text = config.subtitle,
-                                fontSize = 10.sp,
+                                fontSize = 9.5.sp,
                                 color = subColor,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -2671,114 +2591,97 @@ private fun AndroidSuggestedForYouZone(
                         Text(
                             text = "→",
                             color = Color.White,
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Black,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 2.5.dp)
                         )
                     }
                 }
 
-                if (loading && picks.isEmpty()) {
+                picks.chunked(3).forEach { rowItems ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        repeat(3) {
-                            Box(
+                        rowItems.forEach { pick ->
+                            val product = pick.product
+                            Surface(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(126.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(cardBg.copy(alpha = 0.7f))
-                            )
-                        }
-                    }
-                } else {
-                    picks.chunked(3).forEach { rowItems ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            rowItems.forEach { pick ->
-                                val product = pick.product
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { onOpenProduct(product) },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = cardBg,
-                                    border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF2D2522) else Color(0xFFD1FAE5))
-                                ) {
-                                    Column(modifier = Modifier.padding(6.dp)) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .aspectRatio(1f)
-                                                .clip(RoundedCornerShape(9.dp))
-                                                .background(imgBg),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (!product.imageUrl.isNullOrBlank()) {
-                                                AsyncImage(
-                                                    model = product.imageUrl,
-                                                    contentDescription = product.name,
-                                                    modifier = Modifier.fillMaxSize().padding(3.dp),
-                                                    contentScale = ContentScale.Fit
+                                    .clickable { onOpenProduct(product) },
+                                shape = RoundedCornerShape(10.dp),
+                                color = cardBg,
+                                border = BorderStroke(1.dp, if (isDarkTheme) Color(0xFF2D2522) else Color(0xFFD1FAE5))
+                            ) {
+                                Column(modifier = Modifier.padding(5.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(1f)
+                                            .clip(RoundedCornerShape(7.dp))
+                                            .background(imgBg),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (!product.imageUrl.isNullOrBlank()) {
+                                            AsyncImage(
+                                                model = product.imageUrl,
+                                                contentDescription = product.name,
+                                                modifier = Modifier.fillMaxSize().padding(3.dp),
+                                                contentScale = ContentScale.Fit
+                                            )
+                                        } else {
+                                            Text(product.emoji.ifBlank { "🛍️" }, fontSize = 22.sp)
+                                        }
+                                        if (product.reviewsCount > 0 && product.rating > 0.0) {
+                                            Surface(
+                                                shape = RoundedCornerShape(5.dp),
+                                                color = Color(0xFF059669),
+                                                modifier = Modifier.align(Alignment.BottomStart).padding(3.dp)
+                                            ) {
+                                                Text(
+                                                    text = "%.1f ★".format(product.rating),
+                                                    color = Color.White,
+                                                    fontSize = 7.5.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                                 )
-                                            } else {
-                                                Text(product.emoji.ifBlank { "🛍️" }, fontSize = 26.sp)
-                                            }
-                                            if (product.reviewsCount > 0 && product.rating > 0.0) {
-                                                Surface(
-                                                    shape = RoundedCornerShape(6.dp),
-                                                    color = Color(0xFF059669),
-                                                    modifier = Modifier.align(Alignment.BottomStart).padding(4.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "%.1f ★".format(product.rating),
-                                                        color = Color.White,
-                                                        fontSize = 8.sp,
-                                                        fontWeight = FontWeight.Black,
-                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                                    )
-                                                }
-                                            }
-                                            if (pick.isAdminCurated) {
-                                                Surface(
-                                                    shape = RoundedCornerShape(5.dp),
-                                                    color = Color(0xFF047857),
-                                                    modifier = Modifier.align(Alignment.TopStart).padding(4.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "Curated",
-                                                        color = Color.White,
-                                                        fontSize = 8.sp,
-                                                        fontWeight = FontWeight.Black,
-                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                                    )
-                                                }
                                             }
                                         }
-                                        Spacer(Modifier.height(5.dp))
-                                        Text(
-                                            text = product.name,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = textColor,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            text = "₹${product.pricePaise / 100}",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = textColor
-                                        )
+                                        if (pick.isAdminCurated) {
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = Color(0xFF047857),
+                                                modifier = Modifier.align(Alignment.TopStart).padding(3.dp)
+                                            ) {
+                                                Text(
+                                                    text = "Curated",
+                                                    color = Color.White,
+                                                    fontSize = 7.5.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
                                     }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = product.name,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "₹${product.pricePaise / 100}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = textColor
+                                    )
                                 }
                             }
-                            repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                         }
+                        repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
@@ -2809,7 +2712,7 @@ private fun AndroidMoreProductsZone(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, borderColor),
         shadowElevation = 1.dp
     ) {
@@ -2817,9 +2720,9 @@ private fun AndroidMoreProductsZone(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(brush)
-                .padding(12.dp)
+                .padding(10.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -2828,7 +2731,7 @@ private fun AndroidMoreProductsZone(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = if (selectedCategory == "All") config.title else "$selectedCategory Department",
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Black,
                             color = textColor,
                             maxLines = 1,
@@ -2837,7 +2740,7 @@ private fun AndroidMoreProductsZone(
                         if (config.subtitle.isNotBlank()) {
                             Text(
                                 text = config.subtitle,
-                                fontSize = 10.sp,
+                                fontSize = 9.5.sp,
                                 color = subColor,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -2856,7 +2759,7 @@ private fun AndroidMoreProductsZone(
                 picks.chunked(2).forEach { rowPair ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         rowPair.forEach { pick ->
                             Box(Modifier.weight(1f)) {

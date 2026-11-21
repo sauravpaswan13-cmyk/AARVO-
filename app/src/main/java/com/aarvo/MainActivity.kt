@@ -354,7 +354,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     }
 }
 
-private data class SavedDeliveryLocation(
+data class SavedDeliveryLocation(
     val id: String,
     val label: String,
     val fullName: String,
@@ -374,7 +374,7 @@ private data class AarvoAppToast(
     val type: String = "SUCCESS"
 )
 
-private fun inferCityStateForPincode(pin: String): Pair<String, String> = when {
+fun inferCityStateForPincode(pin: String): Pair<String, String> = when {
     pin.startsWith("800") -> "Patna" to "Bihar"
     pin.startsWith("110") -> "New Delhi" to "Delhi"
     pin.startsWith("400") -> "Mumbai" to "Maharashtra"
@@ -396,37 +396,33 @@ private fun loadSavedLocationsFromPrefs(prefs: android.content.SharedPreferences
             buildList {
                 for (i in 0 until arr.length()) {
                     val o = arr.optJSONObject(i) ?: continue
+                    val id = o.optString("id", "loc_$i")
+                    val line1 = o.optString("line1", "")
+                    val city = o.optString("city", "")
+                    val pin = o.optString("pincode", "")
+                    val isLegacySeed = id == "local_default_1" &&
+                        pin == "800001" &&
+                        (line1.contains("Boring Road", ignoreCase = true) || city.equals("Patna", ignoreCase = true))
+                    if (isLegacySeed) continue
                     add(
                         SavedDeliveryLocation(
-                            id = o.optString("id", "loc_$i"),
+                            id = id,
                             label = o.optString("label", "Home"),
                             fullName = o.optString("fullName", "AARVO Shopper"),
                             phone = o.optString("phone", ""),
-                            line1 = o.optString("line1", ""),
-                            city = o.optString("city", ""),
+                            line1 = line1,
+                            city = city,
                             state = o.optString("state", ""),
-                            pincode = o.optString("pincode", ""),
+                            pincode = pin,
                             isDefault = o.optBoolean("isDefault", false)
                         )
                     )
                 }
             }
         }.getOrDefault(emptyList())
-        if (parsed.isNotEmpty()) return parsed
+        return parsed
     }
-    return listOf(
-        SavedDeliveryLocation(
-            id = "local_default_1",
-            label = "Home",
-            fullName = "AARVO Shopper",
-            phone = "",
-            line1 = "Boring Road Crossing",
-            city = "Patna",
-            state = "Bihar",
-            pincode = "800001",
-            isDefault = true
-        )
-    )
+    return emptyList()
 }
 
 private fun saveLocationsToPrefs(
@@ -563,16 +559,20 @@ private fun AarvoFloatingToastBanner(
     var showHelpModal by remember { mutableStateOf(false) }
     var defaultAddressLine by remember {
         mutableStateOf(
-            appPrefs.getString("delivery_address_line", null)?.takeIf { it.isNotBlank() }
+            appPrefs.getString("delivery_address_line", null)?.takeIf {
+                it.isNotBlank() && !it.contains("Boring Road", ignoreCase = true) && !it.contains("Model Town", ignoreCase = true)
+            }
                 ?: savedLocations.firstOrNull { it.isDefault }?.shortSummary()
-                ?: "Patna, Bihar"
+                ?: ""
         )
     }
     var defaultPincode by remember {
         mutableStateOf(
-            appPrefs.getString("delivery_pincode", null)?.takeIf { it.isNotBlank() }
+            appPrefs.getString("delivery_pincode", null)?.takeIf {
+                it.isNotBlank() && !(it == "800001" && defaultAddressLine.isBlank())
+            }
                 ?: savedLocations.firstOrNull { it.isDefault }?.pincode
-                ?: "800001"
+                ?: ""
         )
     }
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
@@ -586,7 +586,7 @@ private fun AarvoFloatingToastBanner(
         }
     }
     fun selectDeliveryLocation(line: String, pin: String) {
-        val cleanLine = line.trim().ifBlank { "Selected Location" }
+        val cleanLine = line.trim()
         val cleanPin = pin.trim()
         defaultAddressLine = cleanLine
         defaultPincode = cleanPin
@@ -818,7 +818,7 @@ private fun AarvoFloatingToastBanner(
         )
     }
     if (showLocationModal) {
-        LocationPickerDialog(
+        GoogleMapLocationPickerDialog(
             api = api,
             guestMode = guestMode,
             role = role,
@@ -832,7 +832,12 @@ private fun AarvoFloatingToastBanner(
             },
             onSelectActive = { line, pin ->
                 selectDeliveryLocation(line, pin)
-                showAppToast("Delivery set to $line - $pin", "SUCCESS")
+                if (line.isNotBlank() || pin.isNotBlank()) {
+                    showAppToast(
+                        "Delivery set to ${listOf(line, pin).filter { it.isNotBlank() }.joinToString(" - ")}",
+                        "SUCCESS"
+                    )
+                }
             },
             onToast = ::showAppToast,
             onDismiss = { showLocationModal = false }
@@ -1423,7 +1428,7 @@ private fun AarvoFloatingToastBanner(
                         appliedCouponCode = appliedCouponCode,
                         onOpenCoupons = { showCouponsModal = true },
                         onOpenHelp = { showHelpModal = true },
-                        defaultAddressSummary = "$defaultAddressLine - $defaultPincode",
+                        defaultAddressSummary = listOf(defaultAddressLine, defaultPincode).filter { it.isNotBlank() }.joinToString(" - ").ifBlank { "Tap to set delivery location" },
                         onOpenOrdersTab = { selectedTab = 3 },
                         onOpenLocationModal = { showLocationModal = true }
                     )
@@ -1679,358 +1684,6 @@ private fun AarvoFloatingToastBanner(
                 TextButton(onClick = onReset) { Text("Reset", color = Color(0xFFE11D48)) }
                 TextButton(onClick = onClose) { Text("Cancel") }
             }
-        }
-    )
-}
-
-@Composable
-private fun LocationPickerDialog(
-    api: AarvoApiClient,
-    guestMode: Boolean,
-    role: String,
-    savedLocations: List<SavedDeliveryLocation>,
-    activeSummary: String,
-    activePincode: String,
-    isDarkTheme: Boolean,
-    onUpdateLocations: (List<SavedDeliveryLocation>) -> Unit,
-    onSelectActive: (String, String) -> Unit,
-    onToast: (String, String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val scope = rememberCoroutineScope()
-    var quickPincode by remember(activePincode) { mutableStateOf(activePincode) }
-    var showAddForm by remember { mutableStateOf(false) }
-    var label by remember { mutableStateOf("Home") }
-    var fullName by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var line1 by remember { mutableStateOf("") }
-    var city by remember { mutableStateOf("") }
-    var state by remember { mutableStateOf("") }
-    var pin by remember { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
-    var formError by remember { mutableStateOf("") }
-
-    val headingColor = if (isDarkTheme) Color(0xFFFAF3EE) else Color(0xFF0F172A)
-    val mutedColor = if (isDarkTheme) Color(0xFFCBBDB4) else Color(0xFF64748B)
-    val cardBg = if (isDarkTheme) Color(0xFF211A17) else Color(0xFFFFF8F1)
-    val cardBorder = if (isDarkTheme) Color(0xFF3A2D27) else Color(0xFFFED7AA)
-
-    AlertDialog(
-        onDismissRequest = { if (!busy) onDismiss() },
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LocationPinVectorIcon(tint = Color(0xFFFF5722), modifier = Modifier.size(20.dp))
-                Column {
-                    Text("Choose your location", fontWeight = FontWeight.Black, fontSize = 16.sp)
-                    Text(
-                        "Delivery options & speeds may vary by pincode",
-                        fontSize = 11.sp,
-                        color = mutedColor
-                    )
-                }
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 480.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Active delivery banner
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = cardBg,
-                    border = BorderStroke(1.dp, cardBorder),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        LocationPinVectorIcon(tint = Color(0xFF059669), modifier = Modifier.size(16.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("CURRENT DELIVERY LOCATION", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color(0xFF059669))
-                            Text(
-                                "${activeSummary.ifBlank { "Selected Location" }}${if (activePincode.isNotBlank()) " - $activePincode" else ""}",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = headingColor,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-
-                // Flipkart-style quick 6-digit Pincode check & apply
-                Text("Check Delivery Pincode", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = headingColor)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = quickPincode,
-                        onValueChange = { quickPincode = it.filter(Char::isDigit).take(6) },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        placeholder = { Text("Enter 6-digit pincode", fontSize = 12.sp) }
-                    )
-                    Button(
-                        onClick = {
-                            val clean = quickPincode.trim()
-                            if (!clean.matches(Regex("^[1-9][0-9]{5}$"))) {
-                                formError = "Enter a valid 6-digit Indian pincode"
-                                onToast("Enter a valid 6-digit pincode", "WARNING")
-                            } else {
-                                formError = ""
-                                scope.launch {
-                                    busy = true
-                                    val (c, s) = inferCityStateForPincode(clean)
-                                    val live = runCatching { api.checkPincodeServiceability(clean) }.getOrNull()
-                                    val riderMsg = live?.optString("riderMessage")?.takeIf { it.isNotBlank() && it != "null" }
-                                    onSelectActive("$c, $s", clean)
-                                    busy = false
-                                    if (!riderMsg.isNullOrBlank()) {
-                                        onToast(riderMsg, if (live.optBoolean("serviceable", true)) "SUCCESS" else "WARNING")
-                                    }
-                                    onDismiss()
-                                }
-                            }
-                        },
-                        enabled = !busy,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.height(48.dp)
-                    ) {
-                        Text(if (busy) "..." else "Apply", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
-                }
-
-                // Saved Delivery Addresses
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "SAVED ADDRESSES (${savedLocations.size})",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Black,
-                        color = mutedColor
-                    )
-                    Text(
-                        if (showAddForm) "✕ Close Form" else "+ Add New Address",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFFFF5722),
-                        modifier = Modifier.clickable {
-                            showAddForm = !showAddForm
-                            formError = ""
-                        }
-                    )
-                }
-
-                if (showAddForm) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isDarkTheme) Color(0xFF181311) else Color(0xFFFFFDF9),
-                        border = BorderStroke(1.dp, cardBorder),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf("Home", "Work", "Other").forEach { tag ->
-                                    val sel = label == tag
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = if (sel) Color(0xFFFF5722) else Color.Transparent,
-                                        border = BorderStroke(1.dp, if (sel) Color(0xFFFF5722) else cardBorder),
-                                        modifier = Modifier.clickable { label = tag }
-                                    ) {
-                                        Text(
-                                            tag,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (sel) Color.White else headingColor,
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                        )
-                                    }
-                                }
-                            }
-                            OutlinedTextField(fullName, { fullName = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Full Name *") })
-                            OutlinedTextField(phone, { phone = it.filter(Char::isDigit).take(10) }, Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), label = { Text("10-digit Mobile *") })
-                            OutlinedTextField(line1, { line1 = it }, Modifier.fillMaxWidth(), label = { Text("House / Street / Area *") })
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                OutlinedTextField(city, { city = it }, Modifier.weight(1f), singleLine = true, label = { Text("City *") })
-                                OutlinedTextField(state, { state = it }, Modifier.weight(1f), singleLine = true, label = { Text("State *") })
-                            }
-                            OutlinedTextField(pin, { pin = it.filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), label = { Text("6-digit Pincode *") })
-                            if (formError.isNotBlank()) {
-                                Text(formError, color = MaterialTheme.colorScheme.error, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                            Button(
-                                onClick = {
-                                    when {
-                                        fullName.isBlank() -> formError = "Enter recipient name"
-                                        !phone.trim().matches(Regex("^[6-9][0-9]{9}$")) -> formError = "Enter valid 10-digit mobile number"
-                                        line1.isBlank() || city.isBlank() || state.isBlank() -> formError = "Enter complete address, city & state"
-                                        !pin.trim().matches(Regex("^[1-9][0-9]{5}$")) -> formError = "Enter valid 6-digit pincode"
-                                        else -> {
-                                            formError = ""
-                                            scope.launch {
-                                                busy = true
-                                                var savedId = "local_${System.currentTimeMillis()}"
-                                                if (!guestMode && role == "BUYER") {
-                                                    runCatching {
-                                                        val resp = api.addAddress(
-                                                            JSONObject()
-                                                                .put("label", label.trim())
-                                                                .put("fullName", fullName.trim())
-                                                                .put("phone", phone.trim())
-                                                                .put("line1", line1.trim())
-                                                                .put("line2", "")
-                                                                .put("city", city.trim())
-                                                                .put("state", state.trim())
-                                                                .put("postalCode", pin.trim())
-                                                                .put("country", "IN"),
-                                                            true
-                                                        )
-                                                        val srvId = resp.optString("id")
-                                                        if (srvId.isNotBlank()) savedId = srvId
-                                                    }
-                                                }
-                                                val newLoc = SavedDeliveryLocation(
-                                                    id = savedId,
-                                                    label = label.trim(),
-                                                    fullName = fullName.trim(),
-                                                    phone = phone.trim(),
-                                                    line1 = line1.trim(),
-                                                    city = city.trim(),
-                                                    state = state.trim(),
-                                                    pincode = pin.trim(),
-                                                    isDefault = true
-                                                )
-                                                val nextList = listOf(newLoc) + savedLocations.map { it.copy(isDefault = false) }
-                                                onUpdateLocations(nextList)
-                                                onSelectActive(newLoc.shortSummary(), newLoc.pincode)
-                                                busy = false
-                                                showAddForm = false
-                                                onDismiss()
-                                            }
-                                        }
-                                    }
-                                },
-                                enabled = !busy,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5722))
-                            ) {
-                                Text(if (busy) "Saving..." else "Save & Deliver Here", fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-
-                savedLocations.forEach { loc ->
-                    val isSelected = (loc.pincode == activePincode && activeSummary.contains(loc.city, ignoreCase = true)) || loc.isDefault
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) cardBg else if (isDarkTheme) Color(0xFF181311) else Color.White,
-                        border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, if (isSelected) Color(0xFFFF5722) else cardBorder),
-                        modifier = Modifier.fillMaxWidth().clickable(enabled = !busy) {
-                            scope.launch {
-                                busy = true
-                                if (!guestMode && role == "BUYER" && !loc.id.startsWith("local_")) {
-                                    runCatching { api.setDefaultAddress(loc.id) }
-                                }
-                                val updated = savedLocations.map { it.copy(isDefault = it.id == loc.id) }
-                                onUpdateLocations(updated)
-                                onSelectActive(loc.shortSummary(), loc.pincode)
-                                busy = false
-                                onDismiss()
-                            }
-                        }
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(10.dp),
-                            verticalAlignment = Alignment.Top,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFFFF5722).copy(alpha = 0.14f)
-                                    ) {
-                                        Text(
-                                            loc.label.uppercase(),
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = Color(0xFFFF5722),
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                    Text(
-                                        loc.fullName.ifBlank { "AARVO Shopper" },
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = headingColor,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    if (isSelected) {
-                                        Text("✓ Active", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color(0xFF059669))
-                                    }
-                                }
-                                Text(
-                                    "${loc.line1}, ${loc.city}, ${loc.state} - ${loc.pincode}",
-                                    fontSize = 11.sp,
-                                    color = mutedColor
-                                )
-                                if (loc.phone.isNotBlank()) {
-                                    Text("Mobile: ${loc.phone}", fontSize = 10.sp, color = mutedColor)
-                                }
-                            }
-                            if (savedLocations.size > 1) {
-                                IconButton(
-                                    onClick = {
-                                        scope.launch {
-                                            busy = true
-                                            if (!guestMode && role == "BUYER" && !loc.id.startsWith("local_")) {
-                                                runCatching { api.deleteAddress(loc.id) }
-                                            }
-                                            val remaining = savedLocations.filterNot { it.id == loc.id }
-                                            val normalized = if (remaining.isNotEmpty() && remaining.none { it.isDefault }) {
-                                                remaining.mapIndexed { idx, item -> item.copy(isDefault = idx == 0) }
-                                            } else remaining
-                                            onUpdateLocations(normalized)
-                                            normalized.firstOrNull { it.isDefault }?.let { nextDef ->
-                                                onSelectActive(nextDef.shortSummary(), nextDef.pincode)
-                                            }
-                                            onToast("Address removed", "INFO")
-                                            busy = false
-                                        }
-                                    },
-                                    enabled = !busy,
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete address", tint = mutedColor, modifier = Modifier.size(16.dp))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss, enabled = !busy) { Text("Close") }
         }
     )
 }
@@ -2535,7 +2188,7 @@ private fun ProductDetailsScreen(
     val context = LocalContext.current
     val appPrefs = remember(context) { context.getSharedPreferences("aarvo_prefs", Context.MODE_PRIVATE) }
     val initialPin = remember {
-        appPrefs.getString("delivery_pincode", null)?.takeIf { it.matches(Regex("^[1-9][0-9]{5}$")) } ?: "800001"
+        appPrefs.getString("delivery_pincode", null)?.takeIf { it.matches(Regex("^[1-9][0-9]{5}$")) } ?: ""
     }
     var activeSlideIndex by remember(product.id) { mutableIntStateOf(0) }
     var deliveryPincode by remember { mutableStateOf(initialPin) }
@@ -3212,18 +2865,20 @@ private fun ProductDetailsScreen(
                         Text("🚚", fontSize = 18.sp)
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            "Courier Delivery • PIN $deliveryPincode",
+                            if (deliveryPincode.isNotBlank()) "Courier Delivery • PIN $deliveryPincode" else "Enter delivery PIN to check courier",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF0F172A)
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text(
-                            if (product.deliveryFeePaise <= 0L) "FREE" else "₹${product.deliveryFeePaise / 100}",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFF059669)
-                        )
+                        if (deliveryPincode.isNotBlank()) {
+                            Text(
+                                if (product.deliveryFeePaise <= 0L) "Standard" else "₹${product.deliveryFeePaise / 100}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF059669)
+                            )
+                        }
                     }
 
                     Row(
@@ -3235,7 +2890,7 @@ private fun ProductDetailsScreen(
                             Text("📍", fontSize = 14.sp)
                             Spacer(Modifier.width(6.dp))
                             Text(
-                                "Deliver to: $deliveryPincode",
+                                "Deliver to: ${deliveryPincode.ifBlank { "Select PIN" }}",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF334155)
@@ -3716,8 +3371,8 @@ private fun ProductDetailsScreen(
     onOpenOrders: (() -> Unit)? = null,
     api: AarvoApiClient? = null,
     userName: String = "Shopper",
-    deliveryAddressLine: String = "Select delivery address",
-    deliveryPincode: String = "800001",
+    deliveryAddressLine: String = "",
+    deliveryPincode: String = "",
     userOrderCount: Int = 0,
     appliedCouponCode: String? = null,
     couponDiscountPaise: Long = 0L,
@@ -3778,7 +3433,7 @@ private fun ProductDetailsScreen(
             val daysText = cartServiceability!!.optString("estimatedDaysText").takeIf { it.isNotBlank() } ?: "3-5 days"
             val etd = cartServiceability!!.optString("etd").takeIf { it.isNotBlank() && it != "null" }
             val freight = cartServiceability!!.optDouble("freightCharge", 0.0).takeIf { !it.isNaN() && it > 0.0 } ?: 0.0
-            val shipLabel = if (freight > 0.0) "₹${freight.toInt()}" else "FREE"
+            val shipLabel = if (freight > 0.0) "₹${freight.toInt()}" else "Standard Delivery"
             if (etd != null) "Delivery by $etd ($daysText) | $shipLabel" else "Delivery in $daysText | $shipLabel"
         }
         else -> "Delivery date calculated at checkout"
@@ -3881,7 +3536,7 @@ private fun ProductDetailsScreen(
                         Spacer(Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Deliver to ${userName.ifBlank { "Shopper" }} - $deliveryPincode",
+                                text = if (deliveryPincode.isNotBlank()) "Deliver to ${userName.ifBlank { "Shopper" }} - $deliveryPincode" else "Select Delivery Location",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = headingColor,
@@ -3889,7 +3544,7 @@ private fun ProductDetailsScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = deliveryAddressLine,
+                                text = deliveryAddressLine.ifBlank { "Tap Change to pick location on Google Map" },
                                 fontSize = 11.sp,
                                 color = mutedColor,
                                 maxLines = 1,
@@ -4338,7 +3993,13 @@ private fun ProductDetailsScreen(
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("Delivery Charges", fontSize = 13.sp, color = headingColor)
-                                Text("FREE", fontSize = 13.sp, color = Color(0xFF059669), fontWeight = FontWeight.Bold)
+                                val cartFreight = cartServiceability?.optDouble("freightCharge", 0.0)?.takeIf { !it.isNaN() && it > 0.0 } ?: 0.0
+                                Text(
+                                    if (cartFreight > 0.0) "₹${cartFreight.toInt()}" else "Calculated at checkout",
+                                    fontSize = 12.sp,
+                                    color = mutedColor,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
 
                             Box(Modifier.fillMaxWidth().height(1.dp).background(dividerColor))
@@ -5875,7 +5536,7 @@ private fun OrderDetailsDialog(order: JSONObject, detail: JSONObject, onDismiss:
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Delivery Fee", fontSize = 11.sp, color = Color(0xFF64748B))
-                            Text(if (deliveryPaise <= 0L) "FREE" else formatPaise(deliveryPaise), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF059669))
+                            Text(if (deliveryPaise <= 0L) "Included" else formatPaise(deliveryPaise), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF059669))
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Total Amount", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))

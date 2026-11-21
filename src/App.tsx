@@ -3,7 +3,7 @@ import { SplashScreen } from './components/SplashScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { MainScreen } from './components/MainScreen';
 import { haptics } from './utils/haptics';
-import { WifiOff, Wifi, X } from 'lucide-react';
+import { WifiOff, Wifi, X, AlertTriangle } from 'lucide-react';
 import { isAppOffline, onNetworkStatusChange, onServiceWorkerOfflineMessage } from './service-worker';
 
 interface ErrorBoundaryState {
@@ -263,12 +263,56 @@ export default function App() {
     };
   }, []);
 
+  const [gmpQuotaMessage, setGmpQuotaMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleQuota = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ message?: string }>).detail;
+      setGmpQuotaMessage(
+        detail?.message || 'Google Maps API quota exceeded or unavailable.'
+      );
+    };
+    window.addEventListener('gmp-quota-exceeded', handleQuota);
+    return () => window.removeEventListener('gmp-quota-exceeded', handleQuota);
+  }, []);
+
   return (
     <AarvoErrorBoundary>
       <div
         data-theme={theme}
         className={`min-h-screen ${theme === 'dark' ? 'dark' : ''} bg-[#FFFDF9] dark:bg-[#120E0C] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300`}
       >
+        {gmpQuotaMessage && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="sticky top-0 z-50 w-full bg-amber-50 dark:bg-amber-950/95 border-b border-amber-300 dark:border-amber-800 px-3.5 py-2 flex items-center justify-between gap-2 text-xs text-amber-950 dark:text-amber-100 shadow-xs"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <p className="truncate sm:whitespace-normal leading-snug">
+                <span className="font-bold">{gmpQuotaMessage}</span>{' '}
+                <a
+                  href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline font-semibold text-amber-900 dark:text-amber-200 hover:text-amber-700"
+                >
+                  maps developer site
+                </a>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setGmpQuotaMessage(null)}
+              aria-label="Dismiss map notice"
+              className="p-1 rounded hover:bg-amber-200/60 dark:hover:bg-amber-900/60 shrink-0 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
         {currentScreen === 'splash' && (
           <SplashScreen
             duration={2000}

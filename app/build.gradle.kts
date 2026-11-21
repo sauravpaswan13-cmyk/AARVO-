@@ -40,6 +40,10 @@ android {
         check(firebasePackageName.isBlank() || firebasePackageName == applicationId) {
             "Firebase package mismatch: expected " + applicationId + ", got " + firebasePackageName
         }
+        val mapsApiKey = project.findProperty("mapsApiKey")?.toString()
+            ?: System.getenv("GOOGLE_MAPS_API_KEY")
+            ?: ""
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
         buildConfigField("String", "AARVO_API_BASE_URL", buildConfigString(apiBaseUrl))
         buildConfigField("String", "MSG91_WIDGET_ID", buildConfigString(widgetId))
         buildConfigField("String", "MSG91_WIDGET_TOKEN", buildConfigString(widgetToken))
@@ -47,6 +51,7 @@ android {
         buildConfigField("String", "FIREBASE_PROJECT_ID", buildConfigString(firebaseProjectId))
         buildConfigField("String", "FIREBASE_APP_ID", buildConfigString(firebaseAppId))
         buildConfigField("String", "FIREBASE_SENDER_ID", buildConfigString(firebaseSenderId))
+        buildConfigField("String", "MAPS_API_KEY", buildConfigString(mapsApiKey))
     }
     val releaseStoreFile = providers.gradleProperty("aarvoReleaseStoreFile").orNull
     val releaseStorePassword = providers.gradleProperty("aarvoReleaseStorePassword").orNull
@@ -87,5 +92,8 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging")
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
+    implementation("com.google.android.gms:play-services-maps:19.0.0")
+    implementation("com.google.maps.android:maps-compose:6.4.1")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

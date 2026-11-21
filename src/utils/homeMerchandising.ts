@@ -57,7 +57,7 @@ export const DEFAULT_MERCHANDISING_CONFIG: HomeMerchandisingSectionConfig[] = [
     id: 'still_looking',
     title: 'Still looking for these?',
     subtitle: 'Based on items you viewed, saved & carted',
-    badgeText: 'RECENT PICKS',
+    badgeText: '',
     themeKey: 'periwinkle_frost',
     themeName: 'Periwinkle Lavender Frost',
     sourceLabel: 'Admin Pins + Browsing History + Wishlist + Cart',
@@ -155,11 +155,14 @@ export function loadMerchandisingConfig(): HomeMerchandisingSectionConfig[] {
       if (!item.id || !byId.has(item.id as HomeMerchandisingSectionId)) return;
       const base = byId.get(item.id as HomeMerchandisingSectionId)!;
       byId.delete(item.id as HomeMerchandisingSectionId);
+      const rawBadge = typeof item.badgeText === 'string' ? item.badgeText.trim() : base.badgeText;
+      const safeBadge =
+        item.id === 'still_looking' || rawBadge.toLowerCase() === 'pink' ? '' : rawBadge;
       merged.push({
         ...base,
         title: typeof item.title === 'string' && item.title.trim() ? item.title.trim() : base.title,
         subtitle: typeof item.subtitle === 'string' ? item.subtitle : base.subtitle,
-        badgeText: typeof item.badgeText === 'string' ? item.badgeText : base.badgeText,
+        badgeText: safeBadge,
         enabled: typeof item.enabled === 'boolean' ? item.enabled : base.enabled,
         maxItems:
           typeof item.maxItems === 'number' && item.maxItems >= 2 && item.maxItems <= 16
@@ -215,11 +218,15 @@ export function mergeRemoteMerchandisingConfig(
       if (!base) return;
       baseById.delete(id);
       localById.delete(id);
+      const rawBadge =
+        typeof remote.badgeText === 'string' ? remote.badgeText.trim() : base.badgeText;
+      const safeBadge =
+        id === 'still_looking' || rawBadge.toLowerCase() === 'pink' ? '' : rawBadge;
       next.push({
         ...base,
         title: remote.title?.trim() || base.title,
         subtitle: typeof remote.subtitle === 'string' ? remote.subtitle : base.subtitle,
-        badgeText: typeof remote.badgeText === 'string' ? remote.badgeText : base.badgeText,
+        badgeText: safeBadge,
         enabled: typeof remote.enabled === 'boolean' ? remote.enabled : base.enabled,
         maxItems:
           typeof remote.maxItems === 'number' && remote.maxItems >= 2 && remote.maxItems <= 16
@@ -292,16 +299,6 @@ export function selectStillLookingEntries(
   wishlistIds.forEach((id) => pushUnique(byId.get(id), 'wishlist', 'Saved in Wishlist'));
   cartProductIds.forEach((id) => pushUnique(byId.get(id), 'cart', 'In Your Cart'));
 
-  if (picked.length < limit) {
-    const fallbackPool = [...catalog]
-      .filter((p) => p.inStock !== false)
-      .sort((a, b) => getRealDiscountPercent(b) - getRealDiscountPercent(a));
-    for (const item of fallbackPool) {
-      if (picked.length >= limit) break;
-      pushUnique(item, 'catalog', 'Top Price Drop');
-    }
-  }
-
   return picked.slice(0, limit);
 }
 
@@ -322,44 +319,6 @@ export function selectBrandsInSpotlight(
     }
   });
 
-  const inStock = catalog.filter((p) => p.inStock !== false);
-  const bySeller = new Map<string, Product>();
-
-  inStock.forEach((product) => {
-    if (seen.has(product.id)) return;
-    const sellerKey = (product.seller || 'AARVO Store').trim();
-    const existing = bySeller.get(sellerKey);
-    if (!existing) {
-      bySeller.set(sellerKey, product);
-      return;
-    }
-    const existingScore = getRealDiscountPercent(existing) + existing.rating * 5;
-    const nextScore = getRealDiscountPercent(product) + product.rating * 5;
-    if (nextScore > existingScore) {
-      bySeller.set(sellerKey, product);
-    }
-  });
-
-  const uniqueSellerPicks = Array.from(bySeller.values()).sort(
-    (a, b) => getRealDiscountPercent(b) - getRealDiscountPercent(a)
-  );
-
-  for (const p of uniqueSellerPicks) {
-    if (chosen.length >= limit) break;
-    if (!seen.has(p.id)) {
-      seen.add(p.id);
-      chosen.push({ product: p, isAdminCurated: false });
-    }
-  }
-
-  for (const p of inStock) {
-    if (chosen.length >= limit) break;
-    if (!seen.has(p.id)) {
-      seen.add(p.id);
-      chosen.push({ product: p, isAdminCurated: false });
-    }
-  }
-
   return chosen.slice(0, limit).map(({ product, isAdminCurated }) => {
     const pct = getRealDiscountPercent(product);
     const headline =
@@ -368,11 +327,11 @@ export function selectBrandsInSpotlight(
         : product.price <= 999
         ? `Just ₹${product.price.toLocaleString('en-IN')}`
         : 'Shop now';
-    const shortCat = product.category.split('/')[0].trim();
+    const shortCat = product.category.split('/')[0].trim() || product.category;
     return {
       product,
       headline,
-      caption: product.seller ? `${shortCat} · ${product.seller}` : shortCat,
+      caption: shortCat,
       isAdminCurated,
     };
   });
@@ -395,28 +354,14 @@ export function selectTopValueDeals(
     }
   });
 
-  const ranked = [...catalog]
-    .filter((p) => p.inStock !== false && !seen.has(p.id))
-    .sort((a, b) => {
-      const scoreA = getRealDiscountPercent(a) * 1.4 + a.rating * 8 + (a.price <= 1499 ? 15 : 0);
-      const scoreB = getRealDiscountPercent(b) * 1.4 + b.rating * 8 + (b.price <= 1499 ? 15 : 0);
-      return scoreB - scoreA;
-    });
-
-  for (const item of ranked) {
-    if (picked.length >= limit) break;
-    seen.add(item.id);
-    picked.push({ product: item, isAdminCurated: false });
-  }
-
   return picked.slice(0, limit);
 }
 
 export function selectSuggestedForYou(
   catalog: Product[],
-  recentlyViewedIds: string[],
-  wishlistIds: string[],
-  cartProductIds: string[],
+  _recentlyViewedIds: string[],
+  _wishlistIds: string[],
+  _cartProductIds: string[],
   limit = 3,
   pinnedIds: string[] = []
 ): MerchandisingProductPick[] {
@@ -431,30 +376,6 @@ export function selectSuggestedForYou(
       picked.push({ product: p, isAdminCurated: true });
     }
   });
-
-  const affinityIds = new Set([...recentlyViewedIds, ...wishlistIds, ...cartProductIds]);
-  const preferredCategories = new Set<string>();
-  catalog.forEach((p) => {
-    if (affinityIds.has(p.id)) {
-      preferredCategories.add(p.category.toLowerCase());
-    }
-  });
-
-  const ranked = [...catalog]
-    .filter((p) => p.inStock !== false && !seen.has(p.id))
-    .sort((a, b) => {
-      const matchA = preferredCategories.has(a.category.toLowerCase()) ? 30 : 0;
-      const matchB = preferredCategories.has(b.category.toLowerCase()) ? 30 : 0;
-      const scoreA = matchA + a.rating * 10 + getRealDiscountPercent(a) * 0.5;
-      const scoreB = matchB + b.rating * 10 + getRealDiscountPercent(b) * 0.5;
-      return scoreB - scoreA;
-    });
-
-  for (const item of ranked) {
-    if (picked.length >= limit) break;
-    seen.add(item.id);
-    picked.push({ product: item, isAdminCurated: false });
-  }
 
   return picked.slice(0, limit);
 }
@@ -475,20 +396,6 @@ export function selectMoreProducts(
       picked.push({ product: p, isAdminCurated: true });
     }
   });
-
-  const ranked = [...catalog]
-    .filter((p) => !seen.has(p.id))
-    .sort((a, b) => {
-      const stockDiff = Number(b.inStock !== false) - Number(a.inStock !== false);
-      if (stockDiff !== 0) return stockDiff;
-      return b.reviewsCount - a.reviewsCount || getRealDiscountPercent(b) - getRealDiscountPercent(a);
-    });
-
-  for (const item of ranked) {
-    if (picked.length >= limit) break;
-    seen.add(item.id);
-    picked.push({ product: item, isAdminCurated: false });
-  }
 
   return picked.slice(0, limit);
 }

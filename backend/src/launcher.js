@@ -260,5 +260,16 @@ if (!source.includes('home-merchandising.js')) {
   );
 }
 
+if (!source.includes('google-maps.js')) {
+  source = source.replace(
+    "import { registerHomeMerchandising } from './home-merchandising.js';",
+    "import { registerHomeMerchandising } from './home-merchandising.js';\nimport { registerGoogleMapsRoutes } from './google-maps.js';"
+  );
+  source = source.replace(
+    "await registerHomeMerchandising({ app, pool, requireRole, audit });",
+    "await registerHomeMerchandising({ app, pool, requireRole, audit });\nawait registerGoogleMapsRoutes({ app });"
+  );
+}
+
 await fs.writeFile(runtimePath, source, 'utf8');
 await import(`${pathToFileURL(runtimePath).href}?v=${Date.now()}`);

@@ -96,8 +96,85 @@ private fun AddressCard(api: AarvoApiClient, address: JSONObject, reload: () -> 
 
 @Composable
 private fun AddressFormDialog(api: AarvoApiClient, onDone: () -> Unit) {
-    var name by remember { mutableStateOf("") }; var phone by remember { mutableStateOf("") }; var line1 by remember { mutableStateOf("") }; var city by remember { mutableStateOf("") }; var state by remember { mutableStateOf("") }; var pin by remember { mutableStateOf("") }; var label by remember { mutableStateOf("Home") }; var error by remember { mutableStateOf("") }; var busy by remember { mutableStateOf(false) }; val scope = rememberCoroutineScope()
-    AlertDialog(onDismissRequest = { if (!busy) onDone() }, title = { Text("Add delivery address", fontWeight = FontWeight.Bold) }, text = { Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        OutlinedTextField(name, { name = it }, label = { Text("Full name") }, singleLine = true); OutlinedTextField(phone, { phone = it }, label = { Text("10-digit mobile") }, singleLine = true); OutlinedTextField(label, { label = it }, label = { Text("Label") }, singleLine = true); OutlinedTextField(line1, { line1 = it }, label = { Text("Address") }); OutlinedTextField(city, { city = it }, label = { Text("City") }, singleLine = true); OutlinedTextField(state, { state = it }, label = { Text("State") }, singleLine = true); OutlinedTextField(pin, { pin = it }, label = { Text("PIN code") }, singleLine = true); if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
-    } }, confirmButton = { Button(onClick = { scope.launch { busy = true; error = ""; try { api.addAddress(JSONObject().put("label", label.trim()).put("fullName", name.trim()).put("phone", phone.trim()).put("line1", line1.trim()).put("line2", "").put("city", city.trim()).put("state", state.trim()).put("postalCode", pin.trim()).put("country", "IN"), false); onDone() } catch (t: Throwable) { error = t.message ?: "Unable to save address" } finally { busy = false } } }, enabled = !busy && name.isNotBlank() && phone.trim().matches(Regex("^[6-9][0-9]{9}$")) && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && pin.trim().matches(Regex("^[0-9]{6}$"))) { if (busy) CircularProgressIndicator() else Text("Save address") } }, dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text("Cancel") } })
+    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var line1 by remember { mutableStateOf("") }
+    var city by remember { mutableStateOf("") }
+    var state by remember { mutableStateOf("") }
+    var pin by remember { mutableStateOf("") }
+    var label by remember { mutableStateOf("Home") }
+    var error by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var showMapPicker by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    if (showMapPicker) {
+        GoogleMapCoordinatePickerDialog(
+            api = api,
+            onPicked = { res ->
+                if (res.line1.isNotBlank()) line1 = res.line1
+                if (res.city.isNotBlank()) city = res.city
+                if (res.state.isNotBlank()) state = res.state
+                if (res.pincode.isNotBlank()) pin = res.pincode
+            },
+            onDismiss = { showMapPicker = false }
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDone() },
+        title = { Text("Add delivery address", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                androidx.compose.material3.OutlinedButton(
+                    onClick = { showMapPicker = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Pick on Google Map / GPS")
+                }
+                OutlinedTextField(name, { name = it }, label = { Text("Full name") }, singleLine = true)
+                OutlinedTextField(phone, { phone = it }, label = { Text("10-digit mobile") }, singleLine = true)
+                OutlinedTextField(label, { label = it }, label = { Text("Label") }, singleLine = true)
+                OutlinedTextField(line1, { line1 = it }, label = { Text("Address") })
+                OutlinedTextField(city, { city = it }, label = { Text("City") }, singleLine = true)
+                OutlinedTextField(state, { state = it }, label = { Text("State") }, singleLine = true)
+                OutlinedTextField(pin, { pin = it }, label = { Text("PIN code") }, singleLine = true)
+                if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    scope.launch {
+                        busy = true
+                        error = ""
+                        try {
+                            api.addAddress(
+                                JSONObject()
+                                    .put("label", label.trim())
+                                    .put("fullName", name.trim())
+                                    .put("phone", phone.trim())
+                                    .put("line1", line1.trim())
+                                    .put("line2", "")
+                                    .put("city", city.trim())
+                                    .put("state", state.trim())
+                                    .put("postalCode", pin.trim())
+                                    .put("country", "IN"),
+                                false
+                            )
+                            onDone()
+                        } catch (t: Throwable) {
+                            error = t.message ?: "Unable to save address"
+                        } finally {
+                            busy = false
+                        }
+                    }
+                },
+                enabled = !busy && name.isNotBlank() && phone.trim().matches(Regex("^[6-9][0-9]{9}$")) && line1.isNotBlank() && city.isNotBlank() && state.isNotBlank() && pin.trim().matches(Regex("^[0-9]{6}$"))
+            ) {
+                if (busy) CircularProgressIndicator() else Text("Save address")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text("Cancel") } }
+    )
 }

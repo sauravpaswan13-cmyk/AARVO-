@@ -155,6 +155,24 @@ class AarvoApiClient(
         return getObject("/v1/delivery/serviceability?$params")
     }
 
+    suspend fun geocodeLocation(
+        lat: Double? = null,
+        lng: Double? = null,
+        address: String = ""
+    ): JSONObject {
+        val params = buildList {
+            if (lat != null && lng != null) {
+                add("lat=$lat")
+                add("lng=$lng")
+            }
+            if (address.trim().isNotBlank()) {
+                add("address=${URLEncoder.encode(address.trim(), "UTF-8")}")
+            }
+        }.joinToString("&")
+        require(params.isNotBlank()) { "Provide coordinates or search address" }
+        return getObject("/v1/maps/geocode?$params")
+    }
+
     suspend fun profile(): JSONObject = getObject("/v1/profile")
     suspend fun updateProfile(displayName: String, email: String): JSONObject = put("/v1/profile", JSONObject().put("displayName",displayName.trim()).put("email",email.trim()))
     suspend fun deleteAccount(): JSONObject = delete("/v1/account")

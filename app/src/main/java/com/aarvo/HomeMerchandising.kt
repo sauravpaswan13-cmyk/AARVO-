@@ -41,7 +41,7 @@ fun defaultHomeMerchandisingSections(): List<HomeMerchandisingSectionConfig> = l
         id = "still_looking",
         title = "Still looking for these?",
         subtitle = "Based on items you viewed, saved & carted",
-        badgeText = "RECENT PICKS",
+        badgeText = "",
         enabled = true,
         maxItems = 3,
         sortOrder = 0,
@@ -162,7 +162,8 @@ fun parseRemoteMerchandisingSections(
         }
         val title = if (obj.isNull("title")) "" else obj.optString("title", "").trim()
         val subtitle = if (obj.isNull("subtitle")) "" else obj.optString("subtitle", "")
-        val badgeText = if (obj.isNull("badgeText")) "" else obj.optString("badgeText", "")
+        val rawBadge = if (obj.isNull("badgeText")) "" else obj.optString("badgeText", "").trim()
+        val badgeText = if (id == "still_looking" || rawBadge.equals("pink", ignoreCase = true)) "" else rawBadge
         parsed.add(
             HomeMerchandisingSectionConfig(
                 id = id,
@@ -226,15 +227,6 @@ fun selectStillLookingEntries(
     wishlistIds.forEach { pushUnique(byId[it], "Saved in Wishlist") }
     cartProductIds.forEach { pushUnique(byId[it], "In Your Cart") }
 
-    if (picked.size < limit) {
-        val fallbackPool = catalog
-            .filter { it.stockQuantity > 0 && it.id !in seen }
-            .sortedByDescending { it.discountPercent }
-        for (p in fallbackPool) {
-            if (picked.size >= limit) break
-            pushUnique(p, "Top Price Drop")
-        }
-    }
     return picked.take(limit)
 }
 
@@ -254,33 +246,6 @@ fun selectBrandsInSpotlight(
         }
     }
 
-    val inStock = catalog.filter { it.stockQuantity > 0 }
-    val bySeller = LinkedHashMap<String, Product>()
-    inStock.forEach { product ->
-        if (product.id in seen) return@forEach
-        val sellerKey = product.sellerName.trim().ifBlank { "AARVO Store" }
-        val existing = bySeller[sellerKey]
-        if (existing == null) {
-            bySeller[sellerKey] = product
-        } else {
-            val existingScore = existing.discountPercent + existing.rating * 5.0
-            val nextScore = product.discountPercent + product.rating * 5.0
-            if (nextScore > existingScore) {
-                bySeller[sellerKey] = product
-            }
-        }
-    }
-
-    val uniqueSellerPicks = bySeller.values.sortedByDescending { it.discountPercent }
-    for (p in uniqueSellerPicks) {
-        if (chosen.size >= limit) break
-        if (seen.add(p.id)) chosen.add(p to false)
-    }
-    for (p in inStock) {
-        if (chosen.size >= limit) break
-        if (seen.add(p.id)) chosen.add(p to false)
-    }
-
     return chosen.take(limit).map { (product, isAdminCurated) ->
         val pct = product.discountPercent
         val rupees = product.pricePaise / 100L
@@ -290,11 +255,10 @@ fun selectBrandsInSpotlight(
             else -> "Shop now"
         }
         val shortCat = product.category.substringBefore('/').trim().ifBlank { product.category }
-        val caption = if (product.sellerName.isNotBlank()) "$shortCat · ${product.sellerName}" else shortCat
         BrandSpotlightEntry(
             product = product,
             headline = headline,
-            caption = caption,
+            caption = shortCat,
             isAdminCurated = isAdminCurated
         )
     }
@@ -316,17 +280,6 @@ fun selectTopValueDeals(
         }
     }
 
-    val ranked = catalog
-        .filter { it.stockQuantity > 0 && it.id !in seen }
-        .sortedByDescending { p ->
-            p.discountPercent * 1.4 + p.rating * 8.0 + if (p.pricePaise <= 149_900L) 15.0 else 0.0
-        }
-
-    for (item in ranked) {
-        if (picked.size >= limit) break
-        seen.add(item.id)
-        picked.add(MerchandisingProductPick(product = item, isAdminCurated = false))
-    }
     return picked.take(limit)
 }
 
@@ -349,24 +302,6 @@ fun selectSuggestedForYou(
         }
     }
 
-    val affinityIds = (recentlyViewedIds + wishlistIds + cartProductIds).toSet()
-    val preferredCats = catalog
-        .filter { it.id in affinityIds }
-        .map { it.category.lowercase() }
-        .toSet()
-
-    val ranked = catalog
-        .filter { it.stockQuantity > 0 && it.id !in seen }
-        .sortedByDescending { p ->
-            val matchBoost = if (p.category.lowercase() in preferredCats) 30.0 else 0.0
-            matchBoost + p.rating * 10.0 + p.discountPercent * 0.5
-        }
-
-    for (item in ranked) {
-        if (picked.size >= limit) break
-        seen.add(item.id)
-        picked.add(MerchandisingProductPick(product = item, isAdminCurated = false))
-    }
     return picked.take(limit)
 }
 
@@ -386,18 +321,5 @@ fun selectMoreProducts(
         }
     }
 
-    val ranked = catalog
-        .filter { it.id !in seen }
-        .sortedWith(
-            compareByDescending<Product> { it.stockQuantity > 0 }
-                .thenByDescending { it.reviewsCount }
-                .thenByDescending { it.discountPercent }
-        )
-
-    for (item in ranked) {
-        if (picked.size >= limit) break
-        seen.add(item.id)
-        picked.add(MerchandisingProductPick(product = item, isAdminCurated = false))
-    }
     return picked.take(limit)
 }

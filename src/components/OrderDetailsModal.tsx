@@ -324,7 +324,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
       `PRICE BREAKDOWN`,
       `---------------`,
       `Items Subtotal : INR ${breakdown.itemsSubtotal.toLocaleString('en-IN')}`,
-      `Delivery Fee   : ${breakdown.deliveryFee === 0 ? 'FREE' : `INR ${breakdown.deliveryFee.toLocaleString('en-IN')}`}`,
+      `Delivery Fee   : ${breakdown.deliveryFee === 0 ? 'Included' : `INR ${breakdown.deliveryFee.toLocaleString('en-IN')}`}`,
       breakdown.platformFee > 0 ? `Platform Fee   : INR ${breakdown.platformFee.toLocaleString('en-IN')}` : '',
       breakdown.discount > 0 ? `Discount       : -INR ${breakdown.discount.toLocaleString('en-IN')}` : '',
       `GST (Included) : INR ${breakdown.taxIncluded.toLocaleString('en-IN')}`,
@@ -773,15 +773,9 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
 
                   <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
                     <span>Delivery &amp; Shipping</span>
-                    <span
-                      className={`tabular-nums font-semibold ${
-                        breakdown.deliveryFee === 0
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-slate-800 dark:text-slate-200'
-                      }`}
-                    >
+                    <span className="tabular-nums font-semibold text-slate-800 dark:text-slate-200">
                       {breakdown.deliveryFee === 0
-                        ? 'FREE'
+                        ? 'Included'
                         : `₹${breakdown.deliveryFee.toLocaleString('en-IN')}`}
                     </span>
                   </div>

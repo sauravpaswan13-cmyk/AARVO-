@@ -209,7 +209,7 @@ fun PreviewProductDetailsScreen(
     var show360Dialog by remember { mutableStateOf(false) }
     var showAllOffers by remember { mutableStateOf(false) }
     val initialPin = remember {
-        appPrefs.getString("delivery_pincode", null)?.takeIf { it.matches(Regex("^[1-9][0-9]{5}$")) } ?: "800001"
+        appPrefs.getString("delivery_pincode", null)?.takeIf { it.matches(Regex("^[1-9][0-9]{5}$")) } ?: ""
     }
     var deliveryPincode by remember { mutableStateOf(initialPin) }
     var showPincodeDialog by remember { mutableStateOf(false) }
@@ -228,7 +228,11 @@ fun PreviewProductDetailsScreen(
     val cleanDesc = remember(product.description) { cleanProductDescription(product.description) }
 
     var serviceability by remember(product.id, deliveryPincode) {
-        mutableStateOf(inferAndroidZoneEstimate(deliveryPincode, codAllowed, category = product.category))
+        mutableStateOf(
+            if (Regex("^[1-9][0-9]{5}$").matches(deliveryPincode)) {
+                inferAndroidZoneEstimate(deliveryPincode, codAllowed, category = product.category)
+            } else null
+        )
     }
     var checkingPincode by remember(product.id, deliveryPincode) { mutableStateOf(false) }
     var liveOffers by remember(product.id) { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
@@ -273,16 +277,17 @@ fun PreviewProductDetailsScreen(
         }
     }
 
-    val isServiceable = serviceability?.optBoolean("serviceable", true) ?: true
+    val hasValidPin = Regex("^[1-9][0-9]{5}$").matches(deliveryPincode)
+    val isServiceable = if (!hasValidPin) true else (serviceability?.optBoolean("serviceable", true) ?: true)
     val etaDaysText = serviceability?.optString("estimatedDaysText")?.takeIf { it.isNotBlank() } ?: "3-5 days"
-    val etaDateText = serviceability?.optString("etd")?.takeIf { it.isNotBlank() && it != "null" }
+    val etaDateText = if (hasValidPin) serviceability?.optString("etd")?.takeIf { it.isNotBlank() && it != "null" } else null
     val deliveryModeLabel = serviceability?.optString("deliveryMode")?.takeIf { it.isNotBlank() && it != "null" }
     val courierName = sanitizeAndroidCourierName(serviceability?.optString("courierName"), deliveryModeLabel)
     val sizeTierLabel = serviceability?.optString("sizeTier")?.takeIf { it.isNotBlank() && it != "null" }
     val dispatchNote = serviceability?.optString("dispatchNote")?.takeIf { it.isNotBlank() && it != "null" }
     val zoneLabel = serviceability?.optString("zoneLabel")?.takeIf { it.isNotBlank() && it != "null" }
-    val freightCharge = serviceability?.optDouble("freightCharge", 0.0)?.takeIf { !it.isNaN() && it > 0.0 } ?: 0.0
-    val codEligibleAtPin = codAllowed && (serviceability?.optBoolean("codAvailable", true) ?: true)
+    val freightCharge = if (hasValidPin) (serviceability?.optDouble("freightCharge", 0.0)?.takeIf { !it.isNaN() && it > 0.0 } ?: 0.0) else 0.0
+    val codEligibleAtPin = codAllowed && (if (hasValidPin) (serviceability?.optBoolean("codAvailable", true) ?: true) else true)
 
     // Genuine review states (zero fake inflated review counts)
     var currentRating by remember(product.id) { mutableStateOf(product.rating) }
@@ -1118,6 +1123,7 @@ fun PreviewProductDetailsScreen(
                             TruckVectorIcon(tint = Color(0xFFFF5722), modifier = Modifier.size(16.dp))
                             Text(
                                 text = when {
+                                    !hasValidPin -> "Enter delivery PIN to check date"
                                     checkingPincode -> "Checking delivery date for $deliveryPincode…"
                                     !isServiceable -> "Not serviceable at PIN $deliveryPincode"
                                     etaDateText != null -> "Delivery by $etaDateText • $etaDaysText"
@@ -1128,25 +1134,27 @@ fun PreviewProductDetailsScreen(
                                 color = if (isServiceable) textColor else Color(0xFFDC2626),
                                 modifier = Modifier.weight(1f)
                             )
-                            if (isServiceable) {
+                            if (hasValidPin && isServiceable) {
                                 Text(
-                                    if (freightCharge > 0.0) "₹${freightCharge.toInt()}" else "FREE",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Black,
+                                    if (freightCharge > 0.0) "₹${freightCharge.toInt()}" else "Standard",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
                                     color = Color(0xFF059669)
                                 )
                             }
                         }
-                        Text(
-                            text = listOfNotNull(
-                                courierName,
-                                sizeTierLabel,
-                                zoneLabel,
-                                dispatchNote
-                            ).filter { it.isNotBlank() }.joinToString(" • "),
-                            fontSize = 10.sp,
-                            color = mutedColor
-                        )
+                        if (hasValidPin) {
+                            Text(
+                                text = listOfNotNull(
+                                    courierName,
+                                    sizeTierLabel,
+                                    zoneLabel,
+                                    dispatchNote
+                                ).filter { it.isNotBlank() }.joinToString(" • "),
+                                fontSize = 10.sp,
+                                color = mutedColor
+                            )
+                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1154,7 +1162,12 @@ fun PreviewProductDetailsScreen(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 MapPinVectorIcon(tint = Color(0xFFFF5722), modifier = Modifier.size(14.dp))
-                                Text("Deliver to: $deliveryPincode", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = textColor)
+                                Text(
+                                    "Deliver to: ${deliveryPincode.ifBlank { "Select PIN" }}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = textColor
+                                )
                             }
                             Text(
                                 "Change",
@@ -1181,7 +1194,11 @@ fun PreviewProductDetailsScreen(
                                 ) {
                                     Column(Modifier.weight(1f)) {
                                         Text("Cash On Delivery Available", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isDarkTheme) Color(0xFFFCD34D) else Color(0xFF92400E))
-                                        Text("Pay cash at your doorstep for PIN $deliveryPincode.", fontSize = 10.sp, color = mutedColor)
+                                        Text(
+                                            if (hasValidPin) "Pay cash at your doorstep for PIN $deliveryPincode." else "Enter your PIN to confirm doorstep Cash On Delivery.",
+                                            fontSize = 10.sp,
+                                            color = mutedColor
+                                        )
                                     }
                                     Text("✓", color = Color(0xFF059669), fontWeight = FontWeight.Black, fontSize = 15.sp)
                                 }
@@ -1203,7 +1220,7 @@ fun PreviewProductDetailsScreen(
                         else -> "Courier Delivery"
                     }
                     listOf(
-                        Triple(deliveryBadgeTitle, etaDateText?.let { "By $it" } ?: "$etaDaysText ETA", "truck"),
+                        Triple(deliveryBadgeTitle, if (!hasValidPin) "Check PIN for ETA" else (etaDateText?.let { "By $it" } ?: "$etaDaysText ETA"), "truck"),
                         Triple("7 Days Return", "Easy replacement", "return"),
                         Triple(if (codEligibleAtPin) "COD Eligible" else "Online Pay", "Safe checkout", "shield")
                     ).forEach { (title, sub, kind) ->
@@ -1243,7 +1260,11 @@ fun PreviewProductDetailsScreen(
                         Text("PRODUCT DETAILS & HIGHLIGHTS", fontSize = 12.sp, fontWeight = FontWeight.Black, color = textColor)
                         listOfNotNull(
                             product.category.takeIf { it.isNotBlank() }?.let { "Category: $it${sizeTierLabel?.let { tier -> " ($tier)" } ?: ""}" },
-                            if (etaDateText != null) "Estimated Delivery: $etaDateText ($etaDaysText to PIN $deliveryPincode)" else "Estimated Delivery: $etaDaysText to PIN $deliveryPincode",
+                            when {
+                                !hasValidPin -> "Estimated Delivery: Enter your PIN to check delivery date"
+                                etaDateText != null -> "Estimated Delivery: $etaDateText ($etaDaysText to PIN $deliveryPincode)"
+                                else -> "Estimated Delivery: $etaDaysText to PIN $deliveryPincode"
+                            },
                             if (codAllowed) "Cash On Delivery (COD) Eligible at serviceable PINs" else "Prepaid Online Checkout via Razorpay",
                             "7 Days Easy Replacement & Return Policy"
                         ).forEach { bullet ->

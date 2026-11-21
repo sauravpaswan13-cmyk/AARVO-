@@ -3,7 +3,7 @@ const DEFAULT_MERCHANDISING_SECTIONS = [
     sectionKey: 'still_looking',
     title: 'Still looking for these?',
     subtitle: 'Based on items you viewed, saved & carted',
-    badgeText: 'RECENT PICKS',
+    badgeText: '',
     enabled: true,
     maxItems: 3,
     sortOrder: 0,
@@ -134,11 +134,16 @@ export async function registerHomeMerchandising({ app, pool, requireRole, audit 
       const ids = (Array.isArray(row.pinned_product_ids) ? row.pinned_product_ids : []).map((id) =>
         String(id)
       );
+      const rawBadge = String(row.badge_text || '').trim();
+      const safeBadgeText =
+        row.section_key === 'still_looking' || rawBadge.toLowerCase() === 'pink'
+          ? ''
+          : rawBadge;
       return {
         id: row.section_key,
         title: row.title,
         subtitle: row.subtitle,
-        badgeText: row.badge_text,
+        badgeText: safeBadgeText,
         enabled: Boolean(row.enabled),
         maxItems: Number(row.max_items || 3),
         sortOrder: Number(row.sort_order || 0),
@@ -176,7 +181,11 @@ export async function registerHomeMerchandising({ app, pool, requireRole, audit 
         id: row.section_key,
         title: row.title,
         subtitle: row.subtitle,
-        badgeText: row.badge_text,
+        badgeText:
+          row.section_key === 'still_looking' ||
+          String(row.badge_text || '').trim().toLowerCase() === 'pink'
+            ? ''
+            : row.badge_text,
         enabled: Boolean(row.enabled),
         maxItems: Number(row.max_items || 3),
         sortOrder: Number(row.sort_order || 0),
@@ -202,7 +211,9 @@ export async function registerHomeMerchandising({ app, pool, requireRole, audit 
       return reply.code(400).send({ error: 'INVALID_SECTION_TITLE' });
     }
     const subtitle = String(body.subtitle || '').trim().slice(0, 140);
-    const badgeText = String(body.badgeText || '').trim().slice(0, 28);
+    const rawBadgeText = String(body.badgeText || '').trim().slice(0, 28);
+    const badgeText =
+      sectionKey === 'still_looking' || rawBadgeText.toLowerCase() === 'pink' ? '' : rawBadgeText;
     const enabled = body.enabled !== false;
     const maxItemsRaw = Number(body.maxItems ?? 3);
     const maxItems = Number.isInteger(maxItemsRaw) ? Math.min(16, Math.max(2, maxItemsRaw)) : 3;

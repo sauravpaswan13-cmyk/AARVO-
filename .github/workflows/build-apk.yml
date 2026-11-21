@@ -14,6 +14,7 @@ permissions:
 
 env:
   MSG91_WIDGET_TOKEN: ${{ secrets.MSG91_WIDGET_TOKEN }}
+  GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
 
 jobs:
   build:
@@ -76,7 +77,7 @@ jobs:
         run: echo "AARVO production API pinned to https://aarvo-api.onrender.com"
 
       - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
+        run: gradle --no-daemon :app:assembleDebug --stacktrace -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN" -PmapsApiKey="${GOOGLE_MAPS_API_KEY:-}"
 
       - name: Prepare release signing
         shell: bash
@@ -101,7 +102,7 @@ jobs:
           AARVO_KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          gradle --no-daemon :app:bundleRelease --stacktrace --project-prop aarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-release-key.jks" --project-prop aarvoReleaseStorePassword="$AARVO_KEYSTORE_PASSWORD" --project-prop aarvoReleaseKeyAlias="$AARVO_KEY_ALIAS" --project-prop aarvoReleaseKeyPassword="$AARVO_KEY_PASSWORD" -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
+          gradle --no-daemon :app:bundleRelease --stacktrace --project-prop aarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-release-key.jks" --project-prop aarvoReleaseStorePassword="$AARVO_KEYSTORE_PASSWORD" --project-prop aarvoReleaseKeyAlias="$AARVO_KEY_ALIAS" --project-prop aarvoReleaseKeyPassword="$AARVO_KEY_PASSWORD" -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN" -PmapsApiKey="${GOOGLE_MAPS_API_KEY:-}"
           jarsigner -verify -verbose -certs app/build/outputs/bundle/release/*.aab > "$RUNNER_TEMP/aab-signature-check.txt"
           grep -q "jar verified" "$RUNNER_TEMP/aab-signature-check.txt"
       - name: Build release APK (signed)
@@ -112,7 +113,7 @@ jobs:
           AARVO_KEY_PASSWORD: ${{ secrets.AARVO_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          gradle --no-daemon :app:assembleRelease --stacktrace --project-prop aarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-release-key.jks" --project-prop aarvoReleaseStorePassword="$AARVO_KEYSTORE_PASSWORD" --project-prop aarvoReleaseKeyAlias="$AARVO_KEY_ALIAS" --project-prop aarvoReleaseKeyPassword="$AARVO_KEY_PASSWORD" -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN"
+          gradle --no-daemon :app:assembleRelease --stacktrace --project-prop aarvoReleaseStoreFile="$RUNNER_TEMP/aarvo-release-key.jks" --project-prop aarvoReleaseStorePassword="$AARVO_KEYSTORE_PASSWORD" --project-prop aarvoReleaseKeyAlias="$AARVO_KEY_ALIAS" --project-prop aarvoReleaseKeyPassword="$AARVO_KEY_PASSWORD" -Pandroidx.compose.material3.ExperimentalMaterial3Api=true -PaarvoApiBaseUrl="https://aarvo-api.onrender.com" -Pmsg91WidgetToken="$MSG91_WIDGET_TOKEN" -PmapsApiKey="${GOOGLE_MAPS_API_KEY:-}"
           APK="$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)"
           test -n "$APK"
           "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --verbose "$APK"

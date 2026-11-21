@@ -127,13 +127,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // Fast Checkout (Cash on Delivery) Drawer states
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'UPI' | 'CARD'>('COD');
-  const [deliveryAddress, setDeliveryAddress] = useState(
-    savedAddress || 'Home • 24B, Model Town, Phase 2, Patna - 800001'
-  );
+  const [deliveryAddress, setDeliveryAddress] = useState(savedAddress || '');
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [pincode, setPincode] = useState(() => {
     const m = savedAddress?.match(/\b\d{6}\b/);
-    return m ? m[0] : '800001';
+    return m ? m[0] : '';
   });
   const [isEditingPincode, setIsEditingPincode] = useState(false);
   const [pincodeInput, setPincodeInput] = useState('');
@@ -209,11 +207,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setReviewSuccess(false);
     setIsEditingPincode(false);
 
-    if (savedAddress) {
-      setDeliveryAddress(savedAddress);
-      const pinMatch = savedAddress.match(/\b\d{6}\b/);
-      if (pinMatch) setPincode(pinMatch[0]);
-    }
+    setDeliveryAddress(savedAddress || '');
+    const pinMatch = savedAddress?.match(/\b\d{6}\b/);
+    setPincode(pinMatch ? pinMatch[0] : '');
     if (customerName) {
       setReviewerName(customerName);
     }
@@ -1101,13 +1097,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       ? serviceability.serviceable
                         ? `${serviceability.etd ? `Delivery by ${serviceability.etd}` : `Delivery in ${serviceability.estimatedDaysText}`} (${serviceability.estimatedDaysText})`
                         : `Not serviceable at PIN ${pincode}`
-                      : 'Check your pincode for delivery date'}
+                      : 'Enter your PIN to check delivery date'}
                   </span>
-                  {serviceability?.serviceable !== false && (
-                    <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">
-                      {serviceability?.freightCharge && serviceability.freightCharge > 0
+                  {serviceability?.serviceable && pincode && (
+                    <span className="text-slate-700 dark:text-slate-300 font-bold">
+                      {serviceability.freightCharge && serviceability.freightCharge > 0
                         ? `₹${Math.round(serviceability.freightCharge)}`
-                        : 'FREE'}
+                        : 'Standard Courier'}
                     </span>
                   )}
                 </div>
@@ -1127,7 +1123,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
                   <MapPin className="w-3.5 h-3.5 text-[#FF5722]" />
-                  <span>Deliver to: <strong className="text-slate-900 dark:text-white tabular-nums">{pincode}</strong></span>
+                  <span>Deliver to: <strong className="text-slate-900 dark:text-white tabular-nums">{pincode || 'Select PIN'}</strong></span>
                 </div>
                 <button
                   type="button"
@@ -1195,7 +1191,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     Cash On Delivery Available
                   </span>
                   <span className="text-amber-800/80 dark:text-amber-400/80 text-[10px]">
-                    Pay cash at your doorstep for PIN {pincode}.
+                    {pincode
+                      ? `Pay cash at your doorstep for PIN ${pincode}.`
+                      : 'Pay cash at your doorstep.'}
                   </span>
                 </div>
                 <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -1633,7 +1631,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   />
                 ) : (
                   <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    {deliveryAddress}
+                    {deliveryAddress || 'Tap Change to enter delivery address'}
                   </p>
                 )}
               </div>
@@ -1786,11 +1784,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
                 <div className="flex justify-between text-slate-600 dark:text-slate-400">
                   <span>Delivery Charges</span>
-                  <span className="text-emerald-600 font-bold">FREE</span>
+                  <span className="text-slate-700 dark:text-slate-300 font-semibold">As applicable</span>
                 </div>
                 <div className="flex justify-between text-slate-600 dark:text-slate-400">
                   <span>COD Handling Fee</span>
-                  <span className="text-emerald-600 font-bold">FREE</span>
+                  <span className="text-slate-700 dark:text-slate-300 font-semibold">None</span>
                 </div>
                 <div className="flex justify-between font-black text-sm text-slate-900 dark:text-white pt-2 border-t border-slate-100 dark:border-white/10">
                   <span>Total Payable</span>
